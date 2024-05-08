@@ -316,6 +316,8 @@ class ScheduleCar extends Conversation
                 parse_mode: ParseMode::HTML
             );
             foreach ($other as $set) {
+                $key = strlen($set->getHour()) == 1 ? '0' . $set->getHour() : $set->getHour();
+
                 $bot->sendMessage(
                     text: sprintf('година %s:00, заброньована: %s', $key, $set->getTelegramUserId()->concatNameInfo()),
                 );
