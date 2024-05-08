@@ -2,15 +2,17 @@
 
 namespace App\DataFixtures;
 
+use App\Entity\Car;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Persistence\ObjectManager;
 
-class AppFixtures extends Fixture
+class CarFixtures extends Fixture
 {
     public function load(ObjectManager $manager): void
     {
-        // $product = new Product();
-        // $manager->persist($product);
+        $car = new Car();
+        $car->setCarNumber('CA1111CA');
+        $manager->persist($car);
 
         $manager->flush();
     }
