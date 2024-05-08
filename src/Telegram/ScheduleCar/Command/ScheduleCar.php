@@ -291,7 +291,7 @@ class ScheduleCar extends Conversation
                 $scheduledByCurrentUserDate = $set->getScheduledDateTime();
 
                 $availableDecline[] = InlineKeyboardButton::make(
-                    text: sprintf('Відмінити: альтанка №%s, час: %s', $set->getCar()->getCarNumber(), $scheduledByCurrentUserDate->format('Y-m-d/H-i')),
+                    text: sprintf('Відмінити: машина №%s, час: %s', $set->getCar()->getCarNumber(), $scheduledByCurrentUserDate->format('Y-m-d/H-i')),
                     callback_data: 'decline_' . $key
                 );
             } else {
