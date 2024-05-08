@@ -136,6 +136,19 @@ class OwnSchedule extends Conversation
 
         $this->id = null;
 
+        foreach ($scheduledSet->getCar()->getCarDriver() as $carDriver) {
+            /** @var Message $message */
+            $message = $bot->sendMessage(
+                text: sprintf(
+                    'Бронь скасовано, працівник %s на дату %s',
+                    $this->telegramUserService->getCurrentUser()->concatNameInfo(),
+                    $scheduledSet->getScheduledAt()->format('Y/m/d H:i:s')
+                ),
+                chat_id: $carDriver->getDriver()->getChatId(),
+                parse_mode: ParseMode::HTML
+            );
+        }
+
         $this->own($bot);
     }
 }
