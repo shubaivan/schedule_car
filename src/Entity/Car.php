@@ -86,6 +86,6 @@ class Car
             $info[] = $driver->getDriver()->concatNameInfo();
         }
 
-        return implode(',', $info);
+        return implode(';', $info);
     }
 }

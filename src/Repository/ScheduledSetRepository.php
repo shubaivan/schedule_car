@@ -76,6 +76,7 @@ class ScheduledSetRepository extends ServiceEntityRepository
             ->andWhere('ss.scheduledAt >= :now')
             ->setParameter('now', ScheduleCarService::createNewDate())
             ->orderBy('ss.car')
+            ->addOrderBy('ss.scheduledAt', 'DESC')
         ;
 
         return $qb->getQuery()->getResult();

@@ -90,6 +90,7 @@ class OwnSchedule extends Conversation
                 parse_mode: ParseMode::HTML
             );
             $this->end();
+            return;
         }
         $bot->sendMessage(
             text: sprintf('Машина №%s - %s', $scheduledSet->getCar()->getCarInfo(), $scheduledSet->getScheduledDateTime()->format('Y/m/d H:i')),
