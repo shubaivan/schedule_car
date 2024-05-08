@@ -301,7 +301,7 @@ class ScheduleCar extends Conversation
                     reply_markup: InlineKeyboardMarkup::make()
                         ->addRow(
                             InlineKeyboardButton::make(
-                                'Відмінити', callback_data: 'decline_' . 'decline_' . $key
+                                'Відмінити', callback_data: 'decline_' . $key
                             ),
                         )
                 );
