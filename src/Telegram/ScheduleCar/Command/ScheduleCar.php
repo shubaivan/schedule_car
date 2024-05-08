@@ -289,6 +289,7 @@ class ScheduleCar extends Conversation
                 parse_mode: ParseMode::HTML
             );
         }
+        $other = [];
         foreach ($scheduledSets as $set) {
             $key = strlen($set->getHour()) == 1 ? '0' . $set->getHour() : $set->getHour();
             if ($set->getTelegramUserId()->getTelegramId() == $this->telegramUserService->getCurrentUser()->getTelegramId()) {
