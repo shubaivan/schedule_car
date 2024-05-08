@@ -41,33 +41,25 @@ class OwnSchedule extends Conversation
 
             return;
         }
-        foreach ($scheduledSets as $set) {
-            $availableDecline[$set->getCar()->getCarNumber()][] = InlineKeyboardButton::make(
-                text: sprintf('Машина №:%s, час:%s', $set->getCar()->getCarInfo(), $set->getScheduledDateTime()->format('Y/m/d H:i')),
-                callback_data: 'decline_' . $set->getId()
+
+        foreach ($scheduledSets as $carNumber=>$set) {
+            $bot->sendMessage(
+                text: sprintf('Машина №%s. Ваші бронювання:', $carNumber),
             );
+            foreach ($set as $specificSet) {
+                $bot->sendMessage(
+                    text: sprintf('Машина №:<b>%s</b>, час:<b>%s</b>', $specificSet->getCar()->getCarInfo(), $specificSet->getScheduledDateTime()->format('Y/m/d H:i')),
+                    parse_mode: ParseMode::HTML
+                );
+                $bot->sendMessage(
+                    text: 'Відмінити',
+                    reply_markup: InlineKeyboardMarkup::make()
+                        ->addRow(
+                            InlineKeyboardButton::make($specificSet->getScheduledDateTime()->format('Y/m/d H:i'), callback_data: 'decline_' . $specificSet->getId()),
+                        )
+                );
+            }
         }
-
-       foreach ($availableDecline as $carNumber => $setSchedule) {
-           $scheduledInlineKeyboardMarkup = InlineKeyboardMarkup::make();
-           $declineHours = [];
-           foreach ($setSchedule as $decline) {
-               $declineHours[] = $decline;
-               if (count($declineHours) == 1) {
-                   $scheduledInlineKeyboardMarkup->addRow(...$declineHours);
-                   $declineHours = [];
-               }
-           }
-
-           if (count($declineHours)) {
-               $scheduledInlineKeyboardMarkup->addRow(...$declineHours);
-           }
-
-           $bot->sendMessage(
-               text: sprintf('Машина №%s. Ваші бронювання:', $carNumber),
-               reply_markup: $scheduledInlineKeyboardMarkup
-           );
-       }
 
         $this->next('scheduleDate');
     }

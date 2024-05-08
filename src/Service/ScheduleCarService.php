@@ -33,13 +33,15 @@ class ScheduleCarService
         return $scheduled;
     }
 
-    /**
-     * @param TelegramUser $user
-     * @return ScheduledSet[]
-     */
     public function getOwn(TelegramUser $user): array
     {
-        return $this->repository->getOwn($user);
+        $scheduledSets = $this->repository->getOwn($user);
+        $scheduled = [];
+        foreach ($scheduledSets as $scheduledSet) {
+            $scheduled[$scheduledSet->getCar()->getCarNumber()][] = $scheduledSet;
+        }
+
+        return $scheduled;
     }
 
     public function getById(int $id): ?ScheduledSet
