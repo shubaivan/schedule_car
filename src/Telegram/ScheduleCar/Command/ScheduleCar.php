@@ -116,7 +116,7 @@ class ScheduleCar extends Conversation
                         photo: InputFile::make($photo)
                     );
                 }
-                $this->next('chooseCar');
+                $this->next('chooseMonth');
 
                 return;
             }
@@ -125,9 +125,7 @@ class ScheduleCar extends Conversation
 
             $this->em->flush();
 
-            $this->next('chooseCar');
-
-            return;
+            $this->chooseCar($bot);
         }
 
         $this->carId = str_replace('car_', '', $bot->callbackQuery()->data);
