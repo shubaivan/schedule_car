@@ -283,13 +283,19 @@ class ScheduleCar extends Conversation
 
         $inlineKeyboardMarkup->addRow(InlineKeyboardButton::make(text: 'На початок', callback_data: 0));
 
+        if ($scheduledSets) {
+            $bot->sendMessage(
+                text: sprintf('<b>Ващі</b> бронювання'),
+                parse_mode: ParseMode::HTML
+            );
+        }
         foreach ($scheduledSets as $set) {
             $key = strlen($set->getHour()) == 1 ? '0' . $set->getHour() : $set->getHour();
             if ($set->getTelegramUserId()->getTelegramId() == $this->telegramUserService->getCurrentUser()->getTelegramId()) {
                 $scheduledByCurrentUserDate = $set->getScheduledDateTime();
 
                 $bot->sendMessage(
-                    text: sprintf('Відмінити: машина №%s, час: %s', $set->getCar()->getCarNumber(), $scheduledByCurrentUserDate->format('Y-m-d/H-i')),
+                    text: sprintf('Машина №%s, час: %s', $set->getCar()->getCarNumber(), $scheduledByCurrentUserDate->format('Y-m-d/H-i')),
                     parse_mode: ParseMode::HTML,
                     reply_markup: InlineKeyboardMarkup::make()
                         ->addRow(
@@ -299,6 +305,16 @@ class ScheduleCar extends Conversation
                         )
                 );
             } else {
+                $other[] = $set;
+            }
+        }
+
+        if ($other) {
+            $bot->sendMessage(
+                text: sprintf('<b>Чужі</b> бронювання'),
+                parse_mode: ParseMode::HTML
+            );
+            foreach ($other as $set) {
                 $bot->sendMessage(
                     text: sprintf('година %s:00, заброньована: %s', $key, $set->getTelegramUserId()->concatNameInfo()),
                 );
