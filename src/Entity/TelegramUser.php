@@ -168,6 +168,6 @@ class TelegramUser
 
     public function concatNameInfo(): string
     {
-        return sprintf('%s %s %s %s', $this->phone_number, $this->first_name, $this->last_name, $this->username);
+        return sprintf('%s %s', $this->phone_number, $this->first_name);
     }
 }
