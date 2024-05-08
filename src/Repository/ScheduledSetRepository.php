@@ -37,6 +37,9 @@ class ScheduledSetRepository extends ServiceEntityRepository
         $qb->andWhere('ss.month = :month')->setParameter('month', $month);
         $qb->andWhere('ss.day = :day')->setParameter('day', $day);
 
+        $qb->andWhere('ss.scheduledAt >= :now');
+        $qb->setParameter('now', ScheduleCarService::createNewDate());
+
         if ($hour) {
             $qb->andWhere('ss.hour = :hour')->setParameter('hour', $hour);
         }
@@ -59,6 +62,8 @@ class ScheduledSetRepository extends ServiceEntityRepository
         $qb->andWhere('ss.month = :month')->setParameter('month', $month);
         $qb->andWhere('ss.day = :day')->setParameter('day', $day);
         $qb->andWhere('ss.telegramUserId = :user')->setParameter('user', $user);
+        $qb->andWhere('ss.scheduledAt >= :now');
+        $qb->setParameter('now', ScheduleCarService::createNewDate());
 
         return $qb->getQuery()->getSingleScalarResult();
     }
