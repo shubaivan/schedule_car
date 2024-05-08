@@ -283,43 +283,26 @@ class ScheduleCar extends Conversation
 
         $inlineKeyboardMarkup->addRow(InlineKeyboardButton::make(text: 'На початок', callback_data: 0));
 
-        /** @var InlineKeyboardButton[] $availableDecline */
-        $availableDecline = [];
         foreach ($scheduledSets as $set) {
             $key = strlen($set->getHour()) == 1 ? '0' . $set->getHour() : $set->getHour();
             if ($set->getTelegramUserId()->getTelegramId() == $this->telegramUserService->getCurrentUser()->getTelegramId()) {
                 $scheduledByCurrentUserDate = $set->getScheduledDateTime();
 
-                $availableDecline[] = InlineKeyboardButton::make(
+                $bot->sendMessage(
                     text: sprintf('Відмінити: машина №%s, час: %s', $set->getCar()->getCarNumber(), $scheduledByCurrentUserDate->format('Y-m-d/H-i')),
-                    callback_data: 'decline_' . $key
+                    parse_mode: ParseMode::HTML,
+                    reply_markup: InlineKeyboardMarkup::make()
+                        ->addRow(
+                            InlineKeyboardButton::make(
+                                'Відмінити', callback_data: 'decline_' . 'decline_' . $key
+                            ),
+                        )
                 );
             } else {
                 $bot->sendMessage(
                     text: sprintf('година %s:00, заброньована: %s', $key, $set->getTelegramUserId()->concatNameInfo()),
                 );
             }
-        }
-
-        if ($availableDecline) {
-            $scheduledInlineKeyboardMarkup = InlineKeyboardMarkup::make();
-            $declineHours = [];
-            foreach ($availableDecline as $decline) {
-                $declineHours[] = $decline;
-                if (count($declineHours) == 1) {
-                    $scheduledInlineKeyboardMarkup->addRow(...$declineHours);
-                    $declineHours = [];
-                }
-            }
-
-            if (count($declineHours)) {
-                $scheduledInlineKeyboardMarkup->addRow(...$declineHours);
-            }
-
-            $bot->sendMessage(
-                text: 'Ваші бронювання:',
-                reply_markup: $scheduledInlineKeyboardMarkup
-            );
         }
 
         if (count($availableHours)) {

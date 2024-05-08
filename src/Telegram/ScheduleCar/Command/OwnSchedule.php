@@ -49,13 +49,10 @@ class OwnSchedule extends Conversation
             foreach ($set as $specificSet) {
                 $bot->sendMessage(
                     text: sprintf('Машина №:<b>%s</b>, час:<b>%s</b>', $specificSet->getCar()->getCarInfo(), $specificSet->getScheduledDateTime()->format('Y/m/d H:i')),
-                    parse_mode: ParseMode::HTML
-                );
-                $bot->sendMessage(
-                    text: 'Відмінити',
+                    parse_mode: ParseMode::HTML,
                     reply_markup: InlineKeyboardMarkup::make()
                         ->addRow(
-                            InlineKeyboardButton::make($specificSet->getScheduledDateTime()->format('Y/m/d H:i'), callback_data: 'decline_' . $specificSet->getId()),
+                            InlineKeyboardButton::make('Відмінити', callback_data: 'decline_' . $specificSet->getId()),
                         )
                 );
             }
