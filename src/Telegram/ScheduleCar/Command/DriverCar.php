@@ -46,10 +46,10 @@ class DriverCar extends Command
         }
 
         foreach ($scheduled as $set) {
-            $key = strlen($set->getHour()) == 1 ? '0' . $set->getHour() : $set->getHour();
-
             $bot->sendMessage(
-                text: sprintf('година <b>%s:00</b>, заброньована: <b>%s</b>', $key, $set->getTelegramUserId()->concatNameInfo()),
+                text: sprintf('година <b>%s</b>, заброньована: <b>%s</b>',
+                    $set->getScheduledAt()->format('Y/m/d H:i:s'),
+                    $set->getTelegramUserId()->concatNameInfo()),
                 parse_mode: ParseMode::HTML
             );
         }
