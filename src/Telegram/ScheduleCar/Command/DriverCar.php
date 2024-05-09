@@ -47,7 +47,7 @@ class DriverCar extends Command
 
         foreach ($scheduled as $set) {
             $bot->sendMessage(
-                text: sprintf('година <b>%s</b>, заброньована: <b>%s</b>',
+                text: sprintf('<b>%s</b>, заброньована: <b>%s</b>',
                     $set->getScheduledAt()->format('Y/m/d H:i:s'),
                     $set->getTelegramUserId()->concatNameInfo()),
                 parse_mode: ParseMode::HTML
