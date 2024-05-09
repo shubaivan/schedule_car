@@ -2,6 +2,7 @@
 
 namespace App\Repository;
 
+use App\Entity\Car;
 use App\Entity\ScheduledSet;
 use App\Entity\TelegramUser;
 use App\Service\ScheduleCarService;
@@ -93,5 +94,23 @@ class ScheduledSetRepository extends ServiceEntityRepository
         $qb->andWhere('ss.id = :id')->setParameter('id', $id);
 
         return $qb->getQuery()->getOneOrNullResult();
+    }
+
+    /**
+     * @param Car $car
+     * @return ScheduledSet[]
+     */
+    public function getByCar(Car $car): array
+    {
+        $qb = $this->createQueryBuilder('ss');
+        $qb
+            ->where('ss.car = :car')
+            ->setParameter('car', $car)
+            ->andWhere('ss.scheduledAt >= :now')
+            ->setParameter('now', ScheduleCarService::createNewDate())
+            ->orderBy('ss.scheduledAt', 'DESC')
+        ;
+
+        return $qb->getQuery()->getResult();
     }
 }

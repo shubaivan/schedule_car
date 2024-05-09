@@ -19,6 +19,7 @@ class Schedule extends Command
             reply_markup: InlineKeyboardMarkup::make()->addRow(
                 InlineKeyboardButton::make('Бронювання машини', callback_data: 'schedule-car'),
                 InlineKeyboardButton::make('Переглянути свої', callback_data: 'own-schedule'),
+                InlineKeyboardButton::make('Водій', callback_data: 'driver'),
             )
         );
     }

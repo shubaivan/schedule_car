@@ -7,6 +7,7 @@ use SergiX44\Nutgram\RunningMode\Webhook;
 use \App\Telegram\ScheduleCar\Command\Schedule;
 use \App\Telegram\ScheduleCar\Command\ScheduleCar;
 use \App\Telegram\ScheduleCar\Command\OwnSchedule;
+use App\Telegram\ScheduleCar\Command\DriverCar;
 
 Conversation::refreshOnDeserialize();
 
@@ -16,5 +17,6 @@ $bot->registerCommand(StartCommand::class);
 $bot->registerCommand(Schedule::class);
 
 $bot->onCallbackQueryData('schedule-car', ScheduleCar::class);
+$bot->onCallbackQueryData('driver', DriverCar::class);
 $bot->onCommand('обрати машину', ScheduleCar::class);
 $bot->onCallbackQueryData('own-schedule', OwnSchedule::class);
