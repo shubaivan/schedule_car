@@ -3,3 +3,9 @@ controllers:
         path: ../src/Controller/
         namespace: App\Controller
     type: attribute
+
+supply_controllers:
+    resource:
+        path: ../src/Supply/Controller/
+        namespace: App\Supply\Controller
+    type: attribute

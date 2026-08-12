@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Постачання — заявки</title>
+    <style>
+        :root {
+            color-scheme: light dark;
+            --bg: #f6f7f9; --surface: #fff; --border: #e3e6ea;
+            --text: #1b1f24; --muted: #6a7280; --accent: #2f6fd0;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #14171c; --surface: #1c2027; --border: #2c323b;
+                --text: #e7eaee; --muted: #98a1ad; --accent: #6fa3ec;
+            }
+        }
+        body {
+            margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+            background: var(--bg); color: var(--text);
+            font: 16px/1.6 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        .card {
+            background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+            padding: 2rem; max-width: 30rem; margin: 1rem;
+        }
+        h1 { font-size: 1.35rem; margin: 0 0 .5rem; }
+        p { color: var(--muted); }
+        ol { color: var(--muted); padding-left: 1.2rem; }
+        a.button {
+            display: inline-block; margin-top: .5rem; padding: .55rem 1rem;
+            background: var(--accent); color: #fff; border-radius: 8px; text-decoration: none;
+        }
+        code { background: var(--bg); padding: .1rem .35rem; border-radius: 4px; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1>📦 Постачання — заявки на матеріали</h1>
+
+    {% if is_manager %}
+        <p>Ви увійшли як менеджер.</p>
+        <a class="button" href="{{ path('crm_index') }}">Відкрити CRM</a>
+    {% else %}
+        <p>Внутрішній інструмент заводу. Вхід — лише для працівників, через Telegram-бот.</p>
+        <ol>
+            <li>Відкрийте бот і надішліть <code>/start</code></li>
+            <li>Поділіться номером телефону — менеджер підтвердить доступ</li>
+            <li>Менеджер натискає в боті «🔐 Вхід у CRM» і отримує одноразове посилання</li>
+        </ol>
+        <a class="button" href="https://t.me/{{ bot_username }}">Відкрити бот @{{ bot_username }}</a>
+    {% endif %}
+</div>
+</body>
+</html>

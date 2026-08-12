@@ -5,6 +5,9 @@
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
     telegram_bot_token: '%env(TELEGRAM_TOKEN)%'
+    # Телефони, які отримують роль менеджера одразу при реєстрації в боті.
+    # Потрібні для старту: перших менеджерів нікому підтверджувати.
+    supply_manager_phones: '%env(SUPPLY_MANAGER_PHONES)%'
 
 services:
     # default configuration for services in *this* file
@@ -21,6 +24,9 @@ services:
         exclude:
             - '../src/DependencyInjection/'
             - '../src/Entity/'
+            - '../src/Enum/'
+            - '../src/Supply/Entity/'
+            - '../src/Supply/Enum/'
             - '../src/Kernel.php'
 
     # Nutgram handlers
@@ -30,3 +36,10 @@ services:
         resource: '../src/Telegram'
         exclude:
             - '../src/Telegram/Location/Model'
+
+    # Хендлери бота модуля постачання: shared: false обов'язковий — інакше
+    # стан Conversation протікає між користувачами.
+    App\Supply\Telegram\:
+        public: true
+        shared: false
+        resource: '../src/Supply/Telegram'

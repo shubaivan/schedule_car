@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Постачання — CRM</title>
+</head>
+<body>
+{# Сюди монтується Vue-застосунок; поки що заглушка з даними користувача. #}
+<div id="app"
+     data-user-name="{{ app.user ? app.user.displayName : '' }}"
+     data-user-role="{{ app.user ? app.user.supplyRole.value : '' }}">
+    <p style="font:16px/1.5 system-ui;padding:2rem">
+        Вхід виконано: <b>{{ app.user ? app.user.displayName : '—' }}</b><br>
+        Роль: {{ app.user ? app.user.supplyRole.label : '—' }}<br>
+        <a href="{{ path('crm_logout') }}">Вийти</a>
+    </p>
+</div>
+</body>
+</html>

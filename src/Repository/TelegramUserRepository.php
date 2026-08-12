@@ -3,6 +3,7 @@
 namespace App\Repository;
 
 use App\Entity\TelegramUser;
+use App\Supply\Enum\SupplyRole;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
@@ -28,6 +29,20 @@ class TelegramUserRepository extends ServiceEntityRepository
             ->where('tu.telegram_id = :telegram_id')
             ->setParameter('telegram_id', $telegramId)
             ->getQuery()->getOneOrNullResult();
+    }
+
+    /**
+     * Менеджери постачання — отримувачі сповіщень про нові заявки.
+     *
+     * @return TelegramUser[]
+     */
+    public function findSupplyManagers(): array
+    {
+        return $this->createQueryBuilder('tu')
+            ->where('tu.supplyRole IN (:roles)')
+            ->setParameter('roles', [SupplyRole::Manager, SupplyRole::Admin])
+            ->getQuery()
+            ->getResult();
     }
 
     public function save(TelegramUser $telegramUser)
