@@ -48,9 +48,19 @@ when@prod:
                 buffer_size: 50 # How many messages should be saved? Prevent memory leaks
             nested:
                 type: stream
-                path: php://stderr
+                # Не stderr: під PHP-FPM без catch_workers_output цей потік нікуди
+                # не потрапляє, і помилки прод-стенда просто зникають.
+                path: "%kernel.logs_dir%/%kernel.environment%.log"
                 level: debug
                 formatter: monolog.formatter.json
+            # Окремий журнал подій, який пишеться завжди: fingers_crossed мовчить,
+            # поки немає помилки, і побачити нормальний хід роботи стенда неможливо.
+            activity:
+                type: rotating_file
+                path: "%kernel.logs_dir%/activity.log"
+                level: info
+                max_files: 7
+                channels: ["!event", "!doctrine", "!php", "!request", "!security"]
             console:
                 type: console
                 process_psr_3_messages: false

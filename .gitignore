@@ -30,3 +30,8 @@
 npm-debug.log
 yarn-error.log
 ###< symfony/webpack-encore-bundle ###
+
+###> supply CRM frontend ###
+/frontend/node_modules/
+/public/crm/
+###< supply CRM frontend ###

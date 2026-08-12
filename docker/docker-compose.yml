@@ -8,9 +8,11 @@ services:
     command: postgres -c work_mem=4GB -c max_parallel_workers_per_gather=8 -c max_connections=900
     #    command: ["-c", "config_file=/postgresql_custom.conf"]
     volumes:
-      - 'psql_db_schedule_car:/data:rw'
+      # Раніше том вішався на /data — postgres його не використовує, і база
+      # зникала при перестворенні контейнера.
+      - 'psql_db_schedule_car:/var/lib/postgresql/data:rw'
     ports:
-      - '127.0.0.1:5433:5432'
+      - '127.0.0.1:${POSTGRES_PORT:-5433}:5432'
     restart: always
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
