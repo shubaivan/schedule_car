@@ -24,12 +24,23 @@ class RecordPurchase
 {
     public function __construct(
         private EntityManagerInterface $em,
+        private SupplyNotifier $notifier,
         private LoggerInterface $logger,
     ) {
     }
 
-    public function __invoke(SupplyRequest $request, TelegramUser $by, PurchaseInput $input): SupplyPurchase
-    {
+    /**
+     * @param bool $notify чи сповіщати заявника окремо. false передають лише
+     *                     тоді, коли одразу за закупівлею йде зміна статусу:
+     *                     її повідомлення вже містить картку з постачальником
+     *                     і сумою, і два листи на одну дію ні до чого
+     */
+    public function __invoke(
+        SupplyRequest $request,
+        TelegramUser $by,
+        PurchaseInput $input,
+        bool $notify = true,
+    ): SupplyPurchase {
         $this->assertManager($by);
 
         $purchase = (new SupplyPurchase())->setCreatedBy($by);
@@ -47,6 +58,10 @@ class RecordPurchase
             'by' => $by->displayName(),
         ]);
 
+        if ($notify) {
+            $this->notifier->purchaseRecorded($purchase);
+        }
+
         return $purchase;
     }
 
@@ -56,6 +71,8 @@ class RecordPurchase
         $this->fill($purchase, $input);
 
         $this->em->flush();
+
+        $this->notifier->purchaseRecorded($purchase, updated: true);
 
         return $purchase;
     }
@@ -75,6 +92,11 @@ class RecordPurchase
             ));
         }
 
+        // Запам'ятовуємо до видалення, сповіщаємо після: інакше картка в
+        // повідомленні показувала б скасовану закупівлю.
+        $supplier = $purchase->getSupplier()->getName();
+        $total = $purchase->getTotalLabel();
+
         $request->removePurchase($purchase);
         $this->em->remove($purchase);
         $this->em->flush();
@@ -83,6 +105,8 @@ class RecordPurchase
             'number' => $request->getNumber(),
             'by' => $by->displayName(),
         ]);
+
+        $this->notifier->purchaseRemoved($request, $supplier, $total);
     }
 
     private function fill(SupplyPurchase $purchase, PurchaseInput $input): void

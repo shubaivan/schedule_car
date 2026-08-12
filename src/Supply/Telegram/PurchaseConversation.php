@@ -259,7 +259,7 @@ class PurchaseConversation extends Conversation
                 supplier: $supplier,
                 totalAmount: $this->totalAmount,
                 invoiceNumber: $invoice,
-            ));
+            ), notify: $this->targetStatus === null);
 
             // Статус міняємо тільки тепер: сповіщення заявнику піде одне й уже
             // з постачальником і сумою в картці.

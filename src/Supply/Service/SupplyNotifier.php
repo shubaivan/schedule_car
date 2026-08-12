@@ -5,6 +5,7 @@ namespace App\Supply\Service;
 use App\Entity\TelegramUser;
 use App\Repository\TelegramUserRepository;
 use App\Supply\Entity\SupplyComment;
+use App\Supply\Entity\SupplyPurchase;
 use App\Supply\Entity\SupplyRequest;
 use App\Supply\Entity\SupplyStatusLog;
 use App\Supply\Enum\SupplyStatus;
@@ -18,8 +19,12 @@ use Throwable;
 
 /**
  * Єдина точка сповіщень по заявках. Викликається лише з CreateRequest,
- * ChangeStatus і AddComment — якщо розсіяти sendMessage по хендлерах,
- * через місяць половина подій тихо перестане доходити до заявника.
+ * ChangeStatus, AddComment і RecordPurchase — якщо розсіяти sendMessage по
+ * хендлерах, через місяць половина подій тихо перестане доходити до заявника.
+ *
+ * Вимога клієнта жорстка: заявник має знати про КОЖНУ зміну своєї заявки.
+ * Перелік подій, які сюди доходять: створення, будь-яка зміна статусу,
+ * коментар другої сторони, запис/правка/скасування закупівлі, прострочення.
  *
  * Помилка доставки (бот заблокований, чат не знайдено) не валить операцію:
  * заявка вже збережена, а проблема потрапляє в лог.
@@ -101,6 +106,45 @@ class SupplyNotifier
 
             return;
         }
+
+        $this->send($request->getAuthor(), $text, $this->authorKeyboard($request));
+    }
+
+    /**
+     * Записали (або виправили) закупівлю без зміни статусу.
+     *
+     * Заявник має знати, у кого і за скільки купили, навіть якщо статус ще не
+     * рухався: домовились із постачальником сьогодні, а оплата пройде завтра.
+     */
+    public function purchaseRecorded(SupplyPurchase $purchase, bool $updated = false): void
+    {
+        $request = $purchase->getRequest();
+
+        $text = sprintf(
+            "🧾 <b>%s за заявкою №%s</b>\n\n%s",
+            $updated ? 'Змінено закупівлю' : 'Записано закупівлю',
+            $this->formatter->escape($request->getNumber()),
+            $this->formatter->card($request),
+        );
+
+        $this->send($request->getAuthor(), $text, $this->authorKeyboard($request));
+    }
+
+    /**
+     * Закупівлю прибрали — заявник бачив суму, тож має побачити й скасування.
+     *
+     * Постачальник і сума приходять рядками: викликається вже після видалення,
+     * інакше картка в повідомленні показувала б скасовану закупівлю.
+     */
+    public function purchaseRemoved(SupplyRequest $request, string $supplier, string $total): void
+    {
+        $text = sprintf(
+            "🧾 <b>Закупівлю за заявкою №%s скасовано</b>\n%s — %s\n\n%s",
+            $this->formatter->escape($request->getNumber()),
+            $this->formatter->escape($supplier),
+            $this->formatter->escape($total),
+            $this->formatter->card($request),
+        );
 
         $this->send($request->getAuthor(), $text, $this->authorKeyboard($request));
     }
