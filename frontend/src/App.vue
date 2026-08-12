@@ -22,6 +22,7 @@ onMounted(() => session.load())
                 <nav>
                     <router-link :to="{ name: 'requests' }">Заявки</router-link>
                     <router-link :to="{ name: 'suppliers' }">Постачальники</router-link>
+                    <router-link :to="{ name: 'reports' }">Звіти</router-link>
                     <router-link :to="{ name: 'users' }">Люди</router-link>
                 </nav>
                 <span class="who">

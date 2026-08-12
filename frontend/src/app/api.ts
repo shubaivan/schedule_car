@@ -124,6 +124,24 @@ export interface Meta {
     departments: { id: number; name: string }[]
 }
 
+export interface Report {
+    period: { from: string; to: string }
+    totals: {
+        requests: number
+        closed: number
+        rejected: number
+        open: number
+        overdue: number
+        purchases: number
+        spent: number
+        /** null — за період не закрили жодної заявки. */
+        leadTimeDays: number | null
+    }
+    suppliers: { id: number; name: string; purchases: number; total: number; share: number }[]
+    departments: { id: number | null; name: string; requests: number; total: number }[]
+    items: { item: string; requests: number; total: number }[]
+}
+
 /** Сесія протухла — далі показуємо екран «візьміть нове посилання в боті». */
 export class SessionExpired extends Error {}
 
@@ -245,6 +263,9 @@ export const api = {
             method: 'PATCH',
             body: JSON.stringify(payload),
         }),
+
+    reports: (from: string, to: string) =>
+        call<Report>(`/api/supply/reports?from=${from}&to=${to}`),
 
     users: () => call<{ items: ApiUser[] }>('/api/supply/users'),
 
