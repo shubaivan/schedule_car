@@ -52,6 +52,19 @@ export interface RequestListResponse {
     counts: Record<string, number>
 }
 
+export interface ApiSupplier {
+    id: number
+    name: string
+    edrpou: string | null
+    phone: string | null
+    contactPerson: string | null
+    note: string | null
+    active: boolean
+}
+
+/** Поля постачальника, які можна надіслати на створення чи правку. */
+export type SupplierPayload = Partial<Omit<ApiSupplier, 'id'>>
+
 export interface Meta {
     statuses: { value: string; label: string; emoji: string; final: boolean }[]
     units: { value: string; label: string }[]
@@ -112,6 +125,26 @@ export const api = {
         call<SupplyRequest>(`/api/supply/requests/${id}/comments`, {
             method: 'POST',
             body: JSON.stringify({ text }),
+        }),
+
+    suppliers: (params: { q?: string; active?: boolean } = {}) => {
+        const query = new URLSearchParams()
+        if (params.q) query.set('q', params.q)
+        if (params.active) query.set('active', '1')
+
+        return call<{ items: ApiSupplier[] }>(`/api/supply/suppliers?${query.toString()}`)
+    },
+
+    createSupplier: (payload: SupplierPayload) =>
+        call<ApiSupplier>('/api/supply/suppliers', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        }),
+
+    updateSupplier: (id: number, payload: SupplierPayload) =>
+        call<ApiSupplier>(`/api/supply/suppliers/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(payload),
         }),
 
     users: () => call<{ items: ApiUser[] }>('/api/supply/users'),

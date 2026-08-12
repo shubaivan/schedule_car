@@ -3,6 +3,7 @@
 namespace App\Supply\Service;
 
 use App\Entity\TelegramUser;
+use App\Supply\Entity\Supplier;
 use App\Supply\Entity\SupplyRequest;
 
 /**
@@ -80,6 +81,19 @@ class RequestPresenter
         usort($events, static fn(array $a, array $b) => $a['at'] <=> $b['at']);
 
         return $events;
+    }
+
+    public function supplier(Supplier $supplier): array
+    {
+        return [
+            'id' => $supplier->getId(),
+            'name' => $supplier->getName(),
+            'edrpou' => $supplier->getEdrpou(),
+            'phone' => $supplier->getPhone(),
+            'contactPerson' => $supplier->getContactPerson(),
+            'note' => $supplier->getNote(),
+            'active' => $supplier->isActive(),
+        ];
     }
 
     public function user(TelegramUser $user): array

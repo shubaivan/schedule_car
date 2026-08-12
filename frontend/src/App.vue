@@ -21,6 +21,7 @@ onMounted(() => session.load())
                 <span class="brand">📦 Постачання</span>
                 <nav>
                     <router-link :to="{ name: 'requests' }">Заявки</router-link>
+                    <router-link :to="{ name: 'suppliers' }">Постачальники</router-link>
                     <router-link :to="{ name: 'users' }">Люди</router-link>
                 </nav>
                 <span class="who">
