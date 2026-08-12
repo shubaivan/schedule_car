@@ -32,6 +32,15 @@ class ChangeStatusAction
             return;
         }
 
+        // Статус вимагає закупівлі, а її ще немає: замість відмови одразу
+        // питаємо постачальника й суму — після відповіді статус зміниться сам.
+        if ($target->requiresPurchase() && ! $request->isPurchased()) {
+            $bot->answerCallbackQuery();
+            PurchaseConversation::begin($bot, data: [(int) $request->getId(), $target->value]);
+
+            return;
+        }
+
         try {
             ($this->changeStatus)($request, $target, $user);
         } catch (SupplyException $e) {

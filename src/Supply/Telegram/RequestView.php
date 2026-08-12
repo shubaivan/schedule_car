@@ -84,6 +84,17 @@ class RequestView
                 $markup->addRow(...$row);
             }
 
+            // Записати покупку можна й окремо від зміни статусу: домовились із
+            // постачальником сьогодні, а оплата пройде завтра.
+            if (! $request->getStatus()->isFinal()) {
+                $markup->addRow(
+                    InlineKeyboardButton::make(
+                        $request->isPurchased() ? '🧾 Ще постачальник' : '🧾 Закупівля',
+                        callback_data: SupplyCallback::purchase($id),
+                    ),
+                );
+            }
+
             if ($request->getStatus()->canTransitionTo(SupplyStatus::Rejected)) {
                 $markup->addRow(
                     InlineKeyboardButton::make('⛔ Відхилити', callback_data: SupplyCallback::reject($id)),

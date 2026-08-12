@@ -12,6 +12,7 @@ use App\Supply\Enum\SupplyRole;
 use App\Supply\Enum\SupplyStatus;
 use App\Supply\Enum\Unit;
 use App\Supply\Exception\SupplyException;
+use App\Supply\Repository\SupplyPurchaseRepository;
 use App\Supply\Service\ChangeStatus;
 use App\Supply\Service\CreateRequest;
 use App\Supply\Service\RecordPurchase;
@@ -225,6 +226,66 @@ class PurchaseFlowTest extends KernelTestCase
         self::assertStringContainsString('ФОП Петренко О.П.', $card);
         self::assertStringContainsString('12 500,50 ₴', $card);
         self::assertStringContainsString('РН-114', $card);
+    }
+
+    /**
+     * Кнопки в боті пропонують тих, у кого купували востаннє. Порядок тут
+     * важливий: запит групує по постачальнику, а findBy повертає записи в
+     * довільному порядку — його доводиться відновлювати руками.
+     */
+    public function testRecentSuppliersComeLastUsedFirst(): void
+    {
+        [$worker, $manager] = $this->users();
+        $repository = self::getContainer()->get(SupplyPurchaseRepository::class);
+
+        $first = $this->supplier('ТОВ Перший');
+        $second = $this->supplier('ТОВ Другий');
+
+        ($this->recordPurchase)($this->request($worker), $manager, new PurchaseInput(
+            supplier: $first,
+            totalAmount: '100',
+        ));
+        ($this->recordPurchase)($this->request($worker), $manager, new PurchaseInput(
+            supplier: $second,
+            totalAmount: '200',
+        ));
+        // Повторна покупка в першого має підняти його нагору.
+        ($this->recordPurchase)($this->request($worker), $manager, new PurchaseInput(
+            supplier: $first,
+            totalAmount: '300',
+        ));
+
+        $recent = $repository->recentSuppliers(6);
+        $ids = array_map(static fn (Supplier $s) => $s->getId(), $recent);
+
+        self::assertSame($first->getId(), $ids[0]);
+        self::assertContains($second->getId(), $ids);
+        self::assertSame(
+            count($ids),
+            count(array_unique($ids)),
+            'один постачальник — одна кнопка, скільки б покупок у нього не було',
+        );
+        self::assertSame('400.00', $repository->totalBySupplier($first));
+    }
+
+    public function testHiddenSupplierIsNotSuggested(): void
+    {
+        [$worker, $manager] = $this->users();
+        $supplier = $this->supplier('ТОВ Прихований');
+
+        ($this->recordPurchase)($this->request($worker), $manager, new PurchaseInput(
+            supplier: $supplier,
+            totalAmount: '100',
+        ));
+
+        self::getContainer()->get(SupplierDirectory::class)->update($supplier, ['active' => false]);
+
+        $ids = array_map(
+            static fn (Supplier $s) => $s->getId(),
+            self::getContainer()->get(SupplyPurchaseRepository::class)->recentSuppliers(6),
+        );
+
+        self::assertNotContains($supplier->getId(), $ids);
     }
 
     private function supplier(string $name = 'ФОП Петренко О.П.'): Supplier

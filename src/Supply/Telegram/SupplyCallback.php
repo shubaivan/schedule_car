@@ -22,6 +22,8 @@ final class SupplyCallback
     public const REJECT_PREFIX = 'supply:reject:';
     /** supply:comment:<id> */
     public const COMMENT_PREFIX = 'supply:comment:';
+    /** supply:buy:<id> — записати, у кого купили */
+    public const PURCHASE_PREFIX = 'supply:buy:';
 
     public static function view(int $requestId): string
     {
@@ -41,5 +43,10 @@ final class SupplyCallback
     public static function comment(int $requestId): string
     {
         return self::COMMENT_PREFIX . $requestId;
+    }
+
+    public static function purchase(int $requestId): string
+    {
+        return self::PURCHASE_PREFIX . $requestId;
     }
 }

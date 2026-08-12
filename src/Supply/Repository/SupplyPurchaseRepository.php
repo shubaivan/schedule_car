@@ -41,8 +41,10 @@ class SupplyPurchaseRepository extends ServiceEntityRepository
      */
     public function recentSuppliers(int $limit = 6): array
     {
+        // Сортуємо за MAX(id), а не за датою: created_at має точність до
+        // секунди, і дві покупки в одну секунду дають довільний порядок.
         $rows = $this->createQueryBuilder('p')
-            ->select('IDENTITY(p.supplier) AS supplier_id', 'MAX(p.created_at) AS last_used')
+            ->select('IDENTITY(p.supplier) AS supplier_id', 'MAX(p.id) AS last_used')
             ->innerJoin('p.supplier', 's')
             ->andWhere('s.active = true')
             ->groupBy('p.supplier')

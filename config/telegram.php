@@ -6,6 +6,7 @@ use App\Supply\Telegram\CommentConversation;
 use App\Supply\Telegram\CrmLoginAction;
 use App\Supply\Telegram\MyRequests;
 use App\Supply\Telegram\NewRequestConversation;
+use App\Supply\Telegram\PurchaseConversation;
 use App\Supply\Telegram\RejectConversation;
 use App\Supply\Telegram\RequestView;
 use App\Supply\Telegram\SupplyCallback;
@@ -63,3 +64,4 @@ $bot->onCallbackQueryData(SupplyCallback::VIEW_PREFIX . '{id}', RequestView::cla
 $bot->onCallbackQueryData(SupplyCallback::STATUS_PREFIX . '{id}:{status}', ChangeStatusAction::class);
 $bot->onCallbackQueryData(SupplyCallback::REJECT_PREFIX . '{id}', RejectConversation::class);
 $bot->onCallbackQueryData(SupplyCallback::COMMENT_PREFIX . '{id}', CommentConversation::class);
+$bot->onCallbackQueryData(SupplyCallback::PURCHASE_PREFIX . '{id}', PurchaseConversation::class);
