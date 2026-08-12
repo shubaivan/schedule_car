@@ -6,6 +6,7 @@ use App\Entity\EntityTrait\CreatedUpdatedAtAwareTrait;
 use App\Entity\TelegramUser;
 use App\Supply\Enum\PaymentType;
 use App\Supply\Repository\SupplyPurchaseRepository;
+use DateTime;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -63,7 +64,7 @@ class SupplyPurchase
     private ?string $invoiceNumber = null;
 
     #[ORM\Column(name: 'purchased_at', type: Types::DATE_MUTABLE, nullable: true)]
-    private ?\DateTime $purchasedAt = null;
+    private ?DateTime $purchasedAt = null;
 
     #[ORM\Column(type: 'string', length: 16, enumType: PaymentType::class, nullable: false)]
     private PaymentType $payment = PaymentType::Bank;
@@ -174,12 +175,12 @@ class SupplyPurchase
         return $this;
     }
 
-    public function getPurchasedAt(): ?\DateTime
+    public function getPurchasedAt(): ?DateTime
     {
         return $this->purchasedAt;
     }
 
-    public function setPurchasedAt(?\DateTime $purchasedAt): self
+    public function setPurchasedAt(?DateTime $purchasedAt): self
     {
         $this->purchasedAt = $purchasedAt;
 
@@ -223,6 +224,6 @@ class SupplyPurchase
 
     public static function money(string $amount): string
     {
-        return number_format((float)$amount, 2, ',', ' ');
+        return number_format((float) $amount, 2, ',', ' ');
     }
 }

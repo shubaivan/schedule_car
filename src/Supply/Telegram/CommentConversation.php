@@ -32,8 +32,8 @@ class CommentConversation extends Conversation
     {
         $bot->answerCallbackQuery();
 
-        $data = (string)($bot->callbackQuery()?->data ?? '');
-        $this->requestId = (int)substr($data, strlen(SupplyCallback::COMMENT_PREFIX));
+        $data = (string) ($bot->callbackQuery()->data ?? '');
+        $this->requestId = (int) substr($data, strlen(SupplyCallback::COMMENT_PREFIX));
 
         $request = $this->repository->find($this->requestId);
 
@@ -58,7 +58,7 @@ class CommentConversation extends Conversation
 
     public function readText(Nutgram $bot): void
     {
-        $text = trim((string)$bot->message()?->text);
+        $text = trim((string) $bot->message()?->text);
 
         if ($text === '') {
             $this->screen->render($bot, 'Напишіть коментар текстом.');
@@ -66,7 +66,7 @@ class CommentConversation extends Conversation
             return;
         }
 
-        $request = $this->repository->find((int)$this->requestId);
+        $request = $this->repository->find((int) $this->requestId);
         $user = $this->telegramUserService->getCurrentUser();
 
         if ($request === null || $user === null) {

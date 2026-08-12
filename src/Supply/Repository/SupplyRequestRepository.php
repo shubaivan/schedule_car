@@ -5,6 +5,8 @@ namespace App\Supply\Repository;
 use App\Entity\TelegramUser;
 use App\Supply\Entity\SupplyRequest;
 use App\Supply\Enum\SupplyStatus;
+use DateTime;
+use DateTimeZone;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\ORM\Tools\Pagination\Paginator;
@@ -33,7 +35,7 @@ class SupplyRequestRepository extends ServiceEntityRepository
             ['suffix' => '%' . $suffix],
         );
 
-        return sprintf('%03d%s', ((int)$max) + 1, $suffix);
+        return sprintf('%03d%s', ((int) $max) + 1, $suffix);
     }
 
     /**
@@ -48,6 +50,7 @@ class SupplyRequestRepository extends ServiceEntityRepository
      *     query?: ?string,
      *     open?: ?bool
      * } $filters
+     *
      * @return array{items: SupplyRequest[], total: int}
      */
     public function search(array $filters, int $page = 1, int $limit = 25): array
@@ -84,7 +87,7 @@ class SupplyRequestRepository extends ServiceEntityRepository
 
         $counts = [];
         foreach ($qb->getQuery()->getScalarResult() as $row) {
-            $counts[(string)$row['status']] = (int)$row['cnt'];
+            $counts[(string) $row['status']] = (int) $row['cnt'];
         }
 
         return $counts;
@@ -113,7 +116,7 @@ class SupplyRequestRepository extends ServiceEntityRepository
             ->andWhere('r.needBy IS NOT NULL')
             ->andWhere('r.needBy < :today')
             ->andWhere('r.status IN (:open)')
-            ->setParameter('today', new \DateTime('today', new \DateTimeZone('Europe/Kyiv')))
+            ->setParameter('today', new DateTime('today', new DateTimeZone('Europe/Kyiv')))
             ->setParameter('open', SupplyStatus::openCases())
             ->orderBy('r.needBy', 'ASC')
             ->getQuery()
@@ -122,39 +125,39 @@ class SupplyRequestRepository extends ServiceEntityRepository
 
     private function applyFilters(QueryBuilder $qb, array $filters): void
     {
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $qb->andWhere('r.status IN (:statuses)')
                 ->setParameter('statuses', $filters['status']);
         }
 
-        if (!empty($filters['open'])) {
+        if (! empty($filters['open'])) {
             $qb->andWhere('r.status IN (:openStatuses)')
                 ->setParameter('openStatuses', SupplyStatus::openCases());
         }
 
-        if (!empty($filters['department'])) {
+        if (! empty($filters['department'])) {
             $qb->andWhere('IDENTITY(r.department) = :department')
                 ->setParameter('department', $filters['department']);
         }
 
-        if (!empty($filters['author'])) {
+        if (! empty($filters['author'])) {
             $qb->andWhere('IDENTITY(r.author) = :author')
                 ->setParameter('author', $filters['author']);
         }
 
-        if (!empty($filters['urgent'])) {
+        if (! empty($filters['urgent'])) {
             $qb->andWhere('r.urgent = true');
         }
 
-        if (!empty($filters['overdue'])) {
+        if (! empty($filters['overdue'])) {
             $qb->andWhere('r.needBy IS NOT NULL')
                 ->andWhere('r.needBy < :today')
                 ->andWhere('r.status IN (:openForOverdue)')
-                ->setParameter('today', new \DateTime('today', new \DateTimeZone('Europe/Kyiv')))
+                ->setParameter('today', new DateTime('today', new DateTimeZone('Europe/Kyiv')))
                 ->setParameter('openForOverdue', SupplyStatus::openCases());
         }
 
-        if (!empty($filters['query'])) {
+        if (! empty($filters['query'])) {
             $qb->andWhere('LOWER(r.item) LIKE :q OR LOWER(r.number) LIKE :q OR LOWER(r.site) LIKE :q')
                 ->setParameter('q', '%' . mb_strtolower(trim($filters['query'])) . '%');
         }

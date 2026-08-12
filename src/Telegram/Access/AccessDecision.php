@@ -26,9 +26,9 @@ class AccessDecision
         $bot->answerCallbackQuery();
 
         $manager = $this->telegramUserService->getCurrentUser();
-        $candidate = $this->users->find((int)$id);
+        $candidate = $this->users->find((int) $id);
 
-        if ($manager === null || !$manager->getSupplyRole()->canManage()) {
+        if ($manager === null || ! $manager->getSupplyRole()->canManage()) {
             $bot->sendMessage(text: '⚠️ Підтверджувати реєстрації може лише менеджер.');
 
             return;
@@ -40,7 +40,7 @@ class AccessDecision
             return;
         }
 
-        $status = str_starts_with((string)$bot->callbackQuery()?->data, AccessCallback::APPROVE_PREFIX)
+        $status = str_starts_with((string) $bot->callbackQuery()?->data, AccessCallback::APPROVE_PREFIX)
             ? AccessStatus::Approved
             : AccessStatus::Rejected;
 

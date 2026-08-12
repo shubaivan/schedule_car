@@ -14,6 +14,7 @@ use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Properties\ParseMode;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardMarkup;
+use Throwable;
 
 /**
  * Єдина точка сповіщень по заявках. Викликається лише з CreateRequest,
@@ -123,14 +124,14 @@ class SupplyNotifier
     private function authorKeyboard(SupplyRequest $request): InlineKeyboardMarkup
     {
         return InlineKeyboardMarkup::make()->addRow(
-            InlineKeyboardButton::make('💬 Коментар', callback_data: SupplyCallback::comment((int)$request->getId())),
+            InlineKeyboardButton::make('💬 Коментар', callback_data: SupplyCallback::comment((int) $request->getId())),
             InlineKeyboardButton::make('📋 Мої заявки', callback_data: SupplyCallback::MY_REQUESTS),
         );
     }
 
     private function managerKeyboard(SupplyRequest $request): InlineKeyboardMarkup
     {
-        $id = (int)$request->getId();
+        $id = (int) $request->getId();
         $markup = InlineKeyboardMarkup::make();
 
         $row = [];
@@ -168,7 +169,7 @@ class SupplyNotifier
     {
         $chatId = $user->getChatId() ?: $user->getTelegramId();
 
-        if (!$chatId) {
+        if (! $chatId) {
             $this->logger->warning('supply: у користувача немає chat_id', ['user' => $user->getId()]);
 
             return;
@@ -181,7 +182,7 @@ class SupplyNotifier
                 parse_mode: ParseMode::HTML,
                 reply_markup: $markup,
             );
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->logger->warning('supply: не вдалось надіслати сповіщення', [
                 'user' => $user->getId(),
                 'error' => $e->getMessage(),

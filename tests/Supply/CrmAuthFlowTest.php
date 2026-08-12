@@ -45,7 +45,7 @@ class CrmAuthFlowTest extends WebTestCase
         $this->client->followRedirect();
         self::assertResponseIsSuccessful();
         // Віддається оболонка SPA; ім'я користувача застосунок бере з /api/me.
-        self::assertStringContainsString('id="app"', (string)$this->client->getResponse()->getContent());
+        self::assertStringContainsString('id="app"', (string) $this->client->getResponse()->getContent());
 
         // Сесія жива — CRM відкривається без нового посилання.
         $this->client->request('GET', '/crm/');
@@ -55,7 +55,7 @@ class CrmAuthFlowTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame(
             'Тест-CRM',
-            json_decode((string)$this->client->getResponse()->getContent(), true)['name'],
+            json_decode((string) $this->client->getResponse()->getContent(), true)['name'],
         );
 
         // А саме посилання вже згоріло.
@@ -101,7 +101,7 @@ class CrmAuthFlowTest extends WebTestCase
 
         $this->client->followRedirect();
         self::assertResponseIsSuccessful();
-        self::assertStringContainsString('Поділіться номером', (string)$this->client->getResponse()->getContent());
+        self::assertStringContainsString('Поділіться номером', (string) $this->client->getResponse()->getContent());
     }
 
     /** А от API мусить відповідати саме 401 — на цей код реагує Vue-застосунок. */
@@ -110,7 +110,7 @@ class CrmAuthFlowTest extends WebTestCase
         $this->client->request('GET', '/api/me');
 
         self::assertResponseStatusCodeSame(Response::HTTP_UNAUTHORIZED);
-        self::assertJson((string)$this->client->getResponse()->getContent());
+        self::assertJson((string) $this->client->getResponse()->getContent());
     }
 
     private function tokenFor(TelegramUser $user): string

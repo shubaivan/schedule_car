@@ -16,6 +16,7 @@ use App\Supply\Service\ChangeStatus;
 use App\Supply\Service\CreateRequest;
 use App\Supply\Service\RecordPurchase;
 use App\Supply\Service\SupplierDirectory;
+use DateTime;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -51,7 +52,7 @@ class SupplyRequestFlowTest extends KernelTestCase
                 item: 'Арматура 12 А500С',
                 quantity: '2.5',
                 unit: Unit::Ton,
-                needBy: new \DateTime('+3 days'),
+                needBy: new DateTime('+3 days'),
                 urgent: false,
                 note: 'На фундамент цеху №2',
             ),

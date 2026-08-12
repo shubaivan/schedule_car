@@ -33,12 +33,12 @@ class SupplierApiController extends AbstractController
     #[Route('', name: 'api_supply_suppliers', methods: ['GET'])]
     public function list(Request $request): JsonResponse
     {
-        $query = trim((string)$request->query->get('q', ''));
+        $query = trim((string) $request->query->get('q', ''));
         // За замовчуванням показуємо всіх, зокрема прихованих: це екран довідника,
         // а не вибір у формі. Підказка при заповненні передасть active=1.
         $onlyActive = $request->query->getBoolean('active');
 
-        $suppliers = $query === '' && !$onlyActive
+        $suppliers = $query === '' && ! $onlyActive
             ? $this->repository->findBy([], ['name' => 'ASC'])
             : $this->repository->search($query, 50, $onlyActive);
 
@@ -54,7 +54,7 @@ class SupplierApiController extends AbstractController
         $user = $this->getUser();
 
         try {
-            $supplier = $this->directory->create((string)($payload['name'] ?? ''), $user, $payload);
+            $supplier = $this->directory->create((string) ($payload['name'] ?? ''), $user, $payload);
         } catch (SupplyException $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
@@ -76,7 +76,7 @@ class SupplierApiController extends AbstractController
 
     private function payload(Request $request): array
     {
-        $payload = json_decode((string)$request->getContent(), true);
+        $payload = json_decode((string) $request->getContent(), true);
 
         return is_array($payload) ? $payload : [];
     }

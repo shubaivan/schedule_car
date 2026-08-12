@@ -75,7 +75,7 @@ class SupplyDepartmentCommand extends Command
         $this->em->flush();
 
         $rows = array_map(
-            static fn(Department $d) => [$d->getId(), $d->getName(), $d->isActive() ? 'активний' : 'прихований'],
+            static fn (Department $d) => [$d->getId(), $d->getName(), $d->isActive() ? 'активний' : 'прихований'],
             $this->departments->findBy([], ['name' => 'ASC']),
         );
 

@@ -7,6 +7,8 @@ use App\Supply\Entity\SupplyRequest;
 use App\Supply\Entity\SupplyStatusLog;
 use App\Supply\Enum\SupplyStatus;
 use App\Supply\Exception\SupplyException;
+use DateTime;
+use DateTimeZone;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 
@@ -35,7 +37,7 @@ class ChangeStatus
             throw new SupplyException(sprintf('Заявка вже має статус «%s».', $to->label()));
         }
 
-        if (!$from->canTransitionTo($to)) {
+        if (! $from->canTransitionTo($to)) {
             throw new SupplyException(sprintf(
                 'Не можна перевести заявку з «%s» у «%s».',
                 $from->label(),
@@ -43,7 +45,7 @@ class ChangeStatus
             ));
         }
 
-        if ($by !== null && !$by->getSupplyRole()->canManage()) {
+        if ($by !== null && ! $by->getSupplyRole()->canManage()) {
             throw new SupplyException('Змінювати статус заявки може лише менеджер із постачання.');
         }
 
@@ -53,7 +55,7 @@ class ChangeStatus
             throw new SupplyException('Вкажіть причину відхилення — інакше заявник не зрозуміє, що робити далі.');
         }
 
-        if ($to->requiresPurchase() && !$request->isPurchased()) {
+        if ($to->requiresPurchase() && ! $request->isPurchased()) {
             throw new SupplyException(sprintf(
                 'Спершу вкажіть, у кого купили: без постачальника й суми заявку не можна перевести в «%s».',
                 $to->label(),
@@ -62,7 +64,7 @@ class ChangeStatus
 
         $request->setStatus($to);
         $request->setClosedAt($to->isFinal() || $to === SupplyStatus::Rejected
-            ? new \DateTime('now', new \DateTimeZone('Europe/Kyiv'))
+            ? new DateTime('now', new DateTimeZone('Europe/Kyiv'))
             : null);
 
         $log = (new SupplyStatusLog())

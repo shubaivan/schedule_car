@@ -4,6 +4,7 @@ namespace App\Supply\Repository;
 
 use App\Supply\Entity\Supplier;
 use App\Supply\Entity\SupplyPurchase;
+use DateTimeInterface;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -18,7 +19,7 @@ class SupplyPurchaseRepository extends ServiceEntityRepository
     }
 
     /** Скільки всього закупили в постачальника — основа звіту по обороту. */
-    public function totalBySupplier(Supplier $supplier, ?\DateTimeInterface $from = null): string
+    public function totalBySupplier(Supplier $supplier, ?DateTimeInterface $from = null): string
     {
         $qb = $this->createQueryBuilder('p')
             ->select('COALESCE(SUM(p.totalAmount), 0)')
@@ -29,7 +30,7 @@ class SupplyPurchaseRepository extends ServiceEntityRepository
             $qb->andWhere('p.created_at >= :from')->setParameter('from', $from);
         }
 
-        return (string)$qb->getQuery()->getSingleScalarResult();
+        return (string) $qb->getQuery()->getSingleScalarResult();
     }
 
     /**
@@ -50,7 +51,7 @@ class SupplyPurchaseRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
 
-        if (!$rows) {
+        if (! $rows) {
             return [];
         }
 
@@ -64,7 +65,7 @@ class SupplyPurchaseRepository extends ServiceEntityRepository
         }
 
         return array_values(array_filter(array_map(
-            static fn(array $row) => $byId[(int)$row['supplier_id']] ?? null,
+            static fn (array $row) => $byId[(int) $row['supplier_id']] ?? null,
             $rows,
         )));
     }

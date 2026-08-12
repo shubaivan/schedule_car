@@ -23,7 +23,7 @@ class ChangeStatusAction
     public function __invoke(Nutgram $bot, string $id, string $status): void
     {
         $user = $this->telegramUserService->getCurrentUser();
-        $request = $this->repository->find((int)$id);
+        $request = $this->repository->find((int) $id);
         $target = SupplyStatus::tryFrom($status);
 
         if ($request === null || $user === null || $target === null) {

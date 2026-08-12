@@ -33,8 +33,8 @@ class RejectConversation extends Conversation
     {
         $bot->answerCallbackQuery();
 
-        $data = (string)($bot->callbackQuery()?->data ?? '');
-        $this->requestId = (int)substr($data, strlen(SupplyCallback::REJECT_PREFIX));
+        $data = (string) ($bot->callbackQuery()->data ?? '');
+        $this->requestId = (int) substr($data, strlen(SupplyCallback::REJECT_PREFIX));
 
         $request = $this->repository->find($this->requestId);
 
@@ -56,7 +56,7 @@ class RejectConversation extends Conversation
 
     public function readReason(Nutgram $bot): void
     {
-        $reason = trim((string)$bot->message()?->text);
+        $reason = trim((string) $bot->message()?->text);
 
         if ($reason === '') {
             $this->screen->render($bot, 'Напишіть причину текстом.');
@@ -64,7 +64,7 @@ class RejectConversation extends Conversation
             return;
         }
 
-        $request = $this->repository->find((int)$this->requestId);
+        $request = $this->repository->find((int) $this->requestId);
         $user = $this->telegramUserService->getCurrentUser();
 
         if ($request === null || $user === null) {

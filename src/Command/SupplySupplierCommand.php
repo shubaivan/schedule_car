@@ -56,7 +56,7 @@ class SupplySupplierCommand extends Command
         foreach (['disable' => false, 'enable' => true] as $option => $active) {
             $name = $input->getOption($option);
 
-            if (!$name) {
+            if (! $name) {
                 continue;
             }
 
@@ -82,7 +82,7 @@ class SupplySupplierCommand extends Command
         }
 
         $rows = array_map(
-            static fn(Supplier $s) => [
+            static fn (Supplier $s) => [
                 $s->getId(),
                 $s->getName(),
                 $s->getEdrpou() ?? '—',

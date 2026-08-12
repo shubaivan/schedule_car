@@ -6,14 +6,15 @@ use App\Entity\EntityTrait\CreatedUpdatedAtAwareTrait;
 use App\Repository\ScheduledSetRepository;
 use App\Service\ScheduleCarService;
 use App\Validator\ScheduleLimit;
+use DateTime;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Validator\Constraints\NotBlank;
 
 #[ORM\Entity(repositoryClass: ScheduledSetRepository::class)]
-#[ORM\Index(name: "unique_set", columns: ["telegram_user_id", "year", "month", "day", "hour", "car_id"], options: ['unique' => true])]
-#[UniqueEntity(fields: ["telegramUserId", "year", "month", "day", "hour", "car"], message: 'Хтось вже забронював. Оберіть інший час')]
+#[ORM\Index(name: 'unique_set', columns: ['telegram_user_id', 'year', 'month', 'day', 'hour', 'car_id'], options: ['unique' => true])]
+#[UniqueEntity(fields: ['telegramUserId', 'year', 'month', 'day', 'hour', 'car'], message: 'Хтось вже забронював. Оберіть інший час')]
 #[ORM\HasLifecycleCallbacks()]
 #[ScheduleLimit]
 class ScheduledSet
@@ -43,7 +44,7 @@ class ScheduledSet
 
     #[NotBlank]
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: false)]
-    private \DateTime $scheduledAt;
+    private DateTime $scheduledAt;
 
     #[NotBlank]
     #[ORM\ManyToOne(targetEntity: TelegramUser::class, inversedBy: 'scheduledSet')]
@@ -120,12 +121,12 @@ class ScheduledSet
         return $this;
     }
 
-    public function getScheduledAt(): \DateTime
+    public function getScheduledAt(): DateTime
     {
         return $this->scheduledAt;
     }
 
-    public function setScheduledAt(\DateTime $scheduledAt): ScheduledSet
+    public function setScheduledAt(DateTime $scheduledAt): ScheduledSet
     {
         $this->scheduledAt = $scheduledAt;
 
@@ -144,12 +145,11 @@ class ScheduledSet
         return $this;
     }
 
-
-    public function getScheduledDateTime(): \DateTime
+    public function getScheduledDateTime(): DateTime
     {
         $scheduledByCurrentUserDate = ScheduleCarService::createNewDate();
         $scheduledByCurrentUserDate->setDate($this->getYear(), $this->getMonth(), $this->getDay());
-        $scheduledByCurrentUserDate->setTime($this->getHour(),0);
+        $scheduledByCurrentUserDate->setTime($this->getHour(), 0);
 
         return $scheduledByCurrentUserDate;
     }

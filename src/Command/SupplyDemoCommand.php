@@ -4,6 +4,7 @@ namespace App\Command;
 
 use App\Entity\TelegramUser;
 use App\Repository\TelegramUserRepository;
+use App\Service\CrmLoginLink;
 use App\Supply\Dto\CreateRequestInput;
 use App\Supply\Entity\Department;
 use App\Supply\Enum\SupplyRole;
@@ -12,7 +13,7 @@ use App\Supply\Enum\Unit;
 use App\Supply\Repository\DepartmentRepository;
 use App\Supply\Service\ChangeStatus;
 use App\Supply\Service\CreateRequest;
-use App\Service\CrmLoginLink;
+use DateTime;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -56,7 +57,7 @@ class SupplyDemoCommand extends Command
         $worker->setDepartment($this->departments->findOneBy(['name' => 'Цех №2']));
         $this->em->flush();
 
-        if (!$this->em->getRepository(\App\Supply\Entity\SupplyRequest::class)->count([])) {
+        if (! $this->em->getRepository(\App\Supply\Entity\SupplyRequest::class)->count([])) {
             $samples = [
                 ['Арматура 12 А500С', '2.5', Unit::Ton, true, SupplyStatus::InProgress],
                 ['Цемент М400', '40', Unit::Pack, false, SupplyStatus::Paid],
@@ -70,14 +71,14 @@ class SupplyDemoCommand extends Command
                     item: $item,
                     quantity: $quantity,
                     unit: $unit,
-                    needBy: new \DateTime($urgent ? '+1 day' : '+' . random_int(3, 14) . ' days'),
+                    needBy: new DateTime($urgent ? '+1 day' : '+' . random_int(3, 14) . ' days'),
                     urgent: $urgent,
                     site: 'Цех №2',
                 ));
 
                 // Крокуємо ланцюжком статусів уперед, поки не дійдемо до потрібного.
                 $status = $request->getStatus();
-                for ($guard = 0; $status !== $target && $guard < 10; $guard++) {
+                for ($guard = 0; $status !== $target && $guard < 10; ++$guard) {
                     $next = $status->allowedTransitions();
                     $step = in_array($target, $next, true) ? $target : ($next[0] ?? null);
 

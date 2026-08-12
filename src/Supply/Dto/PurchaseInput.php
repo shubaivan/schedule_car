@@ -4,6 +4,7 @@ namespace App\Supply\Dto;
 
 use App\Supply\Entity\Supplier;
 use App\Supply\Enum\PaymentType;
+use DateTime;
 
 /**
  * Що вводить менеджер, закриваючи заявку покупкою.
@@ -20,7 +21,7 @@ class PurchaseInput
         public PaymentType $payment = PaymentType::Bank,
         public bool $vatIncluded = true,
         public ?string $invoiceNumber = null,
-        public ?\DateTime $purchasedAt = null,
+        public ?DateTime $purchasedAt = null,
     ) {
     }
 }

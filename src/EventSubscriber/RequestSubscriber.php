@@ -3,16 +3,23 @@
 namespace App\EventSubscriber;
 
 use App\Service\TelegramUserService;
+use JsonException;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
+
+use function is_array;
+
+use const JSON_BIGINT_AS_STRING;
+use const JSON_THROW_ON_ERROR;
 
 class RequestSubscriber implements EventSubscriberInterface
 {
     public function __construct(
         private LoggerInterface $graylogLogger,
-        private TelegramUserService $telegramUserService
-    ) {}
+        private TelegramUserService $telegramUserService,
+    ) {
+    }
 
     public static function getSubscribedEvents(): array
     {
@@ -25,7 +32,7 @@ class RequestSubscriber implements EventSubscriberInterface
     {
         $this->graylogLogger->info('catch request');
 
-        if (!$event->isMainRequest()) {
+        if (! $event->isMainRequest()) {
             // don't do anything if it's not the main request
             return;
         }
@@ -36,12 +43,12 @@ class RequestSubscriber implements EventSubscriberInterface
         }
 
         try {
-            $content = json_decode($content, true, 512, \JSON_BIGINT_AS_STRING | \JSON_THROW_ON_ERROR);
-        } catch (\JsonException $e) {
+            $content = json_decode($content, true, 512, JSON_BIGINT_AS_STRING | JSON_THROW_ON_ERROR);
+        } catch (JsonException $e) {
             return;
         }
 
-        if (!\is_array($content)) {
+        if (! is_array($content)) {
             return;
         }
 

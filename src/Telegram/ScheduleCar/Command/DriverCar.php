@@ -17,8 +17,9 @@ class DriverCar extends Command
         private TelegramUserService $telegramUserService,
         private CarDriverRepository $carDriverRepository,
         private ScheduledSetRepository $scheduledSetRepository,
-        $callable = null, ?string $command = null)
-    {
+        $callable = null,
+        ?string $command = null,
+    ) {
         parent::__construct($callable, $command);
     }
 
@@ -26,20 +27,20 @@ class DriverCar extends Command
     {
         $telegramUser = $this->telegramUserService->getCurrentUser();
         $carDriver = $this->carDriverRepository->findOneByDriver($telegramUser);
-        if (!$carDriver) {
+        if (! $carDriver) {
             $bot->sendMessage(
                 text: '<b>Ви не водій</b>',
-                parse_mode: ParseMode::HTML
+                parse_mode: ParseMode::HTML,
             );
 
             return;
         }
 
         $scheduled = $this->scheduledSetRepository->getByCar($carDriver->getCar());
-        if (!$scheduled) {
+        if (! $scheduled) {
             $bot->sendMessage(
                 text: '<b>Бронювання відсутні</b>',
-                parse_mode: ParseMode::HTML
+                parse_mode: ParseMode::HTML,
             );
 
             return;
@@ -47,10 +48,12 @@ class DriverCar extends Command
 
         foreach ($scheduled as $set) {
             $bot->sendMessage(
-                text: sprintf('<b>%s</b>, заброньована: <b>%s</b>',
+                text: sprintf(
+                    '<b>%s</b>, заброньована: <b>%s</b>',
                     $set->getScheduledAt()->format('Y/m/d H:i:s'),
-                    $set->getTelegramUserId()->concatNameInfo()),
-                parse_mode: ParseMode::HTML
+                    $set->getTelegramUserId()->concatNameInfo(),
+                ),
+                parse_mode: ParseMode::HTML,
             );
         }
     }

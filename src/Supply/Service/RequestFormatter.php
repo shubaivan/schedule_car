@@ -3,6 +3,7 @@
 namespace App\Supply\Service;
 
 use App\Supply\Entity\SupplyRequest;
+use DateTimeInterface;
 
 /** Один текст картки заявки на всі повідомлення бота — щоб вигляд не розповзався. */
 class RequestFormatter
@@ -113,11 +114,11 @@ class RequestFormatter
             ];
         }
 
-        if (!$events) {
+        if (! $events) {
             return '';
         }
 
-        usort($events, static fn(array $a, array $b) => $a['at'] <=> $b['at']);
+        usort($events, static fn (array $a, array $b) => $a['at'] <=> $b['at']);
         $events = array_slice($events, -$limit);
 
         $lines = ['', '<b>Хронологія:</b>'];
@@ -134,13 +135,13 @@ class RequestFormatter
     }
 
     /** «20 серпня 2026». */
-    public function date(\DateTimeInterface $date): string
+    public function date(DateTimeInterface $date): string
     {
         return sprintf(
             '%d %s %d',
-            (int)$date->format('j'),
-            self::MONTHS[(int)$date->format('n')],
-            (int)$date->format('Y'),
+            (int) $date->format('j'),
+            self::MONTHS[(int) $date->format('n')],
+            (int) $date->format('Y'),
         );
     }
 

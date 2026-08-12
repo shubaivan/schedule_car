@@ -47,7 +47,7 @@ class CrmLoginLink
     {
         $loginToken = $this->repository->findByHash($this->hash($token));
 
-        if ($loginToken === null || !$loginToken->isUsable()) {
+        if ($loginToken === null || ! $loginToken->isUsable()) {
             return null;
         }
 

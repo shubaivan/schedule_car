@@ -21,7 +21,8 @@ class AccessService
         private EntityManagerInterface $em,
         private AccessNotifier $notifier,
         private LoggerInterface $logger,
-        #[Autowire('%supply_manager_phones%')] private string $managerPhones,
+        #[Autowire('%supply_manager_phones%')]
+        private string $managerPhones,
     ) {
     }
 

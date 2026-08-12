@@ -28,7 +28,7 @@ class ShareContact
         }
 
         // Чужий контакт не приймаємо: реєструємо лише власника акаунта.
-        if ((string)$contact->user_id !== (string)$user->getTelegramId()) {
+        if ((string) $contact->user_id !== (string) $user->getTelegramId()) {
             $bot->sendMessage(text: '⚠️ Надішліть, будь ласка, власний номер кнопкою нижче.');
 
             return;
@@ -39,7 +39,7 @@ class ShareContact
             reply_markup: ReplyKeyboardRemove::make(true),
         );
 
-        $this->accessService->registerPhone($user, (string)$contact->phone_number);
+        $this->accessService->registerPhone($user, (string) $contact->phone_number);
     }
 
     /** Клавіатура-прохання поділитись номером. */

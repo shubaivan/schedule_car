@@ -9,10 +9,13 @@ use App\Supply\Enum\Unit;
 use App\Supply\Exception\SupplyException;
 use App\Supply\Service\CreateRequest;
 use App\Supply\Service\RequestFormatter;
+use DateTime;
+use DateTimeZone;
 use SergiX44\Nutgram\Conversations\Conversation;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardMarkup;
+use Throwable;
 
 /**
  * Подача заявки робітником: що → скільки → до якої дати → коментар.
@@ -61,7 +64,7 @@ class NewRequestConversation extends Conversation
 
     public function readItem(Nutgram $bot): void
     {
-        $text = trim((string)$bot->message()?->text);
+        $text = trim((string) $bot->message()?->text);
         $this->forgetUserMessage($bot);
 
         if ($text === '') {
@@ -79,10 +82,10 @@ class NewRequestConversation extends Conversation
 
     public function readQuantity(Nutgram $bot): void
     {
-        $raw = str_replace(',', '.', trim((string)$bot->message()?->text));
+        $raw = str_replace(',', '.', trim((string) $bot->message()?->text));
         $this->forgetUserMessage($bot);
 
-        if (!is_numeric($raw) || (float)$raw <= 0) {
+        if (! is_numeric($raw) || (float) $raw <= 0) {
             $this->render($bot, '⚠️ Потрібне число більше за нуль. Спробуйте ще раз.');
 
             return;
@@ -97,9 +100,9 @@ class NewRequestConversation extends Conversation
 
     public function readUnit(Nutgram $bot): void
     {
-        $data = (string)($bot->callbackQuery()?->data ?? '');
+        $data = (string) ($bot->callbackQuery()->data ?? '');
 
-        if (!str_starts_with($data, self::UNIT_PREFIX)) {
+        if (! str_starts_with($data, self::UNIT_PREFIX)) {
             $this->render($bot, '⚠️ Оберіть одиницю виміру кнопкою:', $this->unitKeyboard());
 
             return;
@@ -123,8 +126,8 @@ class NewRequestConversation extends Conversation
 
     public function readNeedBy(Nutgram $bot): void
     {
-        $data = (string)($bot->callbackQuery()?->data ?? '');
-        $today = new \DateTime('today', new \DateTimeZone('Europe/Kyiv'));
+        $data = (string) ($bot->callbackQuery()->data ?? '');
+        $today = new DateTime('today', new DateTimeZone('Europe/Kyiv'));
 
         if (str_starts_with($data, self::DATE_PREFIX)) {
             $bot->answerCallbackQuery();
@@ -134,7 +137,7 @@ class NewRequestConversation extends Conversation
                 $this->needBy = null;
                 $this->urgent = false;
             } else {
-                $date = \DateTime::createFromFormat('Y-m-d H:i:s', $value . ' 00:00:00', new \DateTimeZone('Europe/Kyiv'));
+                $date = DateTime::createFromFormat('Y-m-d H:i:s', $value . ' 00:00:00', new DateTimeZone('Europe/Kyiv'));
 
                 if ($date === false) {
                     $this->render($bot, '⚠️ Оберіть дату кнопкою:', $this->dateKeyboard());
@@ -147,7 +150,7 @@ class NewRequestConversation extends Conversation
             }
         } else {
             // Дозволяємо вписати дату руками: 20.08 або 20.08.2026.
-            $text = trim((string)$bot->message()?->text);
+            $text = trim((string) $bot->message()?->text);
             $this->forgetUserMessage($bot);
             $date = $this->parseDate($text, $today);
 
@@ -179,7 +182,7 @@ class NewRequestConversation extends Conversation
         if ($bot->isCallbackQuery()) {
             $bot->answerCallbackQuery();
         } else {
-            $note = trim((string)$bot->message()?->text) ?: null;
+            $note = trim((string) $bot->message()?->text) ?: null;
             $this->forgetUserMessage($bot);
         }
 
@@ -193,11 +196,11 @@ class NewRequestConversation extends Conversation
         }
 
         $input = new CreateRequestInput(
-            item: (string)$this->item,
-            quantity: (string)$this->quantity,
-            unit: Unit::from((string)$this->unit),
+            item: (string) $this->item,
+            quantity: (string) $this->quantity,
+            unit: Unit::from((string) $this->unit),
             needBy: $this->needBy !== null
-                ? new \DateTime($this->needBy, new \DateTimeZone('Europe/Kyiv'))
+                ? new DateTime($this->needBy, new DateTimeZone('Europe/Kyiv'))
                 : null,
             urgent: $this->urgent,
             note: $note,
@@ -236,7 +239,7 @@ class NewRequestConversation extends Conversation
         if ($this->needBy !== null) {
             $lines[] = sprintf(
                 '✅ Потрібно до: <b>%s</b>%s',
-                $this->formatter->date(new \DateTime($this->needBy)),
+                $this->formatter->date(new DateTime($this->needBy)),
                 $this->urgent ? ' 🔥' : '',
             );
         }
@@ -258,7 +261,7 @@ class NewRequestConversation extends Conversation
 
         try {
             $bot->deleteMessage($chatId, $messageId);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // Не критично: повідомлення просто лишиться в чаті.
         }
     }
@@ -288,15 +291,15 @@ class NewRequestConversation extends Conversation
     private function dateKeyboard(): InlineKeyboardMarkup
     {
         $markup = InlineKeyboardMarkup::make();
-        $day = new \DateTime('today', new \DateTimeZone('Europe/Kyiv'));
+        $day = new DateTime('today', new DateTimeZone('Europe/Kyiv'));
         $row = [];
 
-        for ($i = 0; $i < self::DAYS_OFFERED; $i++) {
+        for ($i = 0; $i < self::DAYS_OFFERED; ++$i) {
             $label = sprintf(
                 '%s%s %s',
                 $i === 0 ? '🔥 ' : '',
                 $day->format('d.m'),
-                self::WEEKDAYS[(int)$day->format('N')],
+                self::WEEKDAYS[(int) $day->format('N')],
             );
 
             $row[] = InlineKeyboardButton::make($label, callback_data: self::DATE_PREFIX . $day->format('Y-m-d'));
@@ -318,17 +321,17 @@ class NewRequestConversation extends Conversation
         return $markup;
     }
 
-    private function parseDate(string $text, \DateTime $today): ?\DateTime
+    private function parseDate(string $text, DateTime $today): ?DateTime
     {
-        if (!preg_match('/^(\d{1,2})[.\/](\d{1,2})(?:[.\/](\d{4}))?$/', $text, $m)) {
+        if (! preg_match('/^(\d{1,2})[.\/](\d{1,2})(?:[.\/](\d{4}))?$/', $text, $m)) {
             return null;
         }
 
-        $year = isset($m[3]) ? (int)$m[3] : (int)$today->format('Y');
-        $date = \DateTime::createFromFormat(
+        $year = isset($m[3]) ? (int) $m[3] : (int) $today->format('Y');
+        $date = DateTime::createFromFormat(
             'Y-n-j H:i:s',
-            sprintf('%d-%d-%d 00:00:00', $year, (int)$m[2], (int)$m[1]),
-            new \DateTimeZone('Europe/Kyiv'),
+            sprintf('%d-%d-%d 00:00:00', $year, (int) $m[2], (int) $m[1]),
+            new DateTimeZone('Europe/Kyiv'),
         );
 
         return $date ?: null;

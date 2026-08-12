@@ -4,8 +4,6 @@ namespace App\Entity;
 
 use App\Entity\EntityTrait\CreatedUpdatedAtAwareTrait;
 use App\Repository\CarDriverRepository;
-use Doctrine\Common\Collections\ArrayCollection;
-use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: CarDriverRepository::class)]

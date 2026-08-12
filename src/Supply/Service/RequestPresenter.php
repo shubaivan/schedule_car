@@ -22,7 +22,7 @@ class RequestPresenter
             'id' => $request->getId(),
             'number' => $request->getNumber(),
             'item' => $request->getItem(),
-            'quantity' => (float)$request->getQuantity(),
+            'quantity' => (float) $request->getQuantity(),
             'unit' => $request->getUnit()->value,
             'unitLabel' => $request->getUnit()->label(),
             'quantityLabel' => $request->getQuantityLabel(),
@@ -46,9 +46,9 @@ class RequestPresenter
             'note' => $request->getNote(),
             'closedAt' => $request->getClosedAt()?->format(DATE_ATOM),
             'purchases' => array_map($this->purchase(...), $request->getPurchases()->toArray()),
-            'purchaseTotal' => (float)$request->getPurchaseTotal(),
+            'purchaseTotal' => (float) $request->getPurchaseTotal(),
             'allowedTransitions' => array_map(
-                static fn($status) => ['value' => $status->value, 'label' => $status->label()],
+                static fn ($status) => ['value' => $status->value, 'label' => $status->label()],
                 $request->getStatus()->allowedTransitions(),
             ),
             'timeline' => $this->timeline($request),
@@ -81,7 +81,7 @@ class RequestPresenter
             ];
         }
 
-        usort($events, static fn(array $a, array $b) => $a['at'] <=> $b['at']);
+        usort($events, static fn (array $a, array $b) => $a['at'] <=> $b['at']);
 
         return $events;
     }
@@ -91,9 +91,9 @@ class RequestPresenter
         return [
             'id' => $purchase->getId(),
             'supplier' => $this->supplier($purchase->getSupplier()),
-            'quantity' => $purchase->getQuantity() !== null ? (float)$purchase->getQuantity() : null,
-            'pricePerUnit' => $purchase->getPricePerUnit() !== null ? (float)$purchase->getPricePerUnit() : null,
-            'totalAmount' => (float)$purchase->getTotalAmount(),
+            'quantity' => $purchase->getQuantity() !== null ? (float) $purchase->getQuantity() : null,
+            'pricePerUnit' => $purchase->getPricePerUnit() !== null ? (float) $purchase->getPricePerUnit() : null,
+            'totalAmount' => (float) $purchase->getTotalAmount(),
             'totalLabel' => $purchase->getTotalLabel(),
             'currency' => $purchase->getCurrency(),
             'vatIncluded' => $purchase->isVatIncluded(),

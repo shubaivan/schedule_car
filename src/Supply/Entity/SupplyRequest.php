@@ -7,6 +7,8 @@ use App\Entity\TelegramUser;
 use App\Supply\Enum\SupplyStatus;
 use App\Supply\Enum\Unit;
 use App\Supply\Repository\SupplyRequestRepository;
+use DateTime;
+use DateTimeZone;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
@@ -60,7 +62,7 @@ class SupplyRequest
     private ?string $site = null;
 
     #[ORM\Column(name: 'need_by', type: Types::DATE_MUTABLE, nullable: true)]
-    private ?\DateTime $needBy = null;
+    private ?DateTime $needBy = null;
 
     #[ORM\Column(type: 'boolean', nullable: false, options: ['default' => false])]
     private bool $urgent = false;
@@ -73,7 +75,7 @@ class SupplyRequest
     private SupplyStatus $status = SupplyStatus::New;
 
     #[ORM\Column(name: 'closed_at', type: Types::DATETIME_MUTABLE, nullable: true)]
-    private ?\DateTime $closedAt = null;
+    private ?DateTime $closedAt = null;
 
     #[ORM\OneToMany(targetEntity: SupplyComment::class, mappedBy: 'request', cascade: ['persist', 'remove'])]
     #[ORM\OrderBy(['created_at' => 'ASC'])]
@@ -184,12 +186,12 @@ class SupplyRequest
         return $this;
     }
 
-    public function getNeedBy(): ?\DateTime
+    public function getNeedBy(): ?DateTime
     {
         return $this->needBy;
     }
 
-    public function setNeedBy(?\DateTime $needBy): self
+    public function setNeedBy(?DateTime $needBy): self
     {
         $this->needBy = $needBy;
 
@@ -232,12 +234,12 @@ class SupplyRequest
         return $this;
     }
 
-    public function getClosedAt(): ?\DateTime
+    public function getClosedAt(): ?DateTime
     {
         return $this->closedAt;
     }
 
-    public function setClosedAt(?\DateTime $closedAt): self
+    public function setClosedAt(?DateTime $closedAt): self
     {
         $this->closedAt = $closedAt;
 
@@ -251,7 +253,7 @@ class SupplyRequest
 
     public function addComment(SupplyComment $comment): self
     {
-        if (!$this->comments->contains($comment)) {
+        if (! $this->comments->contains($comment)) {
             $this->comments->add($comment);
             $comment->setRequest($this);
         }
@@ -266,7 +268,7 @@ class SupplyRequest
 
     public function addStatusLog(SupplyStatusLog $log): self
     {
-        if (!$this->statusLogs->contains($log)) {
+        if (! $this->statusLogs->contains($log)) {
             $this->statusLogs->add($log);
             $log->setRequest($this);
         }
@@ -281,7 +283,7 @@ class SupplyRequest
 
     public function addPurchase(SupplyPurchase $purchase): self
     {
-        if (!$this->purchases->contains($purchase)) {
+        if (! $this->purchases->contains($purchase)) {
             $this->purchases->add($purchase);
             $purchase->setRequest($this);
         }
@@ -307,7 +309,7 @@ class SupplyRequest
         $cents = 0;
 
         foreach ($this->purchases as $purchase) {
-            $cents += (int)round((float)$purchase->getTotalAmount() * 100);
+            $cents += (int) round((float) $purchase->getTotalAmount() * 100);
         }
 
         return number_format($cents / 100, 2, '.', '');
@@ -316,7 +318,7 @@ class SupplyRequest
     /** Заявка вважається закупленою, щойно є хоч один запис із постачальником. */
     public function isPurchased(): bool
     {
-        return !$this->purchases->isEmpty();
+        return ! $this->purchases->isEmpty();
     }
 
     /**
@@ -343,6 +345,6 @@ class SupplyRequest
             return false;
         }
 
-        return $this->needBy < (new \DateTime('today', new \DateTimeZone('Europe/Kyiv')));
+        return $this->needBy < (new DateTime('today', new DateTimeZone('Europe/Kyiv')));
     }
 }

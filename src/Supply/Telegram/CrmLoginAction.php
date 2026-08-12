@@ -33,7 +33,7 @@ class CrmLoginAction
 
         $user = $this->telegramUserService->getCurrentUser();
 
-        if ($user === null || !$user->getSupplyRole()->canManage()) {
+        if ($user === null || ! $user->getSupplyRole()->canManage()) {
             $bot->sendMessage(text: '⚠️ Доступ до CRM мають лише менеджери з постачання.');
 
             return;

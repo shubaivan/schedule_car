@@ -147,7 +147,7 @@ class PurchaseApiTest extends WebTestCase
             content: json_encode($payload),
         );
 
-        return json_decode((string)$this->client->getResponse()->getContent(), true) ?? [];
+        return json_decode((string) $this->client->getResponse()->getContent(), true) ?? [];
     }
 
     private function supplier(): Supplier

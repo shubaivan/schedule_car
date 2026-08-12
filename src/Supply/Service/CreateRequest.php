@@ -9,6 +9,8 @@ use App\Supply\Entity\SupplyStatusLog;
 use App\Supply\Enum\SupplyStatus;
 use App\Supply\Exception\SupplyException;
 use App\Supply\Repository\SupplyRequestRepository;
+use DateTime;
+use DateTimeZone;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 
@@ -36,7 +38,7 @@ class CreateRequest
             throw new SupplyException('Не вказано, що саме потрібно.');
         }
 
-        if (!is_numeric($input->quantity) || (float)$input->quantity <= 0) {
+        if (! is_numeric($input->quantity) || (float) $input->quantity <= 0) {
             throw new SupplyException('Кількість має бути числом більшим за нуль.');
         }
 
@@ -44,7 +46,7 @@ class CreateRequest
             ->setAuthor($author)
             ->setDepartment($input->department ?? $author->getDepartment())
             ->setItem($item)
-            ->setQuantity((string)$input->quantity)
+            ->setQuantity((string) $input->quantity)
             ->setUnit($input->unit)
             ->setSite($input->site !== null ? trim($input->site) : null)
             ->setNeedBy($input->needBy)
@@ -84,7 +86,7 @@ class CreateRequest
      */
     private function saveWithNumber(SupplyRequest $request): void
     {
-        $year = (int)(new \DateTime('now', new \DateTimeZone('Europe/Kyiv')))->format('Y');
+        $year = (int) (new DateTime('now', new DateTimeZone('Europe/Kyiv')))->format('Y');
 
         $this->em->wrapInTransaction(function () use ($request, $year): void {
             $this->em->getConnection()->executeStatement(

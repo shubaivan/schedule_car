@@ -3,6 +3,8 @@
 namespace App\Repository;
 
 use App\Entity\LoginToken;
+use DateTime;
+use DateTimeZone;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -27,7 +29,7 @@ class LoginTokenRepository extends ServiceEntityRepository
         $this->createQueryBuilder('t')
             ->delete()
             ->where('t.expiresAt < :now')
-            ->setParameter('now', new \DateTime('now', new \DateTimeZone('Europe/Kyiv')))
+            ->setParameter('now', new DateTime('now', new DateTimeZone('Europe/Kyiv')))
             ->getQuery()
             ->execute();
     }

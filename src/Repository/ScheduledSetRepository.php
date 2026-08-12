@@ -20,12 +20,6 @@ class ScheduledSetRepository extends ServiceEntityRepository
     }
 
     /**
-     * @param int $carId
-     * @param int $year
-     * @param int $month
-     * @param int $day
-     * @param int|null $hour
-     * @param TelegramUser|null $user
      * @return ScheduledSet[]
      */
     public function getByParams(int $carId, int $year, int $month, int $day, ?int $hour, ?TelegramUser $user): array
@@ -70,7 +64,6 @@ class ScheduledSetRepository extends ServiceEntityRepository
     }
 
     /**
-     * @param TelegramUser $user
      * @return ScheduledSet[]
      */
     public function getOwn(TelegramUser $user): array
@@ -97,7 +90,6 @@ class ScheduledSetRepository extends ServiceEntityRepository
     }
 
     /**
-     * @param Car $car
      * @return ScheduledSet[]
      */
     public function getByCar(Car $car): array

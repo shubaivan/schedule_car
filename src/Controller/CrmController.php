@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use LogicException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Response;
@@ -16,13 +17,13 @@ class CrmController extends AbstractController
     #[Route('/crm/auth/{token}', name: 'crm_auth', requirements: ['token' => '[a-f0-9]{64}'])]
     public function auth(): Response
     {
-        throw new \LogicException('Має перехопити TelegramLinkAuthenticator.');
+        throw new LogicException('Має перехопити TelegramLinkAuthenticator.');
     }
 
     #[Route('/crm/logout', name: 'crm_logout')]
     public function logout(): Response
     {
-        throw new \LogicException('Має перехопити файрвол Symfony.');
+        throw new LogicException('Має перехопити файрвол Symfony.');
     }
 
     /**
@@ -35,7 +36,7 @@ class CrmController extends AbstractController
         $built = $projectDir . '/public/crm/index.html';
 
         if (is_readable($built)) {
-            return new Response((string)file_get_contents($built));
+            return new Response((string) file_get_contents($built));
         }
 
         // Фронт ще не зібраний (npm run build у frontend/) — показуємо заглушку.

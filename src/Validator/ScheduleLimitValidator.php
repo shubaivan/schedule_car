@@ -10,15 +10,17 @@ use Symfony\Component\Validator\Exception\UnexpectedTypeException;
 
 class ScheduleLimitValidator extends ConstraintValidator
 {
-    public function __construct(private ScheduledSetRepository $repository) {}
+    public function __construct(private ScheduledSetRepository $repository)
+    {
+    }
 
     public function validate(mixed $value, Constraint $constraint)
     {
-        if (!$constraint instanceof ScheduleLimit) {
+        if (! $constraint instanceof ScheduleLimit) {
             throw new UnexpectedTypeException($constraint, ScheduleLimit::class);
         }
 
-        if (!$value instanceof ScheduledSet) {
+        if (! $value instanceof ScheduledSet) {
             throw new UnexpectedTypeException($constraint, ScheduledSet::class);
         }
 
@@ -27,7 +29,7 @@ class ScheduleLimitValidator extends ConstraintValidator
             $value->getYear(),
             $value->getMonth(),
             $value->getDay(),
-            $value->getTelegramUserId()
+            $value->getTelegramUserId(),
         );
 
         if ($count >= 8) {

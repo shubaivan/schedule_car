@@ -8,7 +8,6 @@ use Doctrine\ORM\EntityManagerInterface;
 use SergiX44\Nutgram\Conversations\Conversation;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Properties\ParseMode;
-use SergiX44\Nutgram\Telegram\Types\Internal\InputFile;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardMarkup;
 use SergiX44\Nutgram\Telegram\Types\Message\Message;
@@ -23,26 +22,27 @@ class OwnSchedule extends Conversation
         protected string $projectDir,
         private ScheduleCarService $scheduleCarService,
         private EntityManagerInterface $em,
-        private TelegramUserService $telegramUserService
-    ) {}
+        private TelegramUserService $telegramUserService,
+    ) {
+    }
 
     public function own(Nutgram $bot)
     {
         $scheduledSets = $this->scheduleCarService->getOwn(
-            $this->telegramUserService->getCurrentUser()
+            $this->telegramUserService->getCurrentUser(),
         );
         $availableDecline = [];
-        if (!$scheduledSets) {
+        if (! $scheduledSets) {
             $bot->sendMessage(
                 text: '<b>Немає бронювань</b>',
-                parse_mode: ParseMode::HTML
+                parse_mode: ParseMode::HTML,
             );
             $this->end();
 
             return;
         }
 
-        foreach ($scheduledSets as $carNumber=>$set) {
+        foreach ($scheduledSets as $carNumber => $set) {
             $bot->sendMessage(
                 text: sprintf('Машина №%s. Ваші бронювання:', $carNumber),
             );
@@ -53,7 +53,7 @@ class OwnSchedule extends Conversation
                     reply_markup: InlineKeyboardMarkup::make()
                         ->addRow(
                             InlineKeyboardButton::make('Відмінити', callback_data: 'decline_' . $specificSet->getId()),
-                        )
+                        ),
                 );
             }
         }
@@ -63,22 +63,23 @@ class OwnSchedule extends Conversation
 
     public function scheduleDate(Nutgram $bot)
     {
-        if (!$bot->isCallbackQuery()
-            || $bot->callbackQuery()->data == "0"
-            || !str_contains($bot->callbackQuery()->data, 'decline_')
+        if (! $bot->isCallbackQuery() ||
+            $bot->callbackQuery()->data == '0' ||
+            ! str_contains($bot->callbackQuery()->data, 'decline_')
         ) {
             $this->own($bot);
 
             return;
         }
-        $this->id = str_replace('decline_', '', $bot->callbackQuery()->data);
+        $this->id = (int) str_replace('decline_', '', (string) $bot->callbackQuery()->data);
         $scheduledSet = $this->scheduleCarService->getById($this->id);
-        if (!$scheduledSet) {
+        if (! $scheduledSet) {
             $bot->sendMessage(
                 text: '<b>Немає бронювань</b>',
-                parse_mode: ParseMode::HTML
+                parse_mode: ParseMode::HTML,
             );
             $this->end();
+
             return;
         }
         $bot->sendMessage(
@@ -88,9 +89,9 @@ class OwnSchedule extends Conversation
             text: 'Видалити бронювання? Натисніть *Підтверджую*',
             parse_mode: ParseMode::MARKDOWN,
             reply_markup: InlineKeyboardMarkup::make()->addRow(
-                InlineKeyboardButton::make(text: 'Підтверджую', callback_data: 1),
-                InlineKeyboardButton::make(text: 'На початок', callback_data: 0),
-            )
+                InlineKeyboardButton::make(text: 'Підтверджую', callback_data: '1'),
+                InlineKeyboardButton::make(text: 'На початок', callback_data: '0'),
+            ),
         );
 
         $this->next('removeScheduled');
@@ -98,8 +99,8 @@ class OwnSchedule extends Conversation
 
     public function removeScheduled(Nutgram $bot)
     {
-        if (!$bot->isCallbackQuery()
-            || $bot->callbackQuery()->data != "1"
+        if (! $bot->isCallbackQuery() ||
+            $bot->callbackQuery()->data != '1'
         ) {
             $this->own($bot);
 
@@ -107,10 +108,10 @@ class OwnSchedule extends Conversation
         }
 
         $scheduledSet = $this->scheduleCarService->getById($this->id);
-        if (!$scheduledSet) {
+        if (! $scheduledSet) {
             $bot->sendMessage(
                 text: '<b>Немає бронювань</b>',
-                parse_mode: ParseMode::HTML
+                parse_mode: ParseMode::HTML,
             );
             $this->end();
         }
@@ -120,7 +121,7 @@ class OwnSchedule extends Conversation
 
         $bot->sendMessage(
             text: '<b>Видалено</b>',
-            parse_mode: ParseMode::HTML
+            parse_mode: ParseMode::HTML,
         );
 
         $this->id = null;
@@ -131,10 +132,10 @@ class OwnSchedule extends Conversation
                 text: sprintf(
                     'Бронь скасовано, працівник %s на дату %s',
                     $this->telegramUserService->getCurrentUser()->concatNameInfo(),
-                    $scheduledSet->getScheduledAt()->format('Y/m/d H:i:s')
+                    $scheduledSet->getScheduledAt()->format('Y/m/d H:i:s'),
                 ),
                 chat_id: $carDriver->getDriver()->getChatId(),
-                parse_mode: ParseMode::HTML
+                parse_mode: ParseMode::HTML,
             );
         }
 

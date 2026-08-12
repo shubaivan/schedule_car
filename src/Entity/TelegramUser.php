@@ -5,11 +5,13 @@ namespace App\Entity;
 use App\Entity\EntityTrait\CreatedUpdatedAtAwareTrait;
 use App\Enum\AccessStatus;
 use App\Repository\TelegramUserRepository;
-use Doctrine\DBAL\Types\Types;
 use App\Supply\Entity\Department;
 use App\Supply\Enum\SupplyRole;
+use DateTime;
+use DateTimeZone;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
@@ -47,7 +49,7 @@ class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'string', length: 255, nullable: false)]
     private string $language_code = 'uk';
 
-    #[ORM\OneToMany(targetEntity: ScheduledSet::class, mappedBy: 'telegramUserId', cascade: ["persist"])]
+    #[ORM\OneToMany(targetEntity: ScheduledSet::class, mappedBy: 'telegramUserId', cascade: ['persist'])]
     private Collection $scheduledSet;
 
     #[NotBlank]
@@ -61,7 +63,7 @@ class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface
     private AccessStatus $accessStatus = AccessStatus::Pending;
 
     #[ORM\Column(name: 'access_decided_at', type: Types::DATETIME_MUTABLE, nullable: true)]
-    private ?\DateTime $accessDecidedAt = null;
+    private ?DateTime $accessDecidedAt = null;
 
     #[ORM\ManyToOne(targetEntity: TelegramUser::class)]
     #[ORM\JoinColumn(name: 'access_decided_by_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
@@ -70,7 +72,6 @@ class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\ManyToOne(targetEntity: Department::class)]
     #[ORM\JoinColumn(name: 'department_id', referencedColumnName: 'id', nullable: true)]
     private ?Department $department = null;
-
 
     public function __construct()
     {
@@ -247,12 +248,12 @@ class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface
         $this->accessDecidedBy = $by;
         $this->accessDecidedAt = $status === AccessStatus::Pending
             ? null
-            : new \DateTime('now', new \DateTimeZone('Europe/Kyiv'));
+            : new DateTime('now', new DateTimeZone('Europe/Kyiv'));
 
         return $this;
     }
 
-    public function getAccessDecidedAt(): ?\DateTime
+    public function getAccessDecidedAt(): ?DateTime
     {
         return $this->accessDecidedAt;
     }
@@ -279,7 +280,7 @@ class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface
     /** Вхід у CRM — лише через бота, тож ідентифікатор користувача це його telegram_id. */
     public function getUserIdentifier(): string
     {
-        return (string)$this->telegram_id;
+        return (string) $this->telegram_id;
     }
 
     public function getRoles(): array

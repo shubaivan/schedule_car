@@ -34,11 +34,11 @@ class TelegramLinkAuthenticator extends AbstractAuthenticator
     {
         // Краулер превʼю Telegram відкриває посилання раніше за людину. Якщо дати
         // йому спалити токен, користувач отримає «посилання вже використане».
-        if (str_contains((string)$request->headers->get('User-Agent'), 'TelegramBot')) {
+        if (str_contains((string) $request->headers->get('User-Agent'), 'TelegramBot')) {
             throw new CustomUserMessageAuthenticationException('Посилання відкриється у браузері.');
         }
 
-        $user = $this->loginLink->consume((string)$request->attributes->get('token'));
+        $user = $this->loginLink->consume((string) $request->attributes->get('token'));
 
         if ($user === null) {
             throw new CustomUserMessageAuthenticationException(
@@ -46,12 +46,12 @@ class TelegramLinkAuthenticator extends AbstractAuthenticator
             );
         }
 
-        if (!$user->getSupplyRole()->canManage()) {
+        if (! $user->getSupplyRole()->canManage()) {
             throw new CustomUserMessageAuthenticationException('У вас немає доступу до CRM.');
         }
 
         return new SelfValidatingPassport(
-            new UserBadge($user->getUserIdentifier(), static fn() => $user),
+            new UserBadge($user->getUserIdentifier(), static fn () => $user),
         );
     }
 

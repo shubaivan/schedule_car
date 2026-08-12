@@ -5,6 +5,8 @@ namespace App\Supply\Entity;
 use App\Entity\TelegramUser;
 use App\Supply\Enum\SupplyStatus;
 use App\Supply\Repository\SupplyStatusLogRepository;
+use DateTime;
+use DateTimeZone;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -38,11 +40,11 @@ class SupplyStatusLog
     private ?string $comment = null;
 
     #[ORM\Column(name: 'created_at', type: Types::DATETIME_MUTABLE, nullable: false)]
-    private \DateTime $created_at;
+    private DateTime $created_at;
 
     public function __construct()
     {
-        $this->created_at = new \DateTime('now', new \DateTimeZone('Europe/Kyiv'));
+        $this->created_at = new DateTime('now', new DateTimeZone('Europe/Kyiv'));
     }
 
     public function getId(): ?int
@@ -110,7 +112,7 @@ class SupplyStatusLog
         return $this;
     }
 
-    public function getCreatedAt(): \DateTime
+    public function getCreatedAt(): DateTime
     {
         return $this->created_at;
     }

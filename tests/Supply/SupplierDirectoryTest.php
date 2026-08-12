@@ -121,7 +121,7 @@ class SupplierDirectoryTest extends KernelTestCase
         self::assertNotNull($this->repository->findOneByName('ФОП Петренко О.П.'), 'запис лишається');
         self::assertSame([], array_filter(
             $this->repository->findActive(),
-            static fn(Supplier $s) => $s->getId() === $supplier->getId(),
+            static fn (Supplier $s) => $s->getId() === $supplier->getId(),
         ));
     }
 

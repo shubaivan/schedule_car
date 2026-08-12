@@ -41,11 +41,11 @@ class UserApiController extends AbstractController
         DepartmentRepository $departments,
         EntityManagerInterface $em,
     ): JsonResponse {
-        $payload = json_decode((string)$request->getContent(), true);
+        $payload = json_decode((string) $request->getContent(), true);
         $payload = is_array($payload) ? $payload : [];
 
         if (array_key_exists('role', $payload)) {
-            $role = SupplyRole::tryFrom((string)$payload['role']);
+            $role = SupplyRole::tryFrom((string) $payload['role']);
 
             if ($role === null) {
                 return $this->json(['error' => 'Невідома роль.'], Response::HTTP_UNPROCESSABLE_ENTITY);
@@ -56,7 +56,7 @@ class UserApiController extends AbstractController
 
         if (array_key_exists('departmentId', $payload)) {
             $department = $payload['departmentId'] !== null
-                ? $departments->find((int)$payload['departmentId'])
+                ? $departments->find((int) $payload['departmentId'])
                 : null;
 
             if ($payload['departmentId'] !== null && $department === null) {

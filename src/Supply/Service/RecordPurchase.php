@@ -7,6 +7,8 @@ use App\Supply\Dto\PurchaseInput;
 use App\Supply\Entity\SupplyPurchase;
 use App\Supply\Entity\SupplyRequest;
 use App\Supply\Exception\SupplyException;
+use DateTime;
+use DateTimeZone;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 
@@ -92,15 +94,15 @@ class RecordPurchase
         // Достатньо будь-яких двох із трьох — третє дораховуємо самі, щоб
         // менеджер не рахував на калькуляторі.
         if ($total === null && $price !== null && $quantity !== null) {
-            $total = $this->round((float)$price * (float)$quantity);
+            $total = $this->round((float) $price * (float) $quantity);
         }
 
         if ($total === null) {
             throw new SupplyException('Вкажіть суму закупівлі або ціну за одиницю разом із кількістю.');
         }
 
-        if ($price === null && $quantity !== null && (float)$quantity > 0) {
-            $price = $this->round((float)$total / (float)$quantity);
+        if ($price === null && $quantity !== null && (float) $quantity > 0) {
+            $price = $this->round((float) $total / (float) $quantity);
         }
 
         $purchase
@@ -111,7 +113,7 @@ class RecordPurchase
             ->setPayment($input->payment)
             ->setVatIncluded($input->vatIncluded)
             ->setInvoiceNumber($input->invoiceNumber)
-            ->setPurchasedAt($input->purchasedAt ?? new \DateTime('today', new \DateTimeZone('Europe/Kyiv')));
+            ->setPurchasedAt($input->purchasedAt ?? new DateTime('today', new DateTimeZone('Europe/Kyiv')));
     }
 
     /** Порожнє поле — це «не вказано», а не нуль. */
@@ -127,7 +129,7 @@ class RecordPurchase
             return null;
         }
 
-        if (!is_numeric($value) || (float)$value <= 0) {
+        if (! is_numeric($value) || (float) $value <= 0) {
             throw new SupplyException(sprintf('%s має бути числом більшим за нуль.', $label));
         }
 
@@ -141,7 +143,7 @@ class RecordPurchase
 
     private function assertManager(TelegramUser $by): void
     {
-        if (!$by->getSupplyRole()->canManage()) {
+        if (! $by->getSupplyRole()->canManage()) {
             throw new SupplyException('Записувати закупівлю може лише менеджер із постачання.');
         }
     }

@@ -23,7 +23,7 @@ class Car
     #[ORM\Column(length: 255)]
     private ?string $carNumber = null;
 
-    #[ORM\OneToMany(targetEntity: ScheduledSet::class, mappedBy: 'car', cascade: ["persist"])]
+    #[ORM\OneToMany(targetEntity: ScheduledSet::class, mappedBy: 'car', cascade: ['persist'])]
     private Collection $scheduledSet;
 
     /**
@@ -33,11 +33,11 @@ class Car
     #[ORM\OneToMany(targetEntity: CarDriver::class, mappedBy: 'car')]
     private Collection $carDriver;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->scheduledSet = new ArrayCollection();
         $this->carDriver = new ArrayCollection();
     }
-
 
     public function getId(): ?int
     {

@@ -4,6 +4,8 @@ namespace App\Supply\Entity;
 
 use App\Entity\TelegramUser;
 use App\Supply\Repository\SupplyCommentRepository;
+use DateTime;
+use DateTimeZone;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints\NotBlank;
@@ -32,11 +34,11 @@ class SupplyComment
     private string $text;
 
     #[ORM\Column(name: 'created_at', type: Types::DATETIME_MUTABLE, nullable: false)]
-    private \DateTime $created_at;
+    private DateTime $created_at;
 
     public function __construct()
     {
-        $this->created_at = new \DateTime('now', new \DateTimeZone('Europe/Kyiv'));
+        $this->created_at = new DateTime('now', new DateTimeZone('Europe/Kyiv'));
     }
 
     public function getId(): ?int
@@ -80,7 +82,7 @@ class SupplyComment
         return $this;
     }
 
-    public function getCreatedAt(): \DateTime
+    public function getCreatedAt(): DateTime
     {
         return $this->created_at;
     }

@@ -100,7 +100,7 @@ class SupplyApiTest extends WebTestCase
         );
 
         self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
-        self::assertArrayHasKey('error', json_decode((string)$this->client->getResponse()->getContent(), true));
+        self::assertArrayHasKey('error', json_decode((string) $this->client->getResponse()->getContent(), true));
     }
 
     public function testRejectWithoutReasonReturns422(): void
@@ -152,7 +152,7 @@ class SupplyApiTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
 
-        $payload = json_decode((string)$this->client->getResponse()->getContent(), true);
+        $payload = json_decode((string) $this->client->getResponse()->getContent(), true);
         self::assertSame('manager', $payload['role']);
         self::assertSame($department->getName(), $payload['department']);
     }
@@ -173,7 +173,7 @@ class SupplyApiTest extends WebTestCase
         $this->client->request('GET', $url);
         self::assertResponseIsSuccessful();
 
-        return json_decode((string)$this->client->getResponse()->getContent(), true);
+        return json_decode((string) $this->client->getResponse()->getContent(), true);
     }
 
     private function post(string $url, array $payload): array
@@ -186,7 +186,7 @@ class SupplyApiTest extends WebTestCase
         );
         self::assertResponseIsSuccessful();
 
-        return json_decode((string)$this->client->getResponse()->getContent(), true);
+        return json_decode((string) $this->client->getResponse()->getContent(), true);
     }
 
     private function loginAsManager(): void

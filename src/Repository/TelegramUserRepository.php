@@ -6,15 +6,14 @@ use App\Entity\TelegramUser;
 use App\Supply\Enum\SupplyRole;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
-use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 
 /**
  * @extends ServiceEntityRepository<TelegramUser>
  *
  * @method TelegramUser|null find($id, $lockMode = null, $lockVersion = null)
  * @method TelegramUser|null findOneBy(array $criteria, array $orderBy = null)
- * @method TelegramUser[]    findAll()
- * @method TelegramUser[]    findBy(array $criteria, array $orderBy = null, $limit = null, $offset = null)
+ * @method TelegramUser[] findAll()
+ * @method TelegramUser[] findBy(array $criteria, array $orderBy = null, $limit = null, $offset = null)
  */
 class TelegramUserRepository extends ServiceEntityRepository
 {

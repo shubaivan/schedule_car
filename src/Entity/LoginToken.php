@@ -3,6 +3,8 @@
 namespace App\Entity;
 
 use App\Repository\LoginTokenRepository;
+use DateTime;
+use DateTimeZone;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -32,17 +34,17 @@ class LoginToken
     private TelegramUser $user;
 
     #[ORM\Column(name: 'expires_at', type: Types::DATETIME_MUTABLE, nullable: false)]
-    private \DateTime $expiresAt;
+    private DateTime $expiresAt;
 
     #[ORM\Column(name: 'used_at', type: Types::DATETIME_MUTABLE, nullable: true)]
-    private ?\DateTime $usedAt = null;
+    private ?DateTime $usedAt = null;
 
     #[ORM\Column(name: 'created_at', type: Types::DATETIME_MUTABLE, nullable: false)]
-    private \DateTime $created_at;
+    private DateTime $created_at;
 
     public function __construct()
     {
-        $this->created_at = new \DateTime('now', new \DateTimeZone('Europe/Kyiv'));
+        $this->created_at = new DateTime('now', new DateTimeZone('Europe/Kyiv'));
         $this->expiresAt = (clone $this->created_at)->modify('+' . self::TTL_MINUTES . ' minutes');
     }
 
@@ -75,30 +77,30 @@ class LoginToken
         return $this;
     }
 
-    public function getExpiresAt(): \DateTime
+    public function getExpiresAt(): DateTime
     {
         return $this->expiresAt;
     }
 
-    public function getUsedAt(): ?\DateTime
+    public function getUsedAt(): ?DateTime
     {
         return $this->usedAt;
     }
 
     public function markUsed(): self
     {
-        $this->usedAt = new \DateTime('now', new \DateTimeZone('Europe/Kyiv'));
+        $this->usedAt = new DateTime('now', new DateTimeZone('Europe/Kyiv'));
 
         return $this;
     }
 
     public function isUsable(): bool
     {
-        return $this->usedAt === null
-            && $this->expiresAt > new \DateTime('now', new \DateTimeZone('Europe/Kyiv'));
+        return $this->usedAt === null &&
+            $this->expiresAt > new DateTime('now', new DateTimeZone('Europe/Kyiv'));
     }
 
-    public function getCreatedAt(): \DateTime
+    public function getCreatedAt(): DateTime
     {
         return $this->created_at;
     }

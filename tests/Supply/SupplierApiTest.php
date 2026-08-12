@@ -116,7 +116,7 @@ class SupplierApiTest extends WebTestCase
         $this->client->request('GET', $url);
         self::assertResponseIsSuccessful();
 
-        return json_decode((string)$this->client->getResponse()->getContent(), true);
+        return json_decode((string) $this->client->getResponse()->getContent(), true);
     }
 
     private function post(string $url, array $payload): array
@@ -138,7 +138,7 @@ class SupplierApiTest extends WebTestCase
             content: json_encode($payload),
         );
 
-        return json_decode((string)$this->client->getResponse()->getContent(), true) ?? [];
+        return json_decode((string) $this->client->getResponse()->getContent(), true) ?? [];
     }
 
     private function login(): void

@@ -175,6 +175,6 @@ class Supplier
      */
     public static function normalize(string $name): string
     {
-        return (string)preg_replace('/[^\p{L}\p{N}]+/u', '', mb_strtolower(trim($name)));
+        return (string) preg_replace('/[^\p{L}\p{N}]+/u', '', mb_strtolower(trim($name)));
     }
 }

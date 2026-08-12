@@ -28,7 +28,7 @@ class RequestView
         $bot->answerCallbackQuery();
 
         $user = $this->telegramUserService->getCurrentUser();
-        $request = $this->repository->find((int)$id);
+        $request = $this->repository->find((int) $id);
 
         if ($request === null || $user === null) {
             $this->screen->render($bot, '⚠️ Заявку не знайдено.');
@@ -38,7 +38,7 @@ class RequestView
 
         $isManager = $user->getSupplyRole()->canManage();
 
-        if (!$isManager && $request->getAuthor()->getId() !== $user->getId()) {
+        if (! $isManager && $request->getAuthor()->getId() !== $user->getId()) {
             $this->screen->render($bot, '⚠️ Ця заявка не ваша.');
 
             return;
@@ -63,7 +63,7 @@ class RequestView
     private function keyboard(SupplyRequest $request, bool $isManager): InlineKeyboardMarkup
     {
         $markup = InlineKeyboardMarkup::make();
-        $id = (int)$request->getId();
+        $id = (int) $request->getId();
 
         if ($isManager) {
             $row = [];

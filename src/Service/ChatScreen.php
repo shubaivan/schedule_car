@@ -5,6 +5,7 @@ namespace App\Service;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Properties\ParseMode;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardMarkup;
+use Throwable;
 
 /**
  * Один живий «екран» на чат: меню, список заявок, картка й форма живуть в
@@ -61,7 +62,7 @@ class ChatScreen
                 $this->remember($bot, $target);
 
                 return $target;
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 // Той самий екран із тим самим текстом: Telegram вважає це помилкою,
                 // а для нас це успіх — повторне натискання нічого не має міняти.
                 if (str_contains($e->getMessage(), 'message is not modified')) {
@@ -100,7 +101,7 @@ class ChatScreen
         if ($chatId !== null && $current !== null) {
             try {
                 $bot->deleteMessage($chatId, $current);
-            } catch (\Throwable) {
+            } catch (Throwable) {
                 // Не критично: повідомлення просто лишиться в чаті.
             }
         }
@@ -131,7 +132,7 @@ class ChatScreen
     {
         try {
             $bot->editMessageReplyMarkup(chat_id: $chatId, message_id: $messageId, reply_markup: null);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // Повідомлення могли видалити — тоді натиснути на нього вже нікому.
         }
     }

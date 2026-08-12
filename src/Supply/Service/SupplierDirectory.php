@@ -65,7 +65,7 @@ class SupplierDirectory
     public function update(Supplier $supplier, array $fields): Supplier
     {
         if (array_key_exists('name', $fields)) {
-            $name = trim((string)$fields['name']);
+            $name = trim((string) $fields['name']);
 
             if ($name === '') {
                 throw new SupplyException('Вкажіть назву постачальника.');
@@ -82,7 +82,7 @@ class SupplierDirectory
 
         if (array_key_exists('active', $fields)) {
             // Не видаляємо: на постачальника посилаються закупівлі минулих заявок.
-            $supplier->setActive((bool)$fields['active']);
+            $supplier->setActive((bool) $fields['active']);
         }
 
         $this->apply($supplier, $fields);
@@ -104,10 +104,10 @@ class SupplierDirectory
     private function apply(Supplier $supplier, array $fields): void
     {
         if (array_key_exists('edrpou', $fields)) {
-            $edrpou = $fields['edrpou'] !== null ? trim((string)$fields['edrpou']) : null;
+            $edrpou = $fields['edrpou'] !== null ? trim((string) $fields['edrpou']) : null;
 
             if ($edrpou !== null && $edrpou !== '') {
-                if (!preg_match('/^\d{8,10}$/', $edrpou)) {
+                if (! preg_match('/^\d{8,10}$/', $edrpou)) {
                     throw new SupplyException('ЄДРПОУ — 8 цифр, ІПН підприємця — 10. Інакше залиште поле порожнім.');
                 }
 
@@ -125,15 +125,15 @@ class SupplierDirectory
         }
 
         if (array_key_exists('phone', $fields)) {
-            $supplier->setPhone($fields['phone'] !== null ? (string)$fields['phone'] : null);
+            $supplier->setPhone($fields['phone'] !== null ? (string) $fields['phone'] : null);
         }
 
         if (array_key_exists('contactPerson', $fields)) {
-            $supplier->setContactPerson($fields['contactPerson'] !== null ? (string)$fields['contactPerson'] : null);
+            $supplier->setContactPerson($fields['contactPerson'] !== null ? (string) $fields['contactPerson'] : null);
         }
 
         if (array_key_exists('note', $fields)) {
-            $supplier->setNote($fields['note'] !== null ? (string)$fields['note'] : null);
+            $supplier->setNote($fields['note'] !== null ? (string) $fields['note'] : null);
         }
     }
 }

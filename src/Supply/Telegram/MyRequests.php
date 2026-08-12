@@ -40,7 +40,7 @@ class MyRequests
 
         $requests = $this->repository->findByAuthor($user, self::LIMIT);
 
-        if (!$requests) {
+        if (! $requests) {
             $this->screen->render($bot, 'У вас поки немає заявок.', SupplyMenu::keyboard());
 
             return;
@@ -55,7 +55,7 @@ class MyRequests
 
             $row[] = InlineKeyboardButton::make(
                 '№' . $request->getNumber(),
-                callback_data: SupplyCallback::view((int)$request->getId()),
+                callback_data: SupplyCallback::view((int) $request->getId()),
             );
 
             if (count($row) === self::BUTTONS_PER_ROW) {

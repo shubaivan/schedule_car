@@ -5,21 +5,17 @@ namespace App\Service;
 use App\Entity\ScheduledSet;
 use App\Entity\TelegramUser;
 use App\Repository\ScheduledSetRepository;
+use DateTime;
+use DateTimeZone;
 
 class ScheduleCarService
 {
-
     public function __construct(
-        private ScheduledSetRepository $repository
-    ) {}
+        private ScheduledSetRepository $repository,
+    ) {
+    }
 
     /**
-     * @param int $carId
-     * @param int $year
-     * @param int $month
-     * @param int $day
-     * @param int|null $hour
-     * @param TelegramUser|null $user
      * @return ScheduledSet[]
      */
     public function getExistSet(int $carId, int $year, int $month, int $day, ?int $hour = null, ?TelegramUser $user = null): array
@@ -49,8 +45,8 @@ class ScheduleCarService
         return $this->repository->getById($id);
     }
 
-    public static function createNewDate(string $timeZone = 'Europe/Kyiv'): \DateTime
+    public static function createNewDate(string $timeZone = 'Europe/Kyiv'): DateTime
     {
-        return (new \DateTime())->setTimezone(new \DateTimeZone($timeZone));
+        return (new DateTime())->setTimezone(new DateTimeZone($timeZone));
     }
 }

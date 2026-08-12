@@ -34,25 +34,27 @@ class ScheduleCar extends Conversation
         private EntityManagerInterface $em,
         private TelegramUserService $telegramUserService,
         private ValidatorInterface $validator,
-        private CarRepository $carRepository
-    ) {}
+        private CarRepository $carRepository,
+    ) {
+    }
 
     public function chooseCar(Nutgram $bot)
     {
-        if (!$this->telegramUserService->getCurrentUser()->getPhoneNumber()) {
+        if (! $this->telegramUserService->getCurrentUser()->getPhoneNumber()) {
             $this->confirmPhone = true;
             $bot->sendMessage(
                 text: 'Ваш Номер',
                 reply_markup: ReplyKeyboardMarkup::make(one_time_keyboard: true)->addRow(
                     KeyboardButton::make('Підтвердіть ВАШ телефон', true),
-                )
+                ),
             );
         } else {
             $inlineKeyboardMarkup = InlineKeyboardMarkup::make();
             $cars = [];
             foreach ($this->carRepository->findAll() as $car) {
                 $cars[] = InlineKeyboardButton::make(
-                    text: $car->getCarInfo(), callback_data: 'car_' . $car->getId()
+                    text: $car->getCarInfo(),
+                    callback_data: 'car_' . $car->getId(),
                 );
                 if (count($cars) == 3) {
                     $inlineKeyboardMarkup->addRow(...$cars);
@@ -66,7 +68,7 @@ class ScheduleCar extends Conversation
 
             $bot->sendMessage(
                 text: 'Оберіть машину',
-                reply_markup: $inlineKeyboardMarkup
+                reply_markup: $inlineKeyboardMarkup,
             );
         }
 
@@ -75,20 +77,22 @@ class ScheduleCar extends Conversation
 
     public function chooseMonth(Nutgram $bot)
     {
-        if (!$bot->isCallbackQuery() && !$bot->message() && !$bot->message()->contact) {
+        // Було `... && !$bot->message() && !$bot->message()->contact`: коли
+        // повідомлення немає, друга умова падала на звернення до null.
+        if (! $bot->isCallbackQuery() && ! $bot->message()) {
             $this->chooseCar($bot);
 
             return;
         }
 
-        if ($bot->isCallbackQuery() && !str_contains($bot->callbackQuery()->data, 'car_')) {
+        if ($bot->isCallbackQuery() && ! str_contains($bot->callbackQuery()->data, 'car_')) {
             $this->chooseCar($bot);
 
             return;
         }
 
-        if ($this->confirmPhone
-            && $bot->message()
+        if ($this->confirmPhone &&
+            $bot->message()
         ) {
             if ($bot->message()->contact && $bot->message()->contact->phone_number) {
                 $phone_number = $bot->message()->contact->phone_number;
@@ -102,18 +106,18 @@ class ScheduleCar extends Conversation
                     text: 'Подтрібно натиснути',
                     reply_markup: ReplyKeyboardMarkup::make(one_time_keyboard: true)->addRow(
                         KeyboardButton::make('Підтвердіть ВАШ телефон', true),
-                    )
+                    ),
                 );
                 $file = sprintf(
                     '%s/assets/img/share_contact.jpeg',
-                    $this->projectDir
+                    $this->projectDir,
                 );
                 if (is_file($file) && is_readable($file)) {
                     $photo = fopen($file, 'r+');
 
                     /** @var Message $message */
                     $message = $bot->sendPhoto(
-                        photo: InputFile::make($photo)
+                        photo: InputFile::make($photo),
                     );
                 }
                 $this->next('chooseMonth');
@@ -131,21 +135,22 @@ class ScheduleCar extends Conversation
         $this->carId = str_replace('car_', '', $bot->callbackQuery()->data);
 
         $bot->sendMessage(
-            text: 'Машина №' . $this->getCarInfo()
+            text: 'Машина №' . $this->getCarInfo(),
         );
         $current = ScheduleCarService::createNewDate();
-        $currentYear = (int)$current->format('Y');
-        $currentMonth = (int)$current->format('m');
+        $currentYear = (int) $current->format('Y');
+        $currentMonth = (int) $current->format('m');
         $last = (clone $current)->modify('last day of december this year');
-        $lastMonth = (int)$last->format('m');
+        $lastMonth = (int) $last->format('m');
 
         $inlineKeyboardMarkup = InlineKeyboardMarkup::make();
         $month = [];
-        for ($i = $currentMonth; $i <= $lastMonth; $i++) {
+        for ($i = $currentMonth; $i <= $lastMonth; ++$i) {
             $chooseMonth = clone $current;
             $format = $chooseMonth->setDate($currentYear, $i, 1)->format('Y-m');
             $month[] = InlineKeyboardButton::make(
-                text: $format, callback_data: 'month_' . $chooseMonth->format('m')
+                text: $format,
+                callback_data: 'month_' . $chooseMonth->format('m'),
             );
             if (count($month) == 3) {
                 $inlineKeyboardMarkup->addRow(...$month);
@@ -155,7 +160,7 @@ class ScheduleCar extends Conversation
         if (count($month)) {
             $inlineKeyboardMarkup->addRow(...$month);
         }
-        $inlineKeyboardMarkup->addRow(InlineKeyboardButton::make(text: 'На початок', callback_data: 0));
+        $inlineKeyboardMarkup->addRow(InlineKeyboardButton::make(text: 'На початок', callback_data: '0'));
         $bot->sendMessage(
             text: 'Оберіть місяць:',
             reply_markup: $inlineKeyboardMarkup,
@@ -166,7 +171,7 @@ class ScheduleCar extends Conversation
 
     public function chooseDay(Nutgram $bot)
     {
-        if (!$bot->isCallbackQuery() || $bot->callbackQuery()->data == "0" || !str_contains($bot->callbackQuery()->data, 'month_')) {
+        if (! $bot->isCallbackQuery() || $bot->callbackQuery()->data == '0' || ! str_contains($bot->callbackQuery()->data, 'month_')) {
             $this->chooseCar($bot);
 
             return;
@@ -174,31 +179,32 @@ class ScheduleCar extends Conversation
 
         $this->month = str_replace('month_', '', $bot->callbackQuery()->data);
         $bot->sendMessage(
-            text: 'Місяць ' . $this->month
+            text: 'Місяць ' . $this->month,
         );
         $current = ScheduleCarService::createNewDate();
 
         if ($this->month === $current->format('m')) {
-            $currentDay = (int)$current->format('d');
+            $currentDay = (int) $current->format('d');
         } else {
             $currentDay = 1;
         }
 
-        $current->setDate((int)$current->format('Y'), (int)$this->month, $currentDay);
+        $current->setDate((int) $current->format('Y'), (int) $this->month, $currentDay);
 
         $last = (clone $current)->modify('last day of');
-        $lastDay = (int)$last->format('d');
+        $lastDay = (int) $last->format('d');
 
         $inlineKeyboardMarkup = InlineKeyboardMarkup::make();
         $days = [];
-        for ($i = $currentDay; $i <= $lastDay; $i++) {
+        for ($i = $currentDay; $i <= $lastDay; ++$i) {
             if ($i == $currentDay) {
                 $format = $current->format('M-d');
             } else {
                 $format = $current->modify('+1 day')->format('M-d');
             }
             $days[] = InlineKeyboardButton::make(
-                text: $format, callback_data: 'day_' . $current->format('d')
+                text: $format,
+                callback_data: 'day_' . $current->format('d'),
             );
             if (count($days) == 4) {
                 $inlineKeyboardMarkup->addRow(...$days);
@@ -208,7 +214,7 @@ class ScheduleCar extends Conversation
         if (count($days)) {
             $inlineKeyboardMarkup->addRow(...$days);
         }
-        $inlineKeyboardMarkup->addRow(InlineKeyboardButton::make(text: 'На початок', callback_data: 0));
+        $inlineKeyboardMarkup->addRow(InlineKeyboardButton::make(text: 'На початок', callback_data: '0'));
         $bot->sendMessage(
             text: 'Оберіть день',
             reply_markup: $inlineKeyboardMarkup,
@@ -219,7 +225,7 @@ class ScheduleCar extends Conversation
 
     public function chooseTimeSet(Nutgram $bot)
     {
-        if (!$bot->isCallbackQuery() || $bot->callbackQuery()->data == "0" || !str_contains($bot->callbackQuery()->data, 'day_')) {
+        if (! $bot->isCallbackQuery() || $bot->callbackQuery()->data == '0' || ! str_contains($bot->callbackQuery()->data, 'day_')) {
             $this->chooseCar($bot);
 
             return;
@@ -228,24 +234,24 @@ class ScheduleCar extends Conversation
         $this->day = str_replace('day_', '', $bot->callbackQuery()->data);
 
         $bot->sendMessage(
-            text: 'День ' . $this->day
+            text: 'День ' . $this->day,
         );
 
         $current = ScheduleCarService::createNewDate();
 
         $scheduledSets = $this->scheduleCarService->getExistSet(
-            (int)$this->carId,
-            (int)$current->format('Y'),
-            (int)$this->month,
-            (int)$this->day,
+            (int) $this->carId,
+            (int) $current->format('Y'),
+            (int) $this->month,
+            (int) $this->day,
         );
 
         $chosenDate = ScheduleCarService::createNewDate();
-        $chosenDate->setDate((int)$current->format('Y'), (int)$this->month, (int)$this->day);
+        $chosenDate->setDate((int) $current->format('Y'), (int) $this->month, (int) $this->day);
         $chosenDate->setTime(0, 0);
         if ($current->format('Y-m-d') == $chosenDate->format('Y-m-d')) {
-            $currentHour = (int)$current->format('H');
-            $currentHour += 1;
+            $currentHour = (int) $current->format('H');
+            ++$currentHour;
             $chosenDate->setTime($currentHour, 0);
             $last = 24;
         } else {
@@ -254,7 +260,7 @@ class ScheduleCar extends Conversation
         }
 
         $availableHours = [];
-        for ($i = $currentHour; $i < $last; $i++) {
+        for ($i = $currentHour; $i < $last; ++$i) {
             if (array_key_exists($i, $scheduledSets)) {
                 continue;
             }
@@ -266,7 +272,8 @@ class ScheduleCar extends Conversation
         foreach ($availableHours as $availableHourItem) {
             $format = $chosenDate->setTime($availableHourItem, 0)->format('D/H-i');
             $hours[] = InlineKeyboardButton::make(
-                text: $format, callback_data: 'hour_' . $chosenDate->format('H')
+                text: $format,
+                callback_data: 'hour_' . $chosenDate->format('H'),
             );
 
             if (count($hours) == 3) {
@@ -279,17 +286,17 @@ class ScheduleCar extends Conversation
             $inlineKeyboardMarkup->addRow(...$hours);
         }
 
-        $inlineKeyboardMarkup->addRow(InlineKeyboardButton::make(text: 'На початок', callback_data: 0));
+        $inlineKeyboardMarkup->addRow(InlineKeyboardButton::make(text: 'На початок', callback_data: '0'));
 
         if ($scheduledSets) {
             $bot->sendMessage(
                 text: sprintf('<b>Ващі</b> бронювання'),
-                parse_mode: ParseMode::HTML
+                parse_mode: ParseMode::HTML,
             );
         }
         $other = [];
         foreach ($scheduledSets as $set) {
-            $key = strlen($set->getHour()) == 1 ? '0' . $set->getHour() : $set->getHour();
+            $key = strlen((string) $set->getHour()) == 1 ? '0' . $set->getHour() : $set->getHour();
             if ($set->getTelegramUserId()->getTelegramId() == $this->telegramUserService->getCurrentUser()->getTelegramId()) {
                 $scheduledByCurrentUserDate = $set->getScheduledDateTime();
 
@@ -299,9 +306,10 @@ class ScheduleCar extends Conversation
                     reply_markup: InlineKeyboardMarkup::make()
                         ->addRow(
                             InlineKeyboardButton::make(
-                                'Відмінити', callback_data: 'decline_' . $key
+                                'Відмінити',
+                                callback_data: 'decline_' . $key,
                             ),
-                        )
+                        ),
                 );
             } else {
                 $other[] = $set;
@@ -311,10 +319,10 @@ class ScheduleCar extends Conversation
         if ($other) {
             $bot->sendMessage(
                 text: sprintf('<b>Чужі</b> бронювання'),
-                parse_mode: ParseMode::HTML
+                parse_mode: ParseMode::HTML,
             );
             foreach ($other as $set) {
-                $key = strlen($set->getHour()) == 1 ? '0' . $set->getHour() : $set->getHour();
+                $key = strlen((string) $set->getHour()) == 1 ? '0' . $set->getHour() : $set->getHour();
 
                 $bot->sendMessage(
                     text: sprintf('година %s:00, заброньована: %s', $key, $set->getTelegramUserId()->concatNameInfo()),
@@ -334,15 +342,14 @@ class ScheduleCar extends Conversation
             );
         }
 
-
         $this->next('scheduleDate');
     }
 
     public function scheduleDate(Nutgram $bot)
     {
-        if (!$bot->isCallbackQuery()
-            || $bot->callbackQuery()->data == "0"
-            || (!str_contains($bot->callbackQuery()->data, 'hour_') && !str_contains($bot->callbackQuery()->data, 'decline_'))
+        if (! $bot->isCallbackQuery() ||
+            $bot->callbackQuery()->data == '0' ||
+            (! str_contains($bot->callbackQuery()->data, 'hour_') && ! str_contains($bot->callbackQuery()->data, 'decline_'))
         ) {
             $this->chooseCar($bot);
 
@@ -355,8 +362,8 @@ class ScheduleCar extends Conversation
 
             $current = ScheduleCarService::createNewDate();
             $dateTime = ScheduleCarService::createNewDate();
-            $dateTime->setDate((int)$current->format('Y'), (int)$this->month, (int)$this->day);
-            $dateTime->setTime((int)$this->hour, 0);
+            $dateTime->setDate((int) $current->format('Y'), (int) $this->month, (int) $this->day);
+            $dateTime->setTime((int) $this->hour, 0);
             $bot->sendMessage(
                 text: 'Дата: ' . $dateTime->format('Y/m/d H:i'),
             );
@@ -365,9 +372,9 @@ class ScheduleCar extends Conversation
                 text: 'Видалити бронювання? Натисніть *Підтверджую*',
                 parse_mode: ParseMode::MARKDOWN,
                 reply_markup: InlineKeyboardMarkup::make()->addRow(
-                    InlineKeyboardButton::make(text: 'Підтверджую', callback_data: 1),
-                    InlineKeyboardButton::make(text: 'На початок', callback_data: 0),
-                )
+                    InlineKeyboardButton::make(text: 'Підтверджую', callback_data: '1'),
+                    InlineKeyboardButton::make(text: 'На початок', callback_data: '0'),
+                ),
             );
 
             $this->next('removeScheduled');
@@ -376,8 +383,8 @@ class ScheduleCar extends Conversation
 
             $current = ScheduleCarService::createNewDate();
             $dateTime = ScheduleCarService::createNewDate();
-            $dateTime->setDate((int)$current->format('Y'), (int)$this->month, (int)$this->day);
-            $dateTime->setTime((int)$this->hour, 0);
+            $dateTime->setDate((int) $current->format('Y'), (int) $this->month, (int) $this->day);
+            $dateTime->setTime((int) $this->hour, 0);
             $bot->sendMessage(
                 text: sprintf('Машина %s. Дата: %s', $this->getCarInfo(), $dateTime->format('Y/m/d H:i')),
             );
@@ -385,9 +392,9 @@ class ScheduleCar extends Conversation
                 text: 'Якщо згодні натисніть *Підтверджую*',
                 parse_mode: ParseMode::MARKDOWN,
                 reply_markup: InlineKeyboardMarkup::make()->addRow(
-                    InlineKeyboardButton::make(text: 'Підтверджую', callback_data: 1),
-                    InlineKeyboardButton::make(text: 'На початок', callback_data: 0),
-                )
+                    InlineKeyboardButton::make(text: 'Підтверджую', callback_data: '1'),
+                    InlineKeyboardButton::make(text: 'На початок', callback_data: '0'),
+                ),
             );
 
             $this->next('approveDate');
@@ -396,24 +403,24 @@ class ScheduleCar extends Conversation
 
     public function removeScheduled(Nutgram $bot)
     {
-        if (!$bot->isCallbackQuery() || $bot->callbackQuery()->data != "1") {
+        if (! $bot->isCallbackQuery() || $bot->callbackQuery()->data != '1') {
             $this->chooseCar($bot);
 
             return;
         }
         $current = ScheduleCarService::createNewDate();
         $scheduledSets = $this->scheduleCarService->getExistSet(
-            $this->carId,
-            (int)$current->format('Y'),
-            (int)$this->month,
-            (int)$this->day,
-            (int)$this->hour,
-            $this->telegramUserService->getCurrentUser()
+            (int) $this->carId,
+            (int) $current->format('Y'),
+            (int) $this->month,
+            (int) $this->day,
+            (int) $this->hour,
+            $this->telegramUserService->getCurrentUser(),
         );
-        if (!$scheduledSets) {
+        if (! $scheduledSets) {
             $bot->sendMessage(
                 text: '<b>Не знайшло ваше бронювання.</b>',
-                parse_mode: ParseMode::HTML
+                parse_mode: ParseMode::HTML,
             );
 
             $this->chooseCar($bot);
@@ -426,7 +433,7 @@ class ScheduleCar extends Conversation
 
         $bot->sendMessage(
             text: '<b>Ваше бронювання видалено.</b>',
-            parse_mode: ParseMode::HTML
+            parse_mode: ParseMode::HTML,
         );
 
         $this->end();
@@ -434,7 +441,7 @@ class ScheduleCar extends Conversation
 
     public function approveDate(Nutgram $bot)
     {
-        if (!$bot->isCallbackQuery() || $bot->callbackQuery()->data != "1") {
+        if (! $bot->isCallbackQuery() || $bot->callbackQuery()->data != '1') {
             $this->chooseCar($bot);
 
             return;
@@ -442,10 +449,10 @@ class ScheduleCar extends Conversation
 
         $scheduledSet = (new ScheduledSet())
             ->setTelegramUserId($this->telegramUserService->getCurrentUser())
-            ->setYear((int)(ScheduleCarService::createNewDate())->format('Y'))
-            ->setMonth((int)$this->month)
-            ->setDay((int)$this->day)
-            ->setHour((int)$this->hour)
+            ->setYear((int) ScheduleCarService::createNewDate()->format('Y'))
+            ->setMonth((int) $this->month)
+            ->setDay((int) $this->day)
+            ->setHour((int) $this->hour)
             ->setCar($this->carRepository->find($this->carId));
         $scheduledSet->setScheduledAt($scheduledSet->getScheduledDateTime());
 
@@ -456,7 +463,7 @@ class ScheduleCar extends Conversation
             foreach ($lists as $list) {
                 $bot->sendMessage(
                     text: '<b>' . $list->getMessage() . '</b>',
-                    parse_mode: ParseMode::HTML
+                    parse_mode: ParseMode::HTML,
                 );
                 $this->chooseCar($bot);
 
@@ -464,7 +471,7 @@ class ScheduleCar extends Conversation
             }
             $bot->sendMessage(
                 text: '<b>Сталась помилка.</b>',
-                parse_mode: ParseMode::HTML
+                parse_mode: ParseMode::HTML,
             );
             $this->chooseCar($bot);
 
@@ -474,7 +481,7 @@ class ScheduleCar extends Conversation
 
         $bot->sendMessage(
             text: '<b>Вітаємо</b>, заброньовано, водій отримає сповіщення. Можете переглянути в Ваших бронюваннях. <tg-emoji emoji-id="5368324170671202286">👍</tg-emoji>',
-            parse_mode: ParseMode::HTML
+            parse_mode: ParseMode::HTML,
         );
 
         foreach ($scheduledSet->getCar()->getCarDriver() as $carDriver) {
@@ -483,19 +490,16 @@ class ScheduleCar extends Conversation
                 text: sprintf(
                     'Вас забронював працівник %s на дату %s',
                     $this->telegramUserService->getCurrentUser()->concatNameInfo(),
-                    $scheduledSet->getScheduledAt()->format('Y/m/d H:i:s')
+                    $scheduledSet->getScheduledAt()->format('Y/m/d H:i:s'),
                 ),
                 chat_id: $carDriver->getDriver()->getChatId(),
-                parse_mode: ParseMode::HTML
+                parse_mode: ParseMode::HTML,
             );
         }
 
         $this->end();
     }
 
-    /**
-     * @return string|null
-     */
     public function getCarInfo(): ?string
     {
         return $this->carRepository->find($this->carId)->getCarInfo();

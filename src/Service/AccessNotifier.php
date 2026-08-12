@@ -12,6 +12,7 @@ use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Properties\ParseMode;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardMarkup;
+use Throwable;
 
 /** Сповіщення про реєстрацію та рішення по доступу. */
 class AccessNotifier
@@ -29,10 +30,10 @@ class AccessNotifier
 
         $managers = array_filter(
             $this->userRepository->findSupplyManagers(),
-            static fn(TelegramUser $manager) => $manager->isApproved(),
+            static fn (TelegramUser $manager) => $manager->isApproved(),
         );
 
-        if (!$managers) {
+        if (! $managers) {
             $this->logger->warning('access: немає жодного менеджера для підтвердження реєстрації', [
                 'user' => $user->getId(),
             ]);
@@ -47,8 +48,8 @@ class AccessNotifier
         );
 
         $markup = InlineKeyboardMarkup::make()->addRow(
-            InlineKeyboardButton::make('✅ Підтвердити', callback_data: AccessCallback::approve((int)$user->getId())),
-            InlineKeyboardButton::make('⛔ Відхилити', callback_data: AccessCallback::reject((int)$user->getId())),
+            InlineKeyboardButton::make('✅ Підтвердити', callback_data: AccessCallback::approve((int) $user->getId())),
+            InlineKeyboardButton::make('⛔ Відхилити', callback_data: AccessCallback::reject((int) $user->getId())),
         );
 
         foreach ($managers as $manager) {
@@ -85,7 +86,7 @@ class AccessNotifier
     {
         $chatId = $user->getChatId() ?: $user->getTelegramId();
 
-        if (!$chatId) {
+        if (! $chatId) {
             $this->logger->warning('access: у користувача немає chat_id', ['user' => $user->getId()]);
 
             return;
@@ -98,7 +99,7 @@ class AccessNotifier
                 parse_mode: ParseMode::HTML,
                 reply_markup: $markup,
             );
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->logger->warning('access: не вдалось надіслати сповіщення', [
                 'user' => $user->getId(),
                 'error' => $e->getMessage(),

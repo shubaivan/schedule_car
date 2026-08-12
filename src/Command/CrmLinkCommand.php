@@ -2,7 +2,6 @@
 
 namespace App\Command;
 
-use App\Entity\TelegramUser;
 use App\Repository\TelegramUserRepository;
 use App\Service\AccessService;
 use App\Service\CrmLoginLink;
@@ -38,12 +37,12 @@ class CrmLinkCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
 
-        $tail = substr(AccessService::normalize((string)$input->getArgument('phone')), -9);
+        $tail = substr(AccessService::normalize((string) $input->getArgument('phone')), -9);
         $user = null;
 
         foreach ($this->users->findAll() as $candidate) {
-            if ($candidate->getPhoneNumber() !== null
-                && str_ends_with(AccessService::normalize($candidate->getPhoneNumber()), $tail)) {
+            if ($candidate->getPhoneNumber() !== null &&
+                str_ends_with(AccessService::normalize($candidate->getPhoneNumber()), $tail)) {
                 $user = $candidate;
                 break;
             }
@@ -55,7 +54,7 @@ class CrmLinkCommand extends Command
             return Command::FAILURE;
         }
 
-        if (!$user->getSupplyRole()->canManage()) {
+        if (! $user->getSupplyRole()->canManage()) {
             $io->error(sprintf('%s має роль «%s», доступу до CRM немає.', $user->displayName(), $user->getSupplyRole()->label()));
 
             return Command::FAILURE;

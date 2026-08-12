@@ -15,6 +15,8 @@ use App\Supply\Service\AddComment;
 use App\Supply\Service\ChangeStatus;
 use App\Supply\Service\RecordPurchase;
 use App\Supply\Service\RequestPresenter;
+use DateTime;
+use DateTimeZone;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -37,8 +39,8 @@ class RequestApiController extends AbstractController
     public function list(Request $request): JsonResponse
     {
         $statuses = array_filter(array_map(
-            static fn(string $value) => SupplyStatus::tryFrom($value),
-            array_filter((array)$request->query->all('status')),
+            static fn (string $value) => SupplyStatus::tryFrom($value),
+            array_filter((array) $request->query->all('status')),
         ));
 
         $filters = [
@@ -79,7 +81,7 @@ class RequestApiController extends AbstractController
         ChangeStatus $changeStatus,
     ): JsonResponse {
         $payload = $this->payload($request);
-        $status = SupplyStatus::tryFrom((string)($payload['to'] ?? ''));
+        $status = SupplyStatus::tryFrom((string) ($payload['to'] ?? ''));
 
         if ($status === null) {
             return $this->error('Невідомий статус.');
@@ -103,7 +105,7 @@ class RequestApiController extends AbstractController
         $payload = $this->payload($request);
 
         try {
-            $addComment($supplyRequest, $this->manager(), (string)($payload['text'] ?? ''));
+            $addComment($supplyRequest, $this->manager(), (string) ($payload['text'] ?? ''));
         } catch (SupplyException $e) {
             return $this->error($e->getMessage());
         }
@@ -200,13 +202,13 @@ class RequestApiController extends AbstractController
 
     private function purchaseInput(array $payload, SupplierRepository $suppliers): PurchaseInput
     {
-        $supplier = $suppliers->find((int)($payload['supplierId'] ?? 0));
+        $supplier = $suppliers->find((int) ($payload['supplierId'] ?? 0));
 
         if ($supplier === null) {
             throw new SupplyException('Оберіть постачальника зі списку.');
         }
 
-        $payment = PaymentType::tryFrom((string)($payload['payment'] ?? PaymentType::Bank->value));
+        $payment = PaymentType::tryFrom((string) ($payload['payment'] ?? PaymentType::Bank->value));
 
         if ($payment === null) {
             throw new SupplyException('Невідомий спосіб оплати.');
@@ -214,11 +216,11 @@ class RequestApiController extends AbstractController
 
         $purchasedAt = null;
 
-        if (!empty($payload['purchasedAt'])) {
-            $purchasedAt = \DateTime::createFromFormat(
+        if (! empty($payload['purchasedAt'])) {
+            $purchasedAt = DateTime::createFromFormat(
                 'Y-m-d H:i:s',
                 $payload['purchasedAt'] . ' 00:00:00',
-                new \DateTimeZone('Europe/Kyiv'),
+                new DateTimeZone('Europe/Kyiv'),
             ) ?: null;
 
             if ($purchasedAt === null) {
@@ -232,7 +234,7 @@ class RequestApiController extends AbstractController
             quantity: $this->text($payload, 'quantity'),
             pricePerUnit: $this->text($payload, 'pricePerUnit'),
             payment: $payment,
-            vatIncluded: (bool)($payload['vatIncluded'] ?? true),
+            vatIncluded: (bool) ($payload['vatIncluded'] ?? true),
             invoiceNumber: $this->text($payload, 'invoiceNumber'),
             purchasedAt: $purchasedAt,
         );
@@ -242,7 +244,7 @@ class RequestApiController extends AbstractController
     {
         $value = $payload[$key] ?? null;
 
-        return $value === null || $value === '' ? null : (string)$value;
+        return $value === null || $value === '' ? null : (string) $value;
     }
 
     private function manager(): TelegramUser
@@ -255,7 +257,7 @@ class RequestApiController extends AbstractController
 
     private function payload(Request $request): array
     {
-        $data = json_decode((string)$request->getContent(), true);
+        $data = json_decode((string) $request->getContent(), true);
 
         return is_array($data) ? $data : [];
     }

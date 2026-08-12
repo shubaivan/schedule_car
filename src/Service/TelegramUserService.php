@@ -12,14 +12,15 @@ class TelegramUserService
 
     public function __construct(
         private TelegramUserRepository $telegramUserRepository,
-        private EntityManagerInterface $em
-    ) {}
+        private EntityManagerInterface $em,
+    ) {
+    }
 
     public function initUser(array $from)
     {
         $telegramUser = new TelegramUser();
         $this->currentUser = $this->telegramUserRepository->getByTelegramId($from['id']);
-        if (!$this->currentUser) {
+        if (! $this->currentUser) {
             $telegramUser->setTelegramId($from['id']);
 
             if (isset($from['first_name'])) {

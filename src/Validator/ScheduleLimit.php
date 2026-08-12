@@ -2,9 +2,10 @@
 
 namespace App\Validator;
 
+use Attribute;
 use Symfony\Component\Validator\Constraint;
 
-#[\Attribute]
+#[Attribute]
 class ScheduleLimit extends Constraint
 {
     public string $message = 'За один день дозволенно не більше восьми годин бронювання';

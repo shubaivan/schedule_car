@@ -25,7 +25,7 @@ class AddComment
             throw new SupplyException('Коментар порожній.');
         }
 
-        if (!$this->canComment($request, $author)) {
+        if (! $this->canComment($request, $author)) {
             throw new SupplyException('Коментувати заявку можуть лише її автор і менеджер із постачання.');
         }
 
@@ -45,7 +45,7 @@ class AddComment
 
     private function canComment(SupplyRequest $request, TelegramUser $author): bool
     {
-        return $author->getSupplyRole()->canManage()
-            || $request->getAuthor()->getId() === $author->getId();
+        return $author->getSupplyRole()->canManage() ||
+            $request->getAuthor()->getId() === $author->getId();
     }
 }

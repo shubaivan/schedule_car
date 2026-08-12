@@ -29,7 +29,7 @@ class MetaApiController extends AbstractController
     {
         return $this->json([
             'statuses' => array_map(
-                static fn(SupplyStatus $status) => [
+                static fn (SupplyStatus $status) => [
                     'value' => $status->value,
                     'label' => $status->label(),
                     'emoji' => $status->emoji(),
@@ -38,11 +38,11 @@ class MetaApiController extends AbstractController
                 SupplyStatus::cases(),
             ),
             'units' => array_map(
-                static fn(Unit $unit) => ['value' => $unit->value, 'label' => $unit->label()],
+                static fn (Unit $unit) => ['value' => $unit->value, 'label' => $unit->label()],
                 Unit::cases(),
             ),
             'departments' => array_map(
-                static fn($department) => ['id' => $department->getId(), 'name' => $department->getName()],
+                static fn ($department) => ['id' => $department->getId(), 'name' => $department->getName()],
                 $departments->findActive(),
             ),
         ]);

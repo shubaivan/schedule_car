@@ -20,9 +20,10 @@ class TelegramWebhookController extends AbstractController
     public function hook(
         Nutgram $bot,
         Request $request,
-        #[Autowire('%env(TELEGRAM_WEBHOOK_SECRET)%')] string $secret,
+        #[Autowire('%env(TELEGRAM_WEBHOOK_SECRET)%')]
+        string $secret,
     ): Response {
-        if ($secret !== '' && !hash_equals($secret, (string)$request->headers->get('X-Telegram-Bot-Api-Secret-Token'))) {
+        if ($secret !== '' && ! hash_equals($secret, (string) $request->headers->get('X-Telegram-Bot-Api-Secret-Token'))) {
             return new Response('', Response::HTTP_FORBIDDEN);
         }
 
