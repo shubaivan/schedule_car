@@ -91,6 +91,28 @@
         ],
         "post-update-cmd": [
             "@auto-scripts"
+        ],
+        "cs-fixer": [
+            "PHP_CS_FIXER_IGNORE_ENV=1 php vendor/bin/php-cs-fixer fix --config=.php-cs-fixer.dist.php"
+        ],
+        "cs-check": [
+            "PHP_CS_FIXER_IGNORE_ENV=1 php vendor/bin/php-cs-fixer fix --config=.php-cs-fixer.dist.php --dry-run --diff"
+        ],
+        "analyze": [
+            "php bin/console cache:warmup --env=dev -q",
+            "php vendor/bin/phpstan analyse -c phpstan.dist.neon --memory-limit=1G"
+        ],
+        "migrate-test": [
+            "php bin/console doctrine:migrations:migrate --env=test --no-interaction"
+        ],
+        "test": [
+            "@migrate-test",
+            "php vendor/bin/phpunit"
+        ],
+        "quality": [
+            "@cs-check",
+            "@analyze",
+            "@test"
         ]
     },
     "conflict": {
@@ -104,6 +126,10 @@
     },
     "require-dev": {
         "doctrine/doctrine-fixtures-bundle": "^3.5",
+        "friendsofphp/php-cs-fixer": "^3.64",
+        "phpstan/phpstan": "^2.1",
+        "phpstan/phpstan-doctrine": "^2.0",
+        "phpstan/phpstan-symfony": "^2.0",
         "phpunit/phpunit": "^9.5",
         "symfony/browser-kit": "7.0.*",
         "symfony/css-selector": "7.0.*",
