@@ -47,6 +47,29 @@ export interface PurchasePayload {
     purchasedAt?: string
 }
 
+export interface Attachment {
+    id: number
+    type: string
+    typeLabel: string
+    name: string
+    size: number
+    sizeLabel: string
+    mime: string
+    uploadedBy: string | null
+    uploadedAt: string
+    /** null — копія ще не поїхала в Google Drive; це не помилка. */
+    driveUrl: string | null
+}
+
+export const ATTACHMENT_TYPES = [
+    { value: 'invoice', label: 'Накладна' },
+    { value: 'bill', label: 'Рахунок' },
+    { value: 'contract', label: 'Договір' },
+    { value: 'payment', label: 'Платіжка' },
+    { value: 'photo', label: 'Фото' },
+    { value: 'other', label: 'Інше' },
+]
+
 export interface SupplyRequest {
     id: number
     number: string
@@ -71,6 +94,7 @@ export interface SupplyRequest {
     timeline?: TimelineEvent[]
     purchases?: Purchase[]
     purchaseTotal?: number
+    attachments?: Attachment[]
 }
 
 export interface RequestListResponse {
@@ -155,6 +179,35 @@ export const api = {
             method: 'POST',
             body: JSON.stringify({ text }),
         }),
+
+    /** Файл іде як multipart — Content-Type проставляє браузер разом із boundary. */
+    uploadAttachment: async (requestId: number, file: File, type: string) => {
+        const body = new FormData()
+        body.append('file', file)
+        body.append('type', type)
+
+        const response = await fetch(`/api/supply/requests/${requestId}/attachments`, {
+            method: 'POST',
+            credentials: 'same-origin',
+            body,
+        })
+
+        if (response.status === 401) throw new SessionExpired()
+
+        const payload = await response.json().catch(() => null)
+
+        if (!response.ok) throw new Error(payload?.error ?? `Помилка ${response.status}`)
+
+        return payload as SupplyRequest
+    },
+
+    deleteAttachment: (requestId: number, attachmentId: number) =>
+        call<SupplyRequest>(`/api/supply/requests/${requestId}/attachments/${attachmentId}`, {
+            method: 'DELETE',
+        }),
+
+    attachmentUrl: (requestId: number, attachmentId: number) =>
+        `/api/supply/requests/${requestId}/attachments/${attachmentId}`,
 
     addPurchase: (requestId: number, payload: PurchasePayload) =>
         call<SupplyRequest>(`/api/supply/requests/${requestId}/purchases`, {

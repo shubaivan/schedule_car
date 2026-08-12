@@ -4,6 +4,7 @@ namespace App\Supply\Service;
 
 use App\Entity\TelegramUser;
 use App\Supply\Entity\Supplier;
+use App\Supply\Entity\SupplyAttachment;
 use App\Supply\Entity\SupplyPurchase;
 use App\Supply\Entity\SupplyRequest;
 
@@ -47,6 +48,7 @@ class RequestPresenter
             'closedAt' => $request->getClosedAt()?->format(DATE_ATOM),
             'purchases' => array_map($this->purchase(...), $request->getPurchases()->toArray()),
             'purchaseTotal' => (float) $request->getPurchaseTotal(),
+            'attachments' => array_map($this->attachment(...), $request->getAttachments()->toArray()),
             'allowedTransitions' => array_map(
                 static fn ($status) => ['value' => $status->value, 'label' => $status->label()],
                 $request->getStatus()->allowedTransitions(),
@@ -101,6 +103,23 @@ class RequestPresenter
             'purchasedAt' => $purchase->getPurchasedAt()?->format('Y-m-d'),
             'payment' => $purchase->getPayment()->value,
             'paymentLabel' => $purchase->getPayment()->label(),
+        ];
+    }
+
+    public function attachment(SupplyAttachment $attachment): array
+    {
+        return [
+            'id' => $attachment->getId(),
+            'type' => $attachment->getType()->value,
+            'typeLabel' => $attachment->getType()->label(),
+            'name' => $attachment->getOriginalName(),
+            'size' => $attachment->getSize(),
+            'sizeLabel' => $attachment->getSizeLabel(),
+            'mime' => $attachment->getMime(),
+            'uploadedBy' => $attachment->getUploadedBy()?->displayName(),
+            'uploadedAt' => $attachment->getCreatedAt()->format(DATE_ATOM),
+            // null означає «ще не поїхав у Drive», а не «помилка».
+            'driveUrl' => $attachment->getDriveUrl(),
         ];
     }
 

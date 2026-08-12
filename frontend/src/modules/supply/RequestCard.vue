@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { api, type ApiSupplier, type PurchasePayload, type SupplyRequest } from '../../app/api'
+import { api, ATTACHMENT_TYPES, type ApiSupplier, type PurchasePayload, type SupplyRequest } from '../../app/api'
 import { useSession } from '../../app/store'
 import StatusBadge from '../../shared/StatusBadge.vue'
 import { formatDate, formatDateTime } from '../../shared/format'
@@ -25,6 +25,11 @@ const blankPurchase = (): PurchasePayload => ({
     invoiceNumber: '',
 })
 const purchase = ref<PurchasePayload>(blankPurchase())
+
+// Документи: накладні, рахунки, договори, фото товару.
+const attachmentType = ref('invoice')
+const fileInput = ref<HTMLInputElement | null>(null)
+const uploading = ref(false)
 
 const comment = ref('')
 // Відхилення без причини не пропускає ані бек, ані ця форма.
@@ -87,6 +92,30 @@ async function savePurchase() {
 
 async function removePurchase(purchaseId: number) {
     await run(() => api.deletePurchase(Number(props.id), purchaseId))
+}
+
+async function uploadFile(event: Event) {
+    const input = event.target as HTMLInputElement
+    const file = input.files?.[0]
+
+    if (!file) return
+
+    uploading.value = true
+    error.value = ''
+
+    try {
+        request.value = await api.uploadAttachment(Number(props.id), file, attachmentType.value)
+    } catch (e) {
+        error.value = session.handle(e)
+    } finally {
+        uploading.value = false
+        // Скидаємо, щоб той самий файл можна було вибрати ще раз.
+        input.value = ''
+    }
+}
+
+async function removeAttachment(attachmentId: number) {
+    await run(() => api.deleteAttachment(Number(props.id), attachmentId))
 }
 
 async function run(action: () => Promise<SupplyRequest>) {
@@ -255,6 +284,70 @@ onMounted(load)
                     <button :disabled="busy" @click="rejecting = false">Скасувати</button>
                 </div>
             </div>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-top:0">Документи</h3>
+
+            <p v-if="!request.attachments?.length" class="muted">
+                Накладних, рахунків і договорів ще немає.
+            </p>
+
+            <div v-else class="table-wrap">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Документ</th>
+                        <th>Тип</th>
+                        <th>Розмір</th>
+                        <th>Завантажив</th>
+                        <th>Drive</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr v-for="file in request.attachments" :key="file.id">
+                        <td class="wrap">
+                            <a :href="api.attachmentUrl(Number(props.id), file.id)">{{ file.name }}</a>
+                        </td>
+                        <td>{{ file.typeLabel }}</td>
+                        <td>{{ file.sizeLabel }}</td>
+                        <td class="wrap">
+                            {{ file.uploadedBy ?? '—' }}<br>
+                            <span class="muted">{{ formatDateTime(file.uploadedAt) }}</span>
+                        </td>
+                        <td>
+                            <a v-if="file.driveUrl" :href="file.driveUrl" target="_blank" rel="noopener">відкрити</a>
+                            <span v-else class="muted">у черзі</span>
+                        </td>
+                        <td>
+                            <button class="danger" :disabled="busy" @click="removeAttachment(file.id)">Прибрати</button>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="filters" style="margin-top:.75rem">
+                <select v-model="attachmentType">
+                    <option v-for="type in ATTACHMENT_TYPES" :key="type.value" :value="type.value">
+                        {{ type.label }}
+                    </option>
+                </select>
+                <input
+                    ref="fileInput"
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,.heic,.webp,.doc,.docx,.xls,.xlsx"
+                    :disabled="uploading"
+                    @change="uploadFile"
+                />
+                <span v-if="uploading" class="muted">Завантаження…</span>
+            </div>
+
+            <p class="muted">
+                До 20 МБ. Копія автоматично лягає в Google Drive заводу — у теку
+                за роком, місяцем, заявником і номером заявки.
+            </p>
         </div>
 
         <div class="card">

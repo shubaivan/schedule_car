@@ -11,6 +11,7 @@ use App\Supply\Enum\SupplyRole;
 use App\Supply\Enum\SupplyStatus;
 use App\Supply\Enum\Unit;
 use App\Supply\Service\AddComment;
+use App\Supply\Service\AttachFile;
 use App\Supply\Service\ChangeStatus;
 use App\Supply\Service\CreateRequest;
 use App\Supply\Service\RecordPurchase;
@@ -67,6 +68,16 @@ class NotificationCoverageTest extends KernelTestCase
             public function purchaseRemoved($request, string $supplier, string $total): void
             {
                 $this->calls[] = 'purchaseRemoved';
+            }
+
+            public function fileAttached($attachment): void
+            {
+                $this->calls[] = 'fileAttached';
+            }
+
+            public function fileRemoved($request, string $name): void
+            {
+                $this->calls[] = 'fileRemoved';
             }
         };
 
@@ -153,6 +164,20 @@ class NotificationCoverageTest extends KernelTestCase
         $recordPurchase->remove($purchase, $manager);
 
         self::assertSame(['purchaseUpdated', 'purchaseRemoved'], $this->notifier->calls);
+    }
+
+    /** Накладна — така сама подія, як зміна статусу: заявник має її бачити. */
+    public function testAttachedAndRemovedFileNotify(): void
+    {
+        [$worker, $manager] = $this->users();
+        $request = $this->request($worker);
+        $attachFile = self::getContainer()->get(AttachFile::class);
+        $this->notifier->calls = [];
+
+        $attachment = $attachFile($request, $manager, '%PDF-1.4', 'Накладна.pdf', 'application/pdf');
+        $attachFile->remove($attachment, $manager);
+
+        self::assertSame(['fileAttached', 'fileRemoved'], $this->notifier->calls);
     }
 
     private function purchase(string $amount = '12500'): PurchaseInput

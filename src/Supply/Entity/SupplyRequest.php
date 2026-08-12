@@ -90,11 +90,17 @@ class SupplyRequest
     #[ORM\OrderBy(['created_at' => 'ASC'])]
     private Collection $purchases;
 
+    /** Накладні, рахунки, договори, фото товару. */
+    #[ORM\OneToMany(targetEntity: SupplyAttachment::class, mappedBy: 'request', cascade: ['persist', 'remove'])]
+    #[ORM\OrderBy(['created_at' => 'ASC'])]
+    private Collection $attachments;
+
     public function __construct()
     {
         $this->comments = new ArrayCollection();
         $this->statusLogs = new ArrayCollection();
         $this->purchases = new ArrayCollection();
+        $this->attachments = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -313,6 +319,28 @@ class SupplyRequest
         }
 
         return number_format($cents / 100, 2, '.', '');
+    }
+
+    public function getAttachments(): Collection
+    {
+        return $this->attachments;
+    }
+
+    public function addAttachment(SupplyAttachment $attachment): self
+    {
+        if (! $this->attachments->contains($attachment)) {
+            $this->attachments->add($attachment);
+            $attachment->setRequest($this);
+        }
+
+        return $this;
+    }
+
+    public function removeAttachment(SupplyAttachment $attachment): self
+    {
+        $this->attachments->removeElement($attachment);
+
+        return $this;
     }
 
     /** Заявка вважається закупленою, щойно є хоч один запис із постачальником. */

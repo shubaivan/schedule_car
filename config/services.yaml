@@ -29,6 +29,14 @@ services:
             - '../src/Supply/Enum/'
             - '../src/Kernel.php'
 
+    # Ключі Google Drive — рядки, автовайринг їх не підставить.
+    App\Supply\Service\GoogleDriveMirror:
+        arguments:
+            $clientId: '%env(GOOGLE_DRIVE_CLIENT_ID)%'
+            $clientSecret: '%env(GOOGLE_DRIVE_CLIENT_SECRET)%'
+            $refreshToken: '%env(GOOGLE_DRIVE_REFRESH_TOKEN)%'
+            $rootFolderId: '%env(GOOGLE_DRIVE_ROOT_FOLDER_ID)%'
+
     # Nutgram резолвить залежності хендлерів своїм контейнером із делегуванням
     # у Symfony, а той віддає лише публічні сервіси.
     App\Service\ChatScreen:

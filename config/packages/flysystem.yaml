@@ -1,0 +1,11 @@
+# Вкладення заявок: накладні, рахунки, договори, фото товару.
+#
+# Лежать поза public/ навмисно — віддаємо їх лише через контролер із перевіркою
+# прав. Адаптер local зараз; переїзд на S3 — це заміна adapter/options тут,
+# без змін у коді.
+flysystem:
+    storages:
+        supply.storage:
+            adapter: 'local'
+            options:
+                directory: '%kernel.project_dir%/var/storage/supply'

@@ -4,6 +4,7 @@ namespace App\Supply\Service;
 
 use App\Entity\TelegramUser;
 use App\Repository\TelegramUserRepository;
+use App\Supply\Entity\SupplyAttachment;
 use App\Supply\Entity\SupplyComment;
 use App\Supply\Entity\SupplyPurchase;
 use App\Supply\Entity\SupplyRequest;
@@ -144,6 +145,34 @@ class SupplyNotifier
             $this->formatter->escape($supplier),
             $this->formatter->escape($total),
             $this->formatter->card($request),
+        );
+
+        $this->send($request->getAuthor(), $text, $this->authorKeyboard($request));
+    }
+
+    /** До заявки прикріпили документ — заявник має бачити накладну так само, як статус. */
+    public function fileAttached(SupplyAttachment $attachment): void
+    {
+        $request = $attachment->getRequest();
+
+        $text = sprintf(
+            "%s <b>Документ до заявки №%s</b>\n%s — %s\n\n%s",
+            $attachment->getType()->emoji(),
+            $this->formatter->escape($request->getNumber()),
+            $this->formatter->escape($attachment->getType()->label()),
+            $this->formatter->escape($attachment->getOriginalName()),
+            $this->formatter->card($request),
+        );
+
+        $this->send($request->getAuthor(), $text, $this->authorKeyboard($request));
+    }
+
+    public function fileRemoved(SupplyRequest $request, string $name): void
+    {
+        $text = sprintf(
+            "🗑 <b>Документ до заявки №%s прибрано</b>\n%s",
+            $this->formatter->escape($request->getNumber()),
+            $this->formatter->escape($name),
         );
 
         $this->send($request->getAuthor(), $text, $this->authorKeyboard($request));
