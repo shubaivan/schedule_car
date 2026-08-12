@@ -2,9 +2,9 @@
 
 namespace App\Supply\Telegram;
 
+use App\Service\ChatScreen;
 use App\Service\TelegramUserService;
 use SergiX44\Nutgram\Nutgram;
-use SergiX44\Nutgram\Telegram\Properties\ParseMode;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardMarkup;
 
@@ -13,6 +13,7 @@ class SupplyMenu
 {
     public function __construct(
         private TelegramUserService $telegramUserService,
+        private ChatScreen $screen,
     ) {
     }
 
@@ -20,10 +21,10 @@ class SupplyMenu
     {
         $isManager = $this->telegramUserService->getCurrentUser()?->getSupplyRole()->canManage() ?? false;
 
-        $bot->sendMessage(
-            text: "📦 <b>Постачання</b>\nПодайте заявку на матеріали — арматуру, цемент, пісок тощо.",
-            parse_mode: ParseMode::HTML,
-            reply_markup: self::keyboard($isManager),
+        $this->screen->render(
+            $bot,
+            "📦 <b>Постачання</b>\nПодайте заявку на матеріали — арматуру, цемент, пісок тощо.",
+            self::keyboard($isManager),
         );
 
         if ($bot->isCallbackQuery()) {

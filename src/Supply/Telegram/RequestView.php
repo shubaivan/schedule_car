@@ -2,13 +2,13 @@
 
 namespace App\Supply\Telegram;
 
+use App\Service\ChatScreen;
 use App\Service\TelegramUserService;
 use App\Supply\Entity\SupplyRequest;
 use App\Supply\Enum\SupplyStatus;
 use App\Supply\Repository\SupplyRequestRepository;
 use App\Supply\Service\RequestFormatter;
 use SergiX44\Nutgram\Nutgram;
-use SergiX44\Nutgram\Telegram\Properties\ParseMode;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardMarkup;
 
@@ -19,6 +19,7 @@ class RequestView
         private SupplyRequestRepository $repository,
         private TelegramUserService $telegramUserService,
         private RequestFormatter $formatter,
+        private ChatScreen $screen,
     ) {
     }
 
@@ -30,7 +31,7 @@ class RequestView
         $request = $this->repository->find((int)$id);
 
         if ($request === null || $user === null) {
-            $bot->sendMessage(text: '⚠️ Заявку не знайдено.');
+            $this->screen->render($bot, '⚠️ Заявку не знайдено.');
 
             return;
         }
@@ -38,15 +39,24 @@ class RequestView
         $isManager = $user->getSupplyRole()->canManage();
 
         if (!$isManager && $request->getAuthor()->getId() !== $user->getId()) {
-            $bot->sendMessage(text: '⚠️ Ця заявка не ваша.');
+            $this->screen->render($bot, '⚠️ Ця заявка не ваша.');
 
             return;
         }
 
-        $bot->sendMessage(
-            text: $this->formatter->card($request, forManager: $isManager) . "\n" . $this->formatter->timeline($request),
-            parse_mode: ParseMode::HTML,
-            reply_markup: $this->keyboard($request, $isManager),
+        $this->show($bot, $request, $isManager);
+    }
+
+    /**
+     * Показати картку як поточний екран. Викликається і після зміни статусу чи
+     * коментаря — щоб менеджер бачив свіжий набір дій, а не застарілі кнопки.
+     */
+    public function show(Nutgram $bot, SupplyRequest $request, bool $isManager): void
+    {
+        $this->screen->render(
+            $bot,
+            $this->formatter->card($request, forManager: $isManager) . "\n" . $this->formatter->timeline($request),
+            $this->keyboard($request, $isManager),
         );
     }
 

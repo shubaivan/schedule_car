@@ -2,6 +2,7 @@
 
 namespace App\Supply\Telegram;
 
+use App\Service\ChatScreen;
 use App\Service\TelegramUserService;
 use App\Supply\Exception\SupplyException;
 use App\Supply\Repository\SupplyRequestRepository;
@@ -9,7 +10,6 @@ use App\Supply\Service\AddComment;
 use App\Supply\Service\RequestFormatter;
 use SergiX44\Nutgram\Conversations\Conversation;
 use SergiX44\Nutgram\Nutgram;
-use SergiX44\Nutgram\Telegram\Properties\ParseMode;
 
 /** Коментар до заявки з бота: і заявник, і менеджер пишуть в одну стрічку. */
 class CommentConversation extends Conversation
@@ -23,6 +23,8 @@ class CommentConversation extends Conversation
         private TelegramUserService $telegramUserService,
         private AddComment $addComment,
         private RequestFormatter $formatter,
+        private ChatScreen $screen,
+        private RequestView $view,
     ) {
     }
 
@@ -36,21 +38,20 @@ class CommentConversation extends Conversation
         $request = $this->repository->find($this->requestId);
 
         if ($request === null) {
-            $bot->sendMessage(text: '⚠️ Заявку не знайдено.');
+            $this->screen->render($bot, '⚠️ Заявку не знайдено.');
             $this->end();
 
             return;
         }
 
-        $bot->sendMessage(
-            text: sprintf(
-                "💬 Коментар до заявки №%s\n%s — %s\n\nНапишіть текст:",
-                $this->formatter->escape($request->getNumber()),
-                $this->formatter->escape($request->getItem()),
-                $request->getQuantityLabel(),
-            ),
-            parse_mode: ParseMode::HTML,
-        );
+        // Питання займає місце картки: поки чекаємо текст, її кнопки не мають
+        // працювати, інакше з них стартує друга така сама розмова.
+        $this->screen->render($bot, sprintf(
+            "💬 Коментар до заявки №%s\n%s — %s\n\nНапишіть текст:",
+            $this->formatter->escape($request->getNumber()),
+            $this->formatter->escape($request->getItem()),
+            $request->getQuantityLabel(),
+        ));
 
         $this->next('readText');
     }
@@ -60,7 +61,7 @@ class CommentConversation extends Conversation
         $text = trim((string)$bot->message()?->text);
 
         if ($text === '') {
-            $bot->sendMessage(text: 'Напишіть коментар текстом.');
+            $this->screen->render($bot, 'Напишіть коментар текстом.');
 
             return;
         }
@@ -69,7 +70,7 @@ class CommentConversation extends Conversation
         $user = $this->telegramUserService->getCurrentUser();
 
         if ($request === null || $user === null) {
-            $bot->sendMessage(text: '⚠️ Заявку не знайдено.');
+            $this->screen->render($bot, '⚠️ Заявку не знайдено.');
             $this->end();
 
             return;
@@ -77,9 +78,10 @@ class CommentConversation extends Conversation
 
         try {
             ($this->addComment)($request, $user, $text);
-            $bot->sendMessage(text: '✅ Коментар додано.');
+            // Повертаємо картку — коментар уже видно в її хронології.
+            $this->view->show($bot, $request, $user->getSupplyRole()->canManage());
         } catch (SupplyException $e) {
-            $bot->sendMessage(text: '⚠️ ' . $this->formatter->escape($e->getMessage()));
+            $this->screen->render($bot, '⚠️ ' . $this->formatter->escape($e->getMessage()));
         }
 
         $this->end();

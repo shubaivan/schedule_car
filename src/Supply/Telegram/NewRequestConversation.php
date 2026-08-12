@@ -2,6 +2,7 @@
 
 namespace App\Supply\Telegram;
 
+use App\Service\ChatScreen;
 use App\Service\TelegramUserService;
 use App\Supply\Dto\CreateRequestInput;
 use App\Supply\Enum\Unit;
@@ -10,7 +11,6 @@ use App\Supply\Service\CreateRequest;
 use App\Supply\Service\RequestFormatter;
 use SergiX44\Nutgram\Conversations\Conversation;
 use SergiX44\Nutgram\Nutgram;
-use SergiX44\Nutgram\Telegram\Properties\ParseMode;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardMarkup;
 
@@ -34,9 +34,6 @@ class NewRequestConversation extends Conversation
 
     protected ?string $step = 'askItem';
 
-    /** Повідомлення-форма, яке редагуємо на кожному кроці. */
-    public ?int $messageId = null;
-
     public ?string $item = null;
     public ?string $quantity = null;
     public ?string $unit = null;
@@ -47,6 +44,7 @@ class NewRequestConversation extends Conversation
         private CreateRequest $createRequest,
         private TelegramUserService $telegramUserService,
         private RequestFormatter $formatter,
+        private ChatScreen $screen,
     ) {
     }
 
@@ -54,8 +52,6 @@ class NewRequestConversation extends Conversation
     {
         if ($bot->isCallbackQuery()) {
             $bot->answerCallbackQuery();
-            // Перемальовуємо повідомлення меню — форма займає його місце.
-            $this->messageId = $bot->callbackQuery()->message?->message_id;
         }
 
         $this->render($bot, 'Що потрібно придбати? Напишіть назву та марку, наприклад: <i>Арматура 12 А500С</i>');
@@ -210,7 +206,7 @@ class NewRequestConversation extends Conversation
         try {
             // Готову картку заявнику надішле SupplyNotifier, тож форму прибираємо.
             ($this->createRequest)($author, $input);
-            $this->removeForm($bot);
+            $this->screen->close($bot);
         } catch (SupplyException $e) {
             $this->render($bot, '⚠️ ' . $this->formatter->escape($e->getMessage()));
         }
@@ -221,27 +217,7 @@ class NewRequestConversation extends Conversation
     /** Одне повідомлення: зібране зверху, поточне питання знизу. */
     private function render(Nutgram $bot, string $question, ?InlineKeyboardMarkup $markup = null): void
     {
-        $text = $this->summary() . "\n" . $question;
-        $chatId = $bot->chatId();
-
-        if ($this->messageId !== null && $chatId !== null) {
-            try {
-                $bot->editMessageText(
-                    text: $text,
-                    chat_id: $chatId,
-                    message_id: $this->messageId,
-                    parse_mode: ParseMode::HTML,
-                    reply_markup: $markup,
-                );
-
-                return;
-            } catch (\Throwable) {
-                // Повідомлення видалили або воно застаріле — надішлемо нове.
-            }
-        }
-
-        $message = $bot->sendMessage(text: $text, parse_mode: ParseMode::HTML, reply_markup: $markup);
-        $this->messageId = $message?->message_id;
+        $this->screen->render($bot, $this->summary() . "\n" . $question, $markup);
     }
 
     private function summary(): string
@@ -284,21 +260,6 @@ class NewRequestConversation extends Conversation
             $bot->deleteMessage($chatId, $messageId);
         } catch (\Throwable) {
             // Не критично: повідомлення просто лишиться в чаті.
-        }
-    }
-
-    private function removeForm(Nutgram $bot): void
-    {
-        $chatId = $bot->chatId();
-
-        if ($chatId === null || $this->messageId === null) {
-            return;
-        }
-
-        try {
-            $bot->deleteMessage($chatId, $this->messageId);
-        } catch (\Throwable) {
-            // Залишиться як є — картку заявки користувач усе одно отримає.
         }
     }
 

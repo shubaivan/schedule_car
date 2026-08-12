@@ -7,9 +7,7 @@ use App\Supply\Enum\SupplyStatus;
 use App\Supply\Exception\SupplyException;
 use App\Supply\Repository\SupplyRequestRepository;
 use App\Supply\Service\ChangeStatus;
-use App\Supply\Service\RequestFormatter;
 use SergiX44\Nutgram\Nutgram;
-use SergiX44\Nutgram\Telegram\Properties\ParseMode;
 
 /** Кнопки менеджера прямо з повідомлення: supply:status:{id}:{status}. */
 class ChangeStatusAction
@@ -18,20 +16,18 @@ class ChangeStatusAction
         private SupplyRequestRepository $repository,
         private TelegramUserService $telegramUserService,
         private ChangeStatus $changeStatus,
-        private RequestFormatter $formatter,
+        private RequestView $view,
     ) {
     }
 
     public function __invoke(Nutgram $bot, string $id, string $status): void
     {
-        $bot->answerCallbackQuery();
-
         $user = $this->telegramUserService->getCurrentUser();
         $request = $this->repository->find((int)$id);
         $target = SupplyStatus::tryFrom($status);
 
         if ($request === null || $user === null || $target === null) {
-            $bot->sendMessage(text: '⚠️ Заявку не знайдено.');
+            $bot->answerCallbackQuery(text: '⚠️ Заявку не знайдено.', show_alert: true);
 
             return;
         }
@@ -39,18 +35,19 @@ class ChangeStatusAction
         try {
             ($this->changeStatus)($request, $target, $user);
         } catch (SupplyException $e) {
-            $bot->sendMessage(text: '⚠️ ' . $this->formatter->escape($e->getMessage()));
+            // Найчастіше це повторне натискання вже застосованої кнопки:
+            // спливашка пояснює і не засмічує чат.
+            $bot->answerCallbackQuery(text: '⚠️ ' . $e->getMessage(), show_alert: true);
+            $this->view->show($bot, $request, $user->getSupplyRole()->canManage());
 
             return;
         }
 
-        $bot->sendMessage(
-            text: sprintf(
-                "✅ Заявка №%s → <b>%s</b>. Заявника сповіщено.",
-                $this->formatter->escape($request->getNumber()),
-                $this->formatter->escape($target->label()),
-            ),
-            parse_mode: ParseMode::HTML,
+        $bot->answerCallbackQuery(
+            text: sprintf('✅ %s. Заявника сповіщено.', $target->label()),
         );
+
+        // Перемальовуємо картку: набір доступних дій змінився разом зі статусом.
+        $this->view->show($bot, $request, $user->getSupplyRole()->canManage());
     }
 }

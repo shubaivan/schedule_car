@@ -2,10 +2,10 @@
 
 namespace App\Telegram\Start\Command;
 
+use App\Service\ChatScreen;
 use App\Supply\Telegram\SupplyCallback;
 use SergiX44\Nutgram\Handlers\Type\Command;
 use SergiX44\Nutgram\Nutgram;
-use SergiX44\Nutgram\Telegram\Properties\ParseMode;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardMarkup;
 
@@ -21,13 +21,13 @@ class StartCommand extends Command
     protected string $command = 'start';
     protected ?string $description = 'Початок спілкування';
 
-    public function handle(Nutgram $bot): void
+    /**
+     * ChatScreen приходить параметром, а не через конструктор: команди Nutgram
+     * створює через new під час реєстрації маршрутів, повз контейнер.
+     */
+    public function handle(Nutgram $bot, ChatScreen $screen): void
     {
-        $bot->sendMessage(
-            text: 'Вітаю! Оберіть розділ:',
-            parse_mode: ParseMode::HTML,
-            reply_markup: self::mainMenuKeyboard(),
-        );
+        $screen->render($bot, 'Вітаю! Оберіть розділ:', self::mainMenuKeyboard());
     }
 
     public static function mainMenuKeyboard(): InlineKeyboardMarkup

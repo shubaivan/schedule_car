@@ -2,6 +2,7 @@
 
 namespace App\Supply\Telegram;
 
+use App\Service\ChatScreen;
 use App\Service\TelegramUserService;
 use App\Supply\Enum\SupplyStatus;
 use App\Supply\Exception\SupplyException;
@@ -10,7 +11,6 @@ use App\Supply\Service\ChangeStatus;
 use App\Supply\Service\RequestFormatter;
 use SergiX44\Nutgram\Conversations\Conversation;
 use SergiX44\Nutgram\Nutgram;
-use SergiX44\Nutgram\Telegram\Properties\ParseMode;
 
 /** Відхилення заявки: спершу питаємо причину — без неї заявник не зрозуміє, що робити. */
 class RejectConversation extends Conversation
@@ -24,6 +24,8 @@ class RejectConversation extends Conversation
         private TelegramUserService $telegramUserService,
         private ChangeStatus $changeStatus,
         private RequestFormatter $formatter,
+        private ChatScreen $screen,
+        private RequestView $view,
     ) {
     }
 
@@ -37,19 +39,17 @@ class RejectConversation extends Conversation
         $request = $this->repository->find($this->requestId);
 
         if ($request === null) {
-            $bot->sendMessage(text: '⚠️ Заявку не знайдено.');
+            $this->screen->render($bot, '⚠️ Заявку не знайдено.');
             $this->end();
 
             return;
         }
 
-        $bot->sendMessage(
-            text: sprintf(
-                "⛔ Відхилення заявки №%s\n\nНапишіть причину — вона піде заявнику.",
-                $this->formatter->escape($request->getNumber()),
-            ),
-            parse_mode: ParseMode::HTML,
-        );
+        // Питання займає місце картки — інакше з її кнопок стартує друге відхилення.
+        $this->screen->render($bot, sprintf(
+            "⛔ Відхилення заявки №%s\n\nНапишіть причину — вона піде заявнику.",
+            $this->formatter->escape($request->getNumber()),
+        ));
 
         $this->next('readReason');
     }
@@ -59,7 +59,7 @@ class RejectConversation extends Conversation
         $reason = trim((string)$bot->message()?->text);
 
         if ($reason === '') {
-            $bot->sendMessage(text: 'Напишіть причину текстом.');
+            $this->screen->render($bot, 'Напишіть причину текстом.');
 
             return;
         }
@@ -68,7 +68,7 @@ class RejectConversation extends Conversation
         $user = $this->telegramUserService->getCurrentUser();
 
         if ($request === null || $user === null) {
-            $bot->sendMessage(text: '⚠️ Заявку не знайдено.');
+            $this->screen->render($bot, '⚠️ Заявку не знайдено.');
             $this->end();
 
             return;
@@ -76,12 +76,9 @@ class RejectConversation extends Conversation
 
         try {
             ($this->changeStatus)($request, SupplyStatus::Rejected, $user, $reason);
-            $bot->sendMessage(
-                text: sprintf('✅ Заявку №%s відхилено, заявника сповіщено.', $this->formatter->escape($request->getNumber())),
-                parse_mode: ParseMode::HTML,
-            );
+            $this->view->show($bot, $request, $user->getSupplyRole()->canManage());
         } catch (SupplyException $e) {
-            $bot->sendMessage(text: '⚠️ ' . $this->formatter->escape($e->getMessage()));
+            $this->screen->render($bot, '⚠️ ' . $this->formatter->escape($e->getMessage()));
         }
 
         $this->end();

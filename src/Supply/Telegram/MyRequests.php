@@ -2,11 +2,11 @@
 
 namespace App\Supply\Telegram;
 
+use App\Service\ChatScreen;
 use App\Service\TelegramUserService;
 use App\Supply\Repository\SupplyRequestRepository;
 use App\Supply\Service\RequestFormatter;
 use SergiX44\Nutgram\Nutgram;
-use SergiX44\Nutgram\Telegram\Properties\ParseMode;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardMarkup;
 
@@ -20,6 +20,7 @@ class MyRequests
         private SupplyRequestRepository $repository,
         private TelegramUserService $telegramUserService,
         private RequestFormatter $formatter,
+        private ChatScreen $screen,
     ) {
     }
 
@@ -32,7 +33,7 @@ class MyRequests
         $user = $this->telegramUserService->getCurrentUser();
 
         if ($user === null) {
-            $bot->sendMessage(text: '⚠️ Натисніть /start, щоб бот вас упізнав.');
+            $this->screen->render($bot, '⚠️ Натисніть /start, щоб бот вас упізнав.');
 
             return;
         }
@@ -40,10 +41,7 @@ class MyRequests
         $requests = $this->repository->findByAuthor($user, self::LIMIT);
 
         if (!$requests) {
-            $bot->sendMessage(
-                text: 'У вас поки немає заявок.',
-                reply_markup: SupplyMenu::keyboard(),
-            );
+            $this->screen->render($bot, 'У вас поки немає заявок.', SupplyMenu::keyboard());
 
             return;
         }
@@ -74,10 +72,6 @@ class MyRequests
             InlineKeyboardButton::make('➕ Нова заявка', callback_data: SupplyCallback::NEW_REQUEST),
         );
 
-        $bot->sendMessage(
-            text: implode("\n", $lines),
-            parse_mode: ParseMode::HTML,
-            reply_markup: $markup,
-        );
+        $this->screen->render($bot, implode("\n", $lines), $markup);
     }
 }
