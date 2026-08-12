@@ -3,12 +3,17 @@
 namespace App\Supply\Controller;
 
 use App\Entity\TelegramUser;
+use App\Supply\Dto\PurchaseInput;
+use App\Supply\Entity\SupplyPurchase;
 use App\Supply\Entity\SupplyRequest;
+use App\Supply\Enum\PaymentType;
 use App\Supply\Enum\SupplyStatus;
 use App\Supply\Exception\SupplyException;
+use App\Supply\Repository\SupplierRepository;
 use App\Supply\Repository\SupplyRequestRepository;
 use App\Supply\Service\AddComment;
 use App\Supply\Service\ChangeStatus;
+use App\Supply\Service\RecordPurchase;
 use App\Supply\Service\RequestPresenter;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -104,6 +109,140 @@ class RequestApiController extends AbstractController
         }
 
         return $this->json($this->presenter->detail($supplyRequest));
+    }
+
+    #[Route('/{id}/purchases', name: 'api_supply_request_purchase', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function addPurchase(
+        SupplyRequest $supplyRequest,
+        Request $request,
+        RecordPurchase $recordPurchase,
+        SupplierRepository $suppliers,
+    ): JsonResponse {
+        try {
+            $input = $this->purchaseInput($this->payload($request), $suppliers);
+            $recordPurchase($supplyRequest, $this->manager(), $input);
+        } catch (SupplyException $e) {
+            return $this->error($e->getMessage());
+        }
+
+        return $this->json($this->presenter->detail($supplyRequest));
+    }
+
+    #[Route(
+        '/{id}/purchases/{purchaseId}',
+        name: 'api_supply_request_purchase_update',
+        methods: ['PATCH'],
+        requirements: ['id' => '\d+', 'purchaseId' => '\d+'],
+    )]
+    public function updatePurchase(
+        SupplyRequest $supplyRequest,
+        int $purchaseId,
+        Request $request,
+        RecordPurchase $recordPurchase,
+        SupplierRepository $suppliers,
+    ): JsonResponse {
+        $purchase = $this->purchaseOf($supplyRequest, $purchaseId);
+
+        if ($purchase === null) {
+            return $this->error('Закупівлю не знайдено.');
+        }
+
+        try {
+            $payload = $this->payload($request);
+            // Постачальника можна не передавати — тоді лишається той самий.
+            $payload['supplierId'] ??= $purchase->getSupplier()->getId();
+
+            $recordPurchase->update($purchase, $this->manager(), $this->purchaseInput($payload, $suppliers));
+        } catch (SupplyException $e) {
+            return $this->error($e->getMessage());
+        }
+
+        return $this->json($this->presenter->detail($supplyRequest));
+    }
+
+    #[Route(
+        '/{id}/purchases/{purchaseId}',
+        name: 'api_supply_request_purchase_delete',
+        methods: ['DELETE'],
+        requirements: ['id' => '\d+', 'purchaseId' => '\d+'],
+    )]
+    public function deletePurchase(
+        SupplyRequest $supplyRequest,
+        int $purchaseId,
+        RecordPurchase $recordPurchase,
+    ): JsonResponse {
+        $purchase = $this->purchaseOf($supplyRequest, $purchaseId);
+
+        if ($purchase === null) {
+            return $this->error('Закупівлю не знайдено.');
+        }
+
+        try {
+            $recordPurchase->remove($purchase, $this->manager());
+        } catch (SupplyException $e) {
+            return $this->error($e->getMessage());
+        }
+
+        return $this->json($this->presenter->detail($supplyRequest));
+    }
+
+    /** Шукаємо серед закупівель саме цієї заявки — чужу за id не підсунути. */
+    private function purchaseOf(SupplyRequest $request, int $purchaseId): ?SupplyPurchase
+    {
+        foreach ($request->getPurchases() as $purchase) {
+            if ($purchase->getId() === $purchaseId) {
+                return $purchase;
+            }
+        }
+
+        return null;
+    }
+
+    private function purchaseInput(array $payload, SupplierRepository $suppliers): PurchaseInput
+    {
+        $supplier = $suppliers->find((int)($payload['supplierId'] ?? 0));
+
+        if ($supplier === null) {
+            throw new SupplyException('Оберіть постачальника зі списку.');
+        }
+
+        $payment = PaymentType::tryFrom((string)($payload['payment'] ?? PaymentType::Bank->value));
+
+        if ($payment === null) {
+            throw new SupplyException('Невідомий спосіб оплати.');
+        }
+
+        $purchasedAt = null;
+
+        if (!empty($payload['purchasedAt'])) {
+            $purchasedAt = \DateTime::createFromFormat(
+                'Y-m-d H:i:s',
+                $payload['purchasedAt'] . ' 00:00:00',
+                new \DateTimeZone('Europe/Kyiv'),
+            ) ?: null;
+
+            if ($purchasedAt === null) {
+                throw new SupplyException('Дата закупівлі має бути у форматі РРРР-ММ-ДД.');
+            }
+        }
+
+        return new PurchaseInput(
+            supplier: $supplier,
+            totalAmount: $this->text($payload, 'totalAmount'),
+            quantity: $this->text($payload, 'quantity'),
+            pricePerUnit: $this->text($payload, 'pricePerUnit'),
+            payment: $payment,
+            vatIncluded: (bool)($payload['vatIncluded'] ?? true),
+            invoiceNumber: $this->text($payload, 'invoiceNumber'),
+            purchasedAt: $purchasedAt,
+        );
+    }
+
+    private function text(array $payload, string $key): ?string
+    {
+        $value = $payload[$key] ?? null;
+
+        return $value === null || $value === '' ? null : (string)$value;
     }
 
     private function manager(): TelegramUser

@@ -4,6 +4,7 @@ namespace App\Tests\Supply;
 
 use App\Entity\TelegramUser;
 use App\Supply\Dto\CreateRequestInput;
+use App\Supply\Dto\PurchaseInput;
 use App\Supply\Entity\Department;
 use App\Supply\Entity\SupplyRequest;
 use App\Supply\Enum\SupplyRole;
@@ -13,6 +14,8 @@ use App\Supply\Exception\SupplyException;
 use App\Supply\Service\AddComment;
 use App\Supply\Service\ChangeStatus;
 use App\Supply\Service\CreateRequest;
+use App\Supply\Service\RecordPurchase;
+use App\Supply\Service\SupplierDirectory;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -62,6 +65,14 @@ class SupplyRequestFlowTest extends KernelTestCase
         $changeStatus = self::getContainer()->get(ChangeStatus::class);
 
         $changeStatus($request, SupplyStatus::InProgress, $manager);
+
+        // Далі «Оплачено» без закупівлі не пускає: заявка закривається
+        // конкретною покупкою в конкретного постачальника.
+        (self::getContainer()->get(RecordPurchase::class))($request, $manager, new PurchaseInput(
+            supplier: self::getContainer()->get(SupplierDirectory::class)->findOrCreate('ФОП Петренко ' . uniqid()),
+            totalAmount: '18000',
+        ));
+
         $changeStatus($request, SupplyStatus::Paid, $manager);
         $changeStatus($request, SupplyStatus::Delivery, $manager);
         $changeStatus($request, SupplyStatus::InStock, $manager);

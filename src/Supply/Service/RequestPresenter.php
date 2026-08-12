@@ -4,6 +4,7 @@ namespace App\Supply\Service;
 
 use App\Entity\TelegramUser;
 use App\Supply\Entity\Supplier;
+use App\Supply\Entity\SupplyPurchase;
 use App\Supply\Entity\SupplyRequest;
 
 /**
@@ -44,6 +45,8 @@ class RequestPresenter
         return $this->listItem($request) + [
             'note' => $request->getNote(),
             'closedAt' => $request->getClosedAt()?->format(DATE_ATOM),
+            'purchases' => array_map($this->purchase(...), $request->getPurchases()->toArray()),
+            'purchaseTotal' => (float)$request->getPurchaseTotal(),
             'allowedTransitions' => array_map(
                 static fn($status) => ['value' => $status->value, 'label' => $status->label()],
                 $request->getStatus()->allowedTransitions(),
@@ -81,6 +84,24 @@ class RequestPresenter
         usort($events, static fn(array $a, array $b) => $a['at'] <=> $b['at']);
 
         return $events;
+    }
+
+    public function purchase(SupplyPurchase $purchase): array
+    {
+        return [
+            'id' => $purchase->getId(),
+            'supplier' => $this->supplier($purchase->getSupplier()),
+            'quantity' => $purchase->getQuantity() !== null ? (float)$purchase->getQuantity() : null,
+            'pricePerUnit' => $purchase->getPricePerUnit() !== null ? (float)$purchase->getPricePerUnit() : null,
+            'totalAmount' => (float)$purchase->getTotalAmount(),
+            'totalLabel' => $purchase->getTotalLabel(),
+            'currency' => $purchase->getCurrency(),
+            'vatIncluded' => $purchase->isVatIncluded(),
+            'invoiceNumber' => $purchase->getInvoiceNumber(),
+            'purchasedAt' => $purchase->getPurchasedAt()?->format('Y-m-d'),
+            'payment' => $purchase->getPayment()->value,
+            'paymentLabel' => $purchase->getPayment()->label(),
+        ];
     }
 
     public function supplier(Supplier $supplier): array

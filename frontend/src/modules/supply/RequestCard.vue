@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { api, type SupplyRequest } from '../../app/api'
+import { api, type ApiSupplier, type PurchasePayload, type SupplyRequest } from '../../app/api'
 import { useSession } from '../../app/store'
 import StatusBadge from '../../shared/StatusBadge.vue'
 import { formatDate, formatDateTime } from '../../shared/format'
@@ -11,6 +11,20 @@ const session = useSession()
 const request = ref<SupplyRequest | null>(null)
 const error = ref('')
 const busy = ref(false)
+
+// Закупівля: у кого купили. Без неї заявку не перевести в «Оплачено» й далі.
+const suppliers = ref<ApiSupplier[]>([])
+const addingPurchase = ref(false)
+const blankPurchase = (): PurchasePayload => ({
+    supplierId: 0,
+    totalAmount: '',
+    quantity: '',
+    pricePerUnit: '',
+    payment: 'bank',
+    vatIncluded: true,
+    invoiceNumber: '',
+})
+const purchase = ref<PurchasePayload>(blankPurchase())
 
 const comment = ref('')
 // Відхилення без причини не пропускає ані бек, ані ця форма.
@@ -48,6 +62,31 @@ async function sendComment() {
 
     await run(() => api.comment(Number(props.id), comment.value))
     comment.value = ''
+}
+
+async function openPurchaseForm() {
+    addingPurchase.value = true
+    purchase.value = blankPurchase()
+
+    try {
+        suppliers.value = (await api.suppliers({ active: true })).items
+    } catch (e) {
+        error.value = session.handle(e)
+    }
+}
+
+async function savePurchase() {
+    if (!purchase.value.supplierId) return
+
+    await run(() => api.addPurchase(Number(props.id), purchase.value))
+
+    if (!error.value) {
+        addingPurchase.value = false
+    }
+}
+
+async function removePurchase(purchaseId: number) {
+    await run(() => api.deletePurchase(Number(props.id), purchaseId))
 }
 
 async function run(action: () => Promise<SupplyRequest>) {
@@ -113,6 +152,86 @@ onMounted(load)
             </dl>
 
             <p v-if="request.note" class="muted" style="margin-top:1rem">📝 {{ request.note }}</p>
+        </div>
+
+        <div class="card">
+            <div class="row" style="justify-content: space-between">
+                <h3 style="margin:0">Закупівля</h3>
+                <span v-if="request.purchases?.length" class="muted">
+                    Разом: <b>{{ request.purchaseTotal?.toFixed(2) }} ₴</b>
+                </span>
+            </div>
+
+            <p v-if="!request.purchases?.length" class="muted" style="margin-top:.5rem">
+                Ще не вказано, у кого купили. Без цього заявку не перевести в «Оплачено», «Доставка» чи «На складі».
+            </p>
+
+            <div v-else class="table-wrap" style="margin-top:.5rem">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Постачальник</th>
+                        <th>Кількість</th>
+                        <th>Ціна</th>
+                        <th>Сума</th>
+                        <th>Оплата</th>
+                        <th>Накладна</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr v-for="item in request.purchases" :key="item.id">
+                        <td class="wrap">{{ item.supplier.name }}</td>
+                        <td>{{ item.quantity ?? '—' }}</td>
+                        <td>{{ item.pricePerUnit?.toFixed(2) ?? '—' }}</td>
+                        <td>
+                            {{ item.totalLabel }}
+                            <span v-if="!item.vatIncluded" class="muted">без ПДВ</span>
+                        </td>
+                        <td>{{ item.paymentLabel }}</td>
+                        <td>{{ item.invoiceNumber ?? '—' }}</td>
+                        <td>
+                            <button class="danger" :disabled="busy" @click="removePurchase(item.id)">Прибрати</button>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div v-if="addingPurchase" style="margin-top:.75rem">
+                <div class="filters">
+                    <select v-model.number="purchase.supplierId">
+                        <option :value="0" disabled>— оберіть постачальника —</option>
+                        <option v-for="item in suppliers" :key="item.id" :value="item.id">{{ item.name }}</option>
+                    </select>
+                    <input v-model="purchase.totalAmount" type="text" placeholder="Сума, ₴" />
+                    <input v-model="purchase.quantity" type="text" placeholder="Кількість" />
+                    <input v-model="purchase.pricePerUnit" type="text" placeholder="Ціна за одиницю" />
+                    <select v-model="purchase.payment">
+                        <option value="bank">Безготівка</option>
+                        <option value="cash">Готівка</option>
+                    </select>
+                    <input v-model="purchase.invoiceNumber" type="text" placeholder="Накладна" />
+                    <label class="flag">
+                        <input v-model="purchase.vatIncluded" type="checkbox" />
+                        з ПДВ
+                    </label>
+                </div>
+                <p class="muted">Досить суми — або ціни разом із кількістю, решту дорахуємо.</p>
+                <div class="row">
+                    <button class="primary" :disabled="busy || !purchase.supplierId" @click="savePurchase">
+                        Зберегти закупівлю
+                    </button>
+                    <button :disabled="busy" @click="addingPurchase = false">Скасувати</button>
+                    <router-link :to="{ name: 'suppliers' }" class="muted">Довідник постачальників →</router-link>
+                </div>
+            </div>
+
+            <div v-else class="row" style="margin-top:.75rem">
+                <button :disabled="busy" @click="openPurchaseForm">
+                    {{ request.purchases?.length ? '+ Ще постачальник' : '+ Вказати постачальника' }}
+                </button>
+            </div>
         </div>
 
         <div class="card">

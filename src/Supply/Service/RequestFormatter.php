@@ -49,6 +49,22 @@ class RequestFormatter
             $lines[] = '📝 ' . $this->escape($request->getNote());
         }
 
+        // Постачальника й суму бачать усі, зокрема заявник: він має розуміти,
+        // що його заявку закрили конкретною покупкою.
+        foreach ($request->getPurchases() as $purchase) {
+            $line = sprintf(
+                '🧾 %s — <b>%s</b>',
+                $this->escape($purchase->getSupplier()->getName()),
+                $purchase->getTotalLabel(),
+            );
+
+            if ($purchase->getInvoiceNumber()) {
+                $line .= ' · накладна ' . $this->escape($purchase->getInvoiceNumber());
+            }
+
+            $lines[] = $line;
+        }
+
         $lines[] = '';
         $lines[] = 'Статус: <b>' . $request->getStatus()->labelWithEmoji() . '</b>';
 

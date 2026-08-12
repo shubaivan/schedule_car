@@ -20,6 +20,33 @@ export interface TimelineEvent {
     statusFrom?: string | null
 }
 
+export interface Purchase {
+    id: number
+    supplier: ApiSupplier
+    quantity: number | null
+    pricePerUnit: number | null
+    totalAmount: number
+    totalLabel: string
+    currency: string
+    vatIncluded: boolean
+    invoiceNumber: string | null
+    purchasedAt: string | null
+    payment: string
+    paymentLabel: string
+}
+
+/** Те, що надсилає форма закупівлі. Досить суми або ціни з кількістю. */
+export interface PurchasePayload {
+    supplierId: number
+    totalAmount?: string
+    quantity?: string
+    pricePerUnit?: string
+    payment?: string
+    vatIncluded?: boolean
+    invoiceNumber?: string
+    purchasedAt?: string
+}
+
 export interface SupplyRequest {
     id: number
     number: string
@@ -42,6 +69,8 @@ export interface SupplyRequest {
     closedAt?: string | null
     allowedTransitions?: { value: string; label: string }[]
     timeline?: TimelineEvent[]
+    purchases?: Purchase[]
+    purchaseTotal?: number
 }
 
 export interface RequestListResponse {
@@ -125,6 +154,23 @@ export const api = {
         call<SupplyRequest>(`/api/supply/requests/${id}/comments`, {
             method: 'POST',
             body: JSON.stringify({ text }),
+        }),
+
+    addPurchase: (requestId: number, payload: PurchasePayload) =>
+        call<SupplyRequest>(`/api/supply/requests/${requestId}/purchases`, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        }),
+
+    updatePurchase: (requestId: number, purchaseId: number, payload: Partial<PurchasePayload>) =>
+        call<SupplyRequest>(`/api/supply/requests/${requestId}/purchases/${purchaseId}`, {
+            method: 'PATCH',
+            body: JSON.stringify(payload),
+        }),
+
+    deletePurchase: (requestId: number, purchaseId: number) =>
+        call<SupplyRequest>(`/api/supply/requests/${requestId}/purchases/${purchaseId}`, {
+            method: 'DELETE',
         }),
 
     suppliers: (params: { q?: string; active?: boolean } = {}) => {

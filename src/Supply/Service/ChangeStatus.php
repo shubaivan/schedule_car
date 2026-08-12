@@ -53,6 +53,13 @@ class ChangeStatus
             throw new SupplyException('Вкажіть причину відхилення — інакше заявник не зрозуміє, що робити далі.');
         }
 
+        if ($to->requiresPurchase() && !$request->isPurchased()) {
+            throw new SupplyException(sprintf(
+                'Спершу вкажіть, у кого купили: без постачальника й суми заявку не можна перевести в «%s».',
+                $to->label(),
+            ));
+        }
+
         $request->setStatus($to);
         $request->setClosedAt($to->isFinal() || $to === SupplyStatus::Rejected
             ? new \DateTime('now', new \DateTimeZone('Europe/Kyiv'))

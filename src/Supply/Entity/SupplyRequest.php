@@ -83,10 +83,16 @@ class SupplyRequest
     #[ORM\OrderBy(['created_at' => 'ASC'])]
     private Collection $statusLogs;
 
+    /** У кого купили: зазвичай один запис, але буває й кілька постачальників. */
+    #[ORM\OneToMany(targetEntity: SupplyPurchase::class, mappedBy: 'request', cascade: ['persist', 'remove'])]
+    #[ORM\OrderBy(['created_at' => 'ASC'])]
+    private Collection $purchases;
+
     public function __construct()
     {
         $this->comments = new ArrayCollection();
         $this->statusLogs = new ArrayCollection();
+        $this->purchases = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -266,6 +272,51 @@ class SupplyRequest
         }
 
         return $this;
+    }
+
+    public function getPurchases(): Collection
+    {
+        return $this->purchases;
+    }
+
+    public function addPurchase(SupplyPurchase $purchase): self
+    {
+        if (!$this->purchases->contains($purchase)) {
+            $this->purchases->add($purchase);
+            $purchase->setRequest($this);
+        }
+
+        return $this;
+    }
+
+    public function removePurchase(SupplyPurchase $purchase): self
+    {
+        $this->purchases->removeElement($purchase);
+
+        return $this;
+    }
+
+    /**
+     * Скільки всього витрачено за заявкою.
+     *
+     * Додаємо копійками цілими числами: bcmath є не на кожній машині, а сума
+     * float-ів дає класичні 0.1 + 0.2 = 0.30000000000000004.
+     */
+    public function getPurchaseTotal(): string
+    {
+        $cents = 0;
+
+        foreach ($this->purchases as $purchase) {
+            $cents += (int)round((float)$purchase->getTotalAmount() * 100);
+        }
+
+        return number_format($cents / 100, 2, '.', '');
+    }
+
+    /** Заявка вважається закупленою, щойно є хоч один запис із постачальником. */
+    public function isPurchased(): bool
+    {
+        return !$this->purchases->isEmpty();
     }
 
     /**
