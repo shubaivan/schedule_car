@@ -13,6 +13,8 @@ enum SupplyStatus: string
 {
     case New = 'new';
     case InProgress = 'in_progress';
+    /** Закупівля порахована, лишилось рішення директора: платимо чи ні. */
+    case Approval = 'approval';
     case Paid = 'paid';
     case Delivery = 'delivery';
     case InStock = 'in_stock';
@@ -23,6 +25,7 @@ enum SupplyStatus: string
         return match ($this) {
             self::New => 'Нова',
             self::InProgress => 'В роботі',
+            self::Approval => 'На затвердженні',
             self::Paid => 'Оплачено',
             self::Delivery => 'Доставка',
             self::InStock => 'На складі',
@@ -35,6 +38,7 @@ enum SupplyStatus: string
         return match ($this) {
             self::New => '🆕',
             self::InProgress => '⚙️',
+            self::Approval => '⏳',
             self::Paid => '💳',
             self::Delivery => '🚚',
             self::InStock => '📦',
@@ -60,12 +64,16 @@ enum SupplyStatus: string
      */
     public function requiresPurchase(): bool
     {
-        return in_array($this, [self::Paid, self::Delivery, self::InStock], true);
+        return in_array($this, [self::Approval, self::Paid, self::Delivery, self::InStock], true);
     }
 
     /**
-     * Дозволені наступні статуси. Пропуск кроків уперед дозволений навмисно:
-     * дрібницю часто купують за готівку й одразу привозять на склад.
+     * Дозволені наступні статуси.
+     *
+     * Витрата грошей іде тільки через «На затвердженні»: заявку з «В роботі»
+     * не можна кинути ні в «Оплачено», ні відразу «На складі» — інакше готівкова
+     * покупка проходила б повз директора. Далі, коли рішення вже є, пропуск
+     * кроків дозволений: дрібницю привозять на склад того ж дня.
      *
      * @return self[]
      */
@@ -73,7 +81,8 @@ enum SupplyStatus: string
     {
         return match ($this) {
             self::New => [self::InProgress, self::Rejected],
-            self::InProgress => [self::Paid, self::Delivery, self::InStock, self::Rejected],
+            self::InProgress => [self::Approval, self::Rejected],
+            self::Approval => [self::Paid, self::Delivery, self::InStock, self::Rejected],
             self::Paid => [self::Delivery, self::InStock, self::Rejected],
             self::Delivery => [self::InStock, self::Rejected],
             self::InStock => [],
@@ -89,6 +98,6 @@ enum SupplyStatus: string
     /** Статуси, у яких заявка ще в роботі — для фільтра «активні» в CRM. */
     public static function openCases(): array
     {
-        return [self::New, self::InProgress, self::Paid, self::Delivery];
+        return [self::New, self::InProgress, self::Approval, self::Paid, self::Delivery];
     }
 }

@@ -12,7 +12,10 @@ use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardMarkup;
 use SergiX44\Nutgram\Telegram\Types\Message\LinkPreviewOptions;
 
 /**
- * «🔐 Вхід у CRM»: бот видає одноразове посилання менеджеру.
+ * «🔐 Вхід у CRM»: бот видає одноразове посилання.
+ *
+ * Доступ має кожен підтверджений користувач: робітник заходить подивитись
+ * спільну картину заявок, а керує ними менеджер — це вирішує вже сама CRM.
  *
  * Посилання йде КНОПКОЮ, а не текстом: текстове посилання Telegram відкриває сам,
  * щоб побудувати превʼю, і одноразовий токен згорає ще до кліку користувача.
@@ -33,8 +36,8 @@ class CrmLoginAction
 
         $user = $this->telegramUserService->getCurrentUser();
 
-        if ($user === null || ! $user->getSupplyRole()->canManage()) {
-            $bot->sendMessage(text: '⚠️ Доступ до CRM мають лише менеджери з постачання.');
+        if ($user === null) {
+            $bot->sendMessage(text: '⚠️ Натисніть /start, щоб бот вас упізнав.');
 
             return;
         }

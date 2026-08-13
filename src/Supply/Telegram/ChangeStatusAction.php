@@ -47,7 +47,7 @@ class ChangeStatusAction
             // Найчастіше це повторне натискання вже застосованої кнопки:
             // спливашка пояснює і не засмічує чат.
             $bot->answerCallbackQuery(text: '⚠️ ' . $e->getMessage(), show_alert: true);
-            $this->view->show($bot, $request, $user->getSupplyRole()->canManage());
+            $this->view->show($bot, $request, $user);
 
             return;
         }
@@ -57,6 +57,6 @@ class ChangeStatusAction
         );
 
         // Перемальовуємо картку: набір доступних дій змінився разом зі статусом.
-        $this->view->show($bot, $request, $user->getSupplyRole()->canManage());
+        $this->view->show($bot, $request, $user);
     }
 }

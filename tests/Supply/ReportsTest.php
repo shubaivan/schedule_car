@@ -138,7 +138,9 @@ class ReportsTest extends KernelTestCase
         $closed = $this->request($worker);
         $changeStatus($closed, SupplyStatus::InProgress, $manager);
         ($this->recordPurchase)($closed, $manager, new PurchaseInput($this->supplier(), totalAmount: '100'), notify: false);
-        $changeStatus($closed, SupplyStatus::InStock, $manager);
+        // Гроші йдуть через директора, тож і в звітах шлях той самий.
+        $changeStatus($closed, SupplyStatus::Approval, $manager);
+        $changeStatus($closed, SupplyStatus::InStock, $this->director());
 
         $totals = $this->today()['totals'];
 
@@ -175,6 +177,19 @@ class ReportsTest extends KernelTestCase
             $author,
             new CreateRequestInput(item: $item, quantity: '5', unit: Unit::CubicMeter),
         );
+    }
+
+    private function director(): TelegramUser
+    {
+        $director = (new TelegramUser())
+            ->setTelegramId('report-director-' . uniqid())
+            ->setFirstName('Тест-Звіт')
+            ->setSupplyRole(SupplyRole::Director);
+
+        $this->em->persist($director);
+        $this->em->flush();
+
+        return $director;
     }
 
     /** @return TelegramUser[] */

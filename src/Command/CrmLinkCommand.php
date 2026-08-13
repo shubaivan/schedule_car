@@ -54,12 +54,7 @@ class CrmLinkCommand extends Command
             return Command::FAILURE;
         }
 
-        if (! $user->getSupplyRole()->canManage()) {
-            $io->error(sprintf('%s має роль «%s», доступу до CRM немає.', $user->displayName(), $user->getSupplyRole()->label()));
-
-            return Command::FAILURE;
-        }
-
+        // Роль не питаємо: CRM відкрита всім своїм, вона лише показує різне.
         $io->success(sprintf('%s — %s', $user->displayName(), $user->getSupplyRole()->label()));
         $io->writeln($this->loginLink->issue($user));
         $io->writeln('<comment>Діє 5 хвилин, спрацьовує один раз.</comment>');

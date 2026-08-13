@@ -45,8 +45,12 @@ class ChangeStatus
             ));
         }
 
-        if ($by !== null && ! $by->getSupplyRole()->canManage()) {
-            throw new SupplyException('Змінювати статус заявки може лише менеджер із постачання.');
+        if ($by !== null && ! $by->getSupplyRole()->canMoveRequest($from, $to)) {
+            throw new SupplyException(
+                $from === SupplyStatus::Approval
+                    ? 'Оплату погоджує директор — заявку з «На затвердженні» рухає лише він.'
+                    : 'Змінювати статус заявки може лише менеджер із постачання.',
+            );
         }
 
         $comment = $comment !== null ? trim($comment) : null;

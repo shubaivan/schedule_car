@@ -3,7 +3,6 @@
 namespace App\Supply\Telegram;
 
 use App\Service\ChatScreen;
-use App\Service\TelegramUserService;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardMarkup;
@@ -12,19 +11,17 @@ use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardMarkup;
 class SupplyMenu
 {
     public function __construct(
-        private TelegramUserService $telegramUserService,
         private ChatScreen $screen,
     ) {
     }
 
     public function __invoke(Nutgram $bot): void
     {
-        $isManager = $this->telegramUserService->getCurrentUser()?->getSupplyRole()->canManage() ?? false;
-
         $this->screen->render(
             $bot,
-            "📦 <b>Постачання</b>\nПодайте заявку на матеріали — арматуру, цемент, пісок тощо.",
-            self::keyboard($isManager),
+            "📦 <b>Постачання</b>\nПодайте заявку на матеріали — арматуру, цемент, пісок тощо."
+            . "\nУ «Всіх заявках» видно, що вже замовили інші підрозділи.",
+            self::keyboard(),
         );
 
         if ($bot->isCallbackQuery()) {
@@ -32,18 +29,18 @@ class SupplyMenu
         }
     }
 
-    public static function keyboard(bool $isManager = false): InlineKeyboardMarkup
+    /**
+     * Набір однаковий для всіх: спільну картину заявок і перегляд у CRM
+     * має кожен, а що саме там можна робити — вирішує роль.
+     */
+    public static function keyboard(): InlineKeyboardMarkup
     {
-        $markup = InlineKeyboardMarkup::make()
+        return InlineKeyboardMarkup::make()
             ->addRow(InlineKeyboardButton::make('➕ Нова заявка', callback_data: SupplyCallback::NEW_REQUEST))
-            ->addRow(InlineKeyboardButton::make('📋 Мої заявки', callback_data: SupplyCallback::MY_REQUESTS));
-
-        if ($isManager) {
-            $markup->addRow(
-                InlineKeyboardButton::make('🔐 Вхід у CRM', callback_data: SupplyCallback::CRM_LOGIN),
-            );
-        }
-
-        return $markup;
+            ->addRow(
+                InlineKeyboardButton::make('📋 Мої заявки', callback_data: SupplyCallback::MY_REQUESTS),
+                InlineKeyboardButton::make('📋 Усі заявки', callback_data: SupplyCallback::ALL_REQUESTS),
+            )
+            ->addRow(InlineKeyboardButton::make('🔐 Вхід у CRM', callback_data: SupplyCallback::CRM_LOGIN));
     }
 }

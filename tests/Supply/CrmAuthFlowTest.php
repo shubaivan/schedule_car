@@ -83,13 +83,20 @@ class CrmAuthFlowTest extends WebTestCase
         self::assertResponseRedirects();
     }
 
-    public function testWorkerHasNoCrmAccess(): void
+    /**
+     * Робітник у CRM заходить нарівні з менеджером — заявки навмисно спільні.
+     * Різницю робить не вхід, а те, що всередині доступне (див. SupplyApiTest).
+     */
+    public function testWorkerEntersCrmToSeeTheCommonPicture(): void
     {
         $token = $this->tokenFor($this->user(SupplyRole::Worker));
 
         $this->client->request('GET', '/crm/auth/' . $token);
+        self::assertResponseRedirects();
 
-        self::assertResponseStatusCodeSame(Response::HTTP_UNAUTHORIZED);
+        $this->client->request('GET', '/api/me');
+        self::assertResponseIsSuccessful();
+        self::assertSame('worker', json_decode((string) $this->client->getResponse()->getContent(), true)['role']);
     }
 
     /** Без сесії людину відправляємо на титульну з інструкцією, а не на сторінку помилки. */

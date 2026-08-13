@@ -10,8 +10,10 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-/** Звіти по постачанню. Доступ — разом з усім /api, лише менеджерам. */
+/** Звіти по постачанню — обороти й ціни, тож лише менеджерам. */
+#[IsGranted('ROLE_SUPPLY_MANAGER')]
 #[Route('/api/supply/reports')]
 class ReportApiController extends AbstractController
 {

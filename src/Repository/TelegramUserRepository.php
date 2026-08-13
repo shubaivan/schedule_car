@@ -44,6 +44,40 @@ class TelegramUserRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * Пошук за хвостом номера: у базі телефон лежить самими цифрами, але той
+     * самий номер міг зайти і як 380671112233, і як 0671112233.
+     */
+    public function findOneByPhoneTail(string $tail): ?TelegramUser
+    {
+        if ($tail === '') {
+            return null;
+        }
+
+        return $this->createQueryBuilder('tu')
+            ->where('tu.phone_number LIKE :tail')
+            ->setParameter('tail', '%' . $tail)
+            ->orderBy('tu.id', 'ASC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
+     * Хто погоджує оплату. Адмін тут не для звітності, а як запасний ключ:
+     * поки директора немає в боті, заявки не мають зависати «На затвердженні».
+     *
+     * @return TelegramUser[]
+     */
+    public function findSupplyDirectors(): array
+    {
+        return $this->createQueryBuilder('tu')
+            ->where('tu.supplyRole IN (:roles)')
+            ->setParameter('roles', [SupplyRole::Director, SupplyRole::Admin])
+            ->getQuery()
+            ->getResult();
+    }
+
     public function save(TelegramUser $telegramUser)
     {
         $this->getEntityManager()->persist($telegramUser);

@@ -81,6 +81,39 @@ class SupplyNotifier
         if ($log->getAuthor()?->getId() !== $author->getId()) {
             $this->send($author, $text, $this->authorKeyboard($request));
         }
+
+        if ($log->getStatusTo() === SupplyStatus::Approval) {
+            $this->askDirectors($request);
+        }
+    }
+
+    /**
+     * Заявка чекає рішення про оплату — питаємо тих, хто його ухвалює.
+     *
+     * Якщо погоджувачів у боті ще немає, це не тиха втрата: заявка лишається
+     * «На затвердженні», а в лозі видно, що спитати не було кого.
+     */
+    private function askDirectors(SupplyRequest $request): void
+    {
+        $directors = $this->userRepository->findSupplyDirectors();
+
+        if (! $directors) {
+            $this->logger->warning('supply: заявка чекає погодження, а погоджувачів немає', [
+                'number' => $request->getNumber(),
+            ]);
+
+            return;
+        }
+
+        $text = sprintf(
+            "⏳ <b>Потрібне ваше погодження оплати</b>\nЗаявка №%s\n\n%s",
+            $this->formatter->escape($request->getNumber()),
+            $this->formatter->card($request, forManager: true),
+        );
+
+        foreach ($directors as $director) {
+            $this->send($director, $text, $this->managerKeyboard($request));
+        }
     }
 
     public function commentAdded(SupplyComment $comment): void

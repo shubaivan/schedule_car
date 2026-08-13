@@ -13,13 +13,15 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
- * Довідник постачальників.
+ * Довідник постачальників — робоче місце менеджера.
  *
- * Окремої перевірки ролі немає: увесь /api закритий за ROLE_SUPPLY_MANAGER,
- * а робітнику знати, у кого і почім закуповують, не потрібно.
+ * Заявки бачать усі, а от вести список постачальників і правити його —
+ * справа того, хто закуповує.
  */
+#[IsGranted('ROLE_SUPPLY_MANAGER')]
 #[Route('/api/supply/suppliers')]
 class SupplierApiController extends AbstractController
 {

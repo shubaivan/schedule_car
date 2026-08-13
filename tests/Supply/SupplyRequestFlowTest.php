@@ -67,20 +67,22 @@ class SupplyRequestFlowTest extends KernelTestCase
 
         $changeStatus($request, SupplyStatus::InProgress, $manager);
 
-        // Далі «Оплачено» без закупівлі не пускає: заявка закривається
+        // Далі «На затвердженні» без закупівлі не пускає: заявка закривається
         // конкретною покупкою в конкретного постачальника.
         (self::getContainer()->get(RecordPurchase::class))($request, $manager, new PurchaseInput(
             supplier: self::getContainer()->get(SupplierDirectory::class)->findOrCreate('ФОП Петренко ' . uniqid()),
             totalAmount: '18000',
         ));
 
-        $changeStatus($request, SupplyStatus::Paid, $manager);
+        $changeStatus($request, SupplyStatus::Approval, $manager);
+        // Оплату відкриває директор — далі знову веде менеджер.
+        $changeStatus($request, SupplyStatus::Paid, $this->user('director', SupplyRole::Director));
         $changeStatus($request, SupplyStatus::Delivery, $manager);
         $changeStatus($request, SupplyStatus::InStock, $manager);
 
         self::assertSame(SupplyStatus::InStock, $request->getStatus());
         self::assertNotNull($request->getClosedAt(), 'закрита заявка має дату закриття');
-        self::assertCount(5, $request->getStatusLogs());
+        self::assertCount(6, $request->getStatusLogs());
     }
 
     public function testForbiddenTransitionIsRejected(): void

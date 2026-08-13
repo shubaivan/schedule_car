@@ -79,7 +79,7 @@ class CommentConversation extends Conversation
         try {
             ($this->addComment)($request, $user, $text);
             // Повертаємо картку — коментар уже видно в її хронології.
-            $this->view->show($bot, $request, $user->getSupplyRole()->canManage());
+            $this->view->show($bot, $request, $user);
         } catch (SupplyException $e) {
             $this->screen->render($bot, '⚠️ ' . $this->formatter->escape($e->getMessage()));
         }

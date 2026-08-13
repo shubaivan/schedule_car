@@ -22,8 +22,15 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-/** API стола заявок менеджера. Уся логіка — у сервісах, тут лише вхід/вихід. */
+/**
+ * API стола заявок. Уся логіка — у сервісах, тут лише вхід/вихід.
+ *
+ * Список і картку бачить кожен зареєстрований — щоб підрозділи не замовляли
+ * те саме двічі й бачили, на якому етапі чуже. Змінювати заявку може менеджер,
+ * коментувати — ще й автор (перевіряє AddComment).
+ */
 #[Route('/api/supply/requests')]
 class RequestApiController extends AbstractController
 {
@@ -80,6 +87,12 @@ class RequestApiController extends AbstractController
         Request $request,
         ChangeStatus $changeStatus,
     ): JsonResponse {
+        // Статуси рухають двоє: менеджер по всьому ланцюжку і директор —
+        // на кроці погодження оплати. Хто саме що може, вирішує ChangeStatus.
+        if (! $this->isGranted('ROLE_SUPPLY_MANAGER') && ! $this->isGranted('ROLE_SUPPLY_DIRECTOR')) {
+            throw $this->createAccessDeniedException();
+        }
+
         $payload = $this->payload($request);
         $status = SupplyStatus::tryFrom((string) ($payload['to'] ?? ''));
 
@@ -113,6 +126,7 @@ class RequestApiController extends AbstractController
         return $this->json($this->presenter->detail($supplyRequest));
     }
 
+    #[IsGranted('ROLE_SUPPLY_MANAGER')]
     #[Route('/{id}/purchases', name: 'api_supply_request_purchase', methods: ['POST'], requirements: ['id' => '\d+'])]
     public function addPurchase(
         SupplyRequest $supplyRequest,
@@ -130,6 +144,7 @@ class RequestApiController extends AbstractController
         return $this->json($this->presenter->detail($supplyRequest));
     }
 
+    #[IsGranted('ROLE_SUPPLY_MANAGER')]
     #[Route(
         '/{id}/purchases/{purchaseId}',
         name: 'api_supply_request_purchase_update',
@@ -162,6 +177,7 @@ class RequestApiController extends AbstractController
         return $this->json($this->presenter->detail($supplyRequest));
     }
 
+    #[IsGranted('ROLE_SUPPLY_MANAGER')]
     #[Route(
         '/{id}/purchases/{purchaseId}',
         name: 'api_supply_request_purchase_delete',

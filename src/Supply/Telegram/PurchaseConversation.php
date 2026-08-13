@@ -276,7 +276,7 @@ class PurchaseConversation extends Conversation
             return;
         }
 
-        $this->view->show($bot, $request, $manager->getSupplyRole()->canManage());
+        $this->view->show($bot, $request, $manager);
         $this->end();
     }
 
@@ -372,7 +372,7 @@ class PurchaseConversation extends Conversation
         $user = $this->telegramUserService->getCurrentUser();
 
         if ($request !== null && $user !== null) {
-            $this->view->show($bot, $request, $user->getSupplyRole()->canManage());
+            $this->view->show($bot, $request, $user);
         } else {
             $this->screen->close($bot);
         }

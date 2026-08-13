@@ -26,7 +26,9 @@ class AddComment
         }
 
         if (! $this->canComment($request, $author)) {
-            throw new SupplyException('Коментувати заявку можуть лише її автор і менеджер із постачання.');
+            throw new SupplyException(
+                'Коментувати заявку можуть її автор, менеджер із постачання та директор.',
+            );
         }
 
         $comment = (new SupplyComment())
@@ -43,9 +45,13 @@ class AddComment
         return $comment;
     }
 
+    /** Директор теж пише в стрічку: питання «чому так дорого» доречне до оплати, а не після. */
     private function canComment(SupplyRequest $request, TelegramUser $author): bool
     {
-        return $author->getSupplyRole()->canManage() ||
+        $role = $author->getSupplyRole();
+
+        return $role->canManage() ||
+            $role->canApprovePayment() ||
             $request->getAuthor()->getId() === $author->getId();
     }
 }

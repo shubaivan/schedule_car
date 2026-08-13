@@ -225,6 +225,7 @@ td.wrap {
 
 .badge-new { background: var(--accent-soft); color: var(--accent); }
 .badge-in_progress { background: var(--warning-soft); color: var(--warning); }
+.badge-approval { background: var(--warning-soft); color: var(--warning); }
 .badge-paid { background: var(--violet-soft); color: var(--violet); }
 .badge-delivery { background: var(--info-soft); color: var(--info); }
 .badge-in_stock { background: var(--success-soft); color: var(--success); }

@@ -33,6 +33,11 @@ export const useSession = defineStore('session', () => {
     }
 
     const isAdmin = () => user.value?.role === 'admin'
+    // Заявки бачать усі, тож роль вирішує не «пустити чи ні», а що саме показати:
+    // кнопки статусів, закупівлі й розділи меню — лише тим, хто закуповує.
+    const isManager = () => user.value?.role === 'manager' || isAdmin()
+    // Директор нічого не веде, але саме він рухає заявку з «На затвердженні».
+    const isDirector = () => user.value?.role === 'director' || isAdmin()
 
-    return { user, meta, expired, loading, load, handle, isAdmin }
+    return { user, meta, expired, loading, load, handle, isAdmin, isManager, isDirector }
 })

@@ -11,7 +11,9 @@ final class SupplyCallback
     public const MENU = 'supply:menu';
     public const NEW_REQUEST = 'supply:new';
     public const MY_REQUESTS = 'supply:my';
-    /** Одноразове посилання для входу в CRM — лише менеджерам. */
+    /** Спільний список: заявки всіх підрозділів бачить кожен. */
+    public const ALL_REQUESTS = 'supply:all';
+    /** Одноразове посилання для входу в CRM. */
     public const CRM_LOGIN = 'supply:crm';
 
     /** supply:view:<id> */
@@ -24,6 +26,8 @@ final class SupplyCallback
     public const COMMENT_PREFIX = 'supply:comment:';
     /** supply:buy:<id> — записати, у кого купили */
     public const PURCHASE_PREFIX = 'supply:buy:';
+    /** supply:file:<id> — надіслати накладну чи інший документ фото/файлом */
+    public const ATTACH_PREFIX = 'supply:file:';
 
     public static function view(int $requestId): string
     {
@@ -48,5 +52,10 @@ final class SupplyCallback
     public static function purchase(int $requestId): string
     {
         return self::PURCHASE_PREFIX . $requestId;
+    }
+
+    public static function attach(int $requestId): string
+    {
+        return self::ATTACH_PREFIX . $requestId;
     }
 }

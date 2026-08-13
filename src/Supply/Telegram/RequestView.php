@@ -2,6 +2,7 @@
 
 namespace App\Supply\Telegram;
 
+use App\Entity\TelegramUser;
 use App\Service\ChatScreen;
 use App\Service\TelegramUserService;
 use App\Supply\Entity\SupplyRequest;
@@ -36,75 +37,87 @@ class RequestView
             return;
         }
 
-        $isManager = $user->getSupplyRole()->canManage();
-
-        if (! $isManager && $request->getAuthor()->getId() !== $user->getId()) {
-            $this->screen->render($bot, '⚠️ Ця заявка не ваша.');
-
-            return;
-        }
-
-        $this->show($bot, $request, $isManager);
+        // Картку відкриває будь-хто зі своїх: заявки підрозділів навмисно
+        // спільні. Кнопки дій отримає лише той, кому справді можна.
+        $this->show($bot, $request, $user);
     }
 
     /**
      * Показати картку як поточний екран. Викликається і після зміни статусу чи
      * коментаря — щоб менеджер бачив свіжий набір дій, а не застарілі кнопки.
      */
-    public function show(Nutgram $bot, SupplyRequest $request, bool $isManager): void
+    public function show(Nutgram $bot, SupplyRequest $request, TelegramUser $viewer): void
     {
+        $isManager = $viewer->getSupplyRole()->canManage();
+
         $this->screen->render(
             $bot,
             $this->formatter->card($request, forManager: $isManager) . "\n" . $this->formatter->timeline($request),
-            $this->keyboard($request, $isManager),
+            $this->keyboard($request, $viewer),
         );
     }
 
-    private function keyboard(SupplyRequest $request, bool $isManager): InlineKeyboardMarkup
+    private function keyboard(SupplyRequest $request, TelegramUser $viewer): InlineKeyboardMarkup
     {
+        $isManager = $viewer->getSupplyRole()->canManage();
+        // Автор і менеджер ведуть діалог по заявці й носять до неї документи;
+        // решта підрозділів дивиться.
+        $isOwn = $isManager || $request->getAuthor()->getId() === $viewer->getId();
+
         $markup = InlineKeyboardMarkup::make();
         $id = (int) $request->getId();
+        $status = $request->getStatus();
+        $role = $viewer->getSupplyRole();
 
-        if ($isManager) {
-            $row = [];
-            foreach ($request->getStatus()->allowedTransitions() as $next) {
-                if ($next === SupplyStatus::Rejected) {
-                    continue;
-                }
-                $row[] = InlineKeyboardButton::make(
-                    $next->labelWithEmoji(),
-                    callback_data: SupplyCallback::status($id, $next->value),
-                );
-                if (count($row) === 2) {
-                    $markup->addRow(...$row);
-                    $row = [];
-                }
+        // Кнопку показуємо тільки тому, хто справді може так зрушити заявку:
+        // директор бачить «Оплачено» на затвердженні, менеджер — усе інше.
+        $row = [];
+        foreach ($status->allowedTransitions() as $next) {
+            if ($next === SupplyStatus::Rejected || ! $role->canMoveRequest($status, $next)) {
+                continue;
             }
-            if ($row) {
+            $row[] = InlineKeyboardButton::make(
+                $next->labelWithEmoji(),
+                callback_data: SupplyCallback::status($id, $next->value),
+            );
+            if (count($row) === 2) {
                 $markup->addRow(...$row);
+                $row = [];
             }
+        }
+        if ($row) {
+            $markup->addRow(...$row);
+        }
 
-            // Записати покупку можна й окремо від зміни статусу: домовились із
-            // постачальником сьогодні, а оплата пройде завтра.
-            if (! $request->getStatus()->isFinal()) {
-                $markup->addRow(
-                    InlineKeyboardButton::make(
-                        $request->isPurchased() ? '🧾 Ще постачальник' : '🧾 Закупівля',
-                        callback_data: SupplyCallback::purchase($id),
-                    ),
-                );
-            }
+        // Записати покупку можна й окремо від зміни статусу: домовились із
+        // постачальником сьогодні, а оплата пройде завтра.
+        if ($isManager && ! $status->isFinal()) {
+            $markup->addRow(
+                InlineKeyboardButton::make(
+                    $request->isPurchased() ? '🧾 Ще постачальник' : '🧾 Закупівля',
+                    callback_data: SupplyCallback::purchase($id),
+                ),
+            );
+        }
 
-            if ($request->getStatus()->canTransitionTo(SupplyStatus::Rejected)) {
-                $markup->addRow(
-                    InlineKeyboardButton::make('⛔ Відхилити', callback_data: SupplyCallback::reject($id)),
-                );
-            }
+        if ($status->canTransitionTo(SupplyStatus::Rejected) &&
+            $role->canMoveRequest($status, SupplyStatus::Rejected)
+        ) {
+            $markup->addRow(
+                InlineKeyboardButton::make('⛔ Відхилити', callback_data: SupplyCallback::reject($id)),
+            );
+        }
+
+        if ($isOwn) {
+            $markup->addRow(
+                InlineKeyboardButton::make('💬 Коментар', callback_data: SupplyCallback::comment($id)),
+                InlineKeyboardButton::make('📎 Накладна', callback_data: SupplyCallback::attach($id)),
+            );
         }
 
         $markup->addRow(
-            InlineKeyboardButton::make('💬 Коментар', callback_data: SupplyCallback::comment($id)),
             InlineKeyboardButton::make('📋 Мої заявки', callback_data: SupplyCallback::MY_REQUESTS),
+            InlineKeyboardButton::make('📋 Усі заявки', callback_data: SupplyCallback::ALL_REQUESTS),
         );
 
         return $markup;

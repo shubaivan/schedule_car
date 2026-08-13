@@ -147,7 +147,7 @@ class NotificationCoverageTest extends KernelTestCase
         $this->notifier->calls = [];
 
         (self::getContainer()->get(RecordPurchase::class))($request, $manager, $this->purchase(), notify: false);
-        $changeStatus($request, SupplyStatus::Paid, $manager);
+        $changeStatus($request, SupplyStatus::Approval, $manager);
 
         self::assertSame(['statusChanged'], $this->notifier->calls);
     }

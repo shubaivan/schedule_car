@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { api, ATTACHMENT_TYPES, type ApiSupplier, type PurchasePayload, type SupplyRequest } from '../../app/api'
 import { useSession } from '../../app/store'
 import StatusBadge from '../../shared/StatusBadge.vue'
@@ -11,6 +11,17 @@ const session = useSession()
 const request = ref<SupplyRequest | null>(null)
 const error = ref('')
 const busy = ref(false)
+
+// Картку відкриває будь-хто зі своїх — щоб бачити спільну картину. Статуси й
+// закупівлі веде менеджер, а автор ще й пише коментарі та носить документи.
+const canManage = computed(() => session.isManager())
+const canWrite = computed(
+    () => canManage.value || session.isDirector() || request.value?.author.id === session.user?.id,
+)
+// Заявку на затвердженні рухає директор, решту ланцюжка — менеджер.
+const canMoveStatus = computed(
+    () => canManage.value || (session.isDirector() && request.value?.status === 'approval'),
+)
 
 // Закупівля: у кого купили. Без неї заявку не перевести в «Оплачено» й далі.
 const suppliers = ref<ApiSupplier[]>([])
@@ -205,7 +216,7 @@ onMounted(load)
                         <th>Сума</th>
                         <th>Оплата</th>
                         <th>Накладна</th>
-                        <th></th>
+                        <th v-if="canManage"></th>
                     </tr>
                     </thead>
                     <tbody>
@@ -219,7 +230,7 @@ onMounted(load)
                         </td>
                         <td>{{ item.paymentLabel }}</td>
                         <td>{{ item.invoiceNumber ?? '—' }}</td>
-                        <td>
+                        <td v-if="canManage">
                             <button class="danger" :disabled="busy" @click="removePurchase(item.id)">Прибрати</button>
                         </td>
                     </tr>
@@ -227,7 +238,7 @@ onMounted(load)
                 </table>
             </div>
 
-            <div v-if="addingPurchase" style="margin-top:.75rem">
+            <div v-if="addingPurchase && canManage" style="margin-top:.75rem">
                 <div class="filters">
                     <select v-model.number="purchase.supplierId">
                         <option :value="0" disabled>— оберіть постачальника —</option>
@@ -256,14 +267,17 @@ onMounted(load)
                 </div>
             </div>
 
-            <div v-else class="row" style="margin-top:.75rem">
+            <div v-else-if="canManage" class="row" style="margin-top:.75rem">
                 <button :disabled="busy" @click="openPurchaseForm">
                     {{ request.purchases?.length ? '+ Ще постачальник' : '+ Вказати постачальника' }}
                 </button>
             </div>
         </div>
 
-        <div class="card">
+        <div v-if="canMoveStatus" class="card">
+            <p v-if="request.status === 'approval'" class="muted" style="margin-top:0">
+                ⏳ Заявка чекає рішення про оплату: «Оплачено» тут ставить директор.
+            </p>
             <div class="row">
                 <button
                     v-for="transition in request.allowedTransitions"
@@ -302,7 +316,7 @@ onMounted(load)
                         <th>Розмір</th>
                         <th>Завантажив</th>
                         <th>Drive</th>
-                        <th></th>
+                        <th v-if="canManage"></th>
                     </tr>
                     </thead>
                     <tbody>
@@ -320,7 +334,7 @@ onMounted(load)
                             <a v-if="file.driveUrl" :href="file.driveUrl" target="_blank" rel="noopener">відкрити</a>
                             <span v-else class="muted">у черзі</span>
                         </td>
-                        <td>
+                        <td v-if="canManage">
                             <button class="danger" :disabled="busy" @click="removeAttachment(file.id)">Прибрати</button>
                         </td>
                     </tr>
@@ -328,7 +342,7 @@ onMounted(load)
                 </table>
             </div>
 
-            <div class="filters" style="margin-top:.75rem">
+            <div v-if="canWrite" class="filters" style="margin-top:.75rem">
                 <select v-model="attachmentType">
                     <option v-for="type in ATTACHMENT_TYPES" :key="type.value" :value="type.value">
                         {{ type.label }}
@@ -344,9 +358,10 @@ onMounted(load)
                 <span v-if="uploading" class="muted">Завантаження…</span>
             </div>
 
-            <p class="muted">
+            <p v-if="canWrite" class="muted">
                 До 20 МБ. Копія автоматично лягає в Google Drive заводу — у теку
                 за роком, місяцем, заявником і номером заявки.
+                Накладну можна надіслати й фото з бота — кнопка «📎 Накладна» на картці заявки.
             </p>
         </div>
 
@@ -368,7 +383,7 @@ onMounted(load)
                 </li>
             </ul>
 
-            <div style="margin-top:1rem">
+            <div v-if="canWrite" style="margin-top:1rem">
                 <textarea v-model="comment" placeholder="Коментар — заявник отримає його в Telegram"></textarea>
                 <div class="row" style="margin-top:.5rem">
                     <button class="primary" :disabled="busy || !comment.trim()" @click="sendComment">

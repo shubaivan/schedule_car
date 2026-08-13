@@ -1,6 +1,8 @@
 <?php
 /** @var SergiX44\Nutgram\Nutgram $bot */
 
+use App\Supply\Telegram\AllRequests;
+use App\Supply\Telegram\AttachConversation;
 use App\Supply\Telegram\ChangeStatusAction;
 use App\Supply\Telegram\CommentConversation;
 use App\Supply\Telegram\CrmLoginAction;
@@ -59,9 +61,11 @@ $bot->onCommand('crm', CrmLoginAction::class);
 $bot->onCallbackQueryData(SupplyCallback::MENU, SupplyMenu::class);
 $bot->onCallbackQueryData(SupplyCallback::NEW_REQUEST, NewRequestConversation::class);
 $bot->onCallbackQueryData(SupplyCallback::MY_REQUESTS, MyRequests::class);
+$bot->onCallbackQueryData(SupplyCallback::ALL_REQUESTS, AllRequests::class);
 $bot->onCallbackQueryData(SupplyCallback::CRM_LOGIN, CrmLoginAction::class);
 $bot->onCallbackQueryData(SupplyCallback::VIEW_PREFIX . '{id}', RequestView::class);
 $bot->onCallbackQueryData(SupplyCallback::STATUS_PREFIX . '{id}:{status}', ChangeStatusAction::class);
 $bot->onCallbackQueryData(SupplyCallback::REJECT_PREFIX . '{id}', RejectConversation::class);
 $bot->onCallbackQueryData(SupplyCallback::COMMENT_PREFIX . '{id}', CommentConversation::class);
 $bot->onCallbackQueryData(SupplyCallback::PURCHASE_PREFIX . '{id}', PurchaseConversation::class);
+$bot->onCallbackQueryData(SupplyCallback::ATTACH_PREFIX . '{id}', AttachConversation::class);

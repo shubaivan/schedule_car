@@ -52,6 +52,11 @@ class PurchaseApiTest extends WebTestCase
 
     public function testPurchaseIsRecordedAndOpensTheWayToPaid(): void
     {
+        // У тесті два входи — менеджером і директором. Без цього ядро
+        // перезавантажується після кожного запиту, і другий користувач
+        // створюється вже в іншому EntityManager, ніж видає посилання.
+        $this->client->disableReboot();
+
         $request = $this->request();
         $supplier = $this->supplier();
         $this->login();
@@ -59,8 +64,8 @@ class PurchaseApiTest extends WebTestCase
         $this->send('POST', sprintf('/api/supply/requests/%d/status', $request->getId()), ['to' => 'in_progress']);
         self::assertResponseIsSuccessful();
 
-        // Без закупівлі «Оплачено» не приймається.
-        $blocked = $this->send('POST', sprintf('/api/supply/requests/%d/status', $request->getId()), ['to' => 'paid']);
+        // Без закупівлі заявку нема з чим нести директору.
+        $blocked = $this->send('POST', sprintf('/api/supply/requests/%d/status', $request->getId()), ['to' => 'approval']);
         self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
         self::assertStringContainsString('у кого купили', $blocked['error']);
 
@@ -79,6 +84,17 @@ class PurchaseApiTest extends WebTestCase
         self::assertSame('Готівка', $withPurchase['purchases'][0]['paymentLabel']);
         self::assertSame('2026-08-12', $withPurchase['purchases'][0]['purchasedAt']);
         self::assertSame(6002.5, $withPurchase['purchaseTotal']);
+
+        $approval = $this->send('POST', sprintf('/api/supply/requests/%d/status', $request->getId()), ['to' => 'approval']);
+        self::assertResponseIsSuccessful();
+        self::assertSame('approval', $approval['status']);
+
+        // Менеджер сам собі оплату не погодить — це справа директора.
+        $refused = $this->send('POST', sprintf('/api/supply/requests/%d/status', $request->getId()), ['to' => 'paid']);
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        self::assertStringContainsString('директор', $refused['error']);
+
+        $this->login(SupplyRole::Director);
 
         $paid = $this->send('POST', sprintf('/api/supply/requests/%d/status', $request->getId()), ['to' => 'paid']);
         self::assertResponseIsSuccessful();
@@ -164,9 +180,9 @@ class PurchaseApiTest extends WebTestCase
         );
     }
 
-    private function login(): void
+    private function login(SupplyRole $role = SupplyRole::Manager): void
     {
-        $url = self::getContainer()->get(CrmLoginLink::class)->issue($this->user(SupplyRole::Manager));
+        $url = self::getContainer()->get(CrmLoginLink::class)->issue($this->user($role));
         $this->client->request('GET', '/crm/auth/' . substr($url, strrpos($url, '/') + 1));
     }
 

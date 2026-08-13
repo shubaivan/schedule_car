@@ -87,6 +87,54 @@ class SupplyApiTest extends WebTestCase
         self::assertSame('comment', $commented['timeline'][2]['type']);
     }
 
+    /**
+     * Спільна картина заявок: робітник бачить чуже, але керує ним менеджер.
+     * Заради цієї видимості поріг /api знижено до ROLE_SUPPLY_WORKER, тож
+     * межу тримають самі ендпоінти — перевіряємо кожен, який має бути закритий.
+     */
+    public function testWorkerSeesForeignRequestsButCannotManageThem(): void
+    {
+        $request = $this->request($this->user(SupplyRole::Worker));
+
+        $this->login($this->user(SupplyRole::Worker));
+
+        $numbers = array_column($this->get('/api/supply/requests')['items'], 'number');
+        self::assertContains($request->getNumber(), $numbers);
+
+        $detail = $this->get('/api/supply/requests/' . $request->getId());
+        self::assertSame($request->getNumber(), $detail['number']);
+
+        $this->client->request(
+            'POST',
+            '/api/supply/requests/' . $request->getId() . '/status',
+            server: ['CONTENT_TYPE' => 'application/json'],
+            content: json_encode(['to' => SupplyStatus::InProgress->value]),
+        );
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+
+        $this->client->request(
+            'POST',
+            '/api/supply/requests/' . $request->getId() . '/purchases',
+            server: ['CONTENT_TYPE' => 'application/json'],
+            content: json_encode(['supplierId' => 1, 'totalAmount' => '100']),
+        );
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+
+        // Стрічка заявки лишається діалогом автора з менеджером.
+        $this->client->request(
+            'POST',
+            '/api/supply/requests/' . $request->getId() . '/comments',
+            server: ['CONTENT_TYPE' => 'application/json'],
+            content: json_encode(['text' => 'А мені теж таке треба']),
+        );
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+
+        foreach (['/api/supply/reports', '/api/supply/suppliers', '/api/supply/users'] as $url) {
+            $this->client->request('GET', $url);
+            self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN, $url . ' має бути закритий');
+        }
+    }
+
     public function testForbiddenTransitionReturns422(): void
     {
         $request = $this->request($this->user(SupplyRole::Worker));
@@ -163,7 +211,7 @@ class SupplyApiTest extends WebTestCase
 
         $meta = $this->get('/api/supply/meta');
 
-        self::assertCount(6, $meta['statuses']);
+        self::assertCount(7, $meta['statuses']);
         self::assertCount(7, $meta['units']);
         self::assertArrayHasKey('departments', $meta);
     }

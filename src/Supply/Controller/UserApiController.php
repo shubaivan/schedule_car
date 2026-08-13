@@ -16,6 +16,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /** Люди: хто в якому підрозділі і з якою роллю. Змінювати може лише адміністратор. */
+#[IsGranted('ROLE_SUPPLY_MANAGER')]
 #[Route('/api/supply/users')]
 class UserApiController extends AbstractController
 {

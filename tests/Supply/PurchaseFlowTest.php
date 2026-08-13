@@ -48,7 +48,7 @@ class PurchaseFlowTest extends KernelTestCase
         parent::tearDown();
     }
 
-    public function testStatusCannotMoveToPaidWithoutPurchase(): void
+    public function testStatusCannotMoveToApprovalWithoutPurchase(): void
     {
         [$worker, $manager] = $this->users();
         $request = $this->request($worker);
@@ -58,11 +58,11 @@ class PurchaseFlowTest extends KernelTestCase
         $this->expectException(SupplyException::class);
         $this->expectExceptionMessage('у кого купили');
 
-        ($this->changeStatus)($request, SupplyStatus::Paid, $manager);
+        ($this->changeStatus)($request, SupplyStatus::Approval, $manager);
     }
 
-    /** Дрібницю часто беруть за готівку й везуть одразу на склад, минаючи «Оплачено». */
-    public function testShortcutToStockAlsoNeedsPurchase(): void
+    /** Грошей повз директора не буває: навіть готівкова покупка йде через затвердження. */
+    public function testCashShortcutToStockStillGoesThroughApproval(): void
     {
         [$worker, $manager] = $this->users();
         $request = $this->request($worker);
@@ -70,6 +70,7 @@ class PurchaseFlowTest extends KernelTestCase
         ($this->changeStatus)($request, SupplyStatus::InProgress, $manager);
 
         $this->expectException(SupplyException::class);
+        $this->expectExceptionMessage('Не можна перевести заявку');
 
         ($this->changeStatus)($request, SupplyStatus::InStock, $manager);
     }
@@ -86,7 +87,7 @@ class PurchaseFlowTest extends KernelTestCase
 
     public function testPurchaseOpensTheWayToPaid(): void
     {
-        [$worker, $manager] = $this->users();
+        [$worker, $manager, $director] = $this->users();
         $request = $this->request($worker);
         $supplier = $this->supplier();
 
@@ -99,11 +100,48 @@ class PurchaseFlowTest extends KernelTestCase
             payment: PaymentType::Cash,
         ));
 
-        ($this->changeStatus)($request, SupplyStatus::Paid, $manager);
+        ($this->changeStatus)($request, SupplyStatus::Approval, $manager);
+        ($this->changeStatus)($request, SupplyStatus::Paid, $director);
 
         self::assertSame(SupplyStatus::Paid, $request->getStatus());
         self::assertTrue($request->isPurchased());
         self::assertSame('12500.50', $request->getPurchaseTotal());
+    }
+
+    /** Головна вимога директора: оплату не проводить той, хто її готував. */
+    public function testManagerCannotApprovePaymentHimself(): void
+    {
+        [$worker, $manager] = $this->users();
+        $request = $this->request($worker);
+
+        ($this->changeStatus)($request, SupplyStatus::InProgress, $manager);
+        ($this->recordPurchase)($request, $manager, new PurchaseInput(
+            supplier: $this->supplier(),
+            totalAmount: '500',
+        ));
+        ($this->changeStatus)($request, SupplyStatus::Approval, $manager);
+
+        $this->expectException(SupplyException::class);
+        $this->expectExceptionMessage('директор');
+
+        ($this->changeStatus)($request, SupplyStatus::Paid, $manager);
+    }
+
+    /** А відхилити «не купуємо» може і менеджер: це не витрата. */
+    public function testManagerStillRejectsRequestWaitingForApproval(): void
+    {
+        [$worker, $manager] = $this->users();
+        $request = $this->request($worker);
+
+        ($this->changeStatus)($request, SupplyStatus::InProgress, $manager);
+        ($this->recordPurchase)($request, $manager, new PurchaseInput(
+            supplier: $this->supplier(),
+            totalAmount: '500',
+        ));
+        ($this->changeStatus)($request, SupplyStatus::Approval, $manager);
+        ($this->changeStatus)($request, SupplyStatus::Rejected, $manager, 'Знайшли дешевше');
+
+        self::assertSame(SupplyStatus::Rejected, $request->getStatus());
     }
 
     public function testTotalIsCalculatedFromPriceAndQuantity(): void
@@ -193,7 +231,7 @@ class PurchaseFlowTest extends KernelTestCase
 
     public function testLastPurchaseCannotBeRemovedFromPaidRequest(): void
     {
-        [$worker, $manager] = $this->users();
+        [$worker, $manager, $director] = $this->users();
         $request = $this->request($worker);
 
         ($this->changeStatus)($request, SupplyStatus::InProgress, $manager);
@@ -201,7 +239,8 @@ class PurchaseFlowTest extends KernelTestCase
             supplier: $this->supplier(),
             totalAmount: '500',
         ));
-        ($this->changeStatus)($request, SupplyStatus::Paid, $manager);
+        ($this->changeStatus)($request, SupplyStatus::Approval, $manager);
+        ($this->changeStatus)($request, SupplyStatus::Paid, $director);
 
         $this->expectException(SupplyException::class);
         $this->expectExceptionMessage('не може лишитись без закупівлі');
@@ -302,6 +341,7 @@ class PurchaseFlowTest extends KernelTestCase
     }
 
     /** @return TelegramUser[] */
+    /** @return array{0: TelegramUser, 1: TelegramUser, 2: TelegramUser} робітник, менеджер, директор */
     private function users(): array
     {
         $worker = (new TelegramUser())
@@ -314,10 +354,16 @@ class PurchaseFlowTest extends KernelTestCase
             ->setFirstName('Менеджер')
             ->setSupplyRole(SupplyRole::Manager);
 
+        $director = (new TelegramUser())
+            ->setTelegramId('purchase-director-' . uniqid())
+            ->setFirstName('Директор')
+            ->setSupplyRole(SupplyRole::Director);
+
         $this->em->persist($worker);
         $this->em->persist($manager);
+        $this->em->persist($director);
         $this->em->flush();
 
-        return [$worker, $manager];
+        return [$worker, $manager, $director];
     }
 }

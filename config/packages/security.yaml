@@ -7,9 +7,11 @@ security:
                 property: telegram_id
 
     # Адміністратор уміє все, що менеджер, а менеджер — усе, що робітник.
+    # Директор навмисно НЕ менеджер: він погоджує оплату, а не веде закупівлі.
     role_hierarchy:
         ROLE_SUPPLY_MANAGER: [ROLE_SUPPLY_WORKER]
-        ROLE_SUPPLY_ADMIN: [ROLE_SUPPLY_MANAGER]
+        ROLE_SUPPLY_DIRECTOR: [ROLE_SUPPLY_WORKER]
+        ROLE_SUPPLY_ADMIN: [ROLE_SUPPLY_MANAGER, ROLE_SUPPLY_DIRECTOR]
 
     firewalls:
         dev:
@@ -27,11 +29,15 @@ security:
 
     # Тільки перший збіг спрацьовує, тож /crm/auth має бути вище за /crm.
     # Вебхук бота (/hook) навмисно не в списку — він публічний.
+    #
+    # Поріг входу — робітник: спільну картину заявок бачать усі, щоб кожен знав,
+    # що вже замовлено й на якому воно етапі. Право щось змінити перевіряють
+    # самі контролери й сервіси (#[IsGranted] та перевірки автора).
     access_control:
         - { path: ^/crm/auth, roles: PUBLIC_ACCESS }
         - { path: ^/crm/logout, roles: PUBLIC_ACCESS }
-        - { path: ^/crm, roles: ROLE_SUPPLY_MANAGER }
-        - { path: ^/api, roles: ROLE_SUPPLY_MANAGER }
+        - { path: ^/crm, roles: ROLE_SUPPLY_WORKER }
+        - { path: ^/api, roles: ROLE_SUPPLY_WORKER }
 
 when@test:
     security:

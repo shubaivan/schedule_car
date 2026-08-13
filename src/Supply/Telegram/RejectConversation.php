@@ -76,7 +76,7 @@ class RejectConversation extends Conversation
 
         try {
             ($this->changeStatus)($request, SupplyStatus::Rejected, $user, $reason);
-            $this->view->show($bot, $request, $user->getSupplyRole()->canManage());
+            $this->view->show($bot, $request, $user);
         } catch (SupplyException $e) {
             $this->screen->render($bot, '⚠️ ' . $this->formatter->escape($e->getMessage()));
         }

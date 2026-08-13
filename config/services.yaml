@@ -8,6 +8,8 @@ parameters:
     # Телефони, які отримують роль менеджера одразу при реєстрації в боті.
     # Потрібні для старту: перших менеджерів нікому підтверджувати.
     supply_manager_phones: '%env(SUPPLY_MANAGER_PHONES)%'
+    # Телефони тих, хто погоджує оплату (директор). Роль видається одразу.
+    supply_director_phones: '%env(SUPPLY_DIRECTOR_PHONES)%'
 
 services:
     # default configuration for services in *this* file

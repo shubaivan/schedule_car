@@ -46,10 +46,10 @@ class TelegramLinkAuthenticator extends AbstractAuthenticator
             );
         }
 
-        if (! $user->getSupplyRole()->canManage()) {
-            throw new CustomUserMessageAuthenticationException('У вас немає доступу до CRM.');
-        }
-
+        // Ролі тут не питаємо: у CRM заходять усі підтверджені, щоб бачити
+        // спільну картину заявок. Кого пускати взагалі, вирішує видача
+        // посилання — бот дає кнопку лише тому, кого підтвердив менеджер
+        // (middleware RequireApproval), а решта її просто не бачить.
         return new SelfValidatingPassport(
             new UserBadge($user->getUserIdentifier(), static fn () => $user),
         );
