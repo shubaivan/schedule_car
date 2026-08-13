@@ -10,6 +10,18 @@ export interface ApiUser {
     departmentId: number | null
 }
 
+/** Запис довідника телефонів: роль чекає на людину, поки та не зайде в бота. */
+export interface StaffPhone {
+    id: number
+    phone: string
+    name: string | null
+    role: string
+    roleLabel: string
+    note: string | null
+    appliedTo: ApiUser | null
+    appliedAt: string | null
+}
+
 export interface TimelineEvent {
     type: 'status' | 'comment'
     at: string
@@ -274,4 +286,15 @@ export const api = {
             method: 'PATCH',
             body: JSON.stringify(payload),
         }),
+
+    staff: () => call<{ items: StaffPhone[] }>('/api/supply/staff'),
+
+    saveStaff: (payload: { phone: string; role: string; name?: string; note?: string }) =>
+        call<StaffPhone>('/api/supply/staff', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        }),
+
+    deleteStaff: (id: number) =>
+        call<{ ok: boolean }>(`/api/supply/staff/${id}`, { method: 'DELETE' }),
 }

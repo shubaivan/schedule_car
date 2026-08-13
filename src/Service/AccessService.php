@@ -5,6 +5,7 @@ namespace App\Service;
 use App\Entity\TelegramUser;
 use App\Enum\AccessStatus;
 use App\Supply\Enum\SupplyRole;
+use App\Supply\Service\StaffDirectory;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -12,8 +13,10 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 /**
  * Реєстрація в боті та підтвердження доступу.
  *
- * Телефони зі списку `SUPPLY_MANAGER_PHONES` стають менеджерами автоматично —
- * інакше першу людину не було б кому підтвердити.
+ * Роль при реєстрації дає довідник телефонів: занесли номер Наталії Григорівни
+ * як директора — вона ним і стане, щойно поділиться контактом. Списки
+ * `SUPPLY_MANAGER_PHONES` і `SUPPLY_DIRECTOR_PHONES` лишаються запасним
+ * варіантом для голого стенда, де в довіднику ще нічого немає.
  */
 class AccessService
 {
@@ -21,8 +24,11 @@ class AccessService
         private EntityManagerInterface $em,
         private AccessNotifier $notifier,
         private LoggerInterface $logger,
+        private StaffDirectory $staff,
         #[Autowire('%supply_manager_phones%')]
         private string $managerPhones,
+        #[Autowire('%supply_director_phones%')]
+        private string $directorPhones = '',
     ) {
     }
 
@@ -31,13 +37,19 @@ class AccessService
     {
         $user->setPhoneNumber(self::normalize($phone));
 
-        if ($this->isBootstrapManager($phone)) {
-            $user->setSupplyRole(SupplyRole::Manager)->decideAccess(AccessStatus::Approved, null);
+        $listed = $this->staff->lookup($phone);
+        $bootstrapRole = $listed?->getRole() ?? $this->bootstrapRole($phone);
+
+        if ($bootstrapRole !== null) {
+            $user->setSupplyRole($bootstrapRole)->decideAccess(AccessStatus::Approved, null);
+            $listed?->markApplied($user);
             $this->em->flush();
 
-            $this->logger->info('access: менеджер зі списку зареєструвався', [
+            $this->logger->info('access: людина з довідника зареєструвалась', [
                 'user' => $user->displayName(),
                 'phone' => $user->getPhoneNumber(),
+                'role' => $bootstrapRole->value,
+                'source' => $listed !== null ? 'staff' : 'env',
             ]);
 
             $this->notifier->approved($user);
@@ -81,15 +93,25 @@ class AccessService
         return preg_replace('/\D+/', '', $phone) ?? '';
     }
 
-    private function isBootstrapManager(string $phone): bool
+    /** Директор має пріоритет: якщо номер трапився в обох списках, це директор. */
+    private function bootstrapRole(string $phone): ?SupplyRole
     {
         $tail = $this->tail($phone);
 
         if ($tail === '') {
-            return false;
+            return null;
         }
 
-        foreach (explode(',', $this->managerPhones) as $candidate) {
+        if ($this->listed($this->directorPhones, $tail)) {
+            return SupplyRole::Director;
+        }
+
+        return $this->listed($this->managerPhones, $tail) ? SupplyRole::Manager : null;
+    }
+
+    private function listed(string $phones, string $tail): bool
+    {
+        foreach (explode(',', $phones) as $candidate) {
             if ($this->tail($candidate) === $tail) {
                 return true;
             }
