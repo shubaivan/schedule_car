@@ -22,6 +22,16 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 #[AsCommand(name: 'supply:drive-auth', description: 'Отримати refresh-токен Google Drive')]
 class DriveAuthCommand extends Command
 {
+    /**
+     * Google вимкнув «код у вікні браузера» (redirect_uri=urn:ietf:wg:oauth:2.0:oob)
+     * ще у 2022-му, новий клієнт із ним отримає відмову. Лишається loopback:
+     * після згоди браузер іде на цю адресу й показує «сайт недоступний», а код
+     * лежить в адресному рядку — його людина й надсилає нам.
+     *
+     * Слухати порт не потрібно: код одноразовий, обмінюємо його ми самі.
+     */
+    private const REDIRECT_URI = 'http://localhost:53682';
+
     public function __construct(
         #[Autowire('%env(GOOGLE_DRIVE_CLIENT_ID)%')]
         private string $clientId,
@@ -38,6 +48,7 @@ class DriveAuthCommand extends Command
         if ($this->clientId === '' || $this->clientSecret === '') {
             $io->error('Спершу задайте GOOGLE_DRIVE_CLIENT_ID і GOOGLE_DRIVE_CLIENT_SECRET у .env.local.');
             $io->writeln('Їх видає Google Cloud Console → APIs & Services → Credentials → OAuth client ID (тип Desktop app).');
+            $io->writeln('Якщо клієнт створено як Web application — додайте ' . self::REDIRECT_URI . ' у Authorized redirect URIs.');
 
             return Command::FAILURE;
         }
@@ -45,8 +56,7 @@ class DriveAuthCommand extends Command
         $client = new Client();
         $client->setClientId($this->clientId);
         $client->setClientSecret($this->clientSecret);
-        // «з коробки» для Desktop-клієнта: код показується у вікні браузера.
-        $client->setRedirectUri('urn:ietf:wg:oauth:2.0:oob');
+        $client->setRedirectUri(self::REDIRECT_URI);
         $client->setScopes([Drive::DRIVE_FILE]);
         // Без цих двох рядків Google віддає лише access-токен на годину.
         $client->setAccessType('offline');
@@ -55,16 +65,22 @@ class DriveAuthCommand extends Command
         $io->section('Крок 1 — відкрийте посилання в браузері під акаунтом «Буддеталі»');
         $io->writeln($client->createAuthUrl());
         $io->newLine();
+        $io->text([
+            'Після згоди браузер відкриє ' . self::REDIRECT_URI . ' і напише, що сайт недоступний —',
+            'так і має бути. Потрібна вся адреса з рядка браузера, у ній є ?code=…',
+        ]);
+        $io->newLine();
 
-        $code = $io->askQuestion(new Question('Крок 2 — вставте код, який показав Google: '));
+        $answer = $io->askQuestion(new Question('Крок 2 — вставте адресу (або сам код): '));
+        $code = $this->extractCode((string) $answer);
 
-        if (! $code) {
-            $io->error('Код не введено.');
+        if ($code === null) {
+            $io->error('Код не знайдено — потрібна адреса з ?code=… або сам код.');
 
             return Command::FAILURE;
         }
 
-        $token = $client->fetchAccessTokenWithAuthCode(trim((string) $code));
+        $token = $client->fetchAccessTokenWithAuthCode($code);
 
         if (isset($token['error'])) {
             $io->error(sprintf('Google відмовив: %s', $token['error_description'] ?? $token['error']));
@@ -82,7 +98,30 @@ class DriveAuthCommand extends Command
         $io->writeln('GOOGLE_DRIVE_REFRESH_TOKEN=' . $token['refresh_token']);
         $io->newLine();
         $io->warning('Це ключ від диску заводу — не комітьте його і не надсилайте в чати.');
+        $io->note(
+            'Якщо в Google Cloud Console → OAuth consent screen статус «Testing», токен помре через 7 днів. '
+            . 'Перемкніть на «In production» — для scope drive.file перевірку Google проходити не треба.',
+        );
 
         return Command::SUCCESS;
+    }
+
+    /** Приймаємо і повну адресу редіректу, і голий код — людині так простіше. */
+    private function extractCode(string $answer): ?string
+    {
+        $answer = trim($answer);
+
+        if ($answer === '') {
+            return null;
+        }
+
+        $query = parse_url($answer, PHP_URL_QUERY);
+
+        if (is_string($query)) {
+            parse_str($query, $params);
+            $answer = is_string($params['code'] ?? null) ? $params['code'] : '';
+        }
+
+        return $answer === '' ? null : $answer;
     }
 }
