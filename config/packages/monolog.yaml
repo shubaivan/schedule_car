@@ -60,6 +60,10 @@ when@prod:
                 path: "%kernel.logs_dir%/activity.log"
                 level: info
                 max_files: 7
+                # Файл доби створює той, хто перший щось записав. Якщо це була
+                # консольна команда з-під root, php-fpm потім не міг дописати
+                # в 0644-файл — і кожен апдейт бота падав у 500.
+                file_permission: 0664
                 channels: ["!event", "!doctrine", "!php", "!request", "!security"]
             console:
                 type: console
