@@ -35,12 +35,14 @@ class BookCarConversation extends Conversation
     private const DAY_PREFIX = 'd:';
     private const HOUR_PREFIX = 'h:';
     private const SKIP = 'skip';
-    private const CANCEL = 'fleet:form-cancel';
 
     /** Скільки днів пропонуємо: два тижні вперед вистачає для планування. */
     private const DAYS_OFFERED = 14;
     private const DAYS_PER_ROW = 3;
     private const HOURS_PER_ROW = 4;
+    /** Робочий діапазон, у який пропонуємо машину. */
+    private const FIRST_HOUR = 6;
+    private const LAST_HOUR = 21;
 
     protected ?string $step = 'askCar';
 
@@ -150,6 +152,16 @@ class BookCarConversation extends Conversation
         }
 
         $data = (string) ($bot->callbackQuery()->data ?? '');
+
+        // «⬅️ Інший день»: поки триває розмова, цей callback приходить сюди, а не
+        // в загальний маршрут, тож повертаємо календар руками.
+        if ($data === FleetCallback::BOOK) {
+            $bot->answerCallbackQuery();
+            $this->render($bot, 'На який день?', $this->dayKeyboard());
+            $this->next('readDay');
+
+            return;
+        }
 
         if (! str_starts_with($data, self::HOUR_PREFIX)) {
             $this->askHour($bot);
@@ -264,7 +276,17 @@ class BookCarConversation extends Conversation
             return;
         }
 
-        $this->render($bot, $this->dayPicture($day), $this->hourKeyboard($day));
+        if ($bot->isCallbackQuery()) {
+            $bot->answerCallbackQuery();
+        }
+
+        $markup = $this->hourKeyboard($day);
+        $text = $this->freeHours($day) === []
+            // Найчастіше це «сьогодні» після робочого дня: годин уже не лишилось.
+            ? sprintf('%s — вільних годин уже немає. Оберіть інший день:', $this->formatter->day($day))
+            : $this->dayPicture($day);
+
+        $this->render($bot, $text, $markup);
         $this->next('readHour');
     }
 
@@ -290,22 +312,34 @@ class BookCarConversation extends Conversation
         return implode("\n", $lines);
     }
 
-    private function hourKeyboard(DateTime $day): InlineKeyboardMarkup
+    /**
+     * Вільні години дня: минулі на сьогодні відпадають, зайняті теж.
+     *
+     * @return int[]
+     */
+    private function freeHours(DateTime $day): array
     {
         $now = new DateTime('now', new DateTimeZone('Europe/Kyiv'));
         $isToday = $day->format('Y-m-d') === $now->format('Y-m-d');
-        $from = $isToday ? (int) $now->format('H') + 1 : 6;
+        $from = $isToday ? (int) $now->format('H') + 1 : self::FIRST_HOUR;
 
+        $free = [];
+
+        for ($hour = max($from, self::FIRST_HOUR); $hour <= self::LAST_HOUR; ++$hour) {
+            if (! $this->taken($this->carId, (clone $day)->setTime($hour, 0))) {
+                $free[] = $hour;
+            }
+        }
+
+        return $free;
+    }
+
+    private function hourKeyboard(DateTime $day): InlineKeyboardMarkup
+    {
         $markup = InlineKeyboardMarkup::make();
         $row = [];
 
-        for ($hour = max($from, 0); $hour <= 21; ++$hour) {
-            $slot = (clone $day)->setTime($hour, 0);
-
-            if ($this->taken($this->carId, $slot)) {
-                continue;
-            }
-
+        foreach ($this->freeHours($day) as $hour) {
             $row[] = InlineKeyboardButton::make(
                 sprintf('%02d:00', $hour),
                 callback_data: self::HOUR_PREFIX . $hour,
@@ -372,7 +406,7 @@ class BookCarConversation extends Conversation
     private function render(Nutgram $bot, string $question, ?InlineKeyboardMarkup $markup = null): void
     {
         $markup ??= InlineKeyboardMarkup::make();
-        $markup->addRow(InlineKeyboardButton::make('✖️ Скасувати', callback_data: self::CANCEL));
+        $markup->addRow(InlineKeyboardButton::make('✖️ Скасувати', callback_data: FleetCallback::FORM_CANCEL));
 
         $this->screen->render($bot, $this->summary() . "\n" . $question, $markup);
     }
@@ -406,14 +440,16 @@ class BookCarConversation extends Conversation
 
     private function cancelled(Nutgram $bot): bool
     {
-        if (! $bot->isCallbackQuery() || ($bot->callbackQuery()->data ?? '') !== self::CANCEL) {
+        if (! $bot->isCallbackQuery() || ($bot->callbackQuery()->data ?? '') !== FleetCallback::FORM_CANCEL) {
             return false;
         }
 
         $bot->answerCallbackQuery();
         $this->end();
 
-        ($this->myTrips)($bot);
+        // Саме show(), а не __invoke: той відповів би на цей самий callback
+        // удруге, а Telegram на це кидає помилку — і форма вмирала б із 500.
+        $this->myTrips->show($bot);
 
         return true;
     }

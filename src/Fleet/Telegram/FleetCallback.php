@@ -10,6 +10,8 @@ final class FleetCallback
     public const MY_TRIPS = 'fleet:my';
     public const DRIVER_TRIPS = 'fleet:driver';
     public const BOOK = 'fleet:book';
+    /** Вихід із форми бронювання; поза розмовою веде в розділ. */
+    public const FORM_CANCEL = 'fleet:form-cancel';
 
     /** fleet:schedule:<зсув у днях> — гортання розкладу вперед і назад. */
     public const SCHEDULE_PREFIX = 'fleet:schedule:';

@@ -111,6 +111,25 @@ class ScheduleTest extends KernelTestCase
         self::assertStringContainsString('восьми годин', (string) $violations->get(0)->getMessage());
     }
 
+    /**
+     * Бронь без завдання — це нормально, кнопка «Пропустити» на те й є.
+     *
+     * Тест стоїть тут через реальну помилку: нове поле task вклинилось між
+     * #[NotBlank] і полем car, атрибут перечепився на task, і будь-яке
+     * бронювання без тексту завдання переставало проходити валідацію.
+     */
+    public function testBookingWithoutTaskIsValid(): void
+    {
+        $car = $this->fleet->saveCar(null, ['carNumber' => 'AB3030BB']);
+        $at = (new DateTime('tomorrow', new DateTimeZone('Europe/Kyiv')))->setTime(9, 0);
+
+        $set = $this->set($car, $this->user(), $at, 'з завданням')->setTask(null);
+
+        $violations = self::getContainer()->get(ValidatorInterface::class)->validate($set);
+
+        self::assertCount(0, $violations, (string) $violations);
+    }
+
     private function booking(string $carNumber, string $when, string $task): ScheduledSet
     {
         $car = $this->fleet->saveCar(null, ['carNumber' => $carNumber, 'model' => 'Renault Master']);

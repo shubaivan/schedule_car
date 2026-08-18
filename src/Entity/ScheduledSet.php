@@ -51,11 +51,11 @@ class ScheduledSet
     #[ORM\JoinColumn(name: 'telegram_user_id', referencedColumnName: 'id')]
     private TelegramUser $telegramUserId;
 
-    #[NotBlank]
     /** Навіщо машина: «відвезти арматуру на Амет-Хана». Видно всім у розкладі. */
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $task = null;
 
+    #[NotBlank]
     #[ORM\ManyToOne(targetEntity: Car::class, inversedBy: 'scheduledSet')]
     #[ORM\JoinColumn(name: 'car_id', referencedColumnName: 'id')]
     private Car $car;

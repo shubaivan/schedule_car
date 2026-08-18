@@ -57,6 +57,9 @@ $bot->onCallbackQueryData(FleetCallback::SCHEDULE, FleetSchedule::class);
 $bot->onCallbackQueryData(FleetCallback::SCHEDULE_PREFIX . '{offset}', FleetSchedule::class);
 $bot->onCallbackQueryData(FleetCallback::BOOK, BookCarConversation::class);
 $bot->onCallbackQueryData(FleetCallback::MY_TRIPS, MyTrips::class);
+// Кнопку «Скасувати» форми перехоплює сама розмова; цей маршрут ловить її вже
+// після її кінця — щоб на старому екрані кнопка не була мертвою.
+$bot->onCallbackQueryData(FleetCallback::FORM_CANCEL, MyTrips::class);
 $bot->onCallbackQueryData(FleetCallback::DRIVER_TRIPS, DriverTrips::class);
 $bot->onCallbackQueryData(FleetCallback::CANCEL_PREFIX . '{id}', CancelTripAction::class);
 

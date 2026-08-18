@@ -141,9 +141,12 @@ class FleetDirectory
         // Саму прив'язку «машина ↔ водій» теж знімаємо: запис у довіднику й був
         // її причиною, інакше людина лишиться водієм без жодного сліду про це.
         $user = $entry->getAppliedTo();
+        $car = $entry->getCar();
 
-        if ($user !== null) {
-            foreach ($this->carDrivers->findBy(['driver' => $user]) as $link) {
+        // Саме до цієї машини: людина може бути водієм і на іншій, і той запис
+        // веде своє життя — прибирати його разом із цим не можна.
+        if ($user !== null && $car !== null) {
+            foreach ($this->carDrivers->findBy(['driver' => $user, 'car' => $car]) as $link) {
                 $this->em->remove($link);
             }
         }

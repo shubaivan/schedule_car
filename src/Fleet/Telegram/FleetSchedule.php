@@ -24,6 +24,12 @@ class FleetSchedule
 {
     /** Скільки днів показуємо за раз: тиждень читається без гортання. */
     private const DAYS = 7;
+    /**
+     * Стеля рядків. Повідомлення Telegram — 4096 символів, а рядок розкладу з
+     * іменем, телефоном і завданням легко тягне під дві сотні; на великому
+     * заводі тиждень міг би не влізти, і екран просто не намалювався б.
+     */
+    private const MAX_LINES = 40;
 
     public function __construct(
         private ScheduledSetRepository $repository,
@@ -64,8 +70,20 @@ class FleetSchedule
         }
 
         $currentDay = null;
+        $shown = 0;
 
         foreach ($sets as $set) {
+            if ($shown === self::MAX_LINES) {
+                $lines[] = '';
+                $lines[] = sprintf(
+                    '<i>…показано перші %d із %d. Далі — гортайте тиждень уперед або дивіться в CRM.</i>',
+                    self::MAX_LINES,
+                    count($sets),
+                );
+
+                break;
+            }
+
             $day = $set->getScheduledDateTime()->format('Y-m-d');
 
             if ($day !== $currentDay) {
@@ -75,6 +93,7 @@ class FleetSchedule
             }
 
             $lines[] = $this->formatter->line($set);
+            ++$shown;
         }
 
         $markup = InlineKeyboardMarkup::make()
