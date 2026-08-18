@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="description" content="Як подати заявку на матеріали в боті заводу «Буддеталь», обробити її та відстежити до складу.">
+<title>Інструкція · Бот заявок «Буддеталь»</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans+Condensed:wght@500;600;700&family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+  :root {
+    --bg: #EBEBE5;
+    --surface: #FFFFFF;
+    --surface-2: #F5F5F0;
+    --ink: #1A1C19;
+    --muted: #5D615A;
+    --rule: #C9CAC1;
+    --rule-soft: #DEDFD7;
+    --mark: #E4B106;
+    --mark-ink: #1A1C19;
+    --alert: #9E3521;
+
+    --display: "Fira Sans Condensed", "Arial Narrow", Arial, sans-serif;
+    --body: "Golos Text", "Segoe UI", Roboto, Arial, sans-serif;
+    --mono: "JetBrains Mono", "SF Mono", Consolas, monospace;
+
+    --shell: 1180px;
+    --col: 64ch;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #131511;
+      --surface: #1C1F1A;
+      --surface-2: #232720;
+      --ink: #E8E9E1;
+      --muted: #9BA093;
+      --rule: #363A31;
+      --rule-soft: #2A2E26;
+      --mark: #E4B106;
+      --mark-ink: #131511;
+      --alert: #E08061;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #131511;
+    --surface: #1C1F1A;
+    --surface-2: #232720;
+    --ink: #E8E9E1;
+    --muted: #9BA093;
+    --rule: #363A31;
+    --rule-soft: #2A2E26;
+    --mark: #E4B106;
+    --mark-ink: #131511;
+    --alert: #E08061;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  .shell {
+    max-width: var(--shell);
+    margin: 0 auto;
+    padding: 0 20px 96px;
+  }
+
+  /* ---------- Шапка ---------- */
+
+  .masthead {
+    border-bottom: 2px solid var(--ink);
+    padding: 40px 0 18px;
+    margin-bottom: 8px;
+  }
+
+  .eyebrow {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 14px;
+  }
+
+  h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(44px, 9vw, 82px);
+    line-height: 0.94;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+    margin: 0 0 18px;
+  }
+
+  h1 .mark {
+    background: var(--mark);
+    color: var(--mark-ink);
+    padding: 0 0.12em;
+  }
+
+  .lede {
+    max-width: 54ch;
+    font-size: 19px;
+    color: var(--ink);
+    margin: 0 0 24px;
+  }
+
+  .stamps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 26px;
+    padding-bottom: 4px;
+  }
+
+  .stamp {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .stamp b {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  /* ---------- Разделы техкарты ---------- */
+
+  .block {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px 40px;
+    padding: 34px 0;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+
+  @media (min-width: 900px) {
+    .block {
+      grid-template-columns: 168px minmax(0, 1fr);
+    }
+  }
+
+  .field {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding-top: 10px;
+  }
+
+  .field .num {
+    display: block;
+    font-size: 34px;
+    line-height: 1;
+    letter-spacing: 0;
+    color: var(--ink);
+    margin-bottom: 4px;
+  }
+
+  .body { max-width: var(--col); }
+
+  h2 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(28px, 4.6vw, 38px);
+    line-height: 1.08;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+    margin: 0 0 14px;
+  }
+
+  h3 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 21px;
+    line-height: 1.2;
+    margin: 28px 0 8px;
+  }
+
+  p { margin: 0 0 14px; }
+  p:last-child { margin-bottom: 0; }
+
+  .muted { color: var(--muted); }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.88em;
+    background: var(--surface-2);
+    border: 1px solid var(--rule-soft);
+    border-radius: 4px;
+    padding: 1px 5px;
+    white-space: nowrap;
+  }
+
+  ul, ol {
+    margin: 0 0 14px;
+    padding-left: 22px;
+  }
+
+  li { margin-bottom: 7px; }
+  li:last-child { margin-bottom: 0; }
+
+  b, strong { font-weight: 600; }
+
+  /* ---------- Макет экрана бота ---------- */
+
+  .screen {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    padding: 14px 15px;
+    margin: 18px 0;
+    max-width: 420px;
+    box-shadow: 0 1px 0 var(--rule-soft);
+  }
+
+  .screen-text {
+    font-size: 15px;
+    line-height: 1.5;
+    margin: 0 0 12px;
+  }
+
+  .screen-text b { font-weight: 600; }
+
+  .keys {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .key {
+    flex: 1 1 auto;
+    min-width: 120px;
+    text-align: center;
+    font-size: 14px;
+    padding: 9px 10px;
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    background: var(--surface-2);
+    color: var(--ink);
+  }
+
+  .key.full { flex-basis: 100%; }
+  .key.nav { color: var(--muted); }
+
+  .caption {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--muted);
+    margin: -8px 0 18px;
+    max-width: 420px;
+  }
+
+  /* ---------- Лестница статусов ---------- */
+
+  .ladder {
+    display: grid;
+    gap: 0;
+    margin: 6px 0 0;
+    border-top: 1px solid var(--rule-soft);
+  }
+
+  .rung {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 4px 14px;
+    padding: 13px 0;
+    border-bottom: 1px solid var(--rule-soft);
+    align-items: start;
+  }
+
+  .rung .icon {
+    font-size: 20px;
+    line-height: 1.3;
+  }
+
+  .rung .name {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 19px;
+    line-height: 1.25;
+  }
+
+  .rung .who {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .rung .what {
+    grid-column: 2;
+    font-size: 16px;
+    color: var(--ink);
+  }
+
+  .rung.rejected .name { color: var(--alert); }
+
+  /* ---------- Врезки ---------- */
+
+  .note {
+    border-left: 3px solid var(--mark);
+    background: var(--surface);
+    padding: 13px 16px;
+    margin: 18px 0;
+    font-size: 16px;
+    max-width: var(--col);
+  }
+
+  .note.warn { border-left-color: var(--alert); }
+
+  .note p { margin-bottom: 8px; }
+  .note p:last-child { margin-bottom: 0; }
+
+  /* ---------- Список «что делать, если» ---------- */
+
+  .faq { margin: 4px 0 0; }
+
+  .faq div {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+
+  .faq div:first-child { border-top: 1px solid var(--rule-soft); }
+
+  .faq dt {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 19px;
+    margin-bottom: 4px;
+  }
+
+  .faq dd { margin: 0; }
+
+  /* ---------- Команды ---------- */
+
+  .cmds {
+    display: grid;
+    gap: 10px;
+    margin-top: 6px;
+  }
+
+  .cmd {
+    display: grid;
+    grid-template-columns: minmax(0, 148px) minmax(0, 1fr);
+    gap: 4px 16px;
+    align-items: baseline;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+
+  .cmd code {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 16px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  footer {
+    padding: 34px 0 0;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 13px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 28px;
+  }
+
+  a { color: inherit; text-underline-offset: 3px; }
+  a:focus-visible, .key:focus-visible { outline: 2px solid var(--mark); outline-offset: 2px; }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <header class="masthead">
+    <p class="eyebrow">Завод Буддеталь · Постачання</p>
+    <h1>Заявка на матеріали —<br>у <span class="mark">телефоні</span></h1>
+    <p class="lede">
+      Бот приймає заявку, веде її від «потрібен цемент» до «привезли на склад»
+      і показує всім, на якому вона етапі. Ні дзвінків, ні папірців, ні «я ж казав минулого тижня».
+    </p>
+    <div class="stamps">
+      <span class="stamp">Бот: <b>@tbuddet_schedule_car_bot</b></span>
+      <span class="stamp">Читати: <b>7 хвилин</b></span>
+      <span class="stamp">Оновлено: <b>18.08.2026</b></span>
+    </div>
+  </header>
+
+  <section class="block">
+    <div class="field">Коротко</div>
+    <div class="body">
+      <h2>Як це працює</h2>
+      <p>
+        Ви пишете боту, <b>що</b> і <b>скільки</b> потрібно та <b>до якої дати</b>. Заявка отримує номер —
+        <code>№001/2026</code> — і далі живе своїм життям: менеджер із постачання шукає постачальника й ціну,
+        директор погоджує оплату, менеджер відмічає доставку. На кожному кроці вам приходить повідомлення.
+      </p>
+      <p>
+        Чужі заявки бачить кожен. Це навмисно: перш ніж замовляти пісок, видно, що сусідній підрозділ
+        уже замовив його вчора.
+      </p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="field"><span class="num">01</span>Реєстрація</div>
+    <div class="body">
+      <h2>Один раз поділитись номером</h2>
+      <p>
+        Знайдіть у Telegram <b>@tbuddet_schedule_car_bot</b> і натисніть <b>Start</b>.
+        Бот попросить номер телефону — натисніть кнопку внизу екрана.
+      </p>
+
+      <div class="screen">
+        <p class="screen-text">👋 Вітаємо! Це бот заводу «Буддеталь».<br>Щоб подавати заявки, поділіться своїм номером — менеджер підтвердить доступ.</p>
+        <div class="keys">
+          <span class="key full">📱 Поділитись номером</span>
+        </div>
+      </div>
+      <p class="caption">Кнопка з’являється внизу, на місці клавіатури.</p>
+
+      <p>
+        Номер має бути <b>ваш власний</b> — чужий контакт бот не прийме. Далі заявку на доступ бачить
+        менеджер: щойно він підтвердить, бот напише вам сам. Поки не підтвердив, у відповідь приходить
+        «⏳ Ваша реєстрація ще на розгляді».
+      </p>
+      <div class="note">
+        <p>Номер уже є в довіднику підприємства — роль (робітник, менеджер, директор) підхоплюється
+          автоматично, окремо просити не треба.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="field"><span class="num">02</span>Меню</div>
+    <div class="body">
+      <h2>Один екран, який змінюється</h2>
+      <p>
+        Команда <code>/start</code> відкриває головне меню. Далі все відбувається <b>в одному
+        повідомленні</b>: бот не засипає чат новими, а перемальовує той самий екран.
+        Натиснули «Постачання» — те саме повідомлення стало розділом постачання.
+      </p>
+
+      <div class="screen">
+        <p class="screen-text">Вітаю! Оберіть розділ:</p>
+        <div class="keys">
+          <span class="key">📦 Постачання</span>
+          <span class="key">🚗 Автопарк</span>
+        </div>
+      </div>
+
+      <p>
+        Нам потрібне <b>📦 Постачання</b> — усе про заявки на матеріали. Сусідній розділ
+        «Автопарк» — це бронювання машини, окрема історія.
+      </p>
+
+      <h3>Три кнопки, які є завжди</h3>
+      <ul>
+        <li><b>⬅️ Назад</b> — на крок вище: зі списку в розділ, з розділу в головне меню.</li>
+        <li><b>🏠 На головну</b> — одразу до початку, з будь-якого місця.</li>
+        <li><b>✖️ Скасувати</b> — вийти з форми, якщо передумали. Нічого не збережеться.</li>
+      </ul>
+      <p class="muted">
+        Вони завжди в останньому ряду кнопок. Екранів, з яких нема виходу, у боті немає.
+      </p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="field"><span class="num">03</span>Нова заявка</div>
+    <div class="body">
+      <h2>П’ять питань — і готово</h2>
+      <p>
+        <b>📦 Постачання → ➕ Нова заявка.</b> Бот питає по одному, відповіді накопичуються вгорі
+        того самого повідомлення — видно, що вже вписано.
+      </p>
+
+      <ol>
+        <li><b>Що потрібно?</b> Назва та марка: <i>Арматура 12 А500С</i>, а не просто «арматура».</li>
+        <li><b>Скільки?</b> Число: <code>2</code> або <code>2.5</code>.</li>
+        <li><b>Одиниця виміру</b> — кнопкою: шт, кг, т, м³, м, уп, л.</li>
+        <li><b>До якої дати?</b> Кнопкою з найближчих двох тижнів, або напишіть руками <code>20.08.2026</code>,
+          або «без дати».</li>
+        <li><b>Коментар</b> — для чого і куди привезти. Можна пропустити.</li>
+      </ol>
+
+      <div class="screen">
+        <p class="screen-text">📦 <b>Нова заявка</b><br><br>✅ Що: <b>Цемент М500</b><br>✅ Скільки: <b>40 мішків</b><br><br>До якої дати потрібно?</p>
+        <div class="keys">
+          <span class="key">пн 18.08</span>
+          <span class="key">вт 19.08</span>
+          <span class="key">ср 20.08</span>
+          <span class="key full nav">✖️ Скасувати</span>
+        </div>
+      </div>
+
+      <div class="note">
+        <p>Поставили сьогоднішню або вчорашню дату — заявка йде менеджеру з позначкою
+          <b>🔥 ТЕРМІНОВА</b> і стає вгорі списку. Не зловживайте: якщо термінове все, термінового немає нічого.</p>
+      </div>
+
+      <p>
+        Після останнього питання приходить картка заявки з номером. Номер наскрізний за рік:
+        <code>№001/2026</code>, <code>№002/2026</code> — ним і зручно посилатись у розмові.
+      </p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="field">Статуси</div>
+    <div class="body">
+      <h2>Де зараз ваша заявка</h2>
+      <p>Статус видно і в списку, і в картці. Рухається він тільки вперед — і тільки тим, хто має право.</p>
+
+      <div class="ladder">
+        <div class="rung">
+          <span class="icon">🆕</span>
+          <span class="name">Нова <span class="who">· подав робітник</span></span>
+          <span class="what">Заявка в системі, менеджер її вже бачить.</span>
+        </div>
+        <div class="rung">
+          <span class="icon">⚙️</span>
+          <span class="name">В роботі <span class="who">· менеджер</span></span>
+          <span class="what">Шукають постачальника й ціну.</span>
+        </div>
+        <div class="rung">
+          <span class="icon">⏳</span>
+          <span class="name">На затвердженні <span class="who">· чекає директора</span></span>
+          <span class="what">Ціна відома, потрібне рішення: платимо чи ні.</span>
+        </div>
+        <div class="rung">
+          <span class="icon">💳</span>
+          <span class="name">Оплачено <span class="who">· директор</span></span>
+          <span class="what">Гроші пішли постачальнику.</span>
+        </div>
+        <div class="rung">
+          <span class="icon">🚚</span>
+          <span class="name">Доставка <span class="who">· менеджер</span></span>
+          <span class="what">Матеріал у дорозі.</span>
+        </div>
+        <div class="rung">
+          <span class="icon">📦</span>
+          <span class="name">На складі <span class="who">· менеджер</span></span>
+          <span class="what">Привезли. Заявка закрита.</span>
+        </div>
+        <div class="rung rejected">
+          <span class="icon">⛔</span>
+          <span class="name">Відхилена <span class="who">· з причиною</span></span>
+          <span class="what">Причину пишуть текстом, і вона приходить заявнику. Заявку можна повернути в роботу.</span>
+        </div>
+      </div>
+
+      <div class="note">
+        <p>Гроші проходять лише через <b>⏳ На затвердженні</b>. Перестрибнути з «В роботі» одразу
+          в «Оплачено» чи «На складі» не можна нікому — щоб жодна покупка не пройшла повз директора.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="field">Списки</div>
+    <div class="body">
+      <h2>Мої заявки й усі заявки</h2>
+      <p>
+        <b>📋 Мої заявки</b> — те, що подали ви. <b>📋 Усі заявки</b> — останні 15 по всьому заводу.
+        Рядок показує все головне одразу, а кнопка з номером відкриває картку.
+      </p>
+
+      <div class="screen">
+        <p class="screen-text">📋 <b>Усі заявки</b> — останні 15<br><br>🆕 <b>№001/2026</b> · Цемент М500 — 40 шт · Нова<br>⚙️ <b>№002/2026</b> · Арматура 12 А500С — 2.5 т · В роботі</p>
+        <div class="keys">
+          <span class="key">№001/2026</span>
+          <span class="key">№002/2026</span>
+          <span class="key">➕ Нова заявка</span>
+          <span class="key nav">⬅️ Постачання</span>
+        </div>
+      </div>
+
+      <p class="muted">Глибше за останні 15 — у CRM, там є фільтри й пошук.</p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="field">Картка</div>
+    <div class="body">
+      <h2>Що всередині заявки</h2>
+      <p>
+        Позиція, кількість, потрібна дата, коментар — і хронологія: зміни статусу й коментарі
+        одним потоком, за часом. Після закупівлі там же видно постачальника й суму.
+      </p>
+      <h3>Що можна зробити</h3>
+      <ul>
+        <li><b>💬 Коментар</b> — уточнити, домовитись, нагадати. Бачать усі, кого заявка стосується.</li>
+        <li><b>📎 Накладна</b> — надіслати фото документа або файл (PDF, Word, Excel), до 20 МБ.
+          Документ лишається при заявці, шукати його по чатах не доведеться.</li>
+      </ul>
+      <p class="muted">Коментувати й носити документи можуть автор заявки та менеджер; решта підрозділів дивиться.</p>
+      <p>
+        Повідомлення приходять самі: заявнику — про зміну статусу й про закупівлю,
+        менеджерам — про кожну нову заявку.
+      </p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="field">Для менеджера</div>
+    <div class="body">
+      <h2>Провести заявку до складу</h2>
+      <p>Нова заявка приходить сама, термінова — з 🔥. Далі в картці:</p>
+      <ol>
+        <li><b>⚙️ В роботі</b> — взяли в роботу, шукаєте ціну.</li>
+        <li><b>🧾 Закупівля</b> — записати, у кого купили: постачальник з довідника (можна знайти за
+          частиною назви або додати нового) → сума → номер накладної, якщо він уже є.</li>
+        <li><b>⏳ На затвердженні</b> — передати рішення директору.</li>
+        <li>Після погодження — <b>🚚 Доставка</b> і <b>📦 На складі</b>.</li>
+      </ol>
+      <p>
+        <b>⛔ Відхилити</b> можна майже на будь-якому кроці, але бот попросить причину —
+        без неї заявник не зрозуміє, що робити далі.
+      </p>
+      <div class="note">
+        <p>Заявку, яка вже оплачена або їде, система не закриє без постачальника: закупівля завжди
+          прив’язана до конкретної покупки в конкретного ФОПа.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="field">Для директора</div>
+    <div class="body">
+      <h2>Погодження оплати</h2>
+      <p>
+        Заявки зі статусом <b>⏳ На затвердженні</b> зрушує тільки директор: у картці з’являються
+        кнопки <b>💳 Оплачено</b>, <b>🚚 Доставка</b>, <b>📦 На складі</b>. У картці вже видно
+        постачальника й суму — рішення приймається не наосліп.
+      </p>
+      <p class="muted">
+        Відхилити заявку, яка чекає грошей, може і менеджер: «не купуємо» — це не витрата.
+      </p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="field">CRM</div>
+    <div class="body">
+      <h2>Коли бота замало</h2>
+      <p>
+        Команда <code>/crm</code> або кнопка <b>🔐 Вхід у CRM</b> видає посилання на веб-версію.
+        Воно діє <b>15 хвилин і лише один раз</b> — пароля немає, тому нікому його не пересилайте.
+        Знадобиться ще — попросіть у бота нове.
+      </p>
+      <p>У CRM: усі заявки з фільтрами й пошуком, картка заявки, довідник постачальників,
+        звіти (оборот по постачальниках, підрозділах і матеріалах) та керування ролями.</p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="field">Якщо що</div>
+    <div class="body">
+      <h2>Коли щось пішло не так</h2>
+      <dl class="faq">
+        <div>
+          <dt>Здається, бот мовчить</dt>
+          <dd>Наберіть <code>/start</code> — екран приїде вниз чату. Найчастіше відповідь просто вище:
+            бот перемальовує один екран, а не шле нові повідомлення.</dd>
+        </div>
+        <div>
+          <dt>Кнопки старого повідомлення не працюють</dt>
+          <dd>Так і задумано: живий екран один, у старих кнопки знімаються, щоб не наплодити
+            дві однакові заявки.</dd>
+        </div>
+        <div>
+          <dt>Посилання на CRM не відкривається</dt>
+          <dd>Воно одноразове й живе 15 хвилин. Візьміть нове: <code>/crm</code>.</dd>
+        </div>
+        <div>
+          <dt>«Ваша реєстрація ще на розгляді»</dt>
+          <dd>Менеджер ще не підтвердив доступ. Щойно підтвердить — бот напише сам.</dd>
+        </div>
+        <div>
+          <dt>Помилився у заявці</dt>
+          <dd>Поки заповнюєте форму — <b>✖️ Скасувати</b> і почати наново. Якщо вже подали —
+            напишіть <b>💬 Коментар</b> у картці, менеджер побачить.</dd>
+        </div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="field">Команди</div>
+    <div class="body">
+      <h2>Що набрати</h2>
+      <div class="cmds">
+        <div class="cmd"><code>/start</code><span>Головне меню. Універсальний вихід із будь-якої ситуації.</span></div>
+        <div class="cmd"><code>/postachannia</code><span>Одразу розділ постачання.</span></div>
+        <div class="cmd"><code>/crm</code><span>Одноразове посилання на веб-версію.</span></div>
+      </div>
+      <p class="muted" style="margin-top:14px">
+        Ті самі команди є під кнопкою <b>Menu</b> зліва від поля вводу — набирати руками не обов’язково.
+      </p>
+    </div>
+  </section>
+
+  <footer>
+    <span>Завод Буддеталь · система заявок на постачання</span>
+    <span>Питання — до менеджера з постачання</span>
+  </footer>
+
+</div>
+
+</body>
+</html>

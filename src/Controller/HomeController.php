@@ -18,4 +18,16 @@ class HomeController extends AbstractController
             'is_manager' => $this->isGranted('ROLE_SUPPLY_MANAGER'),
         ]);
     }
+
+    /**
+     * Інструкція для працівників: як подати заявку, обробити її та відстежити.
+     *
+     * Живе поруч із самою системою, на її ж адресі, — щоб посилання можна було
+     * кинути в робочий чат і воно не залежало ні від чого стороннього.
+     */
+    #[Route('/instrukciya', name: 'app_instrukciya', methods: ['GET'])]
+    public function instrukciya(): Response
+    {
+        return $this->render('instrukciya.html.twig');
+    }
 }
