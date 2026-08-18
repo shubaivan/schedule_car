@@ -17,15 +17,17 @@ use App\Telegram\Access\AccessCallback;
 use App\Telegram\Access\AccessDecision;
 use App\Telegram\Access\RequireApproval;
 use App\Telegram\Access\ShareContact;
+use App\Fleet\Telegram\BookCarConversation;
+use App\Fleet\Telegram\CancelTripAction;
+use App\Fleet\Telegram\DriverTrips;
+use App\Fleet\Telegram\FleetCallback;
+use App\Fleet\Telegram\FleetSchedule;
+use App\Fleet\Telegram\MyTrips;
 use App\Telegram\Start\Command\FleetMenu;
 use App\Telegram\Start\Command\MainMenu;
 use App\Telegram\Start\Command\StartCommand;
 use SergiX44\Nutgram\Conversations\Conversation;
 use SergiX44\Nutgram\RunningMode\Webhook;
-use \App\Telegram\ScheduleCar\Command\Schedule;
-use \App\Telegram\ScheduleCar\Command\ScheduleCar;
-use \App\Telegram\ScheduleCar\Command\OwnSchedule;
-use App\Telegram\ScheduleCar\Command\DriverCar;
 
 Conversation::refreshOnDeserialize();
 
@@ -41,17 +43,22 @@ $bot->onCallbackQueryData(AccessCallback::APPROVE_PREFIX . '{id}', AccessDecisio
 $bot->onCallbackQueryData(AccessCallback::REJECT_PREFIX . '{id}', AccessDecision::class);
 
 $bot->registerCommand(StartCommand::class);
-$bot->registerCommand(Schedule::class);
 
 ##############
 # Автопарк
 ##############
 $bot->onCallbackQueryData(StartCommand::MAIN_MENU, MainMenu::class);
 $bot->onCallbackQueryData(StartCommand::FLEET_MENU, FleetMenu::class);
-$bot->onCallbackQueryData('schedule-car', ScheduleCar::class);
-$bot->onCallbackQueryData('driver', DriverCar::class);
-$bot->onCommand('обрати машину', ScheduleCar::class);
-$bot->onCallbackQueryData('own-schedule', OwnSchedule::class);
+$bot->onCommand('avtopark', FleetMenu::class);
+$bot->onCallbackQueryData(FleetCallback::MENU, FleetMenu::class);
+// Спільний розклад — головний екран автопарку: його гортають кнопками,
+// а зсув у днях їде в самій callback_data, тож стан ніде не зберігається.
+$bot->onCallbackQueryData(FleetCallback::SCHEDULE, FleetSchedule::class);
+$bot->onCallbackQueryData(FleetCallback::SCHEDULE_PREFIX . '{offset}', FleetSchedule::class);
+$bot->onCallbackQueryData(FleetCallback::BOOK, BookCarConversation::class);
+$bot->onCallbackQueryData(FleetCallback::MY_TRIPS, MyTrips::class);
+$bot->onCallbackQueryData(FleetCallback::DRIVER_TRIPS, DriverTrips::class);
+$bot->onCallbackQueryData(FleetCallback::CANCEL_PREFIX . '{id}', CancelTripAction::class);
 
 ##############
 # Постачання

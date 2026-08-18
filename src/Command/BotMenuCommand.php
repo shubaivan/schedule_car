@@ -21,6 +21,7 @@ class BotMenuCommand extends Command
     private const COMMANDS = [
         'start' => 'Головне меню',
         'postachannia' => 'Постачання: заявки на матеріали',
+        'avtopark' => 'Автопарк: розклад машин і бронювання',
         'crm' => 'Вхід у CRM (для менеджерів)',
     ];
 

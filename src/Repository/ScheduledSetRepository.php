@@ -6,6 +6,7 @@ use App\Entity\Car;
 use App\Entity\ScheduledSet;
 use App\Entity\TelegramUser;
 use App\Service\ScheduleCarService;
+use DateTime;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -92,6 +93,56 @@ class ScheduledSetRepository extends ServiceEntityRepository
     /**
      * @return ScheduledSet[]
      */
+    /**
+     * Розклад на проміжок часу — спільна картина для всіх.
+     *
+     * @return ScheduledSet[]
+     */
+    public function findBetween(DateTime $from, DateTime $to): array
+    {
+        return $this->createQueryBuilder('s')
+            ->leftJoin('s.car', 'c')->addSelect('c')
+            ->leftJoin('s.telegramUserId', 'u')->addSelect('u')
+            ->andWhere('s.scheduledAt >= :from')->setParameter('from', $from)
+            ->andWhere('s.scheduledAt < :to')->setParameter('to', $to)
+            ->orderBy('s.scheduledAt', 'ASC')
+            ->addOrderBy('c.carNumber', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Майбутні поїздки однієї машини — те, що бачить її водій.
+     *
+     * @return ScheduledSet[]
+     */
+    public function findUpcomingByCar(Car $car, DateTime $since): array
+    {
+        return $this->createQueryBuilder('s')
+            ->leftJoin('s.telegramUserId', 'u')->addSelect('u')
+            ->andWhere('s.car = :car')->setParameter('car', $car)
+            ->andWhere('s.scheduledAt >= :since')->setParameter('since', $since)
+            ->orderBy('s.scheduledAt', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Майбутні бронювання людини — «мої поїздки» заявника.
+     *
+     * @return ScheduledSet[]
+     */
+    public function findUpcomingByUser(TelegramUser $user, DateTime $since): array
+    {
+        return $this->createQueryBuilder('s')
+            ->leftJoin('s.car', 'c')->addSelect('c')
+            ->andWhere('s.telegramUserId = :user')->setParameter('user', $user)
+            ->andWhere('s.scheduledAt >= :since')->setParameter('since', $since)
+            ->orderBy('s.scheduledAt', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
     public function getByCar(Car $car): array
     {
         $qb = $this->createQueryBuilder('ss');

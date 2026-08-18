@@ -52,6 +52,10 @@ class ScheduledSet
     private TelegramUser $telegramUserId;
 
     #[NotBlank]
+    /** Навіщо машина: «відвезти арматуру на Амет-Хана». Видно всім у розкладі. */
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    private ?string $task = null;
+
     #[ORM\ManyToOne(targetEntity: Car::class, inversedBy: 'scheduledSet')]
     #[ORM\JoinColumn(name: 'car_id', referencedColumnName: 'id')]
     private Car $car;
@@ -129,6 +133,18 @@ class ScheduledSet
     public function setScheduledAt(DateTime $scheduledAt): ScheduledSet
     {
         $this->scheduledAt = $scheduledAt;
+
+        return $this;
+    }
+
+    public function getTask(): ?string
+    {
+        return $this->task;
+    }
+
+    public function setTask(?string $task): ScheduledSet
+    {
+        $this->task = $task;
 
         return $this;
     }

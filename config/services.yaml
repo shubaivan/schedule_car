@@ -58,3 +58,13 @@ services:
         public: true
         shared: false
         resource: '../src/Supply/Telegram'
+
+    # Те саме для автопарку.
+    App\Fleet\Telegram\:
+        public: true
+        shared: false
+        resource: '../src/Fleet/Telegram'
+
+    # Форматер розкладу тягнуть і хендлери бота, і тести.
+    App\Fleet\Service\TripFormatter:
+        public: true
