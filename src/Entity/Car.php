@@ -23,6 +23,14 @@ class Car
     #[ORM\Column(length: 255)]
     private ?string $carNumber = null;
 
+    /** Марка й модель: «Renault Master», щоб у списку не було самих номерів. */
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $model = null;
+
+    /** Продана або в ремонті — прибираємо з вибору, історію лишаємо. */
+    #[ORM\Column(options: ['default' => true])]
+    private bool $active = true;
+
     #[ORM\OneToMany(targetEntity: ScheduledSet::class, mappedBy: 'car', cascade: ['persist'])]
     private Collection $scheduledSet;
 
@@ -54,6 +62,38 @@ class Car
         $this->carNumber = $carNumber;
 
         return $this;
+    }
+
+    public function getModel(): ?string
+    {
+        return $this->model;
+    }
+
+    public function setModel(?string $model): static
+    {
+        $this->model = $model;
+
+        return $this;
+    }
+
+    public function isActive(): bool
+    {
+        return $this->active;
+    }
+
+    public function setActive(bool $active): static
+    {
+        $this->active = $active;
+
+        return $this;
+    }
+
+    /** Як показувати машину людині: «AA1234BB · Renault Master». */
+    public function label(): string
+    {
+        return $this->model !== null && $this->model !== ''
+            ? sprintf('%s · %s', (string) $this->carNumber, $this->model)
+            : (string) $this->carNumber;
     }
 
     public function getScheduledSet(): Collection

@@ -2,6 +2,7 @@
 
 namespace App\Service;
 
+use App\Entity\Car;
 use App\Entity\TelegramUser;
 use App\Enum\AccessStatus;
 use App\Repository\TelegramUserRepository;
@@ -22,6 +23,19 @@ class AccessNotifier
         private TelegramUserRepository $userRepository,
         private LoggerInterface $logger,
     ) {
+    }
+
+    /** Водієві після реєстрації: він і сам має знати, що на ньому машина. */
+    public function driverAssigned(TelegramUser $user, ?Car $car): void
+    {
+        $text = $car !== null
+            ? sprintf(
+                "🚗 <b>Ви водій</b>\n\nЗа вами закріплено: <b>%s</b>.\nЯк на цю машину з'явиться бронювання — бот напише вам сам.",
+                $this->escape($car->label()),
+            )
+            : "🚗 <b>Ви водій</b>\n\nМашину за вами ще не закріпили — щойно закріплять, бот напише.";
+
+        $this->send($user, $text);
     }
 
     public function registrationRequested(TelegramUser $user): void

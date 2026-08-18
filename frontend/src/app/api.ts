@@ -177,6 +177,40 @@ async function call<T>(url: string, init: RequestInit = {}): Promise<T> {
     return payload as T
 }
 
+/** Машина автопарку. */
+export interface FleetCar {
+    id: number
+    carNumber: string
+    model: string | null
+    active: boolean
+    label: string
+}
+
+/** Водій у довіднику: чекає, поки людина зайде в бота й поділиться номером. */
+export interface FleetDriver {
+    id: number
+    phone: string
+    name: string | null
+    note: string | null
+    carId: number | null
+    carLabel: string | null
+    appliedTo: string | null
+    appliedAt: string | null
+}
+
+export interface CarPayload {
+    carNumber?: string
+    model?: string | null
+    active?: boolean
+}
+
+export interface DriverPayload {
+    phone?: string
+    name?: string | null
+    note?: string | null
+    carId?: number | null
+}
+
 export const api = {
     me: () => call<ApiUser>('/api/me'),
     meta: () => call<Meta>('/api/supply/meta'),
@@ -297,4 +331,23 @@ export const api = {
 
     deleteStaff: (id: number) =>
         call<{ ok: boolean }>(`/api/supply/staff/${id}`, { method: 'DELETE' }),
+
+    cars: () => call<{ items: FleetCar[] }>('/api/fleet/cars'),
+
+    createCar: (payload: CarPayload) =>
+        call<FleetCar>('/api/fleet/cars', { method: 'POST', body: JSON.stringify(payload) }),
+
+    updateCar: (id: number, payload: CarPayload) =>
+        call<FleetCar>(`/api/fleet/cars/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+
+    drivers: () => call<{ items: FleetDriver[] }>('/api/fleet/drivers'),
+
+    createDriver: (payload: DriverPayload) =>
+        call<FleetDriver>('/api/fleet/drivers', { method: 'POST', body: JSON.stringify(payload) }),
+
+    updateDriver: (id: number, payload: DriverPayload) =>
+        call<FleetDriver>(`/api/fleet/drivers/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+
+    deleteDriver: (id: number) =>
+        call<{ ok: boolean }>(`/api/fleet/drivers/${id}`, { method: 'DELETE' }),
 }

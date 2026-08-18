@@ -2,6 +2,7 @@
 
 namespace App\Service;
 
+use App\Entity\DriverPhone;
 use App\Entity\TelegramUser;
 use App\Enum\AccessStatus;
 use App\Supply\Enum\SupplyRole;
@@ -25,6 +26,7 @@ class AccessService
         private AccessNotifier $notifier,
         private LoggerInterface $logger,
         private StaffDirectory $staff,
+        private FleetDirectory $fleet,
         #[Autowire('%supply_manager_phones%')]
         private string $managerPhones,
         #[Autowire('%supply_director_phones%')]
@@ -36,6 +38,10 @@ class AccessService
     public function registerPhone(TelegramUser $user, string $phone): void
     {
         $user->setPhoneNumber(self::normalize($phone));
+
+        // Довідник водіїв питаємо першим: керівник автопарку вніс номер, отже
+        // людина своя — доступ відкривається без окремого підтвердження.
+        $driver = $this->fleet->assignOnRegistration($user, $phone);
 
         $listed = $this->staff->lookup($phone);
         $bootstrapRole = $listed?->getRole() ?? $this->bootstrapRole($phone);
@@ -53,6 +59,21 @@ class AccessService
             ]);
 
             $this->notifier->approved($user);
+            $this->announceDriver($user, $driver);
+
+            return;
+        }
+
+        if ($driver !== null) {
+            $this->em->flush();
+
+            $this->logger->info('fleet: водій із довідника зареєструвався', [
+                'user' => $user->displayName(),
+                'car' => $driver->getCar()?->getCarNumber(),
+            ]);
+
+            $this->notifier->approved($user);
+            $this->announceDriver($user, $driver);
 
             return;
         }
@@ -68,6 +89,13 @@ class AccessService
         $this->em->flush();
 
         $this->notifier->registrationRequested($user);
+    }
+
+    private function announceDriver(TelegramUser $user, ?DriverPhone $driver): void
+    {
+        if ($driver !== null) {
+            $this->notifier->driverAssigned($user, $driver->getCar());
+        }
     }
 
     public function decide(TelegramUser $user, AccessStatus $status, TelegramUser $by): void

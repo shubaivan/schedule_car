@@ -4,6 +4,7 @@ import RequestCard from '../modules/supply/RequestCard.vue'
 import ReportsPage from '../pages/ReportsPage.vue'
 import SuppliersPage from '../pages/SuppliersPage.vue'
 import UsersPage from '../pages/UsersPage.vue'
+import FleetPage from '../pages/FleetPage.vue'
 
 export const router = createRouter({
     history: createWebHistory('/crm/'),
@@ -13,6 +14,7 @@ export const router = createRouter({
         { path: '/suppliers', name: 'suppliers', component: SuppliersPage },
         { path: '/reports', name: 'reports', component: ReportsPage },
         { path: '/users', name: 'users', component: UsersPage },
+        { path: '/fleet', name: 'fleet', component: FleetPage },
         { path: '/:pathMatch(.*)*', redirect: '/' },
     ],
 })

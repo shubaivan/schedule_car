@@ -9,11 +9,18 @@ const route = useRoute()
 /** Довідники, звіти й люди — робоче місце менеджера; заявки відкриті всім. */
 const MANAGER_ROUTES = ['suppliers', 'reports', 'users']
 
+/** Автопарк роздає машини й людей — це рівень керівника, не менеджера. */
+const ADMIN_ROUTES = ['fleet']
+
 // Перевіряємо тут, а не в router.beforeEach: на момент першої навігації
 // сесія ще не завантажена, і менеджер із прямого посилання полетів би на «/».
-const allowed = computed(
-    () => session.isManager() || !MANAGER_ROUTES.includes(String(route.name)),
-)
+const allowed = computed(() => {
+    const name = String(route.name)
+
+    if (ADMIN_ROUTES.includes(name)) return session.isAdmin()
+
+    return session.isManager() || !MANAGER_ROUTES.includes(name)
+})
 
 onMounted(() => session.load())
 </script>
@@ -37,6 +44,7 @@ onMounted(() => session.load())
                         <router-link :to="{ name: 'reports' }">Звіти</router-link>
                         <router-link :to="{ name: 'users' }">Люди</router-link>
                     </template>
+                    <router-link v-if="session.isAdmin()" :to="{ name: 'fleet' }">Автопарк</router-link>
                 </nav>
                 <span class="who">
                     {{ session.user?.name }} · {{ session.user?.roleLabel }}
