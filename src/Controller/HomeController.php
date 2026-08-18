@@ -25,6 +25,13 @@ class HomeController extends AbstractController
      * Живе поруч із самою системою, на її ж адресі, — щоб посилання можна було
      * кинути в робочий чат і воно не залежало ні від чого стороннього.
      */
+    /** Разове підключення Google Диска — інструкція для керівництва клієнта. */
+    #[Route('/instrukciya/google-drive', name: 'app_instrukciya_drive', methods: ['GET'])]
+    public function instrukciyaDrive(#[Autowire('%env(APP_COMPANY_NAME)%')] string $company): Response
+    {
+        return $this->render('instrukciya-drive.html.twig', ['company' => $company]);
+    }
+
     #[Route('/instrukciya', name: 'app_instrukciya', methods: ['GET'])]
     public function instrukciya(
         #[Autowire('%env(TELEGRAM_BOT_USERNAME)%')]

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="description" content="Як підключити Google Диск до бота заявок: накладні з бота лягають в архів компанії автоматично.">
+<title>Google Диск · Бот заявок «{{ company }}»</title>
+{% include 'instruction/_style.html.twig' %}
+</head>
+<body>
+
+<div class="shell">
+
+  <header class="masthead">
+    <p class="eyebrow">{{ company }} · Постачання</p>
+    <h1>Накладні —<br>одразу в <span class="mark">архів</span></h1>
+    <p class="lede">
+      Разове підключення Google Диска: 15 хвилин зараз — і жоден документ більше
+      не загубиться в чатах.
+    </p>
+    <div class="stamps">
+      <span class="stamp">Робимо: <b>один раз</b></span>
+      <span class="stamp">Потрібен: <b>робочий Google-акаунт</b></span>
+      <span class="stamp">Далі: <b>працює саме</b></span>
+    </div>
+  </header>
+
+  <section class="block">
+    <div class="field">Навіщо</div>
+    <div class="body">
+      <h2>Один архів замість переписки</h2>
+      <p>
+        Зараз накладну фотографують і кидають у бот — вона лишається при заявці, і це вже краще,
+        ніж шукати по чатах. Але живе вона тільки всередині системи.
+      </p>
+      <p>
+        Підключений Диск робить з цього нормальний архів: <b>кожен документ автоматично лягає
+        у ваш Google Диск</b>, розкладений по роках і місяцях, з номером заявки в назві файлу.
+        Бухгалтерія бере документи з однієї папки, а не просить переслати. Файли належать компанії —
+        не боту й не розробнику: заберете доступ у нас — архів лишиться у вас.
+      </p>
+      <p class="muted">
+        Це те, що ми називаємо «уніфікувати зберігання»: один шлях для всіх документів,
+        однакові назви, одне місце, де шукати.
+      </p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="field"><span class="num">01</span>Акаунт</div>
+    <div class="body">
+      <h2>Під яким Google-акаунтом усе робити</h2>
+      <p>
+        Візьміть <b>робочий акаунт компанії</b> — той, якому і має належати архів. Не особистий
+        акаунт співробітника: людина піде — архів піде з нею.
+      </p>
+      <p>Усі кроки нижче робіть в одному браузері, під цим акаунтом.</p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="field"><span class="num">02</span>Проєкт</div>
+    <div class="body">
+      <h2>Створити проєкт у Google Cloud</h2>
+      <ol>
+        <li>Відкрийте <b>console.cloud.google.com</b>.</li>
+        <li>Угорі, поруч із логотипом, натисніть перемикач проєктів → <b>New project</b>.</li>
+        <li>Назва — <b>Zayavky</b> (або будь-яка зрозуміла). <b>Create</b>.</li>
+        <li>Дочекайтесь, поки проєкт створиться, і переконайтесь, що вгорі вибраний саме він.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="field"><span class="num">03</span>Drive API</div>
+    <div class="body">
+      <h2>Увімкнути Google Drive API</h2>
+      <ol>
+        <li>Ліве меню → <b>APIs &amp; Services</b> → <b>Library</b>.</li>
+        <li>У пошуку — <b>Google Drive API</b>.</li>
+        <li>Відкрийте його й натисніть <b>Enable</b>.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="field"><span class="num">04</span>Згода</div>
+    <div class="body">
+      <h2>Налаштувати екран згоди</h2>
+      <ol>
+        <li><b>APIs &amp; Services</b> → <b>OAuth consent screen</b>.</li>
+        <li>Тип — <b>External</b>, далі <b>Create</b>.</li>
+        <li>Назва застосунку — <b>Заявки</b>, пошта підтримки й пошта розробника — ваша робоча.</li>
+        <li>Решту полів пропустіть: <b>Save and continue</b> до кінця.</li>
+        <li>
+          Поверніться на екран <b>OAuth consent screen</b> і натисніть
+          <b>Publish app</b> → підтвердіть. Статус має стати <b>In production</b>.
+        </li>
+      </ol>
+      <div class="note warn">
+        <p>
+          Крок із <b>Publish app</b> пропускати не можна. Якщо застосунок лишити в режимі
+          <i>Testing</i>, Google відкликає доступ <b>через 7 днів</b>, і документи перестануть
+          потрапляти в архів — мовчки.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="field"><span class="num">05</span>Ключі</div>
+    <div class="body">
+      <h2>Створити ключі доступу</h2>
+      <ol>
+        <li><b>APIs &amp; Services</b> → <b>Credentials</b>.</li>
+        <li><b>Create credentials</b> → <b>OAuth client ID</b>.</li>
+        <li>Application type — <b>Desktop app</b>. Назва будь-яка. <b>Create</b>.</li>
+        <li>
+          Google покаже <b>Client ID</b> і <b>Client secret</b> — надішліть їх нам
+          (обидва рядки, повністю).
+        </li>
+      </ol>
+      <p class="muted">
+        Тип саме <b>Desktop app</b> — з ним працює процедура видачі доступу на наступному кроці.
+      </p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="field"><span class="num">06</span>Дозвіл</div>
+    <div class="body">
+      <h2>Останній крок — разом, за 10 хвилин</h2>
+      <p>
+        Отримавши ключі, ми надішлемо вам <b>одне посилання</b>. Далі — швидко, бо код дії
+        живе близько десяти хвилин:
+      </p>
+      <ol>
+        <li>Відкрийте посилання в тому самому браузері, під робочим акаунтом.</li>
+        <li>Google запитає дозвіл — натисніть <b>Дозволити</b> (Allow).</li>
+        <li>
+          Браузер перекине вас на адресу <code>localhost:53682</code> і напише, що
+          <b>сайт недоступний</b>. Так і має бути — сторінки там немає.
+        </li>
+        <li>
+          Скопіюйте <b>всю адресу з рядка браузера</b> (там усередині є <code>?code=…</code>)
+          і надішліть нам.
+        </li>
+      </ol>
+      <div class="note">
+        <p>
+          Тому цей крок робимо синхронно: напишіть, коли будете за компʼютером, — ми надішлемо
+          посилання й дочекаємось адреси. Через день код уже не спрацює.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="field">Безпека</div>
+    <div class="body">
+      <h2>Що саме отримує система</h2>
+      <p>
+        Доступ обмежений файлами, які <b>створює сама система</b> — решту вашого Диска вона не
+        бачить і не може ні відкрити, ні видалити.
+      </p>
+      <p>
+        Відкликати доступ можна будь-коли й без нас: <b>Google Акаунт → Безпека → Сторонні
+        застосунки з доступом</b>. Архів після цього лишається у вас — просто нові документи
+        перестануть додаватись.
+      </p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="field">Далі</div>
+    <div class="body">
+      <h2>Як зрозуміти, що працює</h2>
+      <p>
+        Після підключення надішліть у бот накладну до будь-якої заявки — за кілька хвилин вона
+        зʼявиться у вашому Диску, у папці року й місяця. Ми теж перевіримо з нашого боку й
+        напишемо, що все зійшлося.
+      </p>
+    </div>
+  </section>
+
+  <footer>
+    <span>{{ company }} · система заявок на постачання</span>
+    <span>Питання — пишіть у робочий чат</span>
+  </footer>
+
+</div>
+</body>
+</html>
