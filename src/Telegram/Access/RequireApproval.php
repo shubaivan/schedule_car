@@ -5,6 +5,7 @@ namespace App\Telegram\Access;
 use App\Service\TelegramUserService;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Properties\ParseMode;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * Глобальний фільтр доступу: до заявок і бронювань потрапляють лише
@@ -16,6 +17,8 @@ class RequireApproval
 {
     public function __construct(
         private TelegramUserService $telegramUserService,
+        #[Autowire('%env(APP_COMPANY_NAME)%')]
+        private string $company,
     ) {
     }
 
@@ -35,7 +38,7 @@ class RequireApproval
 
         if ($user->getPhoneNumber() === null) {
             $bot->sendMessage(
-                text: "👋 Вітаємо! Це бот заводу «Буддеталь».\n"
+                text: sprintf("👋 Вітаємо! Це бот «%s».\n", $this->company)
                     . 'Щоб подавати заявки, поділіться своїм номером — менеджер підтвердить доступ.',
                 parse_mode: ParseMode::HTML,
                 reply_markup: ShareContact::keyboard(),

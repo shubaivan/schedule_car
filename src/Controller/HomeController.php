@@ -26,8 +26,15 @@ class HomeController extends AbstractController
      * кинути в робочий чат і воно не залежало ні від чого стороннього.
      */
     #[Route('/instrukciya', name: 'app_instrukciya', methods: ['GET'])]
-    public function instrukciya(): Response
-    {
-        return $this->render('instrukciya.html.twig');
+    public function instrukciya(
+        #[Autowire('%env(TELEGRAM_BOT_USERNAME)%')]
+        string $botUsername,
+        #[Autowire('%env(APP_COMPANY_NAME)%')]
+        string $company,
+    ): Response {
+        return $this->render('instrukciya.html.twig', [
+            'bot_username' => ltrim($botUsername, '@'),
+            'company' => $company,
+        ]);
     }
 }

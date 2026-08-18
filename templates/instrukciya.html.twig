@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<meta name="description" content="Як подати заявку на матеріали в боті заводу «Буддеталь», обробити її та відстежити до складу.">
-<title>Інструкція · Бот заявок «Буддеталь»</title>
+<meta name="description" content="Як подати заявку на матеріали в боті «{{ company }}», обробити її та відстежити до складу.">
+<title>Інструкція · Бот заявок «{{ company }}»</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans+Condensed:wght@500;600;700&family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -392,14 +392,14 @@
 <div class="shell">
 
   <header class="masthead">
-    <p class="eyebrow">Завод Буддеталь · Постачання</p>
+    <p class="eyebrow">{{ company }} · Постачання</p>
     <h1>Заявка на матеріали —<br>у <span class="mark">телефоні</span></h1>
     <p class="lede">
       Бот приймає заявку, веде її від «потрібен цемент» до «привезли на склад»
       і показує всім, на якому вона етапі. Ні дзвінків, ні папірців, ні «я ж казав минулого тижня».
     </p>
     <div class="stamps">
-      <span class="stamp">Бот: <b>@tbuddet_schedule_car_bot</b></span>
+      <span class="stamp">Бот: <b>@{{ bot_username }}</b></span>
       <span class="stamp">Читати: <b>7 хвилин</b></span>
       <span class="stamp">Оновлено: <b>18.08.2026</b></span>
     </div>
@@ -426,12 +426,12 @@
     <div class="body">
       <h2>Один раз поділитись номером</h2>
       <p>
-        Знайдіть у Telegram <b>@tbuddet_schedule_car_bot</b> і натисніть <b>Start</b>.
+        Знайдіть у Telegram <b>@{{ bot_username }}</b> і натисніть <b>Start</b>.
         Бот попросить номер телефону — натисніть кнопку внизу екрана.
       </p>
 
       <div class="screen">
-        <p class="screen-text">👋 Вітаємо! Це бот заводу «Буддеталь».<br>Щоб подавати заявки, поділіться своїм номером — менеджер підтвердить доступ.</p>
+        <p class="screen-text">👋 Вітаємо! Це бот «{{ company }}».<br>Щоб подавати заявки, поділіться своїм номером — менеджер підтвердить доступ.</p>
         <div class="keys">
           <span class="key full">📱 Поділитись номером</span>
         </div>
@@ -721,7 +721,7 @@
   </section>
 
   <footer>
-    <span>Завод Буддеталь · система заявок на постачання</span>
+    <span>{{ company }} · система заявок на постачання</span>
     <span>Питання — до менеджера з постачання</span>
   </footer>
 
