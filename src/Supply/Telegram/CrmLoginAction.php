@@ -5,6 +5,7 @@ namespace App\Supply\Telegram;
 use App\Entity\LoginToken;
 use App\Service\CrmLoginLink;
 use App\Service\TelegramUserService;
+use App\Telegram\Start\Command\StartCommand;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Properties\ParseMode;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
@@ -51,9 +52,9 @@ class CrmLoginAction
             ),
             parse_mode: ParseMode::HTML,
             link_preview_options: new LinkPreviewOptions(is_disabled: true),
-            reply_markup: InlineKeyboardMarkup::make()->addRow(
-                InlineKeyboardButton::make('🔐 Відкрити CRM', url: $url),
-            ),
+            reply_markup: InlineKeyboardMarkup::make()
+                ->addRow(InlineKeyboardButton::make('🔐 Відкрити CRM', url: $url))
+                ->addRow(...StartCommand::navRow(SupplyCallback::MENU, '⬅️ Постачання')),
         );
     }
 }

@@ -14,6 +14,8 @@ use SergiX44\Nutgram\Nutgram;
 /** Коментар до заявки з бота: і заявник, і менеджер пишуть в одну стрічку. */
 class CommentConversation extends Conversation
 {
+    use CancelsToRequest;
+
     protected ?string $step = 'askText';
 
     public ?int $requestId = null;
@@ -51,17 +53,21 @@ class CommentConversation extends Conversation
             $this->formatter->escape($request->getNumber()),
             $this->formatter->escape($request->getItem()),
             $request->getQuantityLabel(),
-        ));
+        ), $this->cancelKeyboard());
 
         $this->next('readText');
     }
 
     public function readText(Nutgram $bot): void
     {
+        if ($this->cancelled($bot)) {
+            return;
+        }
+
         $text = trim((string) $bot->message()?->text);
 
         if ($text === '') {
-            $this->screen->render($bot, 'Напишіть коментар текстом.');
+            $this->screen->render($bot, 'Напишіть коментар текстом.', $this->cancelKeyboard());
 
             return;
         }

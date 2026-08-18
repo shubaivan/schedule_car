@@ -64,6 +64,10 @@ class NewRequestConversation extends Conversation
 
     public function readItem(Nutgram $bot): void
     {
+        if ($this->cancelled($bot)) {
+            return;
+        }
+
         $text = trim((string) $bot->message()?->text);
         $this->forgetUserMessage($bot);
 
@@ -82,6 +86,10 @@ class NewRequestConversation extends Conversation
 
     public function readQuantity(Nutgram $bot): void
     {
+        if ($this->cancelled($bot)) {
+            return;
+        }
+
         $raw = str_replace(',', '.', trim((string) $bot->message()?->text));
         $this->forgetUserMessage($bot);
 
@@ -100,6 +108,10 @@ class NewRequestConversation extends Conversation
 
     public function readUnit(Nutgram $bot): void
     {
+        if ($this->cancelled($bot)) {
+            return;
+        }
+
         $data = (string) ($bot->callbackQuery()->data ?? '');
 
         if (! str_starts_with($data, self::UNIT_PREFIX)) {
@@ -126,6 +138,10 @@ class NewRequestConversation extends Conversation
 
     public function readNeedBy(Nutgram $bot): void
     {
+        if ($this->cancelled($bot)) {
+            return;
+        }
+
         $data = (string) ($bot->callbackQuery()->data ?? '');
         $today = new DateTime('today', new DateTimeZone('Europe/Kyiv'));
 
@@ -177,6 +193,10 @@ class NewRequestConversation extends Conversation
 
     public function readNote(Nutgram $bot): void
     {
+        if ($this->cancelled($bot)) {
+            return;
+        }
+
         $note = null;
 
         if ($bot->isCallbackQuery()) {
@@ -217,10 +237,34 @@ class NewRequestConversation extends Conversation
         $this->end();
     }
 
-    /** Одне повідомлення: зібране зверху, поточне питання знизу. */
+    /**
+     * Одне повідомлення: зібране зверху, поточне питання знизу.
+     *
+     * Кнопка «Скасувати» є на КОЖНОМУ кроці: форма перемальовує собою екран,
+     * тож без неї передумати можна було б хіба що командою /start.
+     */
     private function render(Nutgram $bot, string $question, ?InlineKeyboardMarkup $markup = null): void
     {
+        $markup ??= InlineKeyboardMarkup::make();
+        $markup->addRow(InlineKeyboardButton::make('✖️ Скасувати', callback_data: SupplyCallback::CANCEL));
+
         $this->screen->render($bot, $this->summary() . "\n" . $question, $markup);
+    }
+
+    /** true — людина скасувала форму, крок далі виконувати не треба. */
+    private function cancelled(Nutgram $bot): bool
+    {
+        if (! $bot->isCallbackQuery() || ($bot->callbackQuery()->data ?? '') !== SupplyCallback::CANCEL) {
+            return false;
+        }
+
+        $bot->answerCallbackQuery();
+
+        // Повертаємо розділ, з якого форму й відкрили.
+        $this->screen->render($bot, SupplyMenu::TEXT, SupplyMenu::keyboard());
+        $this->end();
+
+        return true;
     }
 
     private function summary(): string

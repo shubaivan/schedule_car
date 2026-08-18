@@ -59,6 +59,9 @@ $bot->onCallbackQueryData('own-schedule', OwnSchedule::class);
 $bot->onCommand('postachannia', SupplyMenu::class);
 $bot->onCommand('crm', CrmLoginAction::class);
 $bot->onCallbackQueryData(SupplyCallback::MENU, SupplyMenu::class);
+// Кнопку «Скасувати» перехоплює сама розмова; цей маршрут ловить її вже після
+// того, як розмова скінчилась, — щоб кнопка не лишалась мертвою.
+$bot->onCallbackQueryData(SupplyCallback::CANCEL, SupplyMenu::class);
 $bot->onCallbackQueryData(SupplyCallback::NEW_REQUEST, NewRequestConversation::class);
 $bot->onCallbackQueryData(SupplyCallback::MY_REQUESTS, MyRequests::class);
 $bot->onCallbackQueryData(SupplyCallback::ALL_REQUESTS, AllRequests::class);

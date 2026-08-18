@@ -9,6 +9,7 @@ use App\Supply\Entity\SupplyRequest;
 use App\Supply\Enum\SupplyStatus;
 use App\Supply\Repository\SupplyRequestRepository;
 use App\Supply\Service\RequestFormatter;
+use App\Telegram\Start\Command\StartCommand;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardMarkup;
@@ -119,6 +120,8 @@ class RequestView
             InlineKeyboardButton::make('📋 Мої заявки', callback_data: SupplyCallback::MY_REQUESTS),
             InlineKeyboardButton::make('📋 Усі заявки', callback_data: SupplyCallback::ALL_REQUESTS),
         );
+
+        $markup->addRow(...StartCommand::navRow(SupplyCallback::MENU, '⬅️ Постачання'));
 
         return $markup;
     }

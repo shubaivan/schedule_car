@@ -5,6 +5,7 @@ namespace App\Supply\Telegram;
 use App\Service\ChatScreen;
 use App\Service\TelegramUserService;
 use App\Supply\Repository\SupplyRequestRepository;
+use App\Telegram\Start\Command\StartCommand;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
 
@@ -40,10 +41,13 @@ class MyRequests
             '📋 <b>Ваші заявки</b>',
             $this->repository->findByAuthor($user, self::LIMIT),
             'У вас поки немає заявок.',
-            [[
-                InlineKeyboardButton::make('➕ Нова заявка', callback_data: SupplyCallback::NEW_REQUEST),
-                InlineKeyboardButton::make('📋 Усі заявки', callback_data: SupplyCallback::ALL_REQUESTS),
-            ]],
+            [
+                [
+                    InlineKeyboardButton::make('➕ Нова заявка', callback_data: SupplyCallback::NEW_REQUEST),
+                    InlineKeyboardButton::make('📋 Усі заявки', callback_data: SupplyCallback::ALL_REQUESTS),
+                ],
+                StartCommand::navRow(SupplyCallback::MENU, '⬅️ Постачання'),
+            ],
         );
     }
 }

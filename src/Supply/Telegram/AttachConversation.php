@@ -23,6 +23,8 @@ use Throwable;
  */
 class AttachConversation extends Conversation
 {
+    use CancelsToRequest;
+
     protected ?string $step = 'ask';
 
     public ?int $requestId = null;
@@ -60,18 +62,26 @@ class AttachConversation extends Conversation
             $this->formatter->escape($request->getItem()),
             $request->getQuantityLabel(),
             AttachFile::MAX_SIZE / 1024 / 1024,
-        ));
+        ), $this->cancelKeyboard());
 
         $this->next('readFile');
     }
 
     public function readFile(Nutgram $bot): void
     {
+        if ($this->cancelled($bot)) {
+            return;
+        }
+
         $message = $bot->message();
         $file = $this->fileFrom($message);
 
         if ($file === null) {
-            $this->screen->render($bot, 'Надішліть саме фото або файл — текст сюди не підійде.');
+            $this->screen->render(
+                $bot,
+                'Надішліть саме фото або файл — текст сюди не підійде.',
+                $this->cancelKeyboard(),
+            );
 
             return;
         }

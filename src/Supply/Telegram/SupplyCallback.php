@@ -15,6 +15,8 @@ final class SupplyCallback
     public const ALL_REQUESTS = 'supply:all';
     /** Одноразове посилання для входу в CRM. */
     public const CRM_LOGIN = 'supply:crm';
+    /** Вихід із будь-якої розмови; поза розмовою веде в меню постачання. */
+    public const CANCEL = 'supply:cancel';
 
     /** supply:view:<id> */
     public const VIEW_PREFIX = 'supply:view:';

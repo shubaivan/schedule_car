@@ -15,6 +15,8 @@ use SergiX44\Nutgram\Nutgram;
 /** Відхилення заявки: спершу питаємо причину — без неї заявник не зрозуміє, що робити. */
 class RejectConversation extends Conversation
 {
+    use CancelsToRequest;
+
     protected ?string $step = 'askReason';
 
     public ?int $requestId = null;
@@ -49,17 +51,21 @@ class RejectConversation extends Conversation
         $this->screen->render($bot, sprintf(
             "⛔ Відхилення заявки №%s\n\nНапишіть причину — вона піде заявнику.",
             $this->formatter->escape($request->getNumber()),
-        ));
+        ), $this->cancelKeyboard());
 
         $this->next('readReason');
     }
 
     public function readReason(Nutgram $bot): void
     {
+        if ($this->cancelled($bot)) {
+            return;
+        }
+
         $reason = trim((string) $bot->message()?->text);
 
         if ($reason === '') {
-            $this->screen->render($bot, 'Напишіть причину текстом.');
+            $this->screen->render($bot, 'Напишіть причину текстом.', $this->cancelKeyboard());
 
             return;
         }

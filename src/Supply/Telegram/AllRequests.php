@@ -3,6 +3,7 @@
 namespace App\Supply\Telegram;
 
 use App\Supply\Repository\SupplyRequestRepository;
+use App\Telegram\Start\Command\StartCommand;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
 
@@ -38,10 +39,13 @@ class AllRequests
             sprintf('📋 <b>Усі заявки</b> — останні %d', self::LIMIT),
             $requests,
             'Заявок поки немає.',
-            [[
-                InlineKeyboardButton::make('➕ Нова заявка', callback_data: SupplyCallback::NEW_REQUEST),
-                InlineKeyboardButton::make('📋 Мої заявки', callback_data: SupplyCallback::MY_REQUESTS),
-            ]],
+            [
+                [
+                    InlineKeyboardButton::make('➕ Нова заявка', callback_data: SupplyCallback::NEW_REQUEST),
+                    InlineKeyboardButton::make('📋 Мої заявки', callback_data: SupplyCallback::MY_REQUESTS),
+                ],
+                StartCommand::navRow(SupplyCallback::MENU, '⬅️ Постачання'),
+            ],
         );
     }
 }

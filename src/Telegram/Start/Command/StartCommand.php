@@ -42,4 +42,20 @@ class StartCommand extends Command
     {
         return InlineKeyboardButton::make('🏠 На головну', callback_data: self::MAIN_MENU);
     }
+
+    /**
+     * Останній ряд будь-якого екрана: крок назад і вихід на головну.
+     *
+     * Тримаємо його однаковим і завжди на одному місці — людина не має шукати
+     * вихід очима, а екранів без виходу не буває взагалі.
+     *
+     * @return InlineKeyboardButton[]
+     */
+    public static function navRow(string $backCallback, string $backLabel = '⬅️ Назад'): array
+    {
+        return [
+            InlineKeyboardButton::make($backLabel, callback_data: $backCallback),
+            self::homeButton(),
+        ];
+    }
 }
