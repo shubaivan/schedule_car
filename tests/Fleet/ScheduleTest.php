@@ -2,6 +2,7 @@
 
 namespace App\Tests\Fleet;
 
+use App\Entity\Car;
 use App\Entity\ScheduledSet;
 use App\Entity\TelegramUser;
 use App\Fleet\Service\TripFormatter;
@@ -11,6 +12,7 @@ use DateTime;
 use DateTimeZone;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 /**
  * Спільний розклад машин: його бачать усі — і заявник, і водій, і керівник.
@@ -85,21 +87,61 @@ class ScheduleTest extends KernelTestCase
         self::assertSame('Моя', $found[0]->getTask());
     }
 
+    /**
+     * Ліміт восьми годин на добу. Правило жило в окремому валідаторі, і під час
+     * переписування форми бронювання його ледь не загубили: нова форма спершу
+     * зберігала бронь, нічого не перевіряючи.
+     */
+    public function testDailyLimitIsEightHours(): void
+    {
+        $car = $this->fleet->saveCar(null, ['carNumber' => 'AB2020BB']);
+        $user = $this->user();
+        $day = new DateTime('tomorrow', new DateTimeZone('Europe/Kyiv'));
+
+        for ($hour = 8; $hour < 16; ++$hour) {
+            $this->em->persist($this->set($car, $user, (clone $day)->setTime($hour, 0), 'Рейс'));
+        }
+
+        $this->em->flush();
+
+        $ninth = $this->set($car, $user, (clone $day)->setTime(16, 0), 'Дев ятий');
+        $violations = self::getContainer()->get(ValidatorInterface::class)->validate($ninth);
+
+        self::assertGreaterThan(0, $violations->count(), 'девʼяту годину поспіль бронювати не можна');
+        self::assertStringContainsString('восьми годин', (string) $violations->get(0)->getMessage());
+    }
+
     private function booking(string $carNumber, string $when, string $task): ScheduledSet
     {
         $car = $this->fleet->saveCar(null, ['carNumber' => $carNumber, 'model' => 'Renault Master']);
 
+        $at = (new DateTime('now', new DateTimeZone('Europe/Kyiv')))->modify($when);
+        $at->setTime((int) $at->format('H'), 0);
+
+        $set = $this->set($car, $this->user(), $at, $task);
+
+        $this->em->persist($set);
+        $this->em->flush();
+
+        return $set;
+    }
+
+    private function user(): TelegramUser
+    {
         $user = (new TelegramUser())
             ->setTelegramId('trip-' . uniqid())
             ->setFirstName('Іван')
             ->setPhoneNumber('380631112299');
 
         $this->em->persist($user);
+        $this->em->flush();
 
-        $at = (new DateTime('now', new DateTimeZone('Europe/Kyiv')))->modify($when);
-        $at->setTime((int) $at->format('H'), 0);
+        return $user;
+    }
 
-        $set = (new ScheduledSet())
+    private function set(Car $car, TelegramUser $user, DateTime $at, string $task): ScheduledSet
+    {
+        return (new ScheduledSet())
             ->setCar($car)
             ->setTelegramUserId($user)
             ->setYear((int) $at->format('Y'))
@@ -108,10 +150,5 @@ class ScheduleTest extends KernelTestCase
             ->setHour((int) $at->format('H'))
             ->setScheduledAt($at)
             ->setTask($task);
-
-        $this->em->persist($set);
-        $this->em->flush();
-
-        return $set;
     }
 }

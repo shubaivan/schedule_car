@@ -56,11 +56,6 @@ class TelegramUserService
         return $this->currentUser;
     }
 
-    public function savePhone(string $phone_number): void
-    {
-        $this->currentUser->setPhoneNumber($phone_number);
-    }
-
     public function getCurrentUser(): ?TelegramUser
     {
         return $this->currentUser;

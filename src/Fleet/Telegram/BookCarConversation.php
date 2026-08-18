@@ -16,6 +16,7 @@ use SergiX44\Nutgram\Conversations\Conversation;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardMarkup;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Throwable;
 
 /**
@@ -55,6 +56,7 @@ class BookCarConversation extends Conversation
         private FleetNotifier $notifier,
         private ChatScreen $screen,
         private MyTrips $myTrips,
+        private ValidatorInterface $validator,
         private EntityManagerInterface $em,
     ) {
     }
@@ -223,6 +225,17 @@ class BookCarConversation extends Conversation
             ->setHour((int) $when->format('H'))
             ->setScheduledAt($when)
             ->setTask($task);
+
+        // Ліміт восьми годин на день живе окремим правилом на самій сутності —
+        // питаємо його, а не дублюємо тут ще одну перевірку.
+        $violations = $this->validator->validate($set);
+
+        if ($violations->count() > 0) {
+            $this->render($bot, '⚠️ ' . $this->formatter->escape($violations->get(0)->getMessage()), $this->hourKeyboard($when));
+            $this->next('readHour');
+
+            return;
+        }
 
         $this->em->persist($set);
         $this->em->flush();

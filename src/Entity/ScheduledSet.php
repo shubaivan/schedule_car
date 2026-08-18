@@ -4,7 +4,7 @@ namespace App\Entity;
 
 use App\Entity\EntityTrait\CreatedUpdatedAtAwareTrait;
 use App\Repository\ScheduledSetRepository;
-use App\Service\ScheduleCarService;
+use App\Service\KyivTime;
 use App\Validator\ScheduleLimit;
 use DateTime;
 use Doctrine\DBAL\Types\Types;
@@ -163,7 +163,7 @@ class ScheduledSet
 
     public function getScheduledDateTime(): DateTime
     {
-        $scheduledByCurrentUserDate = ScheduleCarService::createNewDate();
+        $scheduledByCurrentUserDate = KyivTime::now();
         $scheduledByCurrentUserDate->setDate($this->getYear(), $this->getMonth(), $this->getDay());
         $scheduledByCurrentUserDate->setTime($this->getHour(), 0);
 

@@ -5,7 +5,7 @@ namespace App\Repository;
 use App\Entity\Car;
 use App\Entity\ScheduledSet;
 use App\Entity\TelegramUser;
-use App\Service\ScheduleCarService;
+use App\Service\KyivTime;
 use DateTime;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -20,33 +20,6 @@ class ScheduledSetRepository extends ServiceEntityRepository
         parent::__construct($registry, ScheduledSet::class);
     }
 
-    /**
-     * @return ScheduledSet[]
-     */
-    public function getByParams(int $carId, int $year, int $month, int $day, ?int $hour, ?TelegramUser $user): array
-    {
-        $qb = $this->createQueryBuilder('ss');
-        $qb->join('ss.car', 'car');
-        $qb->andWhere('car.id = :car_Id')->setParameter('car_Id', $carId);
-
-        $qb->andWhere('ss.year = :year')->setParameter('year', $year);
-        $qb->andWhere('ss.month = :month')->setParameter('month', $month);
-        $qb->andWhere('ss.day = :day')->setParameter('day', $day);
-
-        $qb->andWhere('ss.scheduledAt >= :now');
-        $qb->setParameter('now', ScheduleCarService::createNewDate());
-
-        if ($hour) {
-            $qb->andWhere('ss.hour = :hour')->setParameter('hour', $hour);
-        }
-
-        if ($user) {
-            $qb->andWhere('ss.telegramUserId = :user')->setParameter('user', $user);
-        }
-
-        return $qb->getQuery()->getResult();
-    }
-
     public function countOfSetByParams(int $carId, int $year, int $month, int $day, TelegramUser $user)
     {
         $qb = $this->createQueryBuilder('ss');
@@ -59,35 +32,9 @@ class ScheduledSetRepository extends ServiceEntityRepository
         $qb->andWhere('ss.day = :day')->setParameter('day', $day);
         $qb->andWhere('ss.telegramUserId = :user')->setParameter('user', $user);
         $qb->andWhere('ss.scheduledAt >= :now');
-        $qb->setParameter('now', ScheduleCarService::createNewDate());
+        $qb->setParameter('now', KyivTime::now());
 
         return $qb->getQuery()->getSingleScalarResult();
-    }
-
-    /**
-     * @return ScheduledSet[]
-     */
-    public function getOwn(TelegramUser $user): array
-    {
-        $qb = $this->createQueryBuilder('ss');
-        $qb
-            ->andWhere('ss.telegramUserId = :user')
-            ->setParameter('user', $user)
-            ->andWhere('ss.scheduledAt >= :now')
-            ->setParameter('now', ScheduleCarService::createNewDate())
-            ->orderBy('ss.car')
-            ->addOrderBy('ss.scheduledAt', 'DESC')
-        ;
-
-        return $qb->getQuery()->getResult();
-    }
-
-    public function getById(int $id): ?ScheduledSet
-    {
-        $qb = $this->createQueryBuilder('ss');
-        $qb->andWhere('ss.id = :id')->setParameter('id', $id);
-
-        return $qb->getQuery()->getOneOrNullResult();
     }
 
     /**
@@ -141,19 +88,5 @@ class ScheduledSetRepository extends ServiceEntityRepository
             ->orderBy('s.scheduledAt', 'ASC')
             ->getQuery()
             ->getResult();
-    }
-
-    public function getByCar(Car $car): array
-    {
-        $qb = $this->createQueryBuilder('ss');
-        $qb
-            ->where('ss.car = :car')
-            ->setParameter('car', $car)
-            ->andWhere('ss.scheduledAt >= :now')
-            ->setParameter('now', ScheduleCarService::createNewDate())
-            ->orderBy('ss.scheduledAt', 'ASC')
-        ;
-
-        return $qb->getQuery()->getResult();
     }
 }

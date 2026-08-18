@@ -118,14 +118,4 @@ class Car
     {
         $this->carDriver = $carDriver;
     }
-
-    public function getCarInfo(): string
-    {
-        $info[] = $this->getCarNumber();
-        foreach ($this->carDriver as $driver) {
-            $info[] = $driver->getDriver()->concatNameInfo();
-        }
-
-        return implode(';', $info);
-    }
 }
