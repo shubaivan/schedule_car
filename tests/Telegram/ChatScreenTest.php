@@ -18,12 +18,17 @@ use SergiX44\Nutgram\Testing\FakeNutgram;
  * Тест відтворює ситуацію 12.08, коли в чаті з'явилися дві однакові форми:
  * людина натиснула кнопку меню, а потім прогорнула чат угору й натиснула те
  * саме меню ще раз. Кожне натискання давало нове повідомлення.
+ *
+ * І ситуацію 18.08, зворотну: екран правився на місці навіть тоді, коли вже
+ * поїхав угору над повідомленнями людини, — і бот виглядав мертвим.
  */
 class ChatScreenTest extends TestCase
 {
     private const CHAT_ID = 471925876;
     private const MENU_MESSAGE = 100;
-    private const SCREEN_MESSAGE = 200;
+
+    /** id повідомлення, у якому живе екран після останнього рендера. */
+    private ?int $screenId = null;
 
     public function testFirstRenderSendsMessage(): void
     {
@@ -40,7 +45,8 @@ class ChatScreenTest extends TestCase
 
         $this->click($bot, self::MENU_MESSAGE);
 
-        $this->click($bot, self::SCREEN_MESSAGE)
+        // Натискаємо кнопку самого екрана — його й перемальовуємо на місці.
+        $this->click($bot, $this->screenId)
             ->assertCalled('editMessageText')
             ->assertCalled('sendMessage', 0);
     }
@@ -49,27 +55,43 @@ class ChatScreenTest extends TestCase
     {
         $bot = $this->bot();
 
-        // Меню перетворилось на екран №200.
+        // Меню перетворилось на екран.
         $this->click($bot, self::MENU_MESSAGE);
-        $this->click($bot, self::SCREEN_MESSAGE);
+        $this->click($bot, $this->screenId);
 
         // А тепер натискаємо кнопку старого повідомлення №100 — саме так
-        // 12.08 з'явилась друга форма.
+        // 12.08 з'явилась друга форма. Екран приїжджає вниз чату новим
+        // повідомленням, але живим лишається рівно один:
         $this->click($bot, self::MENU_MESSAGE)
-            ->assertCalled('sendMessage', 0)
-            ->assertCalled('editMessageText')
-            // У застарілого повідомлення знімається клавіатура, щоб воно
-            // більше нікого не покликало.
-            ->assertCalled('editMessageReplyMarkup');
+            ->assertCalled('sendMessage')
+            // у застарілого повідомлення знімається клавіатура,
+            ->assertCalled('editMessageReplyMarkup')
+            // а попередній екран прибирається.
+            ->assertCalled('deleteMessage')
+            ->assertCalled('editMessageText', 0);
+    }
+
+    /**
+     * 18.08: бот «мовчав» на /start. Команда приходить текстом, екран до того
+     * моменту вже над повідомленням людини — правку на місці ніхто не бачить.
+     * Тому на текст екран переїжджає вниз чату.
+     */
+    public function testTextCommandMovesScreenToTheBottom(): void
+    {
+        $bot = $this->bot();
+
+        $this->click($bot, self::MENU_MESSAGE);
+
+        $bot->hearText('/screen')
+            ->reply()
+            ->assertCalled('sendMessage')
+            ->assertCalled('deleteMessage')
+            ->assertCalled('editMessageText', 0);
     }
 
     /** Натискання кнопки в повідомленні $messageId. */
-    private function click(FakeNutgram $bot, int $messageId): FakeNutgram
+    private function click(FakeNutgram $bot, ?int $messageId): FakeNutgram
     {
-        // Кожне нове повідомлення бота отримує id екрана: так ми перевіряємо,
-        // що другого sendMessage не сталося.
-        $bot->willReceivePartial(['message_id' => self::SCREEN_MESSAGE]);
-
         return $bot->hearUpdateType(UpdateType::CALLBACK_QUERY, [
             'data' => 'screen',
             'message' => [
@@ -89,13 +111,18 @@ class ChatScreenTest extends TestCase
 
         $screen = new ChatScreen();
 
-        $bot->onCallbackQueryData('screen', fn (Nutgram $bot) => $screen->render(
-            $bot,
-            'Екран',
-            InlineKeyboardMarkup::make()->addRow(
-                InlineKeyboardButton::make('Кнопка', callback_data: 'screen'),
-            ),
-        ));
+        $render = function (Nutgram $bot) use ($screen): void {
+            $this->screenId = $screen->render(
+                $bot,
+                'Екран',
+                InlineKeyboardMarkup::make()->addRow(
+                    InlineKeyboardButton::make('Кнопка', callback_data: 'screen'),
+                ),
+            );
+        };
+
+        $bot->onCallbackQueryData('screen', $render);
+        $bot->onCommand('screen', $render);
 
         return $bot;
     }
