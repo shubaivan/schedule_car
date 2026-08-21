@@ -20,14 +20,15 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Throwable;
 
 /**
- * Бронювання машини: машина → день → час → завдання.
+ * Бронювання машини: машина → день → час → куди їде → завдання.
  *
  * Живе в одному повідомленні, як і форма заявки на матеріали: раніше кожен крок
  * слав нове («Машина №…», «Місяць 08», «День 19»), і чат перетворювався на
  * стрічку сміття, у якій ще й лишались робочі кнопки минулих кроків.
  *
- * Завдання питаємо обов'язково не просто так: саме воно робить розклад
- * корисним для інших — видно не тільки що машина зайнята, а й навіщо.
+ * Маршрут питаємо обов'язково: саме він робить розклад календарем завантаження,
+ * а не переліком зайнятих годин — видно не тільки що машина й водій зайняті, а
+ * й куди вони поїхали. Завдання лишається необов'язковим уточненням.
  */
 class BookCarConversation extends Conversation
 {
@@ -49,6 +50,7 @@ class BookCarConversation extends Conversation
     public ?int $carId = null;
     public ?string $date = null;
     public ?int $hour = null;
+    public ?string $destination = null;
 
     public function __construct(
         private CarRepository $cars,
@@ -172,14 +174,52 @@ class BookCarConversation extends Conversation
         $bot->answerCallbackQuery();
         $this->hour = (int) substr($data, strlen(self::HOUR_PREFIX));
 
+        $this->askDestination($bot);
+    }
+
+    public function readDestination(Nutgram $bot): void
+    {
+        if ($this->cancelled($bot)) {
+            return;
+        }
+
+        // Кнопок тут немає: маршрут пишуть словами. Будь-який callback — це
+        // натиснута кнопка попереднього екрана, тож просто питаємо ще раз.
+        if ($bot->isCallbackQuery()) {
+            $bot->answerCallbackQuery();
+            $this->askDestination($bot);
+
+            return;
+        }
+
+        $destination = trim((string) $bot->message()?->text);
+        $this->forgetUserMessage($bot);
+
+        if ($destination === '') {
+            $this->askDestination($bot);
+
+            return;
+        }
+
+        $this->destination = $destination;
+
         $this->render(
             $bot,
-            'Що потрібно зробити? Напишіть коротко — це побачать усі в розкладі, наприклад: <i>відвезти арматуру на Амет-Хана</i>',
+            'Що саме потрібно зробити? Напишіть коротко — це побачать усі в розкладі, наприклад: <i>відвезти арматуру</i>',
             InlineKeyboardMarkup::make()->addRow(
                 InlineKeyboardButton::make('Пропустити', callback_data: self::SKIP),
             ),
         );
         $this->next('readTask');
+    }
+
+    private function askDestination(Nutgram $bot): void
+    {
+        $this->render(
+            $bot,
+            'Куди їде машина? Напишіть адресу або обʼєкт, наприклад: <i>вул. Заводська, 5</i>',
+        );
+        $this->next('readDestination');
     }
 
     public function readTask(Nutgram $bot): void
@@ -236,6 +276,7 @@ class BookCarConversation extends Conversation
             ->setDay((int) $when->format('d'))
             ->setHour((int) $when->format('H'))
             ->setScheduledAt($when)
+            ->setDestination($this->destination)
             ->setTask($task);
 
         // Ліміт восьми годин на день живе окремим правилом на самій сутності —
@@ -433,6 +474,10 @@ class BookCarConversation extends Conversation
 
         if ($this->hour !== null) {
             $lines[] = sprintf('✅ Час: <b>%02d:00</b>', $this->hour);
+        }
+
+        if ($this->destination !== null) {
+            $lines[] = '✅ Куди: <b>' . $this->formatter->escape($this->destination) . '</b>';
         }
 
         return implode("\n", $lines);

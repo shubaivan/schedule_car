@@ -13,7 +13,7 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Автопарк у дашборді. Машини й людей роздає керівник, тому поріг тут вищий,
+ * Автопарк у дашборді. Машини й людей роздають директори — тому поріг тут вищий,
  * ніж у заявках: менеджера з постачання сюди не пускаємо.
  */
 class FleetApiTest extends WebTestCase
@@ -70,6 +70,27 @@ class FleetApiTest extends WebTestCase
         $this->client->request('GET', '/api/fleet/cars');
 
         self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
+
+    /**
+     * Довідник ведуть директори заводу, а не тільки адміністратор системи:
+     * саме вони знають, яка машина в парку і хто на ній їздить.
+     */
+    public function testDirectorManagesFleet(): void
+    {
+        $this->login(SupplyRole::Director);
+
+        $car = $this->send('POST', '/api/fleet/cars', ['carNumber' => self::CAR . '9', 'model' => 'ГАЗель']);
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+
+        $driver = $this->send('POST', '/api/fleet/drivers', [
+            'phone' => '0631119977',
+            'name' => self::MARKER . ' Директорів водій',
+            'carId' => $car['id'],
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+        self::assertSame($car['label'], $driver['carLabel']);
     }
 
     public function testAdminAddsCarAndDriver(): void

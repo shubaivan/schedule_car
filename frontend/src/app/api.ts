@@ -198,6 +198,32 @@ export interface FleetDriver {
     appliedAt: string | null
 }
 
+/** Поїздка в календарі завантаження: коли, куди й хто взяв машину. */
+export interface FleetTrip {
+    id: number
+    date: string
+    hour: number
+    destination: string | null
+    task: string | null
+    bookedBy: string
+    bookedByPhone: string | null
+}
+
+/** Рядок календаря: машина, її водії та все, що на неї забронювали. */
+export interface FleetScheduleRow {
+    id: number
+    carNumber: string
+    label: string
+    drivers: { name: string; phone: string | null }[]
+    trips: FleetTrip[]
+}
+
+export interface FleetSchedule {
+    from: string
+    days: string[]
+    items: FleetScheduleRow[]
+}
+
 export interface CarPayload {
     carNumber?: string
     model?: string | null
@@ -331,6 +357,9 @@ export const api = {
 
     deleteStaff: (id: number) =>
         call<{ ok: boolean }>(`/api/supply/staff/${id}`, { method: 'DELETE' }),
+
+    schedule: (from: string, days: number) =>
+        call<FleetSchedule>(`/api/fleet/schedule?from=${from}&days=${days}`),
 
     cars: () => call<{ items: FleetCar[] }>('/api/fleet/cars'),
 

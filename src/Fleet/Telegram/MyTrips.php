@@ -56,10 +56,11 @@ class MyTrips
         foreach ($sets as $set) {
             $lines[] = '';
             $lines[] = sprintf(
-                '%s %s:00 · <b>%s</b>',
+                '%s %s · <b>%s</b> → %s',
                 $this->formatter->day($set->getScheduledDateTime()),
-                str_pad((string) $set->getHour(), 2, '0', STR_PAD_LEFT),
+                $this->formatter->hour($set),
                 $this->formatter->escape($set->getCar()->getCarNumber()),
+                $this->formatter->escape($this->formatter->destinationOf($set)),
             );
 
             $task = $set->getTask();
@@ -70,9 +71,9 @@ class MyTrips
 
             $markup->addRow(InlineKeyboardButton::make(
                 sprintf(
-                    '✖️ %s %s:00 · %s',
+                    '✖️ %s %s · %s',
                     $this->formatter->day($set->getScheduledDateTime()),
-                    str_pad((string) $set->getHour(), 2, '0', STR_PAD_LEFT),
+                    $this->formatter->hour($set),
                     $set->getCar()->getCarNumber(),
                 ),
                 callback_data: FleetCallback::cancel((int) $set->getId()),

@@ -17,9 +17,9 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 /**
  * Спільний розклад машин: його бачать усі — і заявник, і водій, і керівник.
  *
- * Головна вимога до рядка розкладу: з нього має бути зрозуміло не лише «зайнято»,
- * а й ким, за яким телефоном і навіщо — інакше домовитись без дзвінка в контору
- * неможливо.
+ * Головна вимога до розкладу: це календар завантаження. З нього має бути видно
+ * не лише «зайнято», а куди їде машина, ким вона взята, за яким телефоном
+ * шукати людину і хто цю машину веде.
  */
 class ScheduleTest extends KernelTestCase
 {
@@ -44,15 +44,49 @@ class ScheduleTest extends KernelTestCase
         parent::tearDown();
     }
 
-    public function testScheduleLineShowsWhoPhoneAndTask(): void
+    public function testScheduleLineShowsDestinationWhoPhoneAndTask(): void
     {
-        $set = $this->booking('AA5555BB', '+2 hours', 'Відвезти арматуру на Амет-Хана');
+        $set = $this->booking('AA5555BB', '+2 hours', 'Відвезти арматуру');
+        $set->setDestination('вул. Заводська, 5');
 
         $line = $this->formatter->line($set);
 
         self::assertStringContainsString('AA5555BB', $line);
+        self::assertStringContainsString('Заводська', $line, 'у розкладі має бути куди їде машина');
         self::assertStringContainsString('380631112299', $line, 'у розкладі має бути телефон');
         self::assertStringContainsString('Відвезти арматуру', $line, 'у розкладі має бути завдання');
+    }
+
+    /** Водій — половина відповіді «чи вільна машина»: зайнята й людина. */
+    public function testCarHeadingShowsDriverWithPhone(): void
+    {
+        $set = $this->booking('AA5151BB', '+2 hours', 'Цемент');
+        $driver = $this->user();
+
+        $heading = $this->formatter->carHeading($set->getCar(), [$driver]);
+
+        self::assertStringContainsString('AA5151BB', $heading);
+        self::assertStringContainsString('Іван', $heading, 'у шапці машини має бути водій');
+        self::assertStringContainsString('380631112299', $heading, 'і його телефон');
+    }
+
+    public function testCarWithoutDriverSaysSoInsteadOfSilence(): void
+    {
+        $set = $this->booking('AA5252BB', '+2 hours', 'Пісок');
+
+        self::assertStringContainsString('не закріплений', $this->formatter->carHeading($set->getCar(), []));
+    }
+
+    /**
+     * Броні, зроблені до появи окремого маршруту, лишились без нього. Показати
+     * «маршрут не вказано» замість завдання означало б втратити єдине, що про
+     * ту поїздку відомо.
+     */
+    public function testOldBookingWithoutDestinationShowsTaskAsRoute(): void
+    {
+        $set = $this->booking('AA5353BB', '+2 hours', 'Забрати двигун із СТО');
+
+        self::assertSame('Забрати двигун із СТО', $this->formatter->destinationOf($set));
     }
 
     public function testWeekViewCollectsBookingsOfAllCars(): void

@@ -51,9 +51,19 @@ class ScheduledSet
     #[ORM\JoinColumn(name: 'telegram_user_id', referencedColumnName: 'id')]
     private TelegramUser $telegramUserId;
 
-    /** Навіщо машина: «відвезти арматуру на Амет-Хана». Видно всім у розкладі. */
+    /** Навіщо машина: «відвезти арматуру». Видно всім у розкладі. */
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $task = null;
+
+    /**
+     * Куди їде: «вул. Заводська, 5» або «Склад №2».
+     *
+     * Окремо від завдання навмисно: у розкладі маршрут — головна колонка, за
+     * нею читають день. Поки «куди» жило всередині тексту завдання, побачити
+     * напрямок можна було, лише вчитавшись у кожен рядок.
+     */
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    private ?string $destination = null;
 
     #[NotBlank]
     #[ORM\ManyToOne(targetEntity: Car::class, inversedBy: 'scheduledSet')]
@@ -145,6 +155,18 @@ class ScheduledSet
     public function setTask(?string $task): ScheduledSet
     {
         $this->task = $task;
+
+        return $this;
+    }
+
+    public function getDestination(): ?string
+    {
+        return $this->destination;
+    }
+
+    public function setDestination(?string $destination): ScheduledSet
+    {
+        $this->destination = $destination;
 
         return $this;
     }
