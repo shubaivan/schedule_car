@@ -40,13 +40,23 @@ class DriveSyncCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
 
+        $pending = $this->attachments->findNotMirrored((int) $input->getOption('limit'));
+
+        // Крон вішається заздалегідь, ще до того, як у клієнта зʼявиться Диск:
+        // щойно в оточення ляже токен, копіювання почнеться саме собою і про
+        // нього не треба буде згадувати. Поки Диска немає, мовчимо — але рівно
+        // доти, доки нічого не втрачаємо. Зʼявився документ без копії — це вже
+        // варте рядка в лозі, інакше в ньому потоне справжня помилка.
         if (! $this->mirror->isEnabled()) {
-            $io->warning('Google Drive не налаштований: немає GOOGLE_DRIVE_* в оточенні. Файли лишаються тільки в нашому сховищі.');
+            if ($pending) {
+                $io->warning(sprintf(
+                    'Google Drive не налаштований (немає GOOGLE_DRIVE_* в оточенні), а документів без копії: %d. Поки вони лише в нашому сховищі.',
+                    count($pending),
+                ));
+            }
 
             return Command::SUCCESS;
         }
-
-        $pending = $this->attachments->findNotMirrored((int) $input->getOption('limit'));
 
         if (! $pending) {
             $io->success('Усі документи вже в Google Drive.');
