@@ -75,14 +75,15 @@ class SupplyRequestFlowTest extends KernelTestCase
         ));
 
         $changeStatus($request, SupplyStatus::Approval, $manager);
-        // Оплату відкриває директор — далі знову веде менеджер.
-        $changeStatus($request, SupplyStatus::Paid, $this->user('director', SupplyRole::Director));
+        // Рішення про гроші — за директором, оплату проводить уже менеджер.
+        $changeStatus($request, SupplyStatus::Approved, $this->user('director', SupplyRole::Director));
+        $changeStatus($request, SupplyStatus::Paid, $manager);
         $changeStatus($request, SupplyStatus::Delivery, $manager);
         $changeStatus($request, SupplyStatus::InStock, $manager);
 
         self::assertSame(SupplyStatus::InStock, $request->getStatus());
         self::assertNotNull($request->getClosedAt(), 'закрита заявка має дату закриття');
-        self::assertCount(6, $request->getStatusLogs());
+        self::assertCount(7, $request->getStatusLogs());
     }
 
     public function testForbiddenTransitionIsRejected(): void

@@ -138,9 +138,12 @@ class ReportsTest extends KernelTestCase
         $closed = $this->request($worker);
         $changeStatus($closed, SupplyStatus::InProgress, $manager);
         ($this->recordPurchase)($closed, $manager, new PurchaseInput($this->supplier(), totalAmount: '100'), notify: false);
-        // Гроші йдуть через директора, тож і в звітах шлях той самий.
+        // Гроші йдуть через директора, тож і в звітах шлях той самий:
+        // директор підтверджує, а везе й закриває вже менеджер.
         $changeStatus($closed, SupplyStatus::Approval, $manager);
-        $changeStatus($closed, SupplyStatus::InStock, $this->director());
+        $changeStatus($closed, SupplyStatus::Approved, $this->director());
+        $changeStatus($closed, SupplyStatus::Paid, $manager);
+        $changeStatus($closed, SupplyStatus::InStock, $manager);
 
         $totals = $this->today()['totals'];
 

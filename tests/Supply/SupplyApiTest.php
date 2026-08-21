@@ -211,7 +211,7 @@ class SupplyApiTest extends WebTestCase
 
         $meta = $this->get('/api/supply/meta');
 
-        self::assertCount(7, $meta['statuses']);
+        self::assertCount(10, $meta['statuses']);
         self::assertCount(7, $meta['units']);
         self::assertArrayHasKey('departments', $meta);
     }

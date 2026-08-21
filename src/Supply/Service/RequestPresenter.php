@@ -40,8 +40,14 @@ class RequestPresenter
         ];
     }
 
-    /** Картка заявки: усе з рядка + примітка, дозволені переходи та єдина хронологія. */
-    public function detail(SupplyRequest $request): array
+    /**
+     * Картка заявки: усе з рядка + примітка, дозволені переходи та єдина хронологія.
+     *
+     * Переходи фільтруємо під того, хто дивиться: у CRM кнопки малюються прямо з
+     * allowedTransitions, тож директор не має бачити кнопок менеджера, і навпаки.
+     * Без глядача (демо, тести) віддаємо повний набір статусів.
+     */
+    public function detail(SupplyRequest $request, ?TelegramUser $viewer = null): array
     {
         return $this->listItem($request) + [
             'note' => $request->getNote(),
@@ -51,10 +57,31 @@ class RequestPresenter
             'attachments' => array_map($this->attachment(...), $request->getAttachments()->toArray()),
             'allowedTransitions' => array_map(
                 static fn ($status) => ['value' => $status->value, 'label' => $status->label()],
-                $request->getStatus()->allowedTransitions(),
+                $this->transitionsFor($request, $viewer),
             ),
             'timeline' => $this->timeline($request),
         ];
+    }
+
+    /**
+     * Переходи, доступні саме цьому користувачу.
+     *
+     * @return \App\Supply\Enum\SupplyStatus[]
+     */
+    private function transitionsFor(SupplyRequest $request, ?TelegramUser $viewer): array
+    {
+        $status = $request->getStatus();
+
+        if ($viewer === null) {
+            return $status->allowedTransitions();
+        }
+
+        $role = $viewer->getSupplyRole();
+
+        return array_values(array_filter(
+            $status->allowedTransitions(),
+            static fn ($next) => $role->canMoveRequest($status, $next),
+        ));
     }
 
     /** Коментарі та зміни статусу одним списком за часом — як у картці бота. */

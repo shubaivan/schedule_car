@@ -101,14 +101,15 @@ class PurchaseFlowTest extends KernelTestCase
         ));
 
         ($this->changeStatus)($request, SupplyStatus::Approval, $manager);
-        ($this->changeStatus)($request, SupplyStatus::Paid, $director);
+        ($this->changeStatus)($request, SupplyStatus::Approved, $director);
+        ($this->changeStatus)($request, SupplyStatus::Paid, $manager);
 
         self::assertSame(SupplyStatus::Paid, $request->getStatus());
         self::assertTrue($request->isPurchased());
         self::assertSame('12500.50', $request->getPurchaseTotal());
     }
 
-    /** Головна вимога директора: оплату не проводить той, хто її готував. */
+    /** Головна вимога директора: рішення про гроші не ухвалює той, хто його готував. */
     public function testManagerCannotApprovePaymentHimself(): void
     {
         [$worker, $manager] = $this->users();
@@ -124,11 +125,16 @@ class PurchaseFlowTest extends KernelTestCase
         $this->expectException(SupplyException::class);
         $this->expectExceptionMessage('директор');
 
-        ($this->changeStatus)($request, SupplyStatus::Paid, $manager);
+        ($this->changeStatus)($request, SupplyStatus::Approved, $manager);
     }
 
-    /** А відхилити «не купуємо» може і менеджер: це не витрата. */
-    public function testManagerStillRejectsRequestWaitingForApproval(): void
+    /**
+     * І відхилити заявку, яка чекає рішення, менеджер теж не може.
+     *
+     * Клієнт просив розвести набори жорстко: «Відхилена» на цьому кроці — кнопка
+     * керівника, інакше менеджер закривав би заявку замість нього.
+     */
+    public function testManagerCannotRejectRequestWaitingForDirector(): void
     {
         [$worker, $manager] = $this->users();
         $request = $this->request($worker);
@@ -139,9 +145,11 @@ class PurchaseFlowTest extends KernelTestCase
             totalAmount: '500',
         ));
         ($this->changeStatus)($request, SupplyStatus::Approval, $manager);
-        ($this->changeStatus)($request, SupplyStatus::Rejected, $manager, 'Знайшли дешевше');
 
-        self::assertSame(SupplyStatus::Rejected, $request->getStatus());
+        $this->expectException(SupplyException::class);
+        $this->expectExceptionMessage('директор');
+
+        ($this->changeStatus)($request, SupplyStatus::Rejected, $manager, 'Знайшли дешевше');
     }
 
     public function testTotalIsCalculatedFromPriceAndQuantity(): void
@@ -240,7 +248,8 @@ class PurchaseFlowTest extends KernelTestCase
             totalAmount: '500',
         ));
         ($this->changeStatus)($request, SupplyStatus::Approval, $manager);
-        ($this->changeStatus)($request, SupplyStatus::Paid, $director);
+        ($this->changeStatus)($request, SupplyStatus::Approved, $director);
+        ($this->changeStatus)($request, SupplyStatus::Paid, $manager);
 
         $this->expectException(SupplyException::class);
         $this->expectExceptionMessage('не може лишитись без закупівлі');

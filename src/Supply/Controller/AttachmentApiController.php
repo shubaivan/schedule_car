@@ -64,7 +64,7 @@ class AttachmentApiController extends AbstractController
             return $this->error($e->getMessage());
         }
 
-        return $this->json($this->presenter->detail($supplyRequest), Response::HTTP_CREATED);
+        return $this->json($this->presenter->detail($supplyRequest, $this->user()), Response::HTTP_CREATED);
     }
 
     /**
@@ -117,7 +117,7 @@ class AttachmentApiController extends AbstractController
             return $this->error($e->getMessage());
         }
 
-        return $this->json($this->presenter->detail($supplyRequest));
+        return $this->json($this->presenter->detail($supplyRequest, $this->user()));
     }
 
     /** Шукаємо серед файлів саме цієї заявки — чужий за id не підсунути. */

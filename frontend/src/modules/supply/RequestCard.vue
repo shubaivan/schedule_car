@@ -18,9 +18,11 @@ const canManage = computed(() => session.isManager())
 const canWrite = computed(
     () => canManage.value || session.isDirector() || request.value?.author.id === session.user?.id,
 )
-// Заявку на затвердженні рухає директор, решту ланцюжка — менеджер.
+// Рішення про гроші — за директором, решта ланцюжка — за менеджером. Який саме
+// набір кнопок бачить цей користувач, вирішує бек: allowedTransitions уже
+// відфільтровані під його роль. Тут лишається не малювати порожню картку.
 const canMoveStatus = computed(
-    () => canManage.value || (session.isDirector() && request.value?.status === 'approval'),
+    () => (canManage.value || session.isDirector()) && (request.value?.allowedTransitions?.length ?? 0) > 0,
 )
 
 // Закупівля: у кого купили. Без неї заявку не перевести в «Оплачено» й далі.
@@ -275,8 +277,11 @@ onMounted(load)
         </div>
 
         <div v-if="canMoveStatus" class="card">
-            <p v-if="request.status === 'approval'" class="muted" style="margin-top:0">
-                ⏳ Заявка чекає рішення про оплату: «Оплачено» тут ставить директор.
+            <p v-if="request.status === 'approval' || request.status === 'waiting'" class="muted" style="margin-top:0">
+                ⏳ Рішення про гроші ухвалює директор: підтвердити, відкласти в список очікування або відхилити.
+            </p>
+            <p v-else-if="request.status === 'approved'" class="muted" style="margin-top:0">
+                ✅ Директор підтвердив закупівлю. Далі веде менеджер: «Оплачено», щойно гроші пішли.
             </p>
             <div class="row">
                 <button
@@ -288,7 +293,6 @@ onMounted(load)
                 >
                     {{ transition.label }}
                 </button>
-                <span v-if="!request.allowedTransitions?.length" class="muted">Заявка закрита.</span>
             </div>
 
             <div v-if="rejecting" style="margin-top:.75rem">

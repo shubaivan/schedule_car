@@ -52,7 +52,7 @@ class SupplyNotifier
             . $this->formatter->card($request, forManager: true);
 
         foreach ($this->userRepository->findSupplyManagers() as $manager) {
-            $this->send($manager, $managerText, $this->managerKeyboard($request));
+            $this->send($manager, $managerText, $this->keyboardFor($request, $manager));
         }
     }
 
@@ -77,6 +77,10 @@ class SupplyNotifier
             $text .= "\n\n📦 Матеріал на складі — можна забирати.";
         }
 
+        if ($log->getStatusTo() === SupplyStatus::Ready) {
+            $text .= "\n\n🤝 Матеріал готовий — його передають напряму, повз склад.";
+        }
+
         // Сповіщаємо заявника; менеджер сам щойно натиснув кнопку.
         if ($log->getAuthor()?->getId() !== $author->getId()) {
             $this->send($author, $text, $this->authorKeyboard($request));
@@ -84,6 +88,48 @@ class SupplyNotifier
 
         if ($log->getStatusTo() === SupplyStatus::Approval) {
             $this->askDirectors($request);
+        }
+
+        // Рішення керівника веде далі менеджер — він мусить його побачити,
+        // навіть якщо заявку подавав не він. Це прямо просив клієнт: «менеджер
+        // бачить статус опрацювання керівником».
+        if ($this->isDirectorsCall($log)) {
+            $this->tellManagers($request, $log);
+        }
+    }
+
+    /** Перехід, який могла зробити тільки людина з правом на гроші. */
+    private function isDirectorsCall(SupplyStatusLog $log): bool
+    {
+        return in_array(
+            $log->getStatusFrom(),
+            [SupplyStatus::Approval, SupplyStatus::Waiting],
+            true,
+        );
+    }
+
+    private function tellManagers(SupplyRequest $request, SupplyStatusLog $log): void
+    {
+        $text = sprintf(
+            "%s <b>Рішення керівника по заявці №%s — %s</b>\n\n%s",
+            $log->getStatusTo()->emoji(),
+            $this->formatter->escape($request->getNumber()),
+            $this->formatter->escape($log->getStatusTo()->label()),
+            $this->formatter->card($request, forManager: true),
+        );
+
+        if ($log->getComment()) {
+            $label = $log->getStatusTo() === SupplyStatus::Rejected ? 'Причина' : 'Коментар';
+            $text .= sprintf("\n\n%s: <i>%s</i>", $label, $this->formatter->escape($log->getComment()));
+        }
+
+        foreach ($this->userRepository->findSupplyManagers() as $manager) {
+            // Адмін ходить в обох ролях: кнопку міг натиснути він сам.
+            if ($manager->getId() === $log->getAuthor()?->getId()) {
+                continue;
+            }
+
+            $this->send($manager, $text, $this->keyboardFor($request, $manager));
         }
     }
 
@@ -112,7 +158,7 @@ class SupplyNotifier
         );
 
         foreach ($directors as $director) {
-            $this->send($director, $text, $this->managerKeyboard($request));
+            $this->send($director, $text, $this->keyboardFor($request, $director));
         }
     }
 
@@ -135,7 +181,7 @@ class SupplyNotifier
         // Писав заявник — сповіщаємо менеджерів; писав менеджер — сповіщаємо заявника.
         if ($author && $author->getId() === $request->getAuthor()->getId()) {
             foreach ($this->userRepository->findSupplyManagers() as $manager) {
-                $this->send($manager, $text, $this->managerKeyboard($request));
+                $this->send($manager, $text, $this->keyboardFor($request, $manager));
             }
 
             return;
@@ -223,7 +269,7 @@ class SupplyNotifier
         $this->send($request->getAuthor(), $text, $this->authorKeyboard($request));
 
         foreach ($this->userRepository->findSupplyManagers() as $manager) {
-            $this->send($manager, $text, $this->managerKeyboard($request));
+            $this->send($manager, $text, $this->keyboardFor($request, $manager));
         }
     }
 
@@ -235,14 +281,23 @@ class SupplyNotifier
         );
     }
 
-    private function managerKeyboard(SupplyRequest $request): InlineKeyboardMarkup
+    /**
+     * Кнопки під сповіщенням — рівно ті, які ця роль справді може натиснути.
+     *
+     * Набір директора й набір менеджера розведені (див. SupplyRole::canMoveRequest),
+     * тож клавіатуру не можна зліпити з чистих allowedTransitions: директор
+     * отримав би кнопки менеджера й тицяв у помилку.
+     */
+    private function keyboardFor(SupplyRequest $request, TelegramUser $viewer): InlineKeyboardMarkup
     {
         $id = (int) $request->getId();
+        $status = $request->getStatus();
+        $role = $viewer->getSupplyRole();
         $markup = InlineKeyboardMarkup::make();
 
         $row = [];
-        foreach ($request->getStatus()->allowedTransitions() as $next) {
-            if ($next === SupplyStatus::Rejected) {
+        foreach ($status->allowedTransitions() as $next) {
+            if ($next === SupplyStatus::Rejected || ! $role->canMoveRequest($status, $next)) {
                 continue;
             }
             $row[] = InlineKeyboardButton::make(
@@ -258,7 +313,9 @@ class SupplyNotifier
             $markup->addRow(...$row);
         }
 
-        if ($request->getStatus()->canTransitionTo(SupplyStatus::Rejected)) {
+        if ($status->canTransitionTo(SupplyStatus::Rejected) &&
+            $role->canMoveRequest($status, SupplyStatus::Rejected)
+        ) {
             $markup->addRow(
                 InlineKeyboardButton::make('⛔ Відхилити', callback_data: SupplyCallback::reject($id)),
             );

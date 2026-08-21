@@ -47,8 +47,8 @@ class ChangeStatus
 
         if ($by !== null && ! $by->getSupplyRole()->canMoveRequest($from, $to)) {
             throw new SupplyException(
-                $from === SupplyStatus::Approval
-                    ? 'Оплату погоджує директор — заявку з «На затвердженні» рухає лише він.'
+                in_array($from, [SupplyStatus::Approval, SupplyStatus::Waiting], true)
+                    ? sprintf('Рішення про оплату ухвалює директор — заявку з «%s» рухає лише він.', $from->label())
                     : 'Змінювати статус заявки може лише менеджер із постачання.',
             );
         }

@@ -46,21 +46,23 @@ class SupplyReports
         $requests = $this->connection->fetchAssociative(
             'SELECT
                 COUNT(*) AS total,
-                COUNT(*) FILTER (WHERE status = :in_stock) AS closed,
+                COUNT(*) FILTER (WHERE status IN (:in_stock, :ready)) AS closed,
                 COUNT(*) FILTER (WHERE status = :rejected) AS rejected,
-                COUNT(*) FILTER (WHERE status NOT IN (:in_stock, :rejected)) AS open,
+                COUNT(*) FILTER (WHERE status NOT IN (:in_stock, :ready, :rejected)) AS open,
                 COUNT(*) FILTER (
                     WHERE need_by IS NOT NULL
                       AND need_by < CURRENT_DATE
-                      AND status NOT IN (:in_stock, :rejected)
+                      AND status NOT IN (:in_stock, :ready, :rejected)
                 ) AS overdue,
-                -- Середній строк «подали → на складі», у днях.
+                -- Середній строк «подали → привезли», у днях.
                 AVG(EXTRACT(EPOCH FROM (closed_at - created_at)) / 86400)
-                    FILTER (WHERE status = :in_stock AND closed_at IS NOT NULL) AS lead_time
+                    FILTER (WHERE status IN (:in_stock, :ready) AND closed_at IS NOT NULL) AS lead_time
              FROM supply_request
              WHERE created_at::date BETWEEN :from AND :to',
             [
+                // «Готова» — та сама закрита заявка, тільки віддана з рук у руки.
                 'in_stock' => SupplyStatus::InStock->value,
+                'ready' => SupplyStatus::Ready->value,
                 'rejected' => SupplyStatus::Rejected->value,
                 'from' => $period['from'],
                 'to' => $period['to'],

@@ -78,7 +78,7 @@ class RequestApiController extends AbstractController
     #[Route('/{id}', name: 'api_supply_request', methods: ['GET'], requirements: ['id' => '\d+'])]
     public function view(SupplyRequest $supplyRequest): JsonResponse
     {
-        return $this->json($this->presenter->detail($supplyRequest));
+        return $this->json($this->presenter->detail($supplyRequest, $this->manager()));
     }
 
     #[Route('/{id}/status', name: 'api_supply_request_status', methods: ['POST'], requirements: ['id' => '\d+'])]
@@ -106,7 +106,7 @@ class RequestApiController extends AbstractController
             return $this->error($e->getMessage());
         }
 
-        return $this->json($this->presenter->detail($supplyRequest));
+        return $this->json($this->presenter->detail($supplyRequest, $this->manager()));
     }
 
     #[Route('/{id}/comments', name: 'api_supply_request_comment', methods: ['POST'], requirements: ['id' => '\d+'])]
@@ -123,7 +123,7 @@ class RequestApiController extends AbstractController
             return $this->error($e->getMessage());
         }
 
-        return $this->json($this->presenter->detail($supplyRequest));
+        return $this->json($this->presenter->detail($supplyRequest, $this->manager()));
     }
 
     #[IsGranted('ROLE_SUPPLY_MANAGER')]
@@ -141,7 +141,7 @@ class RequestApiController extends AbstractController
             return $this->error($e->getMessage());
         }
 
-        return $this->json($this->presenter->detail($supplyRequest));
+        return $this->json($this->presenter->detail($supplyRequest, $this->manager()));
     }
 
     #[IsGranted('ROLE_SUPPLY_MANAGER')]
@@ -174,7 +174,7 @@ class RequestApiController extends AbstractController
             return $this->error($e->getMessage());
         }
 
-        return $this->json($this->presenter->detail($supplyRequest));
+        return $this->json($this->presenter->detail($supplyRequest, $this->manager()));
     }
 
     #[IsGranted('ROLE_SUPPLY_MANAGER')]
@@ -201,7 +201,7 @@ class RequestApiController extends AbstractController
             return $this->error($e->getMessage());
         }
 
-        return $this->json($this->presenter->detail($supplyRequest));
+        return $this->json($this->presenter->detail($supplyRequest, $this->manager()));
     }
 
     /** Шукаємо серед закупівель саме цієї заявки — чужу за id не підсунути. */

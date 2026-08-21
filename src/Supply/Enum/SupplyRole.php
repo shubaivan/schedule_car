@@ -49,16 +49,19 @@ enum SupplyRole: string
      *
      * Одне місце правди для гварда в ChangeStatus і для кнопок у боті й CRM:
      * якщо кнопку видно, натискання не має впертись у помилку.
+     *
+     * Набори розведені жорстко (вимога клієнта від 19.08.2026). Поки заявка
+     * стоїть на рішенні про гроші — «На затвердженні» чи «В списку очікування» —
+     * її рухає тільки директор, включно з «Відхилена»: інакше менеджер закривав
+     * би заявку замість керівника. Решту ланцюжка веде менеджер.
      */
     public function canMoveRequest(SupplyStatus $from, SupplyStatus $to): bool
     {
-        // Відхилити заявку, яка чекає грошей, може і директор, і менеджер:
-        // «не купуємо» — не витрата.
-        if ($from === SupplyStatus::Approval && $to !== SupplyStatus::Rejected) {
+        if ($from === SupplyStatus::Approval || $from === SupplyStatus::Waiting) {
             return $this->canApprovePayment();
         }
 
-        return $this->canManage() || ($from === SupplyStatus::Approval && $this->canApprovePayment());
+        return $this->canManage();
     }
 
     /** Symfony-роль для файрволу CRM. */

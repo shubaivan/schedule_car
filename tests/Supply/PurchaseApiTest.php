@@ -89,12 +89,19 @@ class PurchaseApiTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame('approval', $approval['status']);
 
-        // Менеджер сам собі оплату не погодить — це справа директора.
-        $refused = $this->send('POST', sprintf('/api/supply/requests/%d/status', $request->getId()), ['to' => 'paid']);
+        // Менеджер сам собі закупівлю не погодить — це справа директора.
+        $refused = $this->send('POST', sprintf('/api/supply/requests/%d/status', $request->getId()), ['to' => 'approved']);
         self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
         self::assertStringContainsString('директор', $refused['error']);
 
         $this->login(SupplyRole::Director);
+
+        $approved = $this->send('POST', sprintf('/api/supply/requests/%d/status', $request->getId()), ['to' => 'approved']);
+        self::assertResponseIsSuccessful();
+        self::assertSame('approved', $approved['status']);
+
+        // А оплату проводить назад менеджер — набори кнопок не перетинаються.
+        $this->login();
 
         $paid = $this->send('POST', sprintf('/api/supply/requests/%d/status', $request->getId()), ['to' => 'paid']);
         self::assertResponseIsSuccessful();

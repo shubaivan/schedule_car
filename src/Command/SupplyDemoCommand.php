@@ -6,13 +6,17 @@ use App\Entity\TelegramUser;
 use App\Repository\TelegramUserRepository;
 use App\Service\CrmLoginLink;
 use App\Supply\Dto\CreateRequestInput;
+use App\Supply\Dto\PurchaseInput;
 use App\Supply\Entity\Department;
+use App\Supply\Entity\Supplier;
 use App\Supply\Enum\SupplyRole;
 use App\Supply\Enum\SupplyStatus;
 use App\Supply\Enum\Unit;
 use App\Supply\Repository\DepartmentRepository;
+use App\Supply\Repository\SupplierRepository;
 use App\Supply\Service\ChangeStatus;
 use App\Supply\Service\CreateRequest;
+use App\Supply\Service\RecordPurchase;
 use DateTime;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -34,7 +38,9 @@ class SupplyDemoCommand extends Command
         private EntityManagerInterface $em,
         private DepartmentRepository $departments,
         private TelegramUserRepository $users,
+        private SupplierRepository $suppliers,
         private CreateRequest $createRequest,
+        private RecordPurchase $recordPurchase,
         private ChangeStatus $changeStatus,
         private CrmLoginLink $loginLink,
     ) {
@@ -53,9 +59,20 @@ class SupplyDemoCommand extends Command
         $this->em->flush();
 
         $manager = $this->user('demo-manager', 'Олександр', 'Менеджер', SupplyRole::Manager);
+        // Директор потрібен і в демо: без нього заявка застрягне на затвердженні —
+        // рішення про гроші менеджер за нього не ухвалить.
+        $director = $this->user('demo-director', 'Ірина', 'Директор', SupplyRole::Director);
         $worker = $this->user('demo-worker', 'Петро', 'Мураха', SupplyRole::Worker);
         $worker->setDepartment($this->departments->findOneBy(['name' => 'Цех №2']));
         $this->em->flush();
+
+        $supplier = $this->suppliers->findOneBy(['name' => 'ТОВ «Демо-Постач»']);
+
+        if ($supplier === null) {
+            $supplier = (new Supplier())->setName('ТОВ «Демо-Постач»')->setCreatedBy($manager);
+            $this->em->persist($supplier);
+            $this->em->flush();
+        }
 
         if (! $this->em->getRepository(\App\Supply\Entity\SupplyRequest::class)->count([])) {
             $samples = [
@@ -76,7 +93,19 @@ class SupplyDemoCommand extends Command
                     site: 'Цех №2',
                 ));
 
+                // Без закупівлі заявка не пройде далі «В роботі»: у кого купили —
+                // обов'язкове поле, а не формальність.
+                if ($target !== SupplyStatus::New && $target !== SupplyStatus::InProgress) {
+                    ($this->recordPurchase)($request, $manager, new PurchaseInput(
+                        supplier: $supplier,
+                        totalAmount: (string) random_int(1200, 48000),
+                        invoiceNumber: 'РН-' . random_int(100, 999),
+                    ), notify: false);
+                }
+
                 // Крокуємо ланцюжком статусів уперед, поки не дійдемо до потрібного.
+                // Кнопку тисне той, кому вона справді належить: на затвердженні —
+                // директор, далі — менеджер.
                 $status = $request->getStatus();
                 for ($guard = 0; $status !== $target && $guard < 10; ++$guard) {
                     $next = $status->allowedTransitions();
@@ -86,7 +115,9 @@ class SupplyDemoCommand extends Command
                         break;
                     }
 
-                    ($this->changeStatus)($request, $step, $manager);
+                    $by = $manager->getSupplyRole()->canMoveRequest($status, $step) ? $manager : $director;
+
+                    ($this->changeStatus)($request, $step, $by);
                     $status = $step;
                 }
             }
