@@ -30,6 +30,7 @@ use App\Telegram\Start\Command\FleetMenu;
 use App\Telegram\Start\Command\MainMenu;
 use App\Telegram\Start\Command\StartCommand;
 use SergiX44\Nutgram\Conversations\Conversation;
+use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\RunningMode\Webhook;
 
 Conversation::refreshOnDeserialize();
