@@ -22,6 +22,7 @@ class AccessNotifier
         private Nutgram $bot,
         private TelegramUserRepository $userRepository,
         private LoggerInterface $logger,
+        private FleetSection $fleet,
     ) {
     }
 
@@ -76,7 +77,7 @@ class AccessNotifier
         $this->send(
             $user,
             "✅ <b>Доступ відкрито</b>\nОберіть розділ:",
-            StartCommand::mainMenuKeyboard(),
+            StartCommand::mainMenuKeyboard($this->fleet->isEnabled()),
         );
     }
 

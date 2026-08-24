@@ -42,6 +42,18 @@ class NavigationTest extends TestCase
         $this->assertContains(StartCommand::FLEET_MENU, $callbacks);
     }
 
+    /**
+     * Вимкнений автопарк не лишає по собі мертвої кнопки: її просто немає,
+     * а старі кнопки в чаті ловить FleetEnabled і показує пояснення.
+     */
+    public function testMainMenuHidesFleetWhenSectionIsOff(): void
+    {
+        $callbacks = $this->callbacks(StartCommand::mainMenuKeyboard(false));
+
+        $this->assertContains(SupplyCallback::MENU, $callbacks);
+        $this->assertNotContains(StartCommand::FLEET_MENU, $callbacks);
+    }
+
     /** @return string[] */
     private function callbacks(InlineKeyboardMarkup $markup): array
     {

@@ -2,6 +2,7 @@
 
 namespace App\Command;
 
+use App\Service\FleetSection;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Types\Command\BotCommand;
 use SergiX44\Nutgram\Telegram\Types\Command\BotCommandScopeDefault;
@@ -25,7 +26,7 @@ class BotMenuCommand extends Command
         'crm' => 'Вхід у CRM (для менеджерів)',
     ];
 
-    public function __construct(private Nutgram $bot)
+    public function __construct(private Nutgram $bot, private FleetSection $fleet)
     {
         parent::__construct();
     }
@@ -34,8 +35,14 @@ class BotMenuCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
 
+        // Вимкнений автопарк прибираємо і з меню біля поля вводу: команда, яка
+        // веде в порожнечу, гірша за її відсутність.
+        $list = $this->fleet->isEnabled()
+            ? self::COMMANDS
+            : array_diff_key(self::COMMANDS, ['avtopark' => null]);
+
         $commands = [];
-        foreach (self::COMMANDS as $command => $description) {
+        foreach ($list as $command => $description) {
             $commands[] = BotCommand::make($command, $description);
         }
 
@@ -43,7 +50,7 @@ class BotMenuCommand extends Command
         $this->bot->setMyCommands($commands, new BotCommandScopeDefault());
 
         $io->success('Меню бота оновлено:');
-        foreach (self::COMMANDS as $command => $description) {
+        foreach ($list as $command => $description) {
             $io->writeln(sprintf('  /%s — %s', $command, $description));
         }
 

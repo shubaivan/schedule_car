@@ -3,6 +3,7 @@
 namespace App\Telegram\Start\Command;
 
 use App\Service\ChatScreen;
+use App\Service\FleetSection;
 use App\Supply\Telegram\SupplyCallback;
 use SergiX44\Nutgram\Handlers\Type\Command;
 use SergiX44\Nutgram\Nutgram;
@@ -22,20 +23,25 @@ class StartCommand extends Command
     protected ?string $description = 'Початок спілкування';
 
     /**
-     * ChatScreen приходить параметром, а не через конструктор: команди Nutgram
-     * створює через new під час реєстрації маршрутів, повз контейнер.
+     * ChatScreen і FleetSection приходять параметрами, а не через конструктор:
+     * команди Nutgram створює через new під час реєстрації маршрутів, повз контейнер.
      */
-    public function handle(Nutgram $bot, ChatScreen $screen): void
+    public function handle(Nutgram $bot, ChatScreen $screen, FleetSection $fleet): void
     {
-        $screen->render($bot, 'Вітаю! Оберіть розділ:', self::mainMenuKeyboard());
+        $screen->render($bot, 'Вітаю! Оберіть розділ:', self::mainMenuKeyboard($fleet->isEnabled()));
     }
 
-    public static function mainMenuKeyboard(): InlineKeyboardMarkup
+    /** Вимкнений автопарк не просто нікуди не веде — його кнопки тут немає взагалі. */
+    public static function mainMenuKeyboard(bool $withFleet = true): InlineKeyboardMarkup
     {
-        return InlineKeyboardMarkup::make()->addRow(
-            InlineKeyboardButton::make('📦 Постачання', callback_data: SupplyCallback::MENU),
-            InlineKeyboardButton::make('🚗 Автопарк', callback_data: self::FLEET_MENU),
-        );
+        $markup = InlineKeyboardMarkup::make();
+        $row = [InlineKeyboardButton::make('📦 Постачання', callback_data: SupplyCallback::MENU)];
+
+        if ($withFleet) {
+            $row[] = InlineKeyboardButton::make('🚗 Автопарк', callback_data: self::FLEET_MENU);
+        }
+
+        return $markup->addRow(...$row);
     }
 
     public static function homeButton(): InlineKeyboardButton

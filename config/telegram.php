@@ -1,6 +1,7 @@
 <?php
 /** @var SergiX44\Nutgram\Nutgram $bot */
 
+use App\Supply\Telegram\AccentMenu;
 use App\Supply\Telegram\AllRequests;
 use App\Supply\Telegram\AttachConversation;
 use App\Supply\Telegram\ChangeStatusAction;
@@ -11,6 +12,7 @@ use App\Supply\Telegram\NewRequestConversation;
 use App\Supply\Telegram\PurchaseConversation;
 use App\Supply\Telegram\RejectConversation;
 use App\Supply\Telegram\RequestView;
+use App\Supply\Telegram\SetAccentAction;
 use App\Supply\Telegram\SupplyCallback;
 use App\Supply\Telegram\SupplyMenu;
 use App\Telegram\Access\AccessCallback;
@@ -20,6 +22,7 @@ use App\Telegram\Access\ShareContact;
 use App\Fleet\Telegram\BookCarConversation;
 use App\Fleet\Telegram\CancelTripAction;
 use App\Fleet\Telegram\DriverTrips;
+use App\Fleet\Telegram\FleetEnabled;
 use App\Fleet\Telegram\FleetCallback;
 use App\Fleet\Telegram\FleetSchedule;
 use App\Fleet\Telegram\MyTrips;
@@ -44,24 +47,30 @@ $bot->onCallbackQueryData(AccessCallback::REJECT_PREFIX . '{id}', AccessDecision
 
 $bot->registerCommand(StartCommand::class);
 
+$bot->onCallbackQueryData(StartCommand::MAIN_MENU, MainMenu::class);
+
 ##############
 # Автопарк
 ##############
-$bot->onCallbackQueryData(StartCommand::MAIN_MENU, MainMenu::class);
-$bot->onCallbackQueryData(StartCommand::FLEET_MENU, FleetMenu::class);
-$bot->onCommand('avtopark', FleetMenu::class);
-$bot->onCallbackQueryData(FleetCallback::MENU, FleetMenu::class);
-// Спільний розклад — головний екран автопарку: його гортають кнопками,
-// а зсув у днях їде в самій callback_data, тож стан ніде не зберігається.
-$bot->onCallbackQueryData(FleetCallback::SCHEDULE, FleetSchedule::class);
-$bot->onCallbackQueryData(FleetCallback::SCHEDULE_PREFIX . '{offset}', FleetSchedule::class);
-$bot->onCallbackQueryData(FleetCallback::BOOK, BookCarConversation::class);
-$bot->onCallbackQueryData(FleetCallback::MY_TRIPS, MyTrips::class);
-// Кнопку «Скасувати» форми перехоплює сама розмова; цей маршрут ловить її вже
-// після її кінця — щоб на старому екрані кнопка не була мертвою.
-$bot->onCallbackQueryData(FleetCallback::FORM_CANCEL, MyTrips::class);
-$bot->onCallbackQueryData(FleetCallback::DRIVER_TRIPS, DriverTrips::class);
-$bot->onCallbackQueryData(FleetCallback::CANCEL_PREFIX . '{id}', CancelTripAction::class);
+// Розділ вимикається цілком (FLEET_ENABLED=0), тож маршрути зібрані в одну
+// групу: вимкненому автопарку відповідає один екран-пояснення замість мертвих
+// кнопок у старих повідомленнях.
+$bot->group(function (Nutgram $bot) {
+    $bot->onCallbackQueryData(StartCommand::FLEET_MENU, FleetMenu::class);
+    $bot->onCommand('avtopark', FleetMenu::class);
+    $bot->onCallbackQueryData(FleetCallback::MENU, FleetMenu::class);
+    // Спільний розклад — головний екран автопарку: його гортають кнопками,
+    // а зсув у днях їде в самій callback_data, тож стан ніде не зберігається.
+    $bot->onCallbackQueryData(FleetCallback::SCHEDULE, FleetSchedule::class);
+    $bot->onCallbackQueryData(FleetCallback::SCHEDULE_PREFIX . '{offset}', FleetSchedule::class);
+    $bot->onCallbackQueryData(FleetCallback::BOOK, BookCarConversation::class);
+    $bot->onCallbackQueryData(FleetCallback::MY_TRIPS, MyTrips::class);
+    // Кнопку «Скасувати» форми перехоплює сама розмова; цей маршрут ловить її вже
+    // після її кінця — щоб на старому екрані кнопка не була мертвою.
+    $bot->onCallbackQueryData(FleetCallback::FORM_CANCEL, MyTrips::class);
+    $bot->onCallbackQueryData(FleetCallback::DRIVER_TRIPS, DriverTrips::class);
+    $bot->onCallbackQueryData(FleetCallback::CANCEL_PREFIX . '{id}', CancelTripAction::class);
+})->middleware(FleetEnabled::class);
 
 ##############
 # Постачання
@@ -82,3 +91,5 @@ $bot->onCallbackQueryData(SupplyCallback::REJECT_PREFIX . '{id}', RejectConversa
 $bot->onCallbackQueryData(SupplyCallback::COMMENT_PREFIX . '{id}', CommentConversation::class);
 $bot->onCallbackQueryData(SupplyCallback::PURCHASE_PREFIX . '{id}', PurchaseConversation::class);
 $bot->onCallbackQueryData(SupplyCallback::ATTACH_PREFIX . '{id}', AttachConversation::class);
+$bot->onCallbackQueryData(SupplyCallback::ACCENT_PREFIX . '{id}', AccentMenu::class);
+$bot->onCallbackQueryData(SupplyCallback::MARK_PREFIX . '{id}:{accent}', SetAccentAction::class);

@@ -10,6 +10,9 @@ parameters:
     supply_manager_phones: '%env(SUPPLY_MANAGER_PHONES)%'
     # Телефони тих, хто погоджує оплату (директор). Роль видається одразу.
     supply_director_phones: '%env(SUPPLY_DIRECTOR_PHONES)%'
+    # Чи показувати в боті розділ «Автопарк». Вимикається на час, поки клієнт
+    # запускає лише постачання, — дані при цьому лишаються на місці.
+    fleet_enabled: '%env(bool:FLEET_ENABLED)%'
 
 services:
     # default configuration for services in *this* file
@@ -42,6 +45,10 @@ services:
     # Nutgram резолвить залежності хендлерів своїм контейнером із делегуванням
     # у Symfony, а той віддає лише публічні сервіси.
     App\Service\ChatScreen:
+        public: true
+
+    # Вимикач автопарку питають і хендлери бота, і команда меню.
+    App\Service\FleetSection:
         public: true
 
     # Nutgram handlers
