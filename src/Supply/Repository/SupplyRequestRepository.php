@@ -3,6 +3,7 @@
 namespace App\Supply\Repository;
 
 use App\Entity\TelegramUser;
+use App\Supply\Entity\Department;
 use App\Supply\Entity\SupplyRequest;
 use App\Supply\Enum\SupplyStatus;
 use DateTime;
@@ -46,6 +47,7 @@ class SupplyRequestRepository extends ServiceEntityRepository
      *     department?: ?int,
      *     author?: ?int,
      *     urgent?: ?bool,
+     *     accent?: ?string,
      *     overdue?: ?bool,
      *     query?: ?string,
      *     open?: ?bool
@@ -62,8 +64,13 @@ class SupplyRequestRepository extends ServiceEntityRepository
 
         $this->applyFilters($qb, $filters);
 
-        // Термінові — вгору, далі найновіші.
-        $qb->orderBy('r.urgent', 'DESC')
+        // Спершу помічені менеджером — червоні, жовті, зелені, — далі найновіші.
+        // Порядок задаємо явно: значення enum рядкові, і алфавіт дав би нісенітницю.
+        $qb->addSelect(
+            "CASE r.accent WHEN 'red' THEN 0 WHEN 'yellow' THEN 1 WHEN 'green' THEN 2 ELSE 3 END AS HIDDEN accent_rank",
+        );
+
+        $qb->orderBy('accent_rank', 'ASC')
             ->addOrderBy('r.created_at', 'DESC')
             ->setFirstResult(($page - 1) * $limit)
             ->setMaxResults($limit);
@@ -91,6 +98,16 @@ class SupplyRequestRepository extends ServiceEntityRepository
         }
 
         return $counts;
+    }
+
+    public function countByDepartment(Department $department): int
+    {
+        return (int) $this->createQueryBuilder('r')
+            ->select('COUNT(r.id)')
+            ->andWhere('r.department = :department')
+            ->setParameter('department', $department)
+            ->getQuery()
+            ->getSingleScalarResult();
     }
 
     /** @return SupplyRequest[] */
@@ -143,6 +160,10 @@ class SupplyRequestRepository extends ServiceEntityRepository
         if (! empty($filters['author'])) {
             $qb->andWhere('IDENTITY(r.author) = :author')
                 ->setParameter('author', $filters['author']);
+        }
+
+        if (! empty($filters['accent'])) {
+            $qb->andWhere('r.accent = :accent')->setParameter('accent', $filters['accent']);
         }
 
         if (! empty($filters['urgent'])) {

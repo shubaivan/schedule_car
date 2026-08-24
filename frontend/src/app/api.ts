@@ -1,6 +1,8 @@
 export interface ApiUser {
     id: number
     name: string
+    firstName: string | null
+    lastName: string | null
     phone: string | null
     role: string
     roleLabel: string
@@ -8,6 +10,17 @@ export interface ApiUser {
     accessStatusLabel: string
     department: string | null
     departmentId: number | null
+    /** Прибраний зі списку: рядок лишається заради історії заявок. */
+    archived?: boolean
+}
+
+/** Підрозділ у довіднику: разом із тим, скільки на ньому висить. */
+export interface ApiDepartment {
+    id: number
+    name: string
+    active: boolean
+    requests: number
+    people: number
 }
 
 /** Запис довідника телефонів: роль чекає на людину, поки та не зайде в бота. */
@@ -93,6 +106,10 @@ export interface SupplyRequest {
     status: string
     statusLabel: string
     urgent: boolean
+    /** Мітка менеджера для керівника: none | red | yellow | green. */
+    accent: string
+    accentLabel: string
+    accentEmoji: string
     overdue: boolean
     needBy: string | null
     site: string | null
@@ -132,6 +149,7 @@ export type SupplierPayload = Partial<Omit<ApiSupplier, 'id'>>
 
 export interface Meta {
     statuses: { value: string; label: string; emoji: string; final: boolean }[]
+    accents: { value: string; label: string; emoji: string }[]
     units: { value: string; label: string }[]
     departments: { id: number; name: string }[]
 }
@@ -264,6 +282,12 @@ export const api = {
             body: JSON.stringify({ to, comment }),
         }),
 
+    setAccent: (id: number, accent: string) =>
+        call<SupplyRequest>(`/api/supply/requests/${id}/accent`, {
+            method: 'PATCH',
+            body: JSON.stringify({ accent }),
+        }),
+
     comment: (id: number, text: string) =>
         call<SupplyRequest>(`/api/supply/requests/${id}/comments`, {
             method: 'POST',
@@ -339,12 +363,46 @@ export const api = {
     reports: (from: string, to: string) =>
         call<Report>(`/api/supply/reports?from=${from}&to=${to}`),
 
-    users: () => call<{ items: ApiUser[] }>('/api/supply/users'),
+    users: (archived = false) =>
+        call<{ items: ApiUser[] }>(`/api/supply/users${archived ? '?archived=1' : ''}`),
 
-    updateUser: (id: number, payload: { role?: string; departmentId?: number | null }) =>
+    updateUser: (
+        id: number,
+        payload: { firstName?: string | null; lastName?: string | null; role?: string; departmentId?: number | null },
+    ) =>
         call<ApiUser>(`/api/supply/users/${id}`, {
             method: 'PATCH',
             body: JSON.stringify(payload),
+        }),
+
+    /** Рішення по доступу: 'approved' або 'rejected'. Людині про нього пише бот. */
+    decideAccess: (id: number, status: string) =>
+        call<ApiUser>(`/api/supply/users/${id}/access`, {
+            method: 'POST',
+            body: JSON.stringify({ status }),
+        }),
+
+    restoreUser: (id: number) =>
+        call<ApiUser>(`/api/supply/users/${id}/restore`, { method: 'POST' }),
+
+    /** deleted: false — людина пішла в архів, бо на ній історія заявок. */
+    deleteUser: (id: number) =>
+        call<{ ok: boolean; deleted: boolean; message: string }>(`/api/supply/users/${id}`, { method: 'DELETE' }),
+
+    departments: () => call<{ items: ApiDepartment[] }>('/api/supply/departments'),
+
+    createDepartment: (name: string) =>
+        call<ApiDepartment>('/api/supply/departments', { method: 'POST', body: JSON.stringify({ name }) }),
+
+    updateDepartment: (id: number, payload: { name?: string; active?: boolean }) =>
+        call<ApiDepartment>(`/api/supply/departments/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(payload),
+        }),
+
+    deleteDepartment: (id: number) =>
+        call<{ ok: boolean; deleted: boolean; message: string }>(`/api/supply/departments/${id}`, {
+            method: 'DELETE',
         }),
 
     staff: () => call<{ items: StaffPhone[] }>('/api/supply/staff'),

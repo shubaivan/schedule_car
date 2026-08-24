@@ -7,7 +7,7 @@ const session = useSession()
 const route = useRoute()
 
 /** Довідники, звіти й люди — робоче місце менеджера; заявки відкриті всім. */
-const MANAGER_ROUTES = ['suppliers', 'reports', 'users']
+const MANAGER_ROUTES = ['suppliers', 'reports', 'users', 'departments']
 
 /**
  * Автопарк роздає машини й людей — це рівень директора, не менеджера.
@@ -46,6 +46,7 @@ onMounted(() => session.load())
                         <router-link :to="{ name: 'suppliers' }">Постачальники</router-link>
                         <router-link :to="{ name: 'reports' }">Звіти</router-link>
                         <router-link :to="{ name: 'users' }">Люди</router-link>
+                        <router-link :to="{ name: 'departments' }">Підрозділи</router-link>
                     </template>
                     <router-link :to="{ name: 'schedule' }">Розклад машин</router-link>
                     <router-link v-if="session.isDirector()" :to="{ name: 'fleet' }">Автопарк</router-link>

@@ -16,6 +16,17 @@ class DepartmentRepository extends ServiceEntityRepository
         parent::__construct($registry, Department::class);
     }
 
+    /** Порівняння без огляду на регістр: «Цех №1» і «цех №1» — той самий підрозділ. */
+    public function findOneByName(string $name): ?Department
+    {
+        return $this->createQueryBuilder('d')
+            ->andWhere('LOWER(d.name) = LOWER(:name)')
+            ->setParameter('name', $name)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     /** @return Department[] */
     public function findActive(): array
     {
