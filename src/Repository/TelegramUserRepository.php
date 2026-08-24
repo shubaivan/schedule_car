@@ -3,6 +3,7 @@
 namespace App\Repository;
 
 use App\Entity\TelegramUser;
+use App\Supply\Entity\Department;
 use App\Supply\Enum\SupplyRole;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -76,6 +77,33 @@ class TelegramUserRepository extends ServiceEntityRepository
             ->setParameter('roles', [SupplyRole::Director, SupplyRole::Admin])
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * Список людей для CRM. Прибрані ховаються: рядок лишається заради історії
+     * заявок, але в довіднику його не видно, поки не попросять окремо.
+     *
+     * @return TelegramUser[]
+     */
+    public function findPeople(bool $withArchived = false): array
+    {
+        $qb = $this->createQueryBuilder('u')->orderBy('u.first_name', 'ASC');
+
+        if (! $withArchived) {
+            $qb->andWhere('u.archivedAt IS NULL');
+        }
+
+        return $qb->getQuery()->getResult();
+    }
+
+    public function countByDepartment(Department $department): int
+    {
+        return (int) $this->createQueryBuilder('u')
+            ->select('COUNT(u.id)')
+            ->andWhere('u.department = :department')
+            ->setParameter('department', $department)
+            ->getQuery()
+            ->getSingleScalarResult();
     }
 
     public function save(TelegramUser $telegramUser)

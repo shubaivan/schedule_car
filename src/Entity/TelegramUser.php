@@ -69,6 +69,13 @@ class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\JoinColumn(name: 'access_decided_by_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
     private ?TelegramUser $accessDecidedBy = null;
 
+    /**
+     * Прибраний зі списку людей: випадкові реєстрації не мають засмічувати
+     * довідник. Рядок лишається, бо на людині може висіти історія заявок.
+     */
+    #[ORM\Column(name: 'archived_at', type: Types::DATETIME_MUTABLE, nullable: true)]
+    private ?DateTime $archivedAt = null;
+
     #[ORM\ManyToOne(targetEntity: Department::class)]
     #[ORM\JoinColumn(name: 'department_id', referencedColumnName: 'id', nullable: true)]
     private ?Department $department = null;
@@ -264,6 +271,30 @@ class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface
     }
 
     /** «Іван Петренко (@ivan)» або телефон, якщо імені немає. */
+    public function getArchivedAt(): ?DateTime
+    {
+        return $this->archivedAt;
+    }
+
+    public function isArchived(): bool
+    {
+        return $this->archivedAt !== null;
+    }
+
+    public function archive(): TelegramUser
+    {
+        $this->archivedAt = new DateTime('now', new DateTimeZone('Europe/Kyiv'));
+
+        return $this;
+    }
+
+    public function restore(): TelegramUser
+    {
+        $this->archivedAt = null;
+
+        return $this;
+    }
+
     public function displayName(): string
     {
         $name = trim(sprintf('%s %s', $this->first_name ?? '', $this->last_name ?? ''));

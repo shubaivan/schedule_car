@@ -166,7 +166,11 @@ class SupplyApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
     }
 
-    public function testManagerCannotChangeRoles(): void
+    /**
+     * Список людей веде менеджер (вимога клієнта від 21.08.2026), але роль
+     * адміністратора лишається за адміністратором — інакше її можна собі підняти.
+     */
+    public function testManagerCannotGrantAdminRole(): void
     {
         $worker = $this->user(SupplyRole::Worker);
         $this->loginAsManager();
@@ -178,7 +182,8 @@ class SupplyApiTest extends WebTestCase
             content: json_encode(['role' => 'admin']),
         );
 
-        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        self::assertSame(SupplyRole::Worker, $worker->getSupplyRole());
     }
 
     public function testAdminAssignsRoleAndDepartment(): void
@@ -213,6 +218,7 @@ class SupplyApiTest extends WebTestCase
 
         self::assertCount(10, $meta['statuses']);
         self::assertCount(7, $meta['units']);
+        self::assertCount(4, $meta['accents']);
         self::assertArrayHasKey('departments', $meta);
     }
 
