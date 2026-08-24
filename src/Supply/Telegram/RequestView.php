@@ -99,6 +99,16 @@ class RequestView
                     callback_data: SupplyCallback::purchase($id),
                 ),
             );
+
+            // Мітку ставить менеджер, а читає керівник: підказка, що з цієї
+            // заявки починати. Кнопка показує поточну мітку, щоб не гадати.
+            $accent = $request->getAccent();
+            $markup->addRow(
+                InlineKeyboardButton::make(
+                    $accent->isSet() ? $accent->emoji() . ' ' . $accent->label() : '🏷 Мітка для керівника',
+                    callback_data: SupplyCallback::accent($id),
+                ),
+            );
         }
 
         if ($status->canTransitionTo(SupplyStatus::Rejected) &&

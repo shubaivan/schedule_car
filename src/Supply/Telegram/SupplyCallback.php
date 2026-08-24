@@ -30,6 +30,11 @@ final class SupplyCallback
     public const PURCHASE_PREFIX = 'supply:buy:';
     /** supply:file:<id> — надіслати накладну чи інший документ фото/файлом */
     public const ATTACH_PREFIX = 'supply:file:';
+    /** supply:accent:<id> — вибір мітки для керівника */
+    public const ACCENT_PREFIX = 'supply:accent:';
+    /** supply:mark:<id>:<accent> — сама мітка. Окремий префікс, щоб два
+     * маршрути не сперечались за один шаблон. */
+    public const MARK_PREFIX = 'supply:mark:';
 
     public static function view(int $requestId): string
     {
@@ -59,5 +64,15 @@ final class SupplyCallback
     public static function attach(int $requestId): string
     {
         return self::ATTACH_PREFIX . $requestId;
+    }
+
+    public static function accent(int $requestId): string
+    {
+        return self::ACCENT_PREFIX . $requestId;
+    }
+
+    public static function mark(int $requestId, string $accent): string
+    {
+        return self::MARK_PREFIX . $requestId . ':' . $accent;
     }
 }

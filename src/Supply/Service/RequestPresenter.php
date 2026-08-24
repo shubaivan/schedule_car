@@ -30,6 +30,9 @@ class RequestPresenter
             'status' => $request->getStatus()->value,
             'statusLabel' => $request->getStatus()->label(),
             'urgent' => $request->isUrgent(),
+            'accent' => $request->getAccent()->value,
+            'accentLabel' => $request->getAccent()->label(),
+            'accentEmoji' => $request->getAccent()->emoji(),
             'overdue' => $request->isOverdue(),
             'needBy' => $request->getNeedBy()?->format('Y-m-d'),
             'site' => $request->getSite(),
@@ -168,6 +171,9 @@ class RequestPresenter
         return [
             'id' => $user->getId(),
             'name' => $user->displayName(),
+            // Ім'я та прізвище окремо — картку людини правлять по полях.
+            'firstName' => $user->getFirstName(),
+            'lastName' => $user->getLastName(),
             'phone' => $user->getPhoneNumber(),
             'role' => $user->getSupplyRole()->value,
             'roleLabel' => $user->getSupplyRole()->label(),
@@ -175,6 +181,7 @@ class RequestPresenter
             'accessStatusLabel' => $user->getAccessStatus()->label(),
             'department' => $user->getDepartment()?->getName(),
             'departmentId' => $user->getDepartment()?->getId(),
+            'archived' => $user->isArchived(),
         ];
     }
 }

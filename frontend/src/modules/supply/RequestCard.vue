@@ -75,6 +75,12 @@ async function reject() {
     reason.value = ''
 }
 
+const accents = computed(() => (session.meta?.accents ?? []).filter((item) => item.value !== 'none'))
+
+async function setAccent(value: string) {
+    await run(() => api.setAccent(Number(props.id), value))
+}
+
 async function sendComment() {
     if (!comment.value.trim()) return
 
@@ -157,8 +163,9 @@ onMounted(load)
         <div class="card">
             <div class="row" style="justify-content: space-between">
                 <h2 style="margin:0">
+                    <span v-if="request.accent !== 'none'" :title="request.accentLabel">{{ request.accentEmoji }}</span>
                     Заявка №{{ request.number }}
-                    <span v-if="request.urgent" class="flag">🔥 терміново</span>
+                    <span v-if="request.urgent" class="muted quiet">терміново</span>
                 </h2>
                 <StatusBadge :status="request.status" :label="request.statusLabel" />
             </div>
@@ -194,6 +201,24 @@ onMounted(load)
             </dl>
 
             <p v-if="request.note" class="muted" style="margin-top:1rem">📝 {{ request.note }}</p>
+
+            <!-- Мітку ставить менеджер, а читає керівник: вона й у боті стоїть
+                 першим рядком картки. -->
+            <div v-if="canManage" class="row" style="margin-top:1rem">
+                <span class="muted">Мітка для керівника:</span>
+                <button
+                    v-for="item in accents"
+                    :key="item.value"
+                    :class="{ primary: request.accent === item.value }"
+                    :disabled="busy"
+                    @click="setAccent(item.value)"
+                >
+                    {{ item.emoji }} {{ item.label }}
+                </button>
+                <button v-if="request.accent !== 'none'" :disabled="busy" @click="setAccent('none')">
+                    Прибрати
+                </button>
+            </div>
         </div>
 
         <div class="card">

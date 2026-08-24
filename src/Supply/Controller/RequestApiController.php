@@ -7,12 +7,14 @@ use App\Supply\Dto\PurchaseInput;
 use App\Supply\Entity\SupplyPurchase;
 use App\Supply\Entity\SupplyRequest;
 use App\Supply\Enum\PaymentType;
+use App\Supply\Enum\SupplyAccent;
 use App\Supply\Enum\SupplyStatus;
 use App\Supply\Exception\SupplyException;
 use App\Supply\Repository\SupplierRepository;
 use App\Supply\Repository\SupplyRequestRepository;
 use App\Supply\Service\AddComment;
 use App\Supply\Service\ChangeStatus;
+use App\Supply\Service\MarkRequest;
 use App\Supply\Service\RecordPurchase;
 use App\Supply\Service\RequestPresenter;
 use DateTime;
@@ -55,6 +57,7 @@ class RequestApiController extends AbstractController
             'department' => $request->query->getInt('department') ?: null,
             'author' => $request->query->getInt('author') ?: null,
             'urgent' => $request->query->getBoolean('urgent') ?: null,
+            'accent' => $request->query->get('accent') ?: null,
             'overdue' => $request->query->getBoolean('overdue') ?: null,
             'open' => $request->query->getBoolean('open') ?: null,
             'query' => $request->query->get('q') ?: null,
@@ -102,6 +105,29 @@ class RequestApiController extends AbstractController
 
         try {
             $changeStatus($supplyRequest, $status, $this->manager(), $payload['comment'] ?? null);
+        } catch (SupplyException $e) {
+            return $this->error($e->getMessage());
+        }
+
+        return $this->json($this->presenter->detail($supplyRequest, $this->manager()));
+    }
+
+    /** Мітка для керівника — те саме, що кнопка «🏷 Мітка» в боті. */
+    #[IsGranted('ROLE_SUPPLY_MANAGER')]
+    #[Route('/{id}/accent', name: 'api_supply_request_accent', methods: ['PATCH'], requirements: ['id' => '\d+'])]
+    public function accent(
+        SupplyRequest $supplyRequest,
+        Request $request,
+        MarkRequest $markRequest,
+    ): JsonResponse {
+        $accent = SupplyAccent::tryFrom((string) ($this->payload($request)['accent'] ?? ''));
+
+        if ($accent === null) {
+            return $this->error('Невідома мітка.');
+        }
+
+        try {
+            $markRequest($supplyRequest, $accent, $this->manager());
         } catch (SupplyException $e) {
             return $this->error($e->getMessage());
         }

@@ -4,6 +4,7 @@ namespace App\Supply\Entity;
 
 use App\Entity\EntityTrait\CreatedUpdatedAtAwareTrait;
 use App\Entity\TelegramUser;
+use App\Supply\Enum\SupplyAccent;
 use App\Supply\Enum\SupplyStatus;
 use App\Supply\Enum\Unit;
 use App\Supply\Repository\SupplyRequestRepository;
@@ -73,6 +74,10 @@ class SupplyRequest
 
     #[ORM\Column(type: 'string', length: 32, enumType: SupplyStatus::class, nullable: false)]
     private SupplyStatus $status = SupplyStatus::New;
+
+    /** Мітка менеджера для керівника; заявник її не ставить і не бачить у своїй формі. */
+    #[ORM\Column(type: 'string', length: 16, enumType: SupplyAccent::class, nullable: false, options: ['default' => 'none'])]
+    private SupplyAccent $accent = SupplyAccent::None;
 
     #[ORM\Column(name: 'closed_at', type: Types::DATETIME_MUTABLE, nullable: true)]
     private ?DateTime $closedAt = null;
@@ -236,6 +241,18 @@ class SupplyRequest
     public function setStatus(SupplyStatus $status): self
     {
         $this->status = $status;
+
+        return $this;
+    }
+
+    public function getAccent(): SupplyAccent
+    {
+        return $this->accent;
+    }
+
+    public function setAccent(SupplyAccent $accent): self
+    {
+        $this->accent = $accent;
 
         return $this;
     }

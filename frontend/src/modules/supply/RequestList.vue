@@ -12,6 +12,7 @@ const error = ref('')
 const loading = ref(false)
 
 const status = ref('')
+const accent = ref('')
 const department = ref('')
 const search = ref('')
 const urgent = ref(false)
@@ -19,6 +20,8 @@ const overdue = ref(false)
 const page = ref(1)
 
 const statuses = computed(() => session.meta?.statuses ?? [])
+// Мітки менеджера: без «порожньої» — її роль грає кнопка «Усі».
+const accents = computed(() => (session.meta?.accents ?? []).filter((item) => item.value !== 'none'))
 const departments = computed(() => session.meta?.departments ?? [])
 const pages = computed(() => (data.value ? Math.ceil(data.value.total / data.value.pageSize) : 1))
 
@@ -30,6 +33,7 @@ async function load() {
         data.value = await api.requests({
             status: status.value ? [status.value] : undefined,
             department: department.value || undefined,
+            accent: accent.value || undefined,
             q: search.value || undefined,
             urgent: urgent.value,
             overdue: overdue.value,
@@ -43,7 +47,7 @@ async function load() {
 }
 
 // Будь-яка зміна фільтра завжди повертає на першу сторінку.
-watch([status, department, urgent, overdue], () => {
+watch([status, department, accent, urgent, overdue], () => {
     page.value = 1
     load()
 })
@@ -89,6 +93,12 @@ onMounted(load)
             <option value="">Усі підрозділи</option>
             <option v-for="item in departments" :key="item.id" :value="item.id">{{ item.name }}</option>
         </select>
+        <select v-model="accent">
+            <option value="">Будь-яка мітка</option>
+            <option v-for="item in accents" :key="item.value" :value="item.value">
+                {{ item.emoji }} {{ item.label }}
+            </option>
+        </select>
         <label class="row"><input v-model="urgent" type="checkbox"> терміново</label>
         <label class="row"><input v-model="overdue" type="checkbox"> прострочені</label>
     </div>
@@ -101,6 +111,7 @@ onMounted(load)
             <table>
                 <thead>
                 <tr>
+                    <th>Мітка</th>
                     <th>№</th>
                     <th>Матеріал</th>
                     <th>Кількість</th>
@@ -112,12 +123,13 @@ onMounted(load)
                 </thead>
                 <tbody>
                 <tr v-for="item in data.items" :key="item.id">
+                    <td :title="item.accent === 'none' ? '' : item.accentLabel">{{ item.accentEmoji || '·' }}</td>
                     <td>
                         <router-link :to="{ name: 'request', params: { id: item.id } }">{{ item.number }}</router-link>
                     </td>
                     <td class="wrap">
                         {{ item.item }}
-                        <span v-if="item.urgent" class="flag">🔥</span>
+                        <span v-if="item.urgent" class="muted quiet">терміново</span>
                     </td>
                     <td>{{ item.quantityLabel }}</td>
                     <td>

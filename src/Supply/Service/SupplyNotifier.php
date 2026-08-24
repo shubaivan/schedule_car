@@ -48,8 +48,10 @@ class SupplyNotifier
             $this->authorKeyboard($request),
         );
 
-        $managerText = ($request->isUrgent() ? "🔥 <b>ТЕРМІНОВА нова заявка</b>\n\n" : "🆕 <b>Нова заявка</b>\n\n")
-            . $this->formatter->card($request, forManager: true);
+        // Заголовок однаковий для всіх заявок: терміновість рахується з дати,
+        // яку ставить сам заявник, і як сигнал вона не працює. Пріоритет для
+        // керівника проставляє менеджер міткою вже в картці.
+        $managerText = "🆕 <b>Нова заявка</b>\n\n" . $this->formatter->card($request, forManager: true);
 
         foreach ($this->userRepository->findSupplyManagers() as $manager) {
             $this->send($manager, $managerText, $this->keyboardFor($request, $manager));

@@ -17,11 +17,19 @@ class RequestFormatter
     {
         $lines = [];
 
+        $accent = $request->getAccent();
+
         $lines[] = sprintf(
             '%s <b>Заявка №%s</b>',
-            $request->isUrgent() ? '🔥' : '📄',
+            $accent->isSet() ? $accent->emoji() : '📄',
             $this->escape($request->getNumber()),
         );
+
+        // Мітку ставить менеджер саме для керівника, тому вона стоїть одразу під
+        // номером — вище за все, що заповнив заявник.
+        if ($accent->isSet()) {
+            $lines[] = sprintf('%s <b>%s</b>', $accent->emoji(), $accent->label());
+        }
         $lines[] = sprintf('📦 %s — <b>%s</b>', $this->escape($request->getItem()), $request->getQuantityLabel());
 
         if ($request->getSite()) {
@@ -30,8 +38,9 @@ class RequestFormatter
 
         if ($request->getNeedBy()) {
             $lines[] = sprintf(
-                '📅 Потрібно до: <b>%s</b>%s',
+                '📅 Потрібно до: <b>%s</b>%s%s',
                 $this->date($request->getNeedBy()),
+                $request->isUrgent() ? ' <i>(терміново)</i>' : '',
                 $request->isOverdue() ? ' ⚠️ <b>прострочено</b>' : '',
             );
         }
@@ -76,7 +85,8 @@ class RequestFormatter
     public function line(SupplyRequest $request): string
     {
         return sprintf(
-            '%s <b>№%s</b> · %s — %s · %s',
+            '%s%s <b>№%s</b> · %s — %s · %s',
+            $request->getAccent()->emoji(),
             $request->getStatus()->emoji(),
             $this->escape($request->getNumber()),
             $this->escape($request->getItem()),

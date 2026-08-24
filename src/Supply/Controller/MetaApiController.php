@@ -3,6 +3,7 @@
 namespace App\Supply\Controller;
 
 use App\Entity\TelegramUser;
+use App\Supply\Enum\SupplyAccent;
 use App\Supply\Enum\SupplyStatus;
 use App\Supply\Enum\Unit;
 use App\Supply\Repository\DepartmentRepository;
@@ -36,6 +37,14 @@ class MetaApiController extends AbstractController
                     'final' => $status->isFinal(),
                 ],
                 SupplyStatus::cases(),
+            ),
+            'accents' => array_map(
+                static fn (SupplyAccent $accent) => [
+                    'value' => $accent->value,
+                    'label' => $accent->label(),
+                    'emoji' => $accent->emoji(),
+                ],
+                SupplyAccent::cases(),
             ),
             'units' => array_map(
                 static fn (Unit $unit) => ['value' => $unit->value, 'label' => $unit->label()],

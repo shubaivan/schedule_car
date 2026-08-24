@@ -282,9 +282,8 @@ class NewRequestConversation extends Conversation
 
         if ($this->needBy !== null) {
             $lines[] = sprintf(
-                '✅ Потрібно до: <b>%s</b>%s',
+                '✅ Потрібно до: <b>%s</b>',
                 $this->formatter->date(new DateTime($this->needBy)),
-                $this->urgent ? ' 🔥' : '',
             );
         }
 
