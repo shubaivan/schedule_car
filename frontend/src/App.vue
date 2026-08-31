@@ -35,7 +35,7 @@ onMounted(() => session.load())
             <p class="muted">Відкрийте бота, натисніть «🔐 Вхід у CRM» і перейдіть за новим посиланням.</p>
         </div>
 
-        <div v-else-if="session.loading" class="center">Завантаження…</div>
+        <div v-else-if="!session.ready" class="center">Завантаження…</div>
 
         <template v-else>
             <header class="topbar">

@@ -8,6 +8,10 @@ export const useSession = defineStore('session', () => {
     const meta = ref<Meta | null>(null)
     const expired = ref(false)
     const loading = ref(true)
+    // Перший запит уже відповів. Далі довідники оновлюються мовчки: якщо гасити
+    // на це весь екран, сторінка розмонтовується, її onMounted б'є по load()
+    // ще раз — і CRM іде в нескінченне «Завантаження…».
+    const ready = ref(false)
 
     async function load() {
         loading.value = true
@@ -20,6 +24,7 @@ export const useSession = defineStore('session', () => {
             else throw error
         } finally {
             loading.value = false
+            ready.value = true
         }
     }
 
@@ -39,5 +44,5 @@ export const useSession = defineStore('session', () => {
     // Директор нічого не веде, але саме він рухає заявку з «На затвердженні».
     const isDirector = () => user.value?.role === 'director' || isAdmin()
 
-    return { user, meta, expired, loading, load, handle, isAdmin, isManager, isDirector }
+    return { user, meta, expired, loading, ready, load, handle, isAdmin, isManager, isDirector }
 })
