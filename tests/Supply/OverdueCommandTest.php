@@ -103,7 +103,61 @@ class OverdueCommandTest extends KernelTestCase
         self::assertNotContains($closed->getNumber(), $this->notifier->reminded);
     }
 
-    /** Сухий запуск показує список, але нікого не смикає. */
+    /**
+     * Крон ходить щодня, а нагадування має пролунати один раз на строк.
+     *
+     * Вимога від 31.08.2026: менеджер отримував той самий список щоранку і
+     * перестав його читати. Другий запуск того ж дня має мовчати.
+     */
+    public function testSecondRunDoesNotRemindAgain(): void
+    {
+        $author = $this->person();
+        $late = $this->request($author, new DateTime('-3 days'));
+
+        $this->command->execute([]);
+        self::assertContains($late->getNumber(), $this->notifier->reminded);
+
+        $this->notifier->reminded = [];
+        $this->command->execute([]);
+
+        self::assertSame([], $this->notifier->reminded);
+        self::assertNotNull($late->getOverdueNotifiedAt());
+    }
+
+    /** Перенесли строк — і він знову вийшов: нагадуємо ще раз. */
+    public function testMovedDeadlineRemindsAgain(): void
+    {
+        $author = $this->person();
+        $late = $this->request($author, new DateTime('-10 days'));
+
+        $this->command->execute([]);
+        $this->notifier->reminded = [];
+
+        // Нагадали 5 днів тому, потім строк перенесли на «вчора»: новий строк
+        // пізніший за мітку — отже, це вже інше прострочення.
+        $late->setOverdueNotifiedAt(new DateTime('-5 days'));
+        $late->setNeedBy(new DateTime('-1 day'));
+        $this->em->flush();
+
+        $this->command->execute([]);
+
+        self::assertContains($late->getNumber(), $this->notifier->reminded);
+    }
+
+    /** --force ігнорує мітку: інколи треба смикнути повторно вручну. */
+    public function testForceRemindsEvenWhenAlreadyNotified(): void
+    {
+        $author = $this->person();
+        $late = $this->request($author, new DateTime('-3 days'));
+
+        $this->command->execute([]);
+        $this->notifier->reminded = [];
+        $this->command->execute(['--force' => true]);
+
+        self::assertContains($late->getNumber(), $this->notifier->reminded);
+    }
+
+    /** Сухий запуск показує список, але нікого не смикає і мітку не ставить. */
     public function testDryRunSendsNothing(): void
     {
         $author = $this->person();
@@ -113,6 +167,7 @@ class OverdueCommandTest extends KernelTestCase
 
         self::assertSame([], $this->notifier->reminded);
         self::assertStringContainsString($late->getNumber(), $this->command->getDisplay());
+        self::assertNull($late->getOverdueNotifiedAt());
     }
 
     private function request(TelegramUser $author, DateTime $needBy): SupplyRequest

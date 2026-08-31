@@ -9,6 +9,7 @@ use App\Supply\Entity\SupplyComment;
 use App\Supply\Entity\SupplyPurchase;
 use App\Supply\Entity\SupplyRequest;
 use App\Supply\Entity\SupplyStatusLog;
+use App\Supply\Enum\SupplyRole;
 use App\Supply\Enum\SupplyStatus;
 use App\Supply\Telegram\SupplyCallback;
 use Psr\Log\LoggerInterface;
@@ -26,6 +27,7 @@ use Throwable;
  * Вимога клієнта жорстка: заявник має знати про КОЖНУ зміну своєї заявки.
  * Перелік подій, які сюди доходять: створення, будь-яка зміна статусу,
  * коментар другої сторони, запис/правка/скасування закупівлі, прострочення.
+ * Єдиний виняток — прострочення: воно йде тільки менеджеру (див. overdue()).
  *
  * Помилка доставки (бот заблокований, чат не знайдено) не валить операцію:
  * заявка вже збережена, а проблема потрапляє в лог.
@@ -259,7 +261,15 @@ class SupplyNotifier
         $this->send($request->getAuthor(), $text, $this->authorKeyboard($request));
     }
 
-    /** Нагадування по простроченій заявці — і заявнику, і менеджерам. */
+    /**
+     * Нагадування про прострочення — виняток із правила «заявник знає про все».
+     *
+     * Вимога клієнта від 31.08.2026: лист про прострочення отримує тільки
+     * менеджер із постачання. Раніше воно йшло ще й заявнику та адміну, тож
+     * щоранку той самий десяток повідомлень прилітав мало не всім у боті —
+     * і їх перестали читати. Заявник бачить прострочення в картці своєї
+     * заявки; смикати його щодня немає сенсу — рухає заявку не він.
+     */
     public function overdue(SupplyRequest $request): void
     {
         $text = sprintf(
@@ -268,9 +278,7 @@ class SupplyNotifier
             $this->formatter->card($request, forManager: true),
         );
 
-        $this->send($request->getAuthor(), $text, $this->authorKeyboard($request));
-
-        foreach ($this->userRepository->findSupplyManagers() as $manager) {
+        foreach ($this->userRepository->findBySupplyRoles(SupplyRole::Manager) as $manager) {
             $this->send($manager, $text, $this->keyboardFor($request, $manager));
         }
     }

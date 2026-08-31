@@ -82,6 +82,16 @@ class SupplyRequest
     #[ORM\Column(name: 'closed_at', type: Types::DATETIME_MUTABLE, nullable: true)]
     private ?DateTime $closedAt = null;
 
+    /**
+     * Коли по цій заявці востаннє пішло нагадування про прострочення.
+     *
+     * Крон ходить щодня, а нагадування має пролунати один раз на строк:
+     * без цієї мітки менеджер щоранку отримував той самий список і переставав
+     * його читати. Якщо строк перенесли (needBy > мітки) — нагадаємо знову.
+     */
+    #[ORM\Column(name: 'overdue_notified_at', type: Types::DATETIME_MUTABLE, nullable: true)]
+    private ?DateTime $overdueNotifiedAt = null;
+
     #[ORM\OneToMany(targetEntity: SupplyComment::class, mappedBy: 'request', cascade: ['persist', 'remove'])]
     #[ORM\OrderBy(['created_at' => 'ASC'])]
     private Collection $comments;
@@ -265,6 +275,18 @@ class SupplyRequest
     public function setClosedAt(?DateTime $closedAt): self
     {
         $this->closedAt = $closedAt;
+
+        return $this;
+    }
+
+    public function getOverdueNotifiedAt(): ?DateTime
+    {
+        return $this->overdueNotifiedAt;
+    }
+
+    public function setOverdueNotifiedAt(?DateTime $at): self
+    {
+        $this->overdueNotifiedAt = $at;
 
         return $this;
     }

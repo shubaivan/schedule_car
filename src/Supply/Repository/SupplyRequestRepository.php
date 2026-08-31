@@ -125,19 +125,29 @@ class SupplyRequestRepository extends ServiceEntityRepository
     /**
      * Заявки, у яких вийшов термін, а вони ще в роботі — для нагадувань по крону.
      *
+     * За замовчуванням віддає тільки ті, по яких ще не нагадували на цей строк:
+     * крон ходить щодня, і без цього фільтра менеджер щоранку отримував той
+     * самий список. Перенесли строк (needBy пізніше мітки) — заявка знову тут.
+     *
+     * @param bool $includeReminded віддати й ті, по яких уже нагадували (--force)
+     *
      * @return SupplyRequest[]
      */
-    public function findOverdue(): array
+    public function findOverdue(bool $includeReminded = false): array
     {
-        return $this->createQueryBuilder('r')
+        $qb = $this->createQueryBuilder('r')
             ->andWhere('r.needBy IS NOT NULL')
             ->andWhere('r.needBy < :today')
             ->andWhere('r.status IN (:open)')
             ->setParameter('today', new DateTime('today', new DateTimeZone('Europe/Kyiv')))
             ->setParameter('open', SupplyStatus::openCases())
-            ->orderBy('r.needBy', 'ASC')
-            ->getQuery()
-            ->getResult();
+            ->orderBy('r.needBy', 'ASC');
+
+        if (! $includeReminded) {
+            $qb->andWhere('r.overdueNotifiedAt IS NULL OR r.overdueNotifiedAt < r.needBy');
+        }
+
+        return $qb->getQuery()->getResult();
     }
 
     private function applyFilters(QueryBuilder $qb, array $filters): void

@@ -34,13 +34,30 @@ class TelegramUserRepository extends ServiceEntityRepository
     /**
      * Менеджери постачання — отримувачі сповіщень про нові заявки.
      *
+     * Адмін тут не «ще один менеджер», а запасний ключ: без нього заявки
+     * застрягли б, якби менеджера не було в боті.
+     *
      * @return TelegramUser[]
      */
     public function findSupplyManagers(): array
     {
+        return $this->findBySupplyRoles(SupplyRole::Manager, SupplyRole::Admin);
+    }
+
+    /**
+     * Люди з указаними ролями — саме ті, кому має піти повідомлення.
+     *
+     * Прибрані з довідника (archivedAt) відсіюються тут, а не в кожному
+     * виклику: людина пішла з заводу, а бот ще місяць слав би їй сповіщення.
+     *
+     * @return TelegramUser[]
+     */
+    public function findBySupplyRoles(SupplyRole ...$roles): array
+    {
         return $this->createQueryBuilder('tu')
             ->where('tu.supplyRole IN (:roles)')
-            ->setParameter('roles', [SupplyRole::Manager, SupplyRole::Admin])
+            ->andWhere('tu.archivedAt IS NULL')
+            ->setParameter('roles', $roles)
             ->getQuery()
             ->getResult();
     }
