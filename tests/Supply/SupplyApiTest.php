@@ -222,6 +222,36 @@ class SupplyApiTest extends WebTestCase
         self::assertArrayHasKey('departments', $meta);
     }
 
+    /** «➕ Нова заявка» у CRM: та сама заявка, що з бота, — зі статусом «Нова» й номером. */
+    public function testRequestCanBeCreatedFromCrm(): void
+    {
+        $this->login($this->user(SupplyRole::Worker));
+
+        $created = $this->post('/api/supply/requests', [
+            'item' => '  Фанера 18 мм ',
+            'quantity' => '12,5',
+            'unit' => 'piece',
+            'needBy' => '2026-10-15',
+            'urgent' => true,
+            'site' => 'Об\'єкт на Заводській',
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+        self::assertSame('Фанера 18 мм', $created['item']);
+        self::assertSame(SupplyStatus::New->value, $created['status']);
+        self::assertTrue($created['urgent']);
+        self::assertNotEmpty($created['number']);
+    }
+
+    public function testCrmRequestWithoutQuantityIsRefused(): void
+    {
+        $this->loginAsManager();
+
+        $this->client->request('POST', '/api/supply/requests', server: ['CONTENT_TYPE' => 'application/json'], content: json_encode(['item' => 'Цемент', 'quantity' => '']));
+
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+    }
+
     private function get(string $url): array
     {
         $this->client->request('GET', $url);

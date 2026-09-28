@@ -130,6 +130,18 @@ export interface SupplyRequest {
     attachments?: Attachment[]
 }
 
+/** Поля форми «➕ Нова заявка». Обов'язкові — що потрібно й скільки. */
+export interface NewRequestPayload {
+    item: string
+    quantity: string
+    unit: string
+    needBy?: string
+    urgent?: boolean
+    site?: string
+    note?: string
+    departmentId?: number | null
+}
+
 export interface RequestListResponse {
     items: SupplyRequest[]
     total: number
@@ -279,6 +291,10 @@ export const api = {
     },
 
     request: (id: number) => call<SupplyRequest>(`/api/supply/requests/${id}`),
+
+    /** Нова заявка з CRM — та сама, що з бота. */
+    createRequest: (payload: NewRequestPayload) =>
+        call<SupplyRequest>('/api/supply/requests', { method: 'POST', body: JSON.stringify(payload) }),
 
     changeStatus: (id: number, to: string, comment?: string) =>
         call<SupplyRequest>(`/api/supply/requests/${id}/status`, {

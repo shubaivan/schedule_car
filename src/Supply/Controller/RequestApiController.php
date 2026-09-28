@@ -3,17 +3,21 @@
 namespace App\Supply\Controller;
 
 use App\Entity\TelegramUser;
+use App\Supply\Dto\CreateRequestInput;
 use App\Supply\Dto\PurchaseInput;
 use App\Supply\Entity\SupplyPurchase;
 use App\Supply\Entity\SupplyRequest;
 use App\Supply\Enum\PaymentType;
 use App\Supply\Enum\SupplyAccent;
 use App\Supply\Enum\SupplyStatus;
+use App\Supply\Enum\Unit;
 use App\Supply\Exception\SupplyException;
+use App\Supply\Repository\DepartmentRepository;
 use App\Supply\Repository\SupplierRepository;
 use App\Supply\Repository\SupplyRequestRepository;
 use App\Supply\Service\AddComment;
 use App\Supply\Service\ChangeStatus;
+use App\Supply\Service\CreateRequest;
 use App\Supply\Service\MarkRequest;
 use App\Supply\Service\RecordPurchase;
 use App\Supply\Service\RequestPresenter;
@@ -76,6 +80,52 @@ class RequestApiController extends AbstractController
                 array_merge($filters, ['status' => [], 'open' => null]),
             ),
         ]);
+    }
+
+    /**
+     * Нова заявка з CRM — та сама, що й із бота (CreateRequest), лише форма інша.
+     * Подати може будь-хто з доступом: заявку від себе подає й робітник.
+     */
+    #[Route('', name: 'api_supply_request_create', methods: ['POST'])]
+    public function create(Request $request, CreateRequest $createRequest, DepartmentRepository $departments): JsonResponse
+    {
+        $data = $this->payload($request);
+
+        $unit = Unit::tryFrom((string) ($data['unit'] ?? Unit::Piece->value));
+
+        if ($unit === null) {
+            return $this->error('Невідома одиниця виміру.');
+        }
+
+        $needBy = null;
+
+        if (($data['needBy'] ?? '') !== '') {
+            $needBy = DateTime::createFromFormat('!Y-m-d', (string) $data['needBy'], new DateTimeZone('Europe/Kyiv')) ?: null;
+
+            if ($needBy === null) {
+                return $this->error('Дата — у форматі РРРР-ММ-ДД.');
+            }
+        }
+
+        $department = ctype_digit((string) ($data['departmentId'] ?? '')) ? $departments->find((int) $data['departmentId']) : null;
+        $text = static fn (string $key) => trim((string) ($data[$key] ?? '')) !== '' ? trim((string) $data[$key]) : null;
+
+        try {
+            $supplyRequest = $createRequest($this->manager(), new CreateRequestInput(
+                item: (string) ($data['item'] ?? ''),
+                quantity: str_replace(',', '.', trim((string) ($data['quantity'] ?? ''))),
+                unit: $unit,
+                needBy: $needBy,
+                urgent: (bool) ($data['urgent'] ?? false),
+                site: $text('site'),
+                note: $text('note'),
+                department: $department,
+            ));
+        } catch (SupplyException $e) {
+            return $this->error($e->getMessage());
+        }
+
+        return $this->json($this->presenter->detail($supplyRequest, $this->manager()), Response::HTTP_CREATED);
     }
 
     #[Route('/{id}', name: 'api_supply_request', methods: ['GET'], requirements: ['id' => '\d+'])]
