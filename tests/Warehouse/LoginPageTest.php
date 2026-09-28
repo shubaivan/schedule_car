@@ -93,6 +93,15 @@ class LoginPageTest extends WebTestCase
         self::assertSelectorTextContains('table', $manager->displayName());
     }
 
+    /** CRM «Заявок» показує в меню перехід на склад лише тим, хто його веде. */
+    public function testCrmMenuKnowsAboutWarehouse(): void
+    {
+        $this->browser->request('GET', $this->path(self::getContainer()->get(CrmLoginLink::class)->issue($this->person())));
+        $this->browser->request('GET', '/api/me');
+
+        self::assertTrue(json_decode((string) $this->browser->getResponse()->getContent(), true)['warehouse']);
+    }
+
     public function testLogoutLandsOnLoginPage(): void
     {
         $this->browser->request('GET', $this->path(self::getContainer()->get(CrmLoginLink::class)->issue($this->person())));

@@ -50,6 +50,8 @@ onMounted(() => session.load())
                     </template>
                     <router-link :to="{ name: 'schedule' }">Розклад машин</router-link>
                     <router-link v-if="session.isDirector()" :to="{ name: 'fleet' }">Автопарк</router-link>
+                    <!-- Склад — окрема адмінка на Twig, тож звичайне посилання, а не router-link. -->
+                    <a v-if="session.user?.warehouse" href="/sklad">🏗 Склад</a>
                 </nav>
                 <span class="who">
                     {{ session.user?.name }} · {{ session.user?.roleLabel }}

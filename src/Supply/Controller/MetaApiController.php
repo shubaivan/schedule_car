@@ -8,6 +8,7 @@ use App\Supply\Enum\SupplyStatus;
 use App\Supply\Enum\Unit;
 use App\Supply\Repository\DepartmentRepository;
 use App\Supply\Service\RequestPresenter;
+use App\Warehouse\Service\WarehouseSection;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
@@ -17,12 +18,13 @@ use Symfony\Component\Routing\Attribute\Route;
 class MetaApiController extends AbstractController
 {
     #[Route('/me', name: 'api_me', methods: ['GET'])]
-    public function me(RequestPresenter $presenter): JsonResponse
+    public function me(RequestPresenter $presenter, WarehouseSection $warehouse): JsonResponse
     {
         /** @var TelegramUser $user */
         $user = $this->getUser();
 
-        return $this->json($presenter->user($user));
+        // warehouse — чи показувати в меню CRM перехід на склад (/sklad).
+        return $this->json([...$presenter->user($user), 'warehouse' => $warehouse->inMenuFor($user)]);
     }
 
     #[Route('/supply/meta', name: 'api_supply_meta', methods: ['GET'])]

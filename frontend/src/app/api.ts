@@ -12,6 +12,8 @@ export interface ApiUser {
     departmentId: number | null
     /** Прибраний зі списку: рядок лишається заради історії заявок. */
     archived?: boolean
+    /** Лише в /api/me: чи веде ця людина склад — тоді в меню є перехід на /sklad. */
+    warehouse?: boolean
 }
 
 /** Підрозділ у довіднику: разом із тим, скільки на ньому висить. */
