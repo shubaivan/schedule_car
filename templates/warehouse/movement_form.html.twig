@@ -1,6 +1,21 @@
 {% extends 'warehouse/layout.html.twig' %}
 {% set v = values ?? {} %}
 {% block title %}{{ type.label }}{% endblock %}
+{% macro siteOptions(sites, kind, selected) %}
+  {# Склади — окремо, об'єкти — під своїм клієнтом: так видно, чий об'єкт, і рух від клієнта до клієнта не плутається. #}
+  {% set groups = {} %}
+  {% for s in sites %}
+    {% if kind is null or s.kind == kind %}
+      {% set g = s.warehouse ? '🏠 Склади' : (s.client ? s.client.name : "Власні об'єкти") %}
+      {% set groups = groups|merge({(g): (groups[g] ?? [])|merge([s])}) %}
+    {% endif %}
+  {% endfor %}
+  {% for g, list in groups %}
+    <optgroup label="{{ g }}">
+      {% for s in list %}<option value="{{ s.id }}" {{ selected == s.id or selected == s.id ~ '' ? 'selected' }}>{{ s.name }}</option>{% endfor %}
+    </optgroup>
+  {% endfor %}
+{% endmacro %}
 {% block body %}
 <h1>{{ type.emoji }} {{ type.label }}</h1>
 <div class="row" style="margin-bottom:12px">
@@ -8,6 +23,9 @@
     <a class="btn {{ t == type ? 'primary' }}" href="{{ path('wh_movement_new', {type: t.value}) }}">{{ t.emoji }} {{ t.label }}</a>
   {% endfor %}
 </div>
+{% if type.value == 'transfer' %}
+  <p class="muted small">Переміщення — з місця на місце напряму, без заїзду на склад: з об'єкта на об'єкт, зокрема від одного клієнта до іншого, або між складами. Ставка оренди — вже для нового місця.</p>
+{% endif %}
 
 <form class="card" method="post" enctype="multipart/form-data">
   <input type="hidden" name="_token" value="{{ csrf_token('warehouse') }}">
@@ -21,32 +39,38 @@
     {% if type.needsFrom %}
     <div class="field"><label>Звідки *</label>
       <select name="fromId" id="fromId" required>
-        <option value="">— оберіть —</option>
-        {% set fromSel = v.fromId ?? presetFrom %}
-        {% for s in sites %}
-          {% if type.fromKind is null or s.kind == type.fromKind %}
-            <option value="{{ s.id }}" {{ fromSel == s.id or fromSel == s.id ~ '' ? 'selected' }}>{{ s.label }}</option>
-          {% endif %}
-        {% endfor %}
+        <option value=""></option>
+        {{ _self.siteOptions(sites, type.fromKind, v.fromId ?? presetFrom) }}
       </select></div>
     {% else %}
     <div class="field"><label>Від кого (постачальник)</label>
-      <input type="text" name="counterparty" value="{{ v.counterparty ?? '' }}" placeholder="ТОВ «Опалубка-Україна»"></div>
+      <select name="supplierId" id="supplier">
+        <option value=""></option>
+        {% if supplierChoice %}<option value="{{ supplierChoice.id }}" selected>{{ supplierChoice.text }}</option>{% endif %}
+      </select>
+      <span class="muted small">Спільний довідник із заявками. Немає — допишіть назву.</span></div>
     {% endif %}
 
     {% if type.needsTo %}
     <div class="field"><label>Куди *</label>
-      <select name="toId" required>
-        <option value="">— оберіть —</option>
-        {% set toSel = v.toId ?? presetTo %}
-        {% for s in sites %}
-          {% if type.toKind is null or s.kind == type.toKind %}
-            <option value="{{ s.id }}" {{ toSel == s.id or toSel == s.id ~ '' ? 'selected' }}>{{ s.label }}</option>
-          {% endif %}
-        {% endfor %}
+      {% set toSel = v.toId ?? presetTo %}
+      <select name="toId" id="toId" required>
+        <option value=""></option>
+        {% if toSel starts with constant('App\\Warehouse\\Service\\WarehouseDirectory::NEW') %}<option value="{{ toSel }}" selected>{{ toSel|slice(4) }}</option>{% endif %}
+        {{ _self.siteOptions(sites, type.toKind, toSel) }}
       </select>
-      {% if type.value in ['shipment', 'transfer'] %}<span class="muted small">Немає об'єкта? Додайте його в <a href="{{ path('wh_clients') }}">картці клієнта</a>.</span>{% endif %}
+      <span class="muted small">Немає в списку — допишіть назву, {{ type.toKind and type.toKind.value == 'warehouse' ? 'склад' : "об'єкт" }} заведеться сам.</span>
     </div>
+    {% if type.toKind is null or type.toKind.value == 'site' %}
+    <div class="field" id="toClientField" hidden><label>Чий новий об'єкт (клієнт) *</label>
+      <select name="toClientId" id="toClient">
+        <option value=""></option>
+        {% if toClientChoice and toClientChoice.id starts with 'new:' %}<option value="{{ toClientChoice.id }}" selected>{{ toClientChoice.text }}</option>{% endif %}
+        {% for c in clients %}<option value="{{ c.id }}" {{ toClientChoice and toClientChoice.id == c.id ~ '' ? 'selected' }}>{{ c.name }}</option>{% endfor %}
+      </select>
+      <span class="muted small">Без клієнта оренда на об'єкті не рахується.</span>
+    </div>
+    {% endif %}
     {% endif %}
   </div>
 
@@ -84,7 +108,9 @@
   </tr>
 </template>
 {% endblock %}
+{% block head %}{% include 'warehouse/_select2_head.html.twig' %}{% endblock %}
 {% block scripts %}
+{% include 'warehouse/_select2_js.html.twig' %}
 <script>
   const table = document.getElementById('lines');
   const tpl = document.getElementById('lineTpl');
@@ -129,7 +155,22 @@
   });
 
   document.getElementById('addLine').addEventListener('click', () => addLine());
-  if (from) from.addEventListener('change', () => table.querySelectorAll('tr').forEach(filterByFrom));
+
+  // Списки місць і постачальників — з пошуком; «куди» й постачальника можна дописати новими.
+  if (from) whPicker(from, { required: true }).on('change', () => table.querySelectorAll('tr').forEach(filterByFrom));
+  if (document.getElementById('supplier')) {
+    whPicker('#supplier', { url: {{ path('wh_suppliers')|json_encode|raw }}, placeholder: 'почніть вводити назву', create: 'у довідник постачальників' });
+  }
+  const to = document.getElementById('toId');
+  const toClientField = document.getElementById('toClientField');
+  if (to) {
+    whPicker(to, { required: true, create: {{ (type.toKind and type.toKind.value == 'warehouse' ? 'як новий склад' : "як новий об'єкт")|json_encode|raw }} })
+      .on('change', () => { if (toClientField) toClientField.hidden = !to.value.startsWith(WH_NEW); });
+    if (toClientField) {
+      toClientField.hidden = !to.value.startsWith(WH_NEW);
+      whPicker('#toClient', { placeholder: 'клієнт', create: 'як нового клієнта' });
+    }
+  }
 
   const posted = {{ {items: v.item ?? [], qty: v.quantity ?? [], rate: v.rate ?? []}|json_encode|raw }};
   if (posted.items.length) {

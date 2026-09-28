@@ -97,7 +97,7 @@ class WarehouseCards
             }
 
             if ($item->getSupplier() !== null) {
-                $lines[] = '🏭 ' . $this->e($item->getSupplier());
+                $lines[] = '🏭 ' . $this->e($item->getSupplier()->getName());
             }
         }
 
@@ -208,7 +208,7 @@ class WarehouseCards
             sprintf('%s <b>%s</b>', $movement->getType()->emoji(), $this->e($movement->getTitle())),
             $this->e(sprintf(
                 '%s → %s',
-                $movement->getFromSite()?->getLabel() ?? ($movement->getCounterparty() ?? 'ззовні'),
+                $movement->getFromSite()?->getLabel() ?? ($movement->getSupplier()?->getName() ?? 'ззовні'),
                 $movement->getToSite()?->getLabel() ?? 'списано',
             )),
             '',

@@ -28,10 +28,11 @@ class WhItemRepository extends ServiceEntityRepository
         $qb = $this->createQueryBuilder('i')
             ->leftJoin('i.currentSite', 's')->addSelect('s')
             ->innerJoin('i.category', 'c')->addSelect('c')
+            ->leftJoin('i.supplier', 'sup')->addSelect('sup')
             ->orderBy('i.inventoryNumber', 'ASC');
 
         if ($query !== '') {
-            $qb->andWhere('LOWER(i.name) LIKE :q OR LOWER(i.inventoryNumber) LIKE :q OR LOWER(i.serialNumber) LIKE :q OR LOWER(i.supplier) LIKE :q')
+            $qb->andWhere('LOWER(i.name) LIKE :q OR LOWER(i.inventoryNumber) LIKE :q OR LOWER(i.serialNumber) LIKE :q OR LOWER(sup.name) LIKE :q')
                 ->setParameter('q', '%' . mb_strtolower($query) . '%');
         }
 

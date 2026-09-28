@@ -2,6 +2,7 @@
 
 namespace App\Warehouse\Service;
 
+use App\Supply\Entity\Supplier;
 use App\Entity\TelegramUser;
 use App\Warehouse\Entity\WhItem;
 use App\Warehouse\Entity\WhMovement;
@@ -41,7 +42,7 @@ class RecordMovement
         array $lines,
         TelegramUser $by,
         ?string $documentNumber = null,
-        ?string $counterparty = null,
+        ?Supplier $supplier = null,
         ?string $note = null,
     ): WhMovement {
         if (! WarehouseSection::canManage($by)) {
@@ -60,7 +61,7 @@ class RecordMovement
             ->setFromSite($from)
             ->setToSite($to)
             ->setDocumentNumber($this->clean($documentNumber))
-            ->setCounterparty($this->clean($counterparty))
+            ->setSupplier($supplier)
             ->setNote($this->clean($note))
             ->setCreatedBy($by);
 

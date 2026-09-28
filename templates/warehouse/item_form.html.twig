@@ -3,7 +3,7 @@
 {% block title %}{{ item.id ? 'Редагувати ' ~ item.inventoryNumber : 'Нова позиція' }}{% endblock %}
 {% block body %}
 <h1>{{ item.id ? 'Редагувати ' ~ item.label : 'Нова позиція' }}</h1>
-<form class="card" method="post">
+<form class="card" method="post" enctype="multipart/form-data">
   <input type="hidden" name="_token" value="{{ csrf_token('warehouse') }}">
   <div class="fields">
     <div class="field wide"><label>Назва *</label>
@@ -29,7 +29,11 @@
     <div class="field"><label>Заводський номер</label>
       <input type="text" name="serialNumber" value="{{ v.serialNumber ?? item.serialNumber }}"></div>
     <div class="field"><label>Постачальник / виробник</label>
-      <input type="text" name="supplier" value="{{ v.supplier ?? item.supplier }}"></div>
+      <select name="supplierId" id="supplier">
+        <option value=""></option>
+        {% if supplierChoice %}<option value="{{ supplierChoice.id }}" selected>{{ supplierChoice.text }}</option>{% endif %}
+      </select>
+      <span class="muted small">Спільний довідник із заявками. Немає в списку — допишіть назву.</span></div>
     <div class="field"><label>Ціна за одиницю, грн</label>
       <input type="text" inputmode="decimal" name="purchasePrice" value="{{ v.purchasePrice ?? item.purchasePrice }}"></div>
     <div class="field"><label>Дата купівлі</label>
@@ -43,6 +47,10 @@
         {% for s in states %}<option value="{{ s.value }}" {{ st == s.value ? 'selected' }}>{{ s.label }}</option>{% endfor %}
       </select></div>
     {% endif %}
+    <div class="field wide"><label>Фото{% if item.id %} — додати ще{% endif %}</label>
+      <input type="file" name="photos[]" id="photos" multiple accept="image/jpeg,image/png,image/webp,image/*">
+      <span class="muted small">Щоб на картці й у списку було видно, що це за річ. Великі фото стискаються перед відправкою.{% if item.id %} Наявні — на картці позиції.{% endif %}</span>
+      <div id="photoPreview" class="thumbs"></div></div>
     <div class="field wide"><label>Опис</label>
       <textarea name="description">{{ v.description ?? item.description }}</textarea></div>
   </div>
@@ -68,8 +76,65 @@
   </div>
 </form>
 {% endblock %}
+{% block head %}{% include 'warehouse/_select2_head.html.twig' %}{% endblock %}
+{% block style %}
+  .thumbs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+  .thumbs img { width: 72px; height: 72px; object-fit: cover; border-radius: 6px; border: 1px solid var(--rule-soft); }
+{% endblock %}
 {% block scripts %}
+{% include 'warehouse/_select2_js.html.twig' %}
 <script>
+  whPicker('#supplier', {
+    url: {{ path('wh_suppliers')|json_encode|raw }},
+    placeholder: 'почніть вводити назву',
+    create: 'у довідник постачальників',
+  });
+
+  // Фото: стискаємо в браузері до 1600 px (JPEG) — з телефона приходить 3–6 МБ,
+  // а на картці й у списку потрібна картинка, не оригінал для друку.
+  const photos = document.getElementById('photos');
+  const preview = document.getElementById('photoPreview');
+  const MAX_SIDE = 1600;
+
+  function shrink(file) {
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return Promise.resolve(file);
+    return new Promise(resolve => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const scale = Math.min(1, MAX_SIDE / Math.max(img.width, img.height));
+        if (scale === 1 && file.size < 1024 * 1024) return resolve(file);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(blob => resolve(blob
+          ? new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' })
+          : file), 'image/jpeg', 0.85);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+      img.src = url;
+    });
+  }
+
+  photos.addEventListener('change', async () => {
+    const files = [...photos.files];
+    const ready = await Promise.all(files.map(shrink));
+    try {
+      const dt = new DataTransfer();
+      ready.forEach(f => dt.items.add(f));
+      photos.files = dt.files;
+    } catch (e) { /* старий браузер — підуть оригінали, сервер прийме до 20 МБ */ }
+    preview.innerHTML = '';
+    ready.forEach(f => {
+      if (!f.type.startsWith('image/')) return;
+      const img = document.createElement('img');
+      img.src = URL.createObjectURL(f);
+      preview.appendChild(img);
+    });
+  });
+
   const hints = {{ categoryHints|json_encode|raw }};
   const category = document.getElementById('category');
   const attrs = document.getElementById('attrs');

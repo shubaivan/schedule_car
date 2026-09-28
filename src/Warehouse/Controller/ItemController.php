@@ -2,6 +2,8 @@
 
 namespace App\Warehouse\Controller;
 
+use App\Supply\Repository\SupplierRepository;
+use App\Warehouse\Entity\WhDocument;
 use App\Warehouse\Entity\WhItem;
 use App\Warehouse\Enum\ActivityAction;
 use App\Warehouse\Enum\CategoryScope;
@@ -11,6 +13,7 @@ use App\Warehouse\Enum\Tracking;
 use App\Warehouse\Exception\WarehouseException;
 use App\Warehouse\Repository\WhActivityRepository;
 use App\Warehouse\Repository\WhCategoryRepository;
+use App\Warehouse\Repository\WhDocumentRepository;
 use App\Warehouse\Repository\WhItemRepository;
 use App\Warehouse\Repository\WhMovementRepository;
 use App\Warehouse\Repository\WhSiteRepository;
@@ -18,6 +21,8 @@ use App\Warehouse\Service\DocumentStore;
 use App\Warehouse\Service\WarehouseDirectory;
 use App\Warehouse\Service\WarehouseLinks;
 use App\Warehouse\Service\WarehouseStock;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -36,6 +41,8 @@ class ItemController extends AbstractWarehouseController
         private DocumentStore $documents,
         private WarehouseLinks $links,
         private WhActivityRepository $journal,
+        private WhDocumentRepository $documentRows,
+        private SupplierRepository $suppliers,
     ) {
     }
 
@@ -52,6 +59,7 @@ class ItemController extends AbstractWarehouseController
         return $this->render('warehouse/items.html.twig', [
             'items' => $items,
             'totals' => array_map(fn (WhItem $item) => $item->isUnit() ? null : $this->stock->total($item), $items),
+            'covers' => $this->documentRows->coverPhotos($items),
             'sites' => $this->sites->listed(false),
             'categories' => $this->categories->of(CategoryScope::Item, false),
             'filters' => ['q' => $query, 'category' => $category?->getId(), 'place' => $place, 'off' => $request->query->getBoolean('off')],
@@ -74,18 +82,34 @@ class ItemController extends AbstractWarehouseController
     public function show(Request $request, WhItem $item): Response
     {
         $this->viewed($request, $item);
+        $documents = $this->documents->of($item);
 
         return $this->render('warehouse/item.html.twig', [
             'item' => $item,
             'places' => $this->stock->placesOf($item),
             'total' => $this->stock->total($item),
             'history' => $this->movements->historyOf($item),
-            'documents' => $this->documents->of($item),
+            // Фото позиції — окремою галереєю вгорі, решта — таблицею документів.
+            'photos' => array_values(array_filter($documents, fn (WhDocument $d) => $d->isViewablePhoto())),
+            'documents' => array_values(array_filter($documents, fn (WhDocument $d) => ! $d->isViewablePhoto())),
             'documentTypes' => DocumentType::cases(),
             'journal' => $this->journal->of('item', (int) $item->getId()),
             'qrSvg' => $this->links->qrSvg($item),
             'shareUrl' => $this->links->url($item),
         ]);
+    }
+
+    /** Підказка для поля «Постачальник / виробник»: активні зі спільного довідника. */
+    #[Route('/suppliers', name: 'wh_suppliers', methods: ['GET'])]
+    public function suppliers(Request $request): JsonResponse
+    {
+        $results = [];
+
+        foreach ($this->suppliers->search((string) $request->query->get('q', ''), 30) as $supplier) {
+            $results[] = ['id' => $supplier->getId(), 'text' => $supplier->getName(), 'edrpou' => $supplier->getEdrpou()];
+        }
+
+        return $this->json(['results' => $results]);
     }
 
     #[Route('/items/{id}/qr.svg', name: 'wh_item_qr', methods: ['GET'], requirements: ['id' => '\d+'])]
@@ -141,6 +165,7 @@ class ItemController extends AbstractWarehouseController
                 $this->directory->saveItem($item, $values, $this->user());
                 $this->log($isNew ? ActivityAction::Create : ActivityAction::Update, $item);
                 $this->addFlash('ok', sprintf('Збережено: %s.', $item->getLabel()));
+                $this->attachPhotos($request, $item);
 
                 return $this->redirectToRoute('wh_item', ['id' => $item->getId()]);
             } catch (WarehouseException $e) {
@@ -152,6 +177,7 @@ class ItemController extends AbstractWarehouseController
             'item' => $item,
             'values' => $values,
             'error' => $error,
+            'supplierChoice' => $this->supplierChoice($item, $values),
             'categories' => $categories = $this->categories->of(CategoryScope::Item),
             'trackings' => Tracking::cases(),
             'states' => [ItemState::Active, ItemState::Repair],
@@ -162,5 +188,68 @@ class ItemController extends AbstractWarehouseController
                 'attributes' => $c->getAttributes(),
             ], $categories),
         ]);
+    }
+
+    /**
+     * Фото з форми. Позиція на цей момент уже збережена, тож зіпсоване фото
+     * її не відкочує — лише каже, яке не лягло, і його можна додати з картки.
+     */
+    private function attachPhotos(Request $request, WhItem $item): void
+    {
+        $saved = 0;
+
+        foreach ($request->files->all('photos') as $file) {
+            if (! $file instanceof UploadedFile) {
+                continue;
+            }
+
+            try {
+                if (! $file->isValid()) {
+                    throw new WarehouseException('файл не долетів: ' . $file->getErrorMessage());
+                }
+
+                $document = $this->documents->attach(
+                    $item,
+                    $this->user(),
+                    (string) file_get_contents($file->getPathname()),
+                    (string) ($file->getClientOriginalName() ?: $file->getFilename()),
+                    (string) ($file->getMimeType() ?: $file->getClientMimeType()),
+                    DocumentType::Photo,
+                );
+                $this->log(ActivityAction::DocumentAdd, $item, sprintf('%s: %s', DocumentType::Photo->label(), $document->getOriginalName()));
+                ++$saved;
+            } catch (WarehouseException $e) {
+                $this->addFlash('error', sprintf('Фото «%s» не додано: %s', $file->getClientOriginalName(), $e->getMessage()));
+            }
+        }
+
+        if ($saved > 0) {
+            $this->addFlash('ok', sprintf('Додано фото: %d.', $saved));
+        }
+    }
+
+    /**
+     * Що стоїть у полі постачальника при показі форми: збережений, або те,
+     * що обрали/дописали перед помилкою — щоб не набирати вдруге.
+     *
+     * @return array{id: string, text: string}|null
+     */
+    private function supplierChoice(WhItem $item, ?array $values): ?array
+    {
+        if ($values === null) {
+            $supplier = $item->getSupplier();
+
+            return $supplier ? ['id' => (string) $supplier->getId(), 'text' => $supplier->getName()] : null;
+        }
+
+        $value = trim((string) ($values['supplierId'] ?? ''));
+
+        if (str_starts_with($value, WarehouseDirectory::NEW)) {
+            return ['id' => $value, 'text' => substr($value, strlen(WarehouseDirectory::NEW))];
+        }
+
+        $supplier = ctype_digit($value) ? $this->suppliers->find((int) $value) : null;
+
+        return $supplier ? ['id' => $value, 'text' => $supplier->getName()] : null;
     }
 }

@@ -75,6 +75,15 @@ class WhDocument
     #[ORM\Column(name: 'drive_url', type: 'string', length: 512, nullable: true)]
     private ?string $driveUrl = null;
 
+    /** Що браузер покаже картинкою. HEIC — ні (крім Safari), тому він лишається файлом. */
+    public const VIEWABLE_IMAGES = ['image/jpeg', 'image/png', 'image/webp'];
+
+    /** Фото, яке можна показати в галереї картки, а не лише завантажити. */
+    public function isViewablePhoto(): bool
+    {
+        return $this->type === DocumentType::Photo && in_array($this->mime, self::VIEWABLE_IMAGES, true);
+    }
+
     public function getId(): ?int
     {
         return $this->id;

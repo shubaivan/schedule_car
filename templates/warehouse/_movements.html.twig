@@ -7,7 +7,7 @@
         <td data-label="Дата" class="mono">{{ m.occurredAt|date('d.m.Y') }}</td>
         <td data-label="Рух"><a href="{{ path('wh_movement', {id: m.id}) }}">{{ m.type.emoji }} {{ m.type.label }}{% if m.documentNumber %} №{{ m.documentNumber }}{% endif %}</a></td>
         <td data-label="Звідки → куди" class="small">
-          {{ m.fromSite ? m.fromSite.label : (m.counterparty ?: 'ззовні') }}
+          {{ m.fromSite ? m.fromSite.label : (m.supplier ? m.supplier.name : 'ззовні') }}
           → {{ m.toSite ? m.toSite.label : 'списано' }}
         </td>
         <td data-label="Кількість" class="num">

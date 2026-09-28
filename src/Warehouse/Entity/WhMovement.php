@@ -4,6 +4,7 @@ namespace App\Warehouse\Entity;
 
 use App\Entity\EntityTrait\CreatedUpdatedAtAwareTrait;
 use App\Entity\TelegramUser;
+use App\Supply\Entity\Supplier;
 use App\Warehouse\Enum\MovementType;
 use App\Warehouse\Repository\WhMovementRepository;
 use DateTime;
@@ -52,9 +53,10 @@ class WhMovement
     #[ORM\Column(name: 'document_number', type: 'string', length: 64, nullable: true)]
     private ?string $documentNumber = null;
 
-    /** Для надходження — від кого прийшло. */
-    #[ORM\Column(type: 'string', length: 255, nullable: true)]
-    private ?string $counterparty = null;
+    /** Для надходження — від кого прийшло, зі спільного довідника постачальників. */
+    #[ORM\ManyToOne(targetEntity: Supplier::class)]
+    #[ORM\JoinColumn(name: 'supplier_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+    private ?Supplier $supplier = null;
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $note = null;
@@ -157,14 +159,14 @@ class WhMovement
         return $this;
     }
 
-    public function getCounterparty(): ?string
+    public function getSupplier(): ?Supplier
     {
-        return $this->counterparty;
+        return $this->supplier;
     }
 
-    public function setCounterparty(?string $counterparty): self
+    public function setSupplier(?Supplier $supplier): self
     {
-        $this->counterparty = $counterparty;
+        $this->supplier = $supplier;
 
         return $this;
     }

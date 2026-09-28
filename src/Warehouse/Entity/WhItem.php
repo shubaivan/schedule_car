@@ -4,6 +4,7 @@ namespace App\Warehouse\Entity;
 
 use App\Entity\EntityTrait\CreatedUpdatedAtAwareTrait;
 use App\Entity\TelegramUser;
+use App\Supply\Entity\Supplier;
 use App\Warehouse\Enum\ItemState;
 use App\Warehouse\Enum\Tracking;
 use App\Warehouse\Repository\WhItemRepository;
@@ -67,9 +68,14 @@ class WhItem
     #[ORM\Column(name: 'serial_number', type: 'string', length: 64, nullable: true)]
     private ?string $serialNumber = null;
 
-    /** Звідки прийшло: постачальник чи виробник, як у накладній. */
-    #[ORM\Column(type: 'string', length: 255, nullable: true)]
-    private ?string $supplier = null;
+    /**
+     * Звідки прийшло — з того самого довідника постачальників, що й заявки.
+     * Рядком тут уже було: «ФОП Петренко» і «фоп петренко» ставали двома
+     * постачальниками, і спитати «що ми брали в Петренка» було неможливо.
+     */
+    #[ORM\ManyToOne(targetEntity: Supplier::class)]
+    #[ORM\JoinColumn(name: 'supplier_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+    private ?Supplier $supplier = null;
 
     /** Ціна однієї одиниці при купівлі, грн. */
     #[ORM\Column(name: 'purchase_price', type: Types::DECIMAL, precision: 12, scale: 2, nullable: true)]
@@ -206,12 +212,12 @@ class WhItem
         return $this;
     }
 
-    public function getSupplier(): ?string
+    public function getSupplier(): ?Supplier
     {
         return $this->supplier;
     }
 
-    public function setSupplier(?string $supplier): self
+    public function setSupplier(?Supplier $supplier): self
     {
         $this->supplier = $supplier;
 

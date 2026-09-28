@@ -5,6 +5,7 @@ namespace App\Tests\Warehouse;
 use App\Entity\TelegramUser;
 use App\Service\CrmLoginLink;
 use App\Supply\Enum\SupplyRole;
+use App\Supply\Entity\Supplier;
 use App\Warehouse\Entity\WhActivity;
 use App\Warehouse\Entity\WhClient;
 use App\Warehouse\Entity\WhDocument;
@@ -12,6 +13,7 @@ use App\Warehouse\Entity\WhItem;
 use App\Warehouse\Entity\WhMovement;
 use App\Warehouse\Enum\ActivityAction;
 use App\Warehouse\Enum\Tracking;
+use App\Warehouse\Service\WarehouseDirectory;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -115,6 +117,125 @@ class WarehouseAdminTest extends WebTestCase
         self::assertSame('850000.50', $item->getPurchasePrice());
         self::assertSame(['Держномер' => 'СА 1234 ВВ', 'Моточаси' => '1200'], $item->getAttributes());
         self::assertSame(ActivityAction::Create, $this->lastActivity()->getAction());
+    }
+
+    public function testSupplierIsPickedFromTheSharedDirectoryOrAddedOnTheFly(): void
+    {
+        $this->login($this->person());
+        $category = $this->category('Опалубка', 'ОП');
+
+        $this->browser->request('GET', '/sklad/items/new');
+        $token = $this->token();
+        $this->browser->request('POST', '/sklad/items/new', [
+            '_token' => $token,
+            'name' => 'Щит 1200×600 А',
+            'categoryId' => $category->getId(),
+            'tracking' => 'unit',
+            'supplierId' => WarehouseDirectory::NEW . 'ФОП Петренко-Тест О.П.',
+        ]);
+        self::assertResponseRedirects();
+
+        $first = $this->em->getRepository(WhItem::class)->findOneBy(['name' => 'Щит 1200×600 А'])->getSupplier();
+        self::assertNotNull($first, 'дописаний постачальник заведений у довідник');
+
+        // Те саме, набране інакше, — не другий постачальник, а той самий.
+        $this->browser->request('POST', '/sklad/items/new', [
+            '_token' => $token,
+            'name' => 'Щит 1200×600 Б',
+            'categoryId' => $category->getId(),
+            'tracking' => 'unit',
+            'supplierId' => WarehouseDirectory::NEW . 'фоп  петренко-тест оп',
+        ]);
+        self::assertResponseRedirects();
+        self::assertSame($first->getId(), $this->em->getRepository(WhItem::class)->findOneBy(['name' => 'Щит 1200×600 Б'])->getSupplier()->getId());
+        self::assertSame(1, $this->em->getRepository(Supplier::class)->count(['nameNormalized' => Supplier::normalize('ФОП Петренко-Тест О.П.')]));
+
+        // І він є в підказці select2 — разом із постачальниками заявок.
+        $this->browser->request('GET', '/sklad/suppliers?q=петренко-тест');
+        self::assertResponseIsSuccessful();
+        $results = json_decode((string) $this->browser->getResponse()->getContent(), true)['results'];
+        self::assertSame([$first->getId()], array_column($results, 'id'));
+
+        $this->browser->request('GET', '/sklad?q=петренко-тест');
+        self::assertSelectorTextContains('table', 'Щит 1200×600 А');
+    }
+
+    public function testPhotosFromTheFormShowOnTheCardAndStayOnTheServer(): void
+    {
+        $this->login($this->person());
+        $category = $this->category('Риштування', 'РШ');
+
+        $png = tempnam(sys_get_temp_dir(), 'wh') . '.png';
+        file_put_contents($png, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='));
+
+        $this->browser->request('GET', '/sklad/items/new');
+        $token = $this->token();
+        $this->browser->request(
+            'POST',
+            '/sklad/items/new',
+            ['_token' => $token, 'name' => 'Риштування рамне', 'categoryId' => $category->getId(), 'tracking' => 'unit'],
+            ['photos' => [new UploadedFile($png, 'риштування.png', 'image/png', null, true)]],
+        );
+        self::assertResponseRedirects();
+
+        $item = $this->em->getRepository(WhItem::class)->findOneBy(['name' => 'Риштування рамне']);
+        $photo = $this->em->getRepository(WhDocument::class)->findOneBy(['item' => $item]);
+        self::assertNotNull($photo);
+        self::assertTrue($photo->isViewablePhoto());
+        self::assertNotContains($photo, $this->em->getRepository(WhDocument::class)->findNotMirrored(500), 'фото позиції не їде на Google Диск');
+
+        $this->browser->request('GET', '/sklad/items/' . $item->getId());
+        self::assertCount(1, $this->browser->getCrawler()->filter('.gallery img'));
+
+        $this->browser->request('GET', '/sklad?q=риштування рамне');
+        self::assertCount(1, $this->browser->getCrawler()->filter('img.cover'));
+    }
+
+    public function testTransferGoesFromOneClientsSiteStraightToAnotherNewOne(): void
+    {
+        $this->login($this->person());
+        $warehouse = $this->warehouse();
+        $from = $this->site($this->client('ТОВ Альфа-Тест'), 'ЖК Альфа-Тест');
+        $item = $this->item(Tracking::Unit, 'Щит переїзний', '40');
+
+        $this->browser->request('GET', '/sklad/movements/new?type=receipt');
+        $token = $this->token();
+        $this->browser->request('POST', '/sklad/movements/new?type=receipt', [
+            '_token' => $token, 'occurredAt' => '2026-09-01', 'toId' => $warehouse->getId(),
+            'item' => [$item->getId()], 'quantity' => ['1'],
+        ]);
+        $this->browser->request('POST', '/sklad/movements/new?type=shipment', [
+            '_token' => $token, 'occurredAt' => '2026-09-02', 'fromId' => $warehouse->getId(), 'toId' => $from->getId(),
+            'item' => [$item->getId()], 'quantity' => ['1'],
+        ]);
+        self::assertResponseRedirects();
+
+        // Новий об'єкт без клієнта не заводимо: оренда на ньому не рахувалась би.
+        $this->browser->request('POST', '/sklad/movements/new?type=transfer', [
+            '_token' => $token, 'occurredAt' => '2026-09-10', 'fromId' => $from->getId(),
+            'toId' => WarehouseDirectory::NEW . 'ЖК Бета-Тест',
+            'item' => [$item->getId()], 'quantity' => ['1'],
+        ]);
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('.flash.error', 'чий він');
+
+        $this->browser->request('POST', '/sklad/movements/new?type=transfer', [
+            '_token' => $token, 'occurredAt' => '2026-09-10', 'documentNumber' => 'П-7', 'fromId' => $from->getId(),
+            'toId' => WarehouseDirectory::NEW . 'ЖК Бета-Тест',
+            'toClientId' => WarehouseDirectory::NEW . 'ТОВ Бета-Тест',
+            'item' => [$item->getId()], 'quantity' => ['1'], 'rate' => ['55'],
+        ]);
+        self::assertResponseRedirects();
+
+        $movement = $this->em->getRepository(WhMovement::class)->findOneBy(['documentNumber' => 'П-7']);
+        self::assertSame('ТОВ Бета-Тест', $movement->getToSite()->getClient()->getName());
+        self::assertSame('55.00', $movement->getLines()->first()->getRentalRate());
+        $item = $this->em->find(WhItem::class, $item->getId());
+        self::assertSame($movement->getToSite()->getId(), $item->getCurrentSite()->getId(), 'щит на новому об\'єкті, повз склад');
+
+        $this->browser->request('GET', '/sklad/movements/' . $movement->getId());
+        self::assertSelectorTextContains('body', 'Від клієнта');
+        self::assertSelectorTextContains('body', 'ТОВ Альфа-Тест');
     }
 
     public function testPostWithoutCsrfIsRefused(): void

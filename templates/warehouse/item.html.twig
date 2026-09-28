@@ -1,5 +1,13 @@
 {% extends 'warehouse/layout.html.twig' %}
 {% block title %}{{ item.inventoryNumber }} {{ item.name }}{% endblock %}
+{% block style %}
+  .gallery { display: flex; flex-wrap: wrap; gap: 10px; }
+  .gallery figure { position: relative; margin: 0; }
+  .gallery img { display: block; width: 180px; height: 180px; object-fit: cover; border-radius: 8px; border: 1px solid var(--rule-soft); background: var(--surface-2); }
+  .gallery form { position: absolute; top: 6px; right: 6px; }
+  .gallery button { padding: 2px 8px; min-height: 0; background: var(--surface); }
+  @media (max-width: 640px) { .gallery img { width: calc(50vw - 40px); height: calc(50vw - 40px); } }
+{% endblock %}
 {% block body %}
 <div class="head">
   <h1>{{ item.category.emoji }} {{ item.name }} <span class="muted mono">{{ item.inventoryNumber }}</span></h1>
@@ -23,6 +31,31 @@
 </div>
 {% include 'warehouse/_share.html.twig' %}
 
+<div class="card">
+  <h2>📷 Фото</h2>
+  {% if photos %}
+    <div class="gallery">
+      {% for p in photos %}
+        <figure>
+          <a href="{{ path('wh_document', {id: p.id}) }}" target="_blank"><img src="{{ path('wh_document', {id: p.id}) }}" alt="{{ item.name }}" loading="lazy"></a>
+          <form class="inline" method="post" action="{{ path('wh_document_delete', {id: p.id}) }}" onsubmit="return confirm('Прибрати це фото?')">
+            <input type="hidden" name="_token" value="{{ csrf_token('warehouse') }}">
+            <button class="danger" type="submit" title="Прибрати фото">✕</button>
+          </form>
+        </figure>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="muted">Фото ще немає — додайте, щоб річ впізнавали без опису.</p>
+  {% endif %}
+  <form method="post" enctype="multipart/form-data" action="{{ path('wh_document_upload', {owner: 'item', id: item.id}) }}" class="row" style="margin-top:10px">
+    <input type="hidden" name="_token" value="{{ csrf_token('warehouse') }}">
+    <input type="hidden" name="type" value="photo">
+    <input type="file" name="files[]" multiple required accept="image/jpeg,image/png,image/webp,image/*">
+    <button type="submit">Додати фото</button>
+  </form>
+</div>
+
 <div class="grid">
   <div class="card">
     <h2>Картка</h2>
@@ -32,7 +65,7 @@
       <dt>Стан</dt><dd>{% if item.state.value == 'active' %}{{ item.state.label }}{% else %}<span class="pill warn">{{ item.state.label }}</span>{% endif %}</dd>
       {% if item.serialNumber %}<dt>Зав. номер</dt><dd class="mono">{{ item.serialNumber }}</dd>{% endif %}
       {% for name, value in item.attributes %}<dt>{{ name }}</dt><dd>{{ value }}</dd>{% endfor %}
-      {% if item.supplier %}<dt>Постачальник</dt><dd>{{ item.supplier }}</dd>{% endif %}
+      {% if item.supplier %}<dt>Постачальник</dt><dd>{{ item.supplier.name }}</dd>{% endif %}
       {% if item.purchasePrice is not null %}<dt>Ціна</dt><dd>{{ item.purchasePrice|number_format(2, ',', ' ') }} грн{% if item.tracking.value == 'bulk' %} / {{ item.unit }}{% endif %}</dd>{% endif %}
       {% if item.purchasedAt %}<dt>Куплено</dt><dd>{{ item.purchasedAt|date('d.m.Y') }}</dd>{% endif %}
       {% if item.rentalRate is not null %}<dt>Оренда</dt><dd>{{ item.rentalRate|number_format(2, ',', ' ') }} грн / доба</dd>{% endif %}

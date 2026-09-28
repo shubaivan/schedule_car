@@ -6,9 +6,15 @@
 <div class="grid">
   <div class="card">
     <dl class="facts">
-      <dt>Звідки</dt><dd>{% if movement.fromSite %}<a href="{{ path('wh_site', {id: movement.fromSite.id}) }}">{{ movement.fromSite.label }}</a>{% else %}{{ movement.counterparty ?: 'ззовні' }}{% endif %}</dd>
+      <dt>Звідки</dt><dd>{% if movement.fromSite %}<a href="{{ path('wh_site', {id: movement.fromSite.id}) }}">{{ movement.fromSite.label }}</a>{% else %}{{ movement.supplier ? movement.supplier.name : 'ззовні' }}{% endif %}</dd>
       <dt>Куди</dt><dd>{% if movement.toSite %}<a href="{{ path('wh_site', {id: movement.toSite.id}) }}">{{ movement.toSite.label }}</a>{% else %}списано{% endif %}</dd>
-      {% if movement.client %}<dt>Клієнт</dt><dd><a href="{{ path('wh_client', {id: movement.client.id}) }}">{{ movement.client.name }}</a></dd>{% endif %}
+      {% set fromClient = movement.fromSite ? movement.fromSite.client : null %}
+      {% set toClient = movement.toSite ? movement.toSite.client : null %}
+      {% if fromClient and toClient and fromClient.id != toClient.id %}
+        {# Об'єкт одного клієнта → об'єкт іншого, повз склад: обидва мають бачити цей рух. #}
+        <dt>Від клієнта</dt><dd><a href="{{ path('wh_client', {id: fromClient.id}) }}">{{ fromClient.name }}</a></dd>
+        <dt>Клієнту</dt><dd><a href="{{ path('wh_client', {id: toClient.id}) }}">{{ toClient.name }}</a></dd>
+      {% elseif movement.client %}<dt>Клієнт</dt><dd><a href="{{ path('wh_client', {id: movement.client.id}) }}">{{ movement.client.name }}</a></dd>{% endif %}
       <dt>Записав</dt><dd>{{ movement.createdBy ? movement.createdBy.displayName : '—' }} · {{ movement.createdAt|date('d.m.Y H:i') }}</dd>
     </dl>
     {% if movement.note %}<p style="white-space:pre-line">{{ movement.note }}</p>{% endif %}
