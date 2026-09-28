@@ -1,16 +1,16 @@
 {# Що зараз стоїть на місці. Для оренди — з якої дати, за якою ставкою і скільки набігло. #}
 {% if contents %}
-  <div class="table-wrap"><table>
-    <tr><th>Позиція</th><th class="num">К-сть</th><th>З</th><th class="num">Ставка/доба</th><th class="num">Діб</th><th class="num">Набігло</th></tr>
+  <div class="table-wrap"><table class="stack">
+    <tr class="th"><th>Позиція</th><th class="num">К-сть</th><th>З</th><th class="num">Ставка/доба</th><th class="num">Діб</th><th class="num">Набігло</th></tr>
     {% for row in contents %}
       {% set days = row.since ? date(row.since).diff(date('today')).days : null %}
       <tr>
-        <td><a href="{{ path('wh_item', {id: row.item.id}) }}">{{ row.item.label }}</a></td>
-        <td class="num">{{ row.quantity }} {{ row.item.unit }}</td>
-        <td class="small">{{ row.since ? row.since|date('d.m.Y') : '—' }}</td>
-        <td class="num">{{ row.rate is not null ? row.rate|number_format(2, ',', ' ') : '—' }}</td>
-        <td class="num">{{ days ?? '—' }}</td>
-        <td class="num">{{ row.rate is not null and days is not null ? (row.rate * row.quantity * days)|number_format(2, ',', ' ') ~ ' грн' : '—' }}</td>
+        <td data-label="Позиція"><a href="{{ path('wh_item', {id: row.item.id}) }}">{{ row.item.label }}</a></td>
+        <td data-label="К-сть" class="num">{{ row.quantity }} {{ row.item.unit }}</td>
+        <td data-label="З" class="small">{{ row.since ? row.since|date('d.m.Y') : '—' }}</td>
+        <td data-label="Ставка/доба" class="num">{{ row.rate is not null ? row.rate|number_format(2, ',', ' ') : '—' }}</td>
+        <td data-label="Діб" class="num">{{ days ?? '—' }}</td>
+        <td data-label="Набігло" class="num">{{ row.rate is not null and days is not null ? (row.rate * row.quantity * days)|number_format(2, ',', ' ') ~ ' грн' : '—' }}</td>
       </tr>
     {% endfor %}
   </table></div>

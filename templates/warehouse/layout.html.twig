@@ -65,7 +65,48 @@
   .qr { width: 180px; height: 180px; background: #fff; padding: 8px; border-radius: 6px; }
   .qr svg { width: 100%; height: 100%; display: block; }
   .head { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-  @media (max-width: 640px) { .who { margin-left: 0; width: 100%; } th, td { padding: 6px 4px; } }
+  /*
+   * Телефон. Лена й менеджери відкривають склад з об'єкта частіше, ніж з-за столу,
+   * тож правила ті самі, що в панелі Сіті Парку:
+   *  - поля 16px — менше змушує iOS збільшувати сторінку при фокусі;
+   *  - кнопки й поля під палець (44px);
+   *  - меню — один рядок із горизонтальним гортанням, а не три рядки над контентом;
+   *  - таблиця стає стосом карток: колонка, що важлива, не тікає за правий край.
+   *    Підпис поля береться з data-label клітинки.
+   */
+  @media (max-width: 640px) {
+    body { font-size: 16px; }
+    main { padding: 12px; }
+    h1 { font-size: 20px; }
+    .card { padding: 12px; border-radius: 10px; }
+    .topbar { flex-wrap: nowrap; overflow-x: auto; gap: 14px; padding: 8px 12px; -webkit-overflow-scrolling: touch; }
+    .topbar nav { flex-wrap: nowrap; }
+    .topbar nav a, .brand { white-space: nowrap; padding: 8px 0; }
+    .who { margin-left: 0; white-space: nowrap; }
+    input, select, textarea, button, .btn { font-size: 16px; min-height: 44px; }
+    input[type=checkbox] { min-height: 0; width: 22px; height: 22px; }
+    .head .row, .row { width: 100%; }
+    .head .row .btn, .row > .btn, .row > button { flex: 1 1 auto; text-align: center; }
+    .field { width: 100%; }
+    .row .field input, .row .field select { width: 100%; }
+    .fields { grid-template-columns: 1fr; }
+    .grid { grid-template-columns: 1fr; }
+    dl.facts { grid-template-columns: 1fr; gap: 0; }
+    dl.facts dt { font-size: 12px; margin-top: 8px; }
+
+    table.stack, table.stack tbody, table.stack tr, table.stack td { display: block; width: 100%; }
+    table.stack tr.th { display: none; }
+    table.stack tr { background: var(--surface); border: 1px solid var(--rule-soft); border-radius: 8px; margin-bottom: 8px; padding: 6px 12px; }
+    table.stack tr:hover td { background: transparent; }
+    table.stack td { border: 0; padding: 5px 0; display: flex; justify-content: space-between; align-items: baseline; gap: 14px; text-align: right; white-space: normal !important; }
+    table.stack td::before { content: attr(data-label); color: var(--muted); font-size: 13px; text-align: left; flex: none; max-width: 45%; }
+    table.stack td[data-label=""]::before, table.stack td:not([data-label])::before { content: none; }
+    table.stack td:not([data-label]), table.stack td[data-label=""] { justify-content: flex-start; text-align: left; }
+    table.stack td:first-child { font-weight: 600; }
+    table.stack td > select, table.stack td > input:not([type=checkbox]) { flex: 1; min-width: 0; width: auto !important; }
+    .table-wrap { overflow: visible; }
+    .qr { width: 220px; height: 220px; }
+  }
   {% block style %}{% endblock %}
 </style>
 </head>

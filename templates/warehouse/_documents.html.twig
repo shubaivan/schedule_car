@@ -2,16 +2,16 @@
 <div class="card">
   <h2>📎 Документи</h2>
   {% if documents %}
-    <div class="table-wrap"><table>
-      <tr><th>Тип</th><th>Файл</th><th>Додав</th><th>Google Диск</th><th></th></tr>
+    <div class="table-wrap"><table class="stack">
+      <tr class="th"><th>Тип</th><th>Файл</th><th>Додав</th><th>Google Диск</th><th></th></tr>
       {% for d in documents %}
         <tr>
-          <td>{{ d.type.label }}</td>
-          <td><a href="{{ path('wh_document', {id: d.id}) }}" target="_blank">{{ d.originalName }}</a>
+          <td data-label="Тип">{{ d.type.label }}</td>
+          <td data-label="Файл"><a href="{{ path('wh_document', {id: d.id}) }}" target="_blank">{{ d.originalName }}</a>
             <div class="muted small">{{ d.sizeLabel }} · {{ d.createdAt|date('d.m.Y H:i') }}</div></td>
-          <td class="small">{{ d.uploadedBy ? d.uploadedBy.displayName : '—' }}</td>
-          <td class="small">{% if d.driveUrl %}<a href="{{ d.driveUrl }}" target="_blank">відкрити</a>{% else %}<span class="muted">у черзі</span>{% endif %}</td>
-          <td class="num">
+          <td data-label="Додав" class="small">{{ d.uploadedBy ? d.uploadedBy.displayName : '—' }}</td>
+          <td data-label="Google Диск" class="small">{% if d.driveUrl %}<a href="{{ d.driveUrl }}" target="_blank">відкрити</a>{% else %}<span class="muted">у черзі</span>{% endif %}</td>
+          <td data-label="" class="num">
             <form class="inline" method="post" action="{{ path('wh_document_delete', {id: d.id}) }}" onsubmit="return confirm('Прибрати документ «{{ d.originalName|e('js') }}»?')">
               <input type="hidden" name="_token" value="{{ csrf_token('warehouse') }}">
               <button class="danger" type="submit" title="Прибрати">✕</button>

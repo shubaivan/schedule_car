@@ -20,15 +20,15 @@
 </form>
 
 <div class="card">
-  <div class="table-wrap"><table>
-    <tr><th>Місце</th><th>Тип</th><th>Клієнт</th><th>Адреса</th><th class="num">Позицій</th></tr>
+  <div class="table-wrap"><table class="stack">
+    <tr class="th"><th>Місце</th><th>Тип</th><th>Клієнт</th><th>Адреса</th><th class="num">Позицій</th></tr>
     {% for i, s in sites %}
       <tr>
-        <td><a href="{{ path('wh_site', {id: s.id}) }}">{{ s.warehouse ? '🏠 ' }}{{ s.name }}</a>{% if not s.active %} <span class="pill">закрито</span>{% endif %}</td>
-        <td class="small">{{ s.warehouse ? 'Склад' : (s.category ? s.category.label : "Об'єкт") }}</td>
-        <td class="small">{% if s.client %}<a href="{{ path('wh_client', {id: s.client.id}) }}">{{ s.client.name }}</a>{% elseif not s.warehouse %}власний{% endif %}</td>
-        <td class="small muted">{{ s.address }}</td>
-        <td class="num">{{ counts[i] }}</td>
+        <td data-label="Місце"><a href="{{ path('wh_site', {id: s.id}) }}">{{ s.warehouse ? '🏠 ' }}{{ s.name }}</a>{% if not s.active %} <span class="pill">закрито</span>{% endif %}</td>
+        <td data-label="Тип" class="small">{{ s.warehouse ? 'Склад' : (s.category ? s.category.label : "Об'єкт") }}</td>
+        <td data-label="Клієнт" class="small">{% if s.client %}<a href="{{ path('wh_client', {id: s.client.id}) }}">{{ s.client.name }}</a>{% elseif not s.warehouse %}власний{% endif %}</td>
+        <td data-label="Адреса" class="small muted">{{ s.address }}</td>
+        <td data-label="Позицій" class="num">{{ counts[i] }}</td>
       </tr>
     {% endfor %}
   </table></div>

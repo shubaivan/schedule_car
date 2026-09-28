@@ -25,15 +25,15 @@
     <button type="submit">Знайти</button>
   </form>
   {% if clients %}
-  <div class="table-wrap"><table>
-    <tr><th>Клієнт</th><th>Тип</th><th>ЄДРПОУ</th><th>Контакт</th><th class="num">Об'єктів</th></tr>
+  <div class="table-wrap"><table class="stack">
+    <tr class="th"><th>Клієнт</th><th>Тип</th><th>ЄДРПОУ</th><th>Контакт</th><th class="num">Об'єктів</th></tr>
     {% for c in clients %}
       <tr>
-        <td><a href="{{ path('wh_client', {id: c.id}) }}">{{ c.name }}</a>{% if not c.active %} <span class="pill">прибрано</span>{% endif %}</td>
-        <td class="small">{{ c.category ? c.category.label : '—' }}</td>
-        <td class="mono small">{{ c.edrpou ?? '—' }}</td>
-        <td class="small">{{ c.contactPerson }}{% if c.phone %} · {{ c.phone }}{% endif %}</td>
-        <td class="num">{{ c.sites|length }}</td>
+        <td data-label="Клієнт"><a href="{{ path('wh_client', {id: c.id}) }}">{{ c.name }}</a>{% if not c.active %} <span class="pill">прибрано</span>{% endif %}</td>
+        <td data-label="Тип" class="small">{{ c.category ? c.category.label : '—' }}</td>
+        <td data-label="ЄДРПОУ" class="mono small">{{ c.edrpou ?? '—' }}</td>
+        <td data-label="Контакт" class="small">{{ c.contactPerson }}{% if c.phone %} · {{ c.phone }}{% endif %}</td>
+        <td data-label="Об'єктів" class="num">{{ c.sites|length }}</td>
       </tr>
     {% endfor %}
   </table></div>

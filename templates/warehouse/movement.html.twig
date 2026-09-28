@@ -15,13 +15,13 @@
   </div>
   <div class="card">
     <h2>Позиції</h2>
-    <table>
-      <tr><th>Позиція</th><th class="num">К-сть</th><th class="num">Оренда/доба</th></tr>
+    <table class="stack">
+      <tr class="th"><th>Позиція</th><th class="num">К-сть</th><th class="num">Оренда/доба</th></tr>
       {% for l in movement.lines %}
         <tr>
-          <td><a href="{{ path('wh_item', {id: l.item.id}) }}">{{ l.item.label }}</a></td>
-          <td class="num">{{ l.quantity }} {{ l.item.unit }}</td>
-          <td class="num">{{ l.rentalRate is not null ? l.rentalRate|number_format(2, ',', ' ') : '—' }}</td>
+          <td data-label="Позиція"><a href="{{ path('wh_item', {id: l.item.id}) }}">{{ l.item.label }}</a></td>
+          <td data-label="К-сть" class="num">{{ l.quantity }} {{ l.item.unit }}</td>
+          <td data-label="Оренда/доба" class="num">{{ l.rentalRate is not null ? l.rentalRate|number_format(2, ',', ' ') : '—' }}</td>
         </tr>
       {% endfor %}
     </table>

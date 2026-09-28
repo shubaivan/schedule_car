@@ -44,7 +44,7 @@
   <div class="card">
     <h2>📍 Де зараз</h2>
     {% if places %}
-      <table>
+      <table class="stack">
         {% for p in places %}
           <tr>
             <td><a href="{{ path('wh_site', {id: p.site.id}) }}">{{ p.site.label }}</a>
@@ -52,7 +52,7 @@
             <td class="num">{{ p.quantity }} {{ item.unit }}</td>
           </tr>
         {% endfor %}
-        {% if item.tracking.value == 'bulk' %}<tr><th>Разом</th><th class="num">{{ total }} {{ item.unit }}</th></tr>{% endif %}
+        {% if item.tracking.value == 'bulk' %}<tr class="th"><th>Разом</th><th class="num">{{ total }} {{ item.unit }}</th></tr>{% endif %}
       </table>
       {% if item.tracking.value == 'unit' and item.currentSince %}<p class="muted small">Там з {{ item.currentSince|date('d.m.Y') }}.</p>{% endif %}
     {% else %}

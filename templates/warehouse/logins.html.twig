@@ -7,7 +7,7 @@
 {% if lastSeen %}
 <div class="card">
   <h2>Останній вхід кожного</h2>
-  <div class="table-wrap"><table>
+  <div class="table-wrap"><table class="stack">
     {% for name, at in lastSeen %}
       <tr><td>{{ name }}{% if app.user and name == app.user.displayName %} <span class="muted small">· це ви</span>{% endif %}</td>
         <td class="num mono small">{{ at|date('d.m.Y H:i') }}</td></tr>
@@ -22,16 +22,16 @@
 
 <div class="card">
   {% if entries %}
-  <div class="table-wrap"><table>
-    <tr><th>Коли</th><th>Хто</th><th>Куди</th><th>Звідки</th><th>Пристрій</th></tr>
+  <div class="table-wrap"><table class="stack">
+    <tr class="th"><th>Коли</th><th>Хто</th><th>Куди</th><th>Звідки</th><th>Пристрій</th></tr>
     {% for e in entries %}
       <tr>
-        <td class="mono small" style="white-space:nowrap">{{ e.at|date('d.m.Y H:i') }}</td>
-        <td>{{ e.success ? '✅' : '⛔' }} <b>{{ e.name ?? 'невідомо' }}</b>
+        <td data-label="Коли" class="mono small" style="white-space:nowrap">{{ e.at|date('d.m.Y H:i') }}</td>
+        <td data-label="Хто">{{ e.success ? '✅' : '⛔' }} <b>{{ e.name ?? 'невідомо' }}</b>
           {% if not e.success %}<div class="small danger">{{ e.reason }}</div>{% endif %}</td>
-        <td class="small">{{ e.target starts with '/sklad' ? '🏗 склад' : '📦 заявки' }}<div class="muted mono small">{{ e.target }}</div></td>
-        <td class="small muted mono">{{ e.ip ?? '—' }}</td>
-        <td class="small muted">{{ e.device }}</td>
+        <td data-label="Куди" class="small">{{ e.target starts with '/sklad' ? '🏗 склад' : '📦 заявки' }}<div class="muted mono small">{{ e.target }}</div></td>
+        <td data-label="Звідки" class="small muted mono">{{ e.ip ?? '—' }}</td>
+        <td data-label="Пристрій" class="small muted">{{ e.device }}</td>
       </tr>
     {% endfor %}
   </table></div>

@@ -23,17 +23,17 @@
 
 <div class="card">
   {% if entries %}
-  <div class="table-wrap"><table>
-    <tr><th>Коли</th><th>Хто</th><th>Дія</th><th>Що</th><th>Звідки</th></tr>
+  <div class="table-wrap"><table class="stack">
+    <tr class="th"><th>Коли</th><th>Хто</th><th>Дія</th><th>Що</th><th>Звідки</th></tr>
     {% set routes = {item: 'wh_item', client: 'wh_client', site: 'wh_site', movement: 'wh_movement'} %}
     {% for a in entries %}
       <tr>
-        <td class="mono small" style="white-space:nowrap">{{ a.at|date('d.m.Y H:i') }}</td>
-        <td>{{ a.user ? a.user.displayName : '—' }}{% if a.user and a.user.phoneNumber %}<div class="muted small">{{ a.user.phoneNumber }}</div>{% endif %}</td>
-        <td>{{ a.action.emoji }} {{ a.action.label }}{% if a.details %}<div class="muted small">{{ a.details }}</div>{% endif %}</td>
-        <td><span class="muted small">{{ types[a.subjectType] ?? a.subjectType }}:</span>
+        <td data-label="Коли" class="mono small" style="white-space:nowrap">{{ a.at|date('d.m.Y H:i') }}</td>
+        <td data-label="Хто">{{ a.user ? a.user.displayName : '—' }}{% if a.user and a.user.phoneNumber %}<div class="muted small">{{ a.user.phoneNumber }}</div>{% endif %}</td>
+        <td data-label="Дія">{{ a.action.emoji }} {{ a.action.label }}{% if a.details %}<div class="muted small">{{ a.details }}</div>{% endif %}</td>
+        <td data-label="Що"><span class="muted small">{{ types[a.subjectType] ?? a.subjectType }}:</span>
           {% if routes[a.subjectType] is defined %}<a href="{{ path(routes[a.subjectType], {id: a.subjectId}) }}">{{ a.subjectLabel }}</a>{% else %}{{ a.subjectLabel }}{% endif %}</td>
-        <td class="small muted">{{ a.channel == 'bot' ? 'бот' : 'адмінка' }}</td>
+        <td data-label="Звідки" class="small muted">{{ a.channel == 'bot' ? 'бот' : 'адмінка' }}</td>
       </tr>
     {% endfor %}
   </table></div>
