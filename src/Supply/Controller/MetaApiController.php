@@ -3,6 +3,7 @@
 namespace App\Supply\Controller;
 
 use App\Entity\TelegramUser;
+use App\Service\ShopLink;
 use App\Supply\Enum\SupplyAccent;
 use App\Supply\Enum\SupplyStatus;
 use App\Supply\Enum\Unit;
@@ -18,13 +19,17 @@ use Symfony\Component\Routing\Attribute\Route;
 class MetaApiController extends AbstractController
 {
     #[Route('/me', name: 'api_me', methods: ['GET'])]
-    public function me(RequestPresenter $presenter, WarehouseSection $warehouse): JsonResponse
+    public function me(RequestPresenter $presenter, WarehouseSection $warehouse, ShopLink $shop): JsonResponse
     {
         /** @var TelegramUser $user */
         $user = $this->getUser();
 
-        // warehouse — чи показувати в меню CRM перехід на склад (/sklad).
-        return $this->json([...$presenter->user($user), 'warehouse' => $warehouse->inMenuFor($user)]);
+        // Які розділи показати у верхньому ряду: склад (/sklad) і магазин (/shop).
+        return $this->json([
+            ...$presenter->user($user),
+            'warehouse' => $warehouse->inMenuFor($user),
+            'shop' => $shop->availableTo($user),
+        ]);
     }
 
     #[Route('/supply/meta', name: 'api_supply_meta', methods: ['GET'])]

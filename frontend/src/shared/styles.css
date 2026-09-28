@@ -74,24 +74,67 @@ a {
     margin-bottom: 1rem;
 }
 
-.topbar nav {
+.brand {
+    font-weight: 600;
+}
+
+/*
+ * Верхній ряд — розділи (заявки, автопарк, склад, магазин), однаковий в усіх
+ * частинах адмінки. Нижній — сторінки поточного розділу.
+ */
+.sections {
     display: flex;
     gap: .25rem;
+    flex-wrap: wrap;
 }
 
-.topbar nav a {
-    padding: .4rem .75rem;
+.sections a {
+    padding: .45rem .9rem;
+    border-radius: 999px;
+    color: var(--text-muted);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.sections a:hover {
+    color: var(--text);
+    background: var(--accent-soft);
+}
+
+.sections a.on {
+    background: var(--accent);
+    color: #fff;
+}
+
+.subnav {
+    display: flex;
+    gap: .25rem;
+    flex-wrap: wrap;
+    margin: -.5rem 0 1rem;
+}
+
+.subnav a {
+    padding: .35rem .75rem;
     border-radius: var(--radius);
     color: var(--text-muted);
+    white-space: nowrap;
 }
 
-.topbar nav a.router-link-active {
+.subnav a.router-link-active {
     background: var(--accent-soft);
     color: var(--accent);
 }
 
-.brand {
-    font-weight: 600;
+@media (max-width: 640px) {
+    .sections, .subnav {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .sections a, .subnav a {
+        padding: .6rem .9rem;
+    }
 }
 
 .who {

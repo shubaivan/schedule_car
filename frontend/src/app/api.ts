@@ -14,6 +14,8 @@ export interface ApiUser {
     archived?: boolean
     /** Лише в /api/me: чи веде ця людина склад — тоді в меню є перехід на /sklad. */
     warehouse?: boolean
+    /** Лише в /api/me: чи є пункт «🛒 Магазин» (адмінка сайту через /shop). */
+    shop?: boolean
 }
 
 /** Підрозділ у довіднику: разом із тим, скільки на ньому висить. */

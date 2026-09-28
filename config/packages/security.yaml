@@ -40,6 +40,7 @@ security:
         # Склад ведуть менеджер, адміністратор і директор (досить однієї з ролей).
         # Робітник бачить позицію лише в боті, скануючи наклейку.
         - { path: ^/sklad, roles: [ROLE_SUPPLY_MANAGER, ROLE_SUPPLY_DIRECTOR] }
+        - { path: ^/shop, roles: [ROLE_SUPPLY_MANAGER, ROLE_SUPPLY_DIRECTOR] }
         - { path: ^/api, roles: ROLE_SUPPLY_WORKER }
 
 when@test:

@@ -25,6 +25,10 @@ const allowed = computed(() => {
     return session.isManager() || !MANAGER_ROUTES.includes(name)
 })
 
+/** Розділ, у якому людина зараз: від нього залежить нижній ряд меню. */
+const FLEET_SECTION = ['schedule', 'fleet']
+const section = computed(() => (FLEET_SECTION.includes(String(route.name)) ? 'fleet' : 'requests'))
+
 onMounted(() => session.load())
 </script>
 
@@ -38,26 +42,38 @@ onMounted(() => session.load())
         <div v-else-if="!session.ready" class="center">Завантаження…</div>
 
         <template v-else>
+            <!--
+                Одна адмінка на всі розділи: верхній ряд — розділи (той самий у заявках,
+                на складі й у магазині), нижній — сторінки поточного розділу. Склад і
+                магазин — окремі сторінки сервера, тому там звичайні посилання.
+            -->
             <header class="topbar">
-                <span class="brand">📦 Постачання</span>
-                <nav>
-                    <router-link :to="{ name: 'requests' }">Заявки</router-link>
-                    <template v-if="session.isManager()">
-                        <router-link :to="{ name: 'suppliers' }">Постачальники</router-link>
-                        <router-link :to="{ name: 'reports' }">Звіти</router-link>
-                        <router-link :to="{ name: 'users' }">Люди</router-link>
-                        <router-link :to="{ name: 'departments' }">Підрозділи</router-link>
-                    </template>
-                    <router-link :to="{ name: 'schedule' }">Розклад машин</router-link>
-                    <router-link v-if="session.isDirector()" :to="{ name: 'fleet' }">Автопарк</router-link>
-                    <!-- Склад — окрема адмінка на Twig, тож звичайне посилання, а не router-link. -->
+                <nav class="sections">
+                    <router-link :to="{ name: 'requests' }" :class="{ on: section === 'requests' }">📦 Заявки</router-link>
+                    <router-link :to="{ name: 'schedule' }" :class="{ on: section === 'fleet' }">🚗 Автопарк</router-link>
                     <a v-if="session.user?.warehouse" href="/sklad">🏗 Склад</a>
+                    <a v-if="session.user?.shop" href="/shop">🛒 Магазин</a>
                 </nav>
                 <span class="who">
                     {{ session.user?.name }} · {{ session.user?.roleLabel }}
                     · <a href="/crm/logout">вийти</a>
                 </span>
             </header>
+            <nav class="subnav">
+                <template v-if="section === 'requests'">
+                    <router-link :to="{ name: 'requests' }" active-class="" exact-active-class="router-link-active">Заявки</router-link>
+                    <template v-if="session.isManager()">
+                        <router-link :to="{ name: 'suppliers' }">Постачальники</router-link>
+                        <router-link :to="{ name: 'reports' }">Звіти</router-link>
+                        <router-link :to="{ name: 'users' }">Люди</router-link>
+                        <router-link :to="{ name: 'departments' }">Підрозділи</router-link>
+                    </template>
+                </template>
+                <template v-else>
+                    <router-link :to="{ name: 'schedule' }">Розклад машин</router-link>
+                    <router-link v-if="session.isDirector()" :to="{ name: 'fleet' }">Машини й водії</router-link>
+                </template>
+            </nav>
 
             <router-view v-if="allowed" />
             <div v-else class="center">Цей розділ ведуть менеджери з постачання.</div>

@@ -6,26 +6,32 @@
 <title>{% block title %}Склад{% endblock %} · {{ company|default('Склад') }}</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏗</text></svg>">
 <style>
+  /* Ті самі кольори, що в CRM заявок: це одна адмінка, а не дві. */
   :root {
-    --bg: #EBEBE5; --surface: #FFFFFF; --surface-2: #F5F5F0; --ink: #1A1C19; --muted: #5D615A;
-    --rule: #C9CAC1; --rule-soft: #DEDFD7; --mark: #E4B106; --mark-ink: #1A1C19; --alert: #9E3521; --ok: #2F6B3A;
-    --body: "Segoe UI", Roboto, Arial, sans-serif; --mono: "SF Mono", Consolas, monospace;
+    --bg: #f6f7f9; --surface: #ffffff; --surface-2: #f1f3f6; --ink: #1b1f24; --muted: #6a7280;
+    --rule: #d6dae0; --rule-soft: #e3e6ea; --mark: #2f6fd0; --mark-ink: #ffffff; --mark-soft: #e8f0fc;
+    --alert: #b03a36; --ok: #2f6b46;
+    --body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; --mono: "SF Mono", Consolas, monospace;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #131511; --surface: #1C1F1A; --surface-2: #232720; --ink: #E8E9E1; --muted: #9BA093;
-      --rule: #363A31; --rule-soft: #2A2E26; --mark: #E4B106; --mark-ink: #131511; --alert: #E08061; --ok: #7FC48A;
+      --bg: #14171c; --surface: #1c2027; --surface-2: #232830; --ink: #e7eaee; --muted: #98a1ad;
+      --rule: #343b45; --rule-soft: #2c323b; --mark: #6fa3ec; --mark-ink: #0f1520; --mark-soft: #1e2b3f;
+      --alert: #e8837e; --ok: #7bc79a;
     }
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 var(--body); }
   a { color: inherit; }
-  .topbar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 18px; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--rule); }
-  .brand { font-weight: 700; margin-right: 8px; text-decoration: none; }
-  .topbar nav { display: flex; flex-wrap: wrap; gap: 4px 14px; }
-  .topbar nav a { text-decoration: none; color: var(--muted); padding: 4px 0; border-bottom: 2px solid transparent; }
-  .topbar nav a.on { color: var(--ink); border-bottom-color: var(--mark); }
-  .who { margin-left: auto; color: var(--muted); font-size: 13px; }
+  .topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; max-width: 1240px; margin: 0 auto; padding: 14px 16px 12px; border-bottom: 1px solid var(--rule-soft); }
+  .sections { display: flex; flex-wrap: wrap; gap: 4px; }
+  .sections a { padding: 7px 14px; border-radius: 999px; color: var(--muted); font-weight: 600; text-decoration: none; white-space: nowrap; }
+  .sections a:hover { color: var(--ink); background: var(--mark-soft); }
+  .sections a.on { background: var(--mark); color: var(--mark-ink); }
+  .subnav { display: flex; flex-wrap: wrap; gap: 4px; max-width: 1240px; margin: 0 auto; padding: 10px 16px 0; }
+  .subnav a { padding: 6px 12px; border-radius: 8px; color: var(--muted); text-decoration: none; white-space: nowrap; }
+  .subnav a.on { background: var(--mark-soft); color: var(--mark); }
+  .who { color: var(--muted); font-size: 13px; }
   main { max-width: 1240px; margin: 0 auto; padding: 16px; }
   h1 { font-size: 22px; margin: 4px 0 12px; }
   h2 { font-size: 17px; margin: 0 0 10px; }
@@ -79,10 +85,10 @@
     main { padding: 12px; }
     h1 { font-size: 20px; }
     .card { padding: 12px; border-radius: 10px; }
-    .topbar { flex-wrap: nowrap; overflow-x: auto; gap: 14px; padding: 8px 12px; -webkit-overflow-scrolling: touch; }
-    .topbar nav { flex-wrap: nowrap; }
-    .topbar nav a, .brand { white-space: nowrap; padding: 8px 0; }
-    .who { margin-left: 0; white-space: nowrap; }
+    .topbar { padding: 10px 12px; }
+    .sections, .subnav { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; }
+    .sections a, .subnav a { padding: 10px 14px; }
+    .subnav { padding: 8px 12px 0; }
     input, select, textarea, button, .btn { font-size: 16px; min-height: 44px; }
     input[type=checkbox] { min-height: 0; width: 22px; height: 22px; }
     .head .row, .row { width: 100%; }
@@ -113,19 +119,24 @@
 <body>
 {% set route = app.request.attributes.get('_route') %}
 <header class="topbar">
-  <a class="brand" href="{{ path('wh_items') }}">🏗 Склад</a>
-  <nav>
-    <a href="{{ path('wh_items') }}" class="{{ route starts with 'wh_item' or route == 'wh_labels' ? 'on' }}">Позиції</a>
-    <a href="{{ path('wh_movements') }}" class="{{ route starts with 'wh_movement' ? 'on' }}">Рухи</a>
-    <a href="{{ path('wh_clients') }}" class="{{ route starts with 'wh_client' ? 'on' }}">Клієнти</a>
-    <a href="{{ path('wh_sites') }}" class="{{ route starts with 'wh_site' ? 'on' }}">Склади й об'єкти</a>
-    <a href="{{ path('wh_journal') }}" class="{{ route == 'wh_journal' ? 'on' }}">Журнал</a>
-    <a href="{{ path('wh_categories') }}" class="{{ route == 'wh_categories' ? 'on' }}">Довідники</a>
-    <a href="{{ path('wh_logins') }}" class="{{ route == 'wh_logins' ? 'on' }}">Входи</a>
-    <a href="/crm/">Заявки</a>
+  {# Верхній ряд — розділи, той самий, що в заявках і магазині. Нижній — сторінки складу. #}
+  <nav class="sections">
+    <a href="/crm/">📦 Заявки</a>
+    <a href="/crm/schedule">🚗 Автопарк</a>
+    <a class="on" href="{{ path('wh_items') }}">🏗 Склад</a>
+    {% if shop_enabled() %}<a href="/shop">🛒 Магазин</a>{% endif %}
   </nav>
   <span class="who">{{ app.user.displayName }} · <a href="{{ path('crm_logout') }}">вийти</a></span>
 </header>
+<nav class="subnav">
+  <a href="{{ path('wh_items') }}" class="{{ route starts with 'wh_item' or route == 'wh_labels' ? 'on' }}">Позиції</a>
+  <a href="{{ path('wh_movements') }}" class="{{ route starts with 'wh_movement' ? 'on' }}">Рухи</a>
+  <a href="{{ path('wh_clients') }}" class="{{ route starts with 'wh_client' ? 'on' }}">Клієнти</a>
+  <a href="{{ path('wh_sites') }}" class="{{ route starts with 'wh_site' ? 'on' }}">Склади й об'єкти</a>
+  <a href="{{ path('wh_journal') }}" class="{{ route == 'wh_journal' ? 'on' }}">Журнал</a>
+  <a href="{{ path('wh_categories') }}" class="{{ route == 'wh_categories' ? 'on' }}">Довідники</a>
+  <a href="{{ path('wh_logins') }}" class="{{ route == 'wh_logins' ? 'on' }}">Входи</a>
+</nav>
 <main>
   {% for type, messages in app.flashes %}
     {% for message in messages %}<div class="flash {{ type }}">{{ message }}</div>{% endfor %}
