@@ -155,17 +155,25 @@ onMounted(load)
 </template>
 
 <style scoped>
+/*
+ * Колонки днів вузькі, а «ЖК «Зразковий», секція 1» — ні: без переносу текст
+ * вилазив на сусідні дні (загальні стилі таблиць ставлять nowrap). Тут перенос
+ * дозволено, а на вузькому екрані календар гортається вбік, не стискаючись.
+ */
 .board {
     table-layout: fixed;
+    min-width: 980px;
 }
 
 .board th,
 .board td {
     vertical-align: top;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
 .car-col {
-    width: 220px;
+    width: 200px;
 }
 
 .car {
@@ -183,7 +191,9 @@ onMounted(load)
 .trip {
     border-left: 3px solid var(--accent);
     padding: 2px 0 2px 6px;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    line-height: 1.35;
 }
 
 .trip .time {
@@ -192,7 +202,7 @@ onMounted(load)
 }
 
 .trip .where {
-    overflow-wrap: anywhere;
+    display: block;
 }
 
 .trip .who {
