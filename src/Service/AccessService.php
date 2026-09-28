@@ -31,6 +31,10 @@ class AccessService
         private string $managerPhones,
         #[Autowire('%supply_director_phones%')]
         private string $directorPhones = '',
+        // «Лише за списком»: незнайомий номер одразу отримує відмову, без запиту
+        // на підтвердження. Для стенда, куди поки пускають тільки керівництво.
+        #[Autowire('%env(bool:ACCESS_ONLY_LISTED)%')]
+        private bool $onlyListed = false,
     ) {
     }
 
@@ -80,6 +84,20 @@ class AccessService
 
         if ($user->isApproved()) {
             $this->em->flush();
+
+            return;
+        }
+
+        if ($this->onlyListed) {
+            $user->decideAccess(AccessStatus::Rejected, null);
+            $this->em->flush();
+
+            $this->logger->info('access: номера немає в списку — відмова без розгляду', [
+                'user' => $user->displayName(),
+                'phone' => $user->getPhoneNumber(),
+            ]);
+
+            $this->notifier->rejected($user);
 
             return;
         }

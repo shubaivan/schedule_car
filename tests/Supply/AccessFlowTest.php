@@ -44,6 +44,44 @@ class AccessFlowTest extends KernelTestCase
         self::assertSame('380631112233', $user->getPhoneNumber());
     }
 
+    /** «Лише за списком»: незнайомий номер — одразу відмова, без запиту менеджерам. */
+    public function testOnlyListedModeRefusesStrangers(): void
+    {
+        $user = $this->user();
+
+        $this->onlyListed()->registerPhone($user, '+380631112233');
+
+        self::assertSame(AccessStatus::Rejected, $user->getAccessStatus());
+        self::assertFalse($user->isApproved());
+    }
+
+    /** …а номер зі списку в тому ж режимі пускає, як і раніше. */
+    public function testOnlyListedModeStillLetsListedIn(): void
+    {
+        $user = $this->user();
+
+        $this->onlyListed()->registerPhone($user, '+380670000000');
+
+        self::assertTrue($user->isApproved());
+        self::assertSame(SupplyRole::Manager, $user->getSupplyRole());
+    }
+
+    private function onlyListed(): AccessService
+    {
+        $c = self::getContainer();
+
+        return new AccessService(
+            $this->em,
+            $c->get(\App\Service\AccessNotifier::class),
+            $c->get('logger'),
+            $c->get(\App\Supply\Service\StaffDirectory::class),
+            $c->get(\App\Service\FleetDirectory::class),
+            (string) $c->getParameter('supply_manager_phones'),
+            (string) $c->getParameter('supply_director_phones'),
+            true,
+        );
+    }
+
     public function testBootstrapPhoneBecomesManagerImmediately(): void
     {
         $user = $this->user();
