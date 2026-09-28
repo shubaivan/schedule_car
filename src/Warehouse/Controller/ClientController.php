@@ -127,9 +127,14 @@ class ClientController extends AbstractWarehouseController
         if ($request->isMethod('POST')) {
             $this->checkCsrf($request);
             $values = $this->fields($request);
-            $client = ctype_digit((string) ($values['clientId'] ?? '')) ? $this->clients->find((int) $values['clientId']) : null;
+            $client = null;
 
             try {
+                // Клієнт — з довідника або дописаний новий (select2 → «new:Назва»).
+                // У складу клієнта немає — нового під нього й не заводимо.
+                $client = ($values['kind'] ?? '') === SiteKind::Warehouse->value
+                    ? null
+                    : $this->directory->client($values['clientId'] ?? null, $this->user());
                 $site = $this->directory->saveSite(new WhSite(), $values, $client, $this->user());
                 $this->log(ActivityAction::Create, $site);
                 $this->addFlash('ok', sprintf('Місце «%s» додано.', $site->getName()));
@@ -169,9 +174,10 @@ class ClientController extends AbstractWarehouseController
         if ($request->isMethod('POST')) {
             $this->checkCsrf($request);
             $values = $this->fields($request);
-            $client = ctype_digit((string) ($values['clientId'] ?? '')) ? $this->clients->find((int) $values['clientId']) : null;
 
             try {
+                // Клієнт — з довідника або дописаний новий (select2 → «new:Назва»).
+                $client = $this->directory->client($values['clientId'] ?? null, $this->user());
                 $this->directory->saveSite($site, $values, $client, $this->user());
                 $this->log(ActivityAction::Update, $site);
                 $this->addFlash('ok', 'Збережено.');

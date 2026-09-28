@@ -62,4 +62,21 @@ class WhItemRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * Одиниці для вибору у формі: звичні плюс усі, що вже є в базі. Вільним
+     * текстом тут швидко заводяться «шт», «шт.» і «штук» — три одиниці для
+     * однієї, і залишки вже не складеш.
+     *
+     * @return list<string>
+     */
+    public function units(): array
+    {
+        $used = $this->createQueryBuilder('i')
+            ->select('DISTINCT i.unit')
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return array_values(array_unique(array_merge(['шт', 'компл.', 'м', 'м²', 'м³', 'кг', 'т', 'л', 'пог. м'], array_filter($used))));
+    }
 }

@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { api, ATTACHMENT_TYPES, type ApiSupplier, type PurchasePayload, type SupplyRequest } from '../../app/api'
 import { useSession } from '../../app/store'
 import StatusBadge from '../../shared/StatusBadge.vue'
+import SupplierPicker from '../../shared/SupplierPicker.vue'
 import { formatDate, formatDateTime } from '../../shared/format'
 
 const props = defineProps<{ id: string }>()
@@ -267,10 +268,12 @@ onMounted(load)
 
             <div v-if="addingPurchase && canManage" style="margin-top:.75rem">
                 <div class="filters">
-                    <select v-model.number="purchase.supplierId">
-                        <option :value="0" disabled>— оберіть постачальника —</option>
-                        <option v-for="item in suppliers" :key="item.id" :value="item.id">{{ item.name }}</option>
-                    </select>
+                    <SupplierPicker
+                        v-model="purchase.supplierId"
+                        :suppliers="suppliers"
+                        @created="suppliers.push($event)"
+                        @error="error = $event"
+                    />
                     <input v-model="purchase.totalAmount" type="text" placeholder="Сума, ₴" />
                     <input v-model="purchase.quantity" type="text" placeholder="Кількість" />
                     <input v-model="purchase.pricePerUnit" type="text" placeholder="Ціна за одиницю" />

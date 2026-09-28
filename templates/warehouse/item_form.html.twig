@@ -25,7 +25,11 @@
       </select>
       <span class="muted small">Поштучно — своя наклейка на кожну річ. Кількістю — дрібниця: замки, стяжки.</span></div>
     <div class="field" id="unitField"><label>Одиниця</label>
-      <input type="text" name="unit" value="{{ v.unit ?? item.unit }}" placeholder="шт, компл., м²"></div>
+      {% set unit = v.unit ?? item.unit %}
+      <select name="unit" id="unit">
+        {% if unit not in units %}<option value="{{ unit }}" selected>{{ unit }}</option>{% endif %}
+        {% for u in units %}<option value="{{ u }}" {{ u == unit ? 'selected' }}>{{ u }}</option>{% endfor %}
+      </select></div>
     <div class="field"><label>Заводський номер</label>
       <input type="text" name="serialNumber" value="{{ v.serialNumber ?? item.serialNumber }}"></div>
     <div class="field"><label>Постачальник / виробник</label>
@@ -84,6 +88,7 @@
 {% block scripts %}
 {% include 'warehouse/_select2_js.html.twig' %}
 <script>
+  whPicker('#unit', { required: true, create: 'як нову одиницю', raw: true });
   whPicker('#supplier', {
     url: {{ path('wh_suppliers')|json_encode|raw }},
     placeholder: 'почніть вводити назву',

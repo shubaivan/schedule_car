@@ -131,7 +131,8 @@
     if (!from) return;
     row.querySelectorAll('.item option[value]').forEach(o => {
       if (!o.value) return;
-      o.hidden = o.dataset.unit === '1' && from.value !== '' && o.dataset.site !== from.value;
+      // disabled, а не hidden: select2 не зважає на hidden, а вимкнені whPicker ховає з пошуку.
+      o.disabled = o.dataset.unit === '1' && from.value !== '' && o.dataset.site !== from.value;
     });
   }
 
@@ -142,7 +143,8 @@
     select.value = itemId;
     if (qty) row.querySelector('.qty').value = qty;
     if (rate && row.querySelector('.rate')) row.querySelector('.rate').value = rate;
-    select.addEventListener('change', () => sync(row));
+    whPicker(select, { required: true, hideDisabled: true, placeholder: 'почніть вводити назву або інв. номер' })
+      .on('change', () => sync(row));
     row.querySelector('.del').addEventListener('click', () => row.remove());
     filterByFrom(row);
     sync(row);

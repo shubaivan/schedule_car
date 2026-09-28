@@ -4,6 +4,7 @@
   (WarehouseDirectory::NEW), і вже там шукається дубль за назвою без регістру
   й розділових знаків — тож «фоп петренко» не стане другим «ФОП Петренко».
 
+  raw — нове приходить як є, без префікса (для простих значень, як одиниця виміру).
   url — підвантажувати з сервера (довідник великий); без url — шукає серед
   <option>/<optgroup> самого select.
 #}
@@ -28,6 +29,12 @@
       },
     };
 
+    if (opts.hideDisabled) {
+      // Вимкнені варіанти (скажімо, щит, якого немає в місці «звідки») — не показуємо зовсім.
+      const base = $.fn.select2.defaults.defaults.matcher;
+      config.matcher = (params, data) => (data.element && data.element.disabled ? null : base(params, data));
+    }
+
     if (opts.url) {
       config.ajax = {
         url: opts.url,
@@ -42,7 +49,7 @@
       config.tags = true;
       config.createTag = params => {
         const term = (params.term || '').trim();
-        return term === '' ? null : { id: WH_NEW + term, text: term, isNew: true };
+        return term === '' ? null : { id: (opts.raw ? '' : WH_NEW) + term, text: term, isNew: true };
       };
       // Нового пропонуємо, лише коли такої назви у списку ще немає.
       config.insertTag = (data, tag) => {
