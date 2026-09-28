@@ -2,6 +2,7 @@
 
 namespace App\Security;
 
+use App\Controller\LoginController;
 use App\Service\CrmLoginLink;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -22,6 +23,7 @@ class TelegramLinkAuthenticator extends AbstractAuthenticator
     public function __construct(
         private CrmLoginLink $loginLink,
         private UrlGeneratorInterface $urlGenerator,
+        private LoginController $login,
     ) {
     }
 
@@ -58,21 +60,17 @@ class TelegramLinkAuthenticator extends AbstractAuthenticator
     public function onAuthenticationSuccess(Request $request, $token, string $firewallName): ?Response
     {
         // Посилання з картки складу веде одразу на цю картку, а не на заявки.
-        $next = CrmLoginLink::safeNext($request->query->get('next'));
+        // Інакше — туди, куди людина йшла до входу (запам'ятав LoginEntryPoint).
+        $next = CrmLoginLink::safeNext($request->query->get('next'))
+            ?? CrmLoginLink::safeNext($request->hasSession() ? $request->getSession()->remove(LoginEntryPoint::TARGET) : null);
 
         return new RedirectResponse($next ?? $this->urlGenerator->generate('crm_index'));
     }
 
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): ?Response
     {
-        return new Response(
-            sprintf(
-                '<!doctype html><meta charset="utf-8"><title>Вхід у CRM</title>'
-                . '<p style="font:16px/1.5 system-ui;padding:2rem">%s</p>',
-                htmlspecialchars($exception->getMessageKey(), ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-            ),
-            Response::HTTP_UNAUTHORIZED,
-            ['Content-Type' => 'text/html; charset=utf-8'],
-        );
+        // Та сама сторінка входу, що й для закритих сторінок: з причиною і тим,
+        // де взяти нове посилання. 401 лишається — посилання справді не спрацювало.
+        return $this->login->page($exception->getMessageKey(), status: Response::HTTP_UNAUTHORIZED);
     }
 }

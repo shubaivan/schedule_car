@@ -1,0 +1,43 @@
+{% extends 'warehouse/layout.html.twig' %}
+{% block title %}Входи{% endblock %}
+{% block body %}
+<h1>🔐 Входи</h1>
+<p class="muted">Хто і коли заходив у заявки й склад. Вхід — лише за посиланням із бота, тож «невдало» означає прострочене чи вже використане посилання.</p>
+
+{% if lastSeen %}
+<div class="card">
+  <h2>Останній вхід кожного</h2>
+  <div class="table-wrap"><table>
+    {% for name, at in lastSeen %}
+      <tr><td>{{ name }}{% if app.user and name == app.user.displayName %} <span class="muted small">· це ви</span>{% endif %}</td>
+        <td class="num mono small">{{ at|date('d.m.Y H:i') }}</td></tr>
+    {% endfor %}
+  </table></div>
+</div>
+{% endif %}
+
+{% if failedWeek > 0 %}
+  <div class="flash error">❗ Невдалих спроб за тиждень: <b>{{ failedWeek }}</b>. Зазвичай це старе посилання, відкрите пізніше, — але якщо рядків багато й пристрій незнайомий, скажіть Івану.</div>
+{% endif %}
+
+<div class="card">
+  {% if entries %}
+  <div class="table-wrap"><table>
+    <tr><th>Коли</th><th>Хто</th><th>Куди</th><th>Звідки</th><th>Пристрій</th></tr>
+    {% for e in entries %}
+      <tr>
+        <td class="mono small" style="white-space:nowrap">{{ e.at|date('d.m.Y H:i') }}</td>
+        <td>{{ e.success ? '✅' : '⛔' }} <b>{{ e.name ?? 'невідомо' }}</b>
+          {% if not e.success %}<div class="small danger">{{ e.reason }}</div>{% endif %}</td>
+        <td class="small">{{ e.target starts with '/sklad' ? '🏗 склад' : '📦 заявки' }}<div class="muted mono small">{{ e.target }}</div></td>
+        <td class="small muted mono">{{ e.ip ?? '—' }}</td>
+        <td class="small muted">{{ e.device }}</td>
+      </tr>
+    {% endfor %}
+  </table></div>
+  <p class="muted small">Показано останні {{ entries|length }}{% if entries|length == shown %} (більше не вміщається){% endif %}. Час київський.</p>
+  {% else %}
+    <p class="muted">Поки порожньо — записи з'являться з наступного входу.</p>
+  {% endif %}
+</div>
+{% endblock %}

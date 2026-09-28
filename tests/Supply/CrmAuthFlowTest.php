@@ -99,12 +99,12 @@ class CrmAuthFlowTest extends WebTestCase
         self::assertSame('worker', json_decode((string) $this->client->getResponse()->getContent(), true)['role']);
     }
 
-    /** Без сесії людину відправляємо на титульну з інструкцією, а не на сторінку помилки. */
+    /** Без сесії людину відправляємо на сторінку входу з інструкцією, а не на сторінку помилки. */
     public function testCrmIsClosedWithoutLogin(): void
     {
         $this->client->request('GET', '/crm/');
 
-        self::assertResponseRedirects('/');
+        self::assertResponseRedirects('/vhid');
 
         $this->client->followRedirect();
         self::assertResponseIsSuccessful();

@@ -80,6 +80,7 @@
     <a href="{{ path('wh_sites') }}" class="{{ route starts with 'wh_site' ? 'on' }}">Склади й об'єкти</a>
     <a href="{{ path('wh_journal') }}" class="{{ route == 'wh_journal' ? 'on' }}">Журнал</a>
     <a href="{{ path('wh_categories') }}" class="{{ route == 'wh_categories' ? 'on' }}">Довідники</a>
+    <a href="{{ path('wh_logins') }}" class="{{ route == 'wh_logins' ? 'on' }}">Входи</a>
     <a href="/crm/">Заявки</a>
   </nav>
   <span class="who">{{ app.user.displayName }} · <a href="{{ path('crm_logout') }}">вийти</a></span>

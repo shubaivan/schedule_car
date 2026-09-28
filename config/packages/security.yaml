@@ -25,7 +25,7 @@ security:
             entry_point: App\Security\LoginEntryPoint
             logout:
                 path: crm_logout
-                target: /
+                target: /vhid?out=1
 
     # Тільки перший збіг спрацьовує, тож /crm/auth має бути вище за /crm.
     # Вебхук бота (/hook) навмисно не в списку — він публічний.

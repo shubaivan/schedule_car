@@ -2,6 +2,7 @@
 
 namespace App\Security;
 
+use App\Service\CrmLoginLink;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -14,10 +15,12 @@ use Symfony\Component\Security\Http\EntryPoint\AuthenticationEntryPointInterface
  * Куди відправляти неавторизованого.
  *
  * API має відповідати 401 — Vue-застосунок за цим кодом показує «сесія завершилась».
- * Людині ж показуємо сторінку з поясненням, як увійти, а не сторінку помилки.
+ * Людині ж показуємо сторінку входу з поясненням, де взяти посилання, а не сторінку помилки.
  */
 class LoginEntryPoint implements AuthenticationEntryPointInterface
 {
+    public const TARGET = 'login_target';
+
     public function __construct(
         private UrlGeneratorInterface $urlGenerator,
     ) {
@@ -29,6 +32,13 @@ class LoginEntryPoint implements AuthenticationEntryPointInterface
             return new JsonResponse(['error' => 'Потрібна авторизація'], Response::HTTP_UNAUTHORIZED);
         }
 
-        return new RedirectResponse($this->urlGenerator->generate('app_home'));
+        // Куди людина йшла — туди й поведемо після входу, а не на загальну сторінку.
+        $target = CrmLoginLink::safeNext($request->getPathInfo());
+
+        if ($target !== null && $request->hasSession()) {
+            $request->getSession()->set(self::TARGET, $target);
+        }
+
+        return new RedirectResponse($this->urlGenerator->generate('app_login'));
     }
 }

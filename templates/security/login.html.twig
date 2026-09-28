@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Вхід · {{ company }}</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔐</text></svg>">
+{#
+    Сторінка входу. Паролів у системі немає — вхід лише за одноразовим посиланням
+    із бота, тож замість полів логіна тут три кроки й кнопка «Відкрити бота».
+
+    Відкривають її частіше з телефона, ніж із комп'ютера: картка на всю ширину,
+    кнопка під великий палець, текст 16px і жодного горизонтального скролу.
+#}
+<style>
+  :root {
+    --bg: #EBEBE5; --surface: #FFFFFF; --surface-2: #F5F5F0; --ink: #1A1C19; --muted: #5D615A;
+    --rule: #DEDFD7; --mark: #E4B106; --mark-ink: #1A1C19; --alert: #9E3521; --ok: #2F6B3A; --tg: #2AABEE;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #131511; --surface: #1C1F1A; --surface-2: #232720; --ink: #E8E9E1; --muted: #9BA093;
+      --rule: #2A2E26; --mark: #E4B106; --mark-ink: #131511; --alert: #E08061; --ok: #7FC48A;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    padding: 16px; background: var(--bg); color: var(--ink);
+    font: 16px/1.5 "Segoe UI", Roboto, -apple-system, Arial, sans-serif;
+  }
+  .card {
+    width: 100%; max-width: 26rem; background: var(--surface); border: 1px solid var(--rule);
+    border-radius: 14px; padding: 28px 24px; box-shadow: 0 10px 30px rgba(0,0,0,.06);
+  }
+  .brand { text-align: center; margin-bottom: 20px; }
+  .brand .logo { font-size: 44px; line-height: 1; }
+  .brand h1 { font-size: 20px; margin: 10px 0 2px; }
+  .brand .sub { color: var(--muted); font-size: 14px; }
+  .note { border-radius: 8px; padding: 10px 12px; font-size: 14px; margin-bottom: 16px; border: 1px solid; }
+  .note.error { color: var(--alert); border-color: var(--alert); }
+  .note.info { color: var(--ok); border-color: var(--ok); }
+  .btn {
+    display: block; width: 100%; text-align: center; text-decoration: none; font-weight: 600;
+    padding: 13px 16px; border-radius: 10px; font-size: 16px; border: 1px solid transparent;
+  }
+  .btn.tg { background: var(--tg); color: #fff; }
+  .btn.primary { background: var(--mark); color: var(--mark-ink); }
+  .btn.ghost { background: var(--surface-2); color: var(--ink); border-color: var(--rule); margin-top: 8px; }
+  ol { margin: 20px 0 0; padding: 0; list-style: none; counter-reset: step; }
+  ol li { counter-increment: step; position: relative; padding: 0 0 12px 38px; color: var(--muted); font-size: 15px; }
+  ol li::before {
+    content: counter(step); position: absolute; left: 0; top: 0; width: 26px; height: 26px; border-radius: 50%;
+    background: var(--surface-2); border: 1px solid var(--rule); color: var(--ink);
+    font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+  }
+  ol b { color: var(--ink); font-weight: 600; }
+  .foot { margin-top: 12px; padding-top: 14px; border-top: 1px solid var(--rule); color: var(--muted); font-size: 13px; text-align: center; }
+  .foot a { color: inherit; }
+</style>
+</head>
+<body>
+<main class="card">
+  <div class="brand">
+    <div class="logo">🏗</div>
+    <h1>{{ company }}</h1>
+    <div class="sub">Заявки · Склад · Автопарк</div>
+  </div>
+
+  {% if error %}<div class="note error">{{ error }}</div>{% endif %}
+  {% if loggedOut %}<div class="note info">Ви вийшли. Щоб зайти знову — візьміть нове посилання в боті.</div>{% endif %}
+
+  {% if app.user %}
+    <div class="note info">Ви вже увійшли як <b>{{ app.user.displayName }}</b>.</div>
+    <a class="btn primary" href="{{ path('crm_index') }}">📦 Відкрити заявки</a>
+    {% if warehouse %}<a class="btn ghost" href="{{ path('wh_items') }}">🏗 Відкрити склад</a>{% endif %}
+    <a class="btn ghost" href="{{ path('crm_logout') }}">Вийти</a>
+  {% else %}
+    <a class="btn tg" href="https://t.me/{{ bot_username }}">✈️ Відкрити бота @{{ bot_username }}</a>
+
+    <ol>
+      <li><b>Відкрийте бота</b> кнопкою вище (або знайдіть @{{ bot_username }} у Telegram).</li>
+      <li>Уперше? Натисніть <b>«Старт»</b> і <b>«Поділіться номером»</b> — менеджер підтвердить доступ.</li>
+      <li>У меню бота натисніть <b>«🔐 Вхід у CRM»</b> або <b>«🏗 Склад»</b> — і кнопку з посиланням. Ви одразу тут.</li>
+    </ol>
+  {% endif %}
+
+  <div class="foot">
+    Паролів немає: посилання з бота діє {{ ttl }} хвилин і лише один раз.<br>
+    Нікому його не пересилайте. Кожен вхід записується в журнал.
+  </div>
+</main>
+</body>
+</html>
