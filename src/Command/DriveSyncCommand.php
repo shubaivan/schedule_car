@@ -5,6 +5,9 @@ namespace App\Command;
 use App\Supply\Repository\SupplyAttachmentRepository;
 use App\Supply\Service\AttachFile;
 use App\Supply\Service\GoogleDriveMirror;
+use App\Warehouse\Repository\WhDocumentRepository;
+use App\Warehouse\Service\DocumentStore;
+use App\Warehouse\Service\WarehouseDriveMirror;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -14,7 +17,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use Throwable;
 
 /**
- * Відправляє в Google Drive документи, які туди ще не поїхали.
+ * Відправляє в Google Drive документи, які туди ще не поїхали: заявок і складу.
  *
  * Окремим кроком, а не під час завантаження: якщо Google відповідає помилкою
  * чи мовчить, менеджер усе одно бачить, що файл прийнято, — копія доїде
@@ -27,6 +30,9 @@ class DriveSyncCommand extends Command
         private SupplyAttachmentRepository $attachments,
         private GoogleDriveMirror $mirror,
         private AttachFile $attachFile,
+        private WhDocumentRepository $warehouseDocuments,
+        private WarehouseDriveMirror $warehouseMirror,
+        private DocumentStore $warehouseStore,
     ) {
         parent::__construct();
     }
@@ -40,7 +46,24 @@ class DriveSyncCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
 
-        $pending = $this->attachments->findNotMirrored((int) $input->getOption('limit'));
+        $limit = (int) $input->getOption('limit');
+
+        // Склад іде тим самим кроном і тими самими ключами: другий крон на
+        // стенді забули б так само, як забувають перший.
+        $sources = [
+            [
+                $this->attachments->findNotMirrored($limit),
+                $this->attachFile->read(...),
+                $this->mirror->mirror(...),
+            ],
+            [
+                $this->warehouseDocuments->findNotMirrored($limit),
+                $this->warehouseStore->read(...),
+                $this->warehouseMirror->mirror(...),
+            ],
+        ];
+
+        $waiting = array_sum(array_map(static fn (array $source) => count($source[0]), $sources));
 
         // Крон вішається заздалегідь, ще до того, як у клієнта зʼявиться Диск:
         // щойно в оточення ляже токен, копіювання почнеться саме собою і про
@@ -48,17 +71,17 @@ class DriveSyncCommand extends Command
         // доти, доки нічого не втрачаємо. Зʼявився документ без копії — це вже
         // варте рядка в лозі, інакше в ньому потоне справжня помилка.
         if (! $this->mirror->isEnabled()) {
-            if ($pending) {
+            if ($waiting > 0) {
                 $io->warning(sprintf(
                     'Google Drive не налаштований (немає GOOGLE_DRIVE_* в оточенні), а документів без копії: %d. Поки вони лише в нашому сховищі.',
-                    count($pending),
+                    $waiting,
                 ));
             }
 
             return Command::SUCCESS;
         }
 
-        if (! $pending) {
+        if ($waiting === 0) {
             $io->success('Усі документи вже в Google Drive.');
 
             return Command::SUCCESS;
@@ -67,22 +90,24 @@ class DriveSyncCommand extends Command
         $sent = 0;
         $failed = 0;
 
-        foreach ($pending as $attachment) {
-            try {
-                $contents = $this->attachFile->read($attachment);
-            } catch (Throwable $e) {
-                $io->writeln(sprintf('  ✖ %s — файла немає у сховищі: %s', $attachment->getOriginalName(), $e->getMessage()));
-                ++$failed;
+        foreach ($sources as [$pending, $read, $mirror]) {
+            foreach ($pending as $document) {
+                try {
+                    $contents = $read($document);
+                } catch (Throwable $e) {
+                    $io->writeln(sprintf('  ✖ %s — файла немає у сховищі: %s', $document->getOriginalName(), $e->getMessage()));
+                    ++$failed;
 
-                continue;
-            }
+                    continue;
+                }
 
-            if ($this->mirror->mirror($attachment, $contents)) {
-                $io->writeln(sprintf('  ✔ %s → %s', $attachment->getOriginalName(), $attachment->getDriveUrl()));
-                ++$sent;
-            } else {
-                $io->writeln(sprintf('  ✖ %s — не вдалось, деталі в лозі', $attachment->getOriginalName()));
-                ++$failed;
+                if ($mirror($document, $contents)) {
+                    $io->writeln(sprintf('  ✔ %s → %s', $document->getOriginalName(), $document->getDriveUrl()));
+                    ++$sent;
+                } else {
+                    $io->writeln(sprintf('  ✖ %s — не вдалось, деталі в лозі', $document->getOriginalName()));
+                    ++$failed;
+                }
             }
         }
 

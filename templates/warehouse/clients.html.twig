@@ -1,0 +1,42 @@
+{% extends 'warehouse/layout.html.twig' %}
+{% set v = values ?? {} %}
+{% block title %}Клієнти{% endblock %}
+{% block body %}
+<h1>Клієнти</h1>
+<form class="card" method="post">
+  <input type="hidden" name="_token" value="{{ csrf_token('warehouse') }}">
+  <h2>➕ Новий клієнт</h2>
+  <div class="fields">
+    <div class="field"><label>Назва *</label><input type="text" name="name" required value="{{ v.name ?? '' }}" placeholder="ТОВ «Будінвест» / Петренко Олег"></div>
+    <div class="field"><label>Тип</label>
+      <select name="categoryId"><option value="">—</option>
+        {% for c in clientCategories %}<option value="{{ c.id }}" {{ (v.categoryId ?? '') == c.id ~ '' ? 'selected' }}>{{ c.label }}</option>{% endfor %}
+      </select></div>
+    <div class="field"><label>ЄДРПОУ / ІПН</label><input type="text" name="edrpou" value="{{ v.edrpou ?? '' }}"></div>
+    <div class="field"><label>Телефон</label><input type="text" name="phone" value="{{ v.phone ?? '' }}"></div>
+    <div class="field"><label>Контактна особа</label><input type="text" name="contactPerson" value="{{ v.contactPerson ?? '' }}"></div>
+  </div>
+  <div class="row" style="margin-top:10px"><button class="primary" type="submit">Додати клієнта</button></div>
+</form>
+
+<div class="card">
+  <form class="row" method="get" style="margin-bottom:10px">
+    <input type="search" name="q" value="{{ q }}" placeholder="Пошук: назва, ЄДРПОУ, контакт, телефон" style="flex:1">
+    <button type="submit">Знайти</button>
+  </form>
+  {% if clients %}
+  <div class="table-wrap"><table>
+    <tr><th>Клієнт</th><th>Тип</th><th>ЄДРПОУ</th><th>Контакт</th><th class="num">Об'єктів</th></tr>
+    {% for c in clients %}
+      <tr>
+        <td><a href="{{ path('wh_client', {id: c.id}) }}">{{ c.name }}</a>{% if not c.active %} <span class="pill">прибрано</span>{% endif %}</td>
+        <td class="small">{{ c.category ? c.category.label : '—' }}</td>
+        <td class="mono small">{{ c.edrpou ?? '—' }}</td>
+        <td class="small">{{ c.contactPerson }}{% if c.phone %} · {{ c.phone }}{% endif %}</td>
+        <td class="num">{{ c.sites|length }}</td>
+      </tr>
+    {% endfor %}
+  </table></div>
+  {% else %}<p class="muted">Клієнтів ще немає.</p>{% endif %}
+</div>
+{% endblock %}

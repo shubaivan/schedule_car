@@ -1,0 +1,45 @@
+{% extends 'warehouse/layout.html.twig' %}
+{% block title %}Довідники{% endblock %}
+{% block body %}
+<h1>Довідники</h1>
+<p class="muted">Види майна, клієнтів і об'єктів. Нова категорія одразу з'являється у формах. Прибрана — зникає з вибору, а вже заведене в ній лишається.</p>
+{% for g in groups %}
+  <div class="card">
+    <h2>{{ g.scope.label }}</h2>
+    {# Форма в рядку таблиці — невалідний HTML, тож поля прив'язані до форм атрибутом form. #}
+    {% for c in g.categories %}
+      <form id="cat{{ c.id }}" method="post"><input type="hidden" name="_token" value="{{ csrf_token('warehouse') }}"><input type="hidden" name="id" value="{{ c.id }}"><input type="hidden" name="active" value="0"></form>
+    {% endfor %}
+    {% set f = 'new' ~ g.scope.value %}
+    <form id="{{ f }}" method="post"><input type="hidden" name="_token" value="{{ csrf_token('warehouse') }}"><input type="hidden" name="scope" value="{{ g.scope.value }}"></form>
+    <div class="table-wrap"><table>
+      <tr><th style="width:70px">Емодзі</th><th>Назва</th>{% if g.scope.value == 'item' %}<th style="width:90px">Префікс №</th><th>Характеристики (через кому)</th>{% endif %}<th style="width:70px">Порядок</th><th>Активна</th><th></th></tr>
+      {% for c in g.categories %}
+        {% set id = 'cat' ~ c.id %}
+        <tr>
+          <td><input form="{{ id }}" type="text" name="emoji" value="{{ c.emoji }}" style="width:56px"></td>
+          <td><input form="{{ id }}" type="text" name="name" value="{{ c.name }}" required style="width:100%"></td>
+          {% if g.scope.value == 'item' %}
+            <td><input form="{{ id }}" type="text" name="prefix" value="{{ c.prefix }}" style="width:76px"></td>
+            <td><input form="{{ id }}" type="text" name="attributes" value="{{ c.attributes|join(', ') }}" style="width:100%"></td>
+          {% endif %}
+          <td><input form="{{ id }}" type="number" name="position" value="{{ c.position }}" style="width:60px"></td>
+          <td><input form="{{ id }}" type="checkbox" name="active" value="1" {{ c.active ? 'checked' }}></td>
+          <td><button form="{{ id }}" type="submit">Зберегти</button></td>
+        </tr>
+      {% endfor %}
+      <tr>
+        <td><input form="{{ f }}" type="text" name="emoji" style="width:56px" placeholder="📦"></td>
+        <td><input form="{{ f }}" type="text" name="name" required style="width:100%" placeholder="Нова категорія"></td>
+        {% if g.scope.value == 'item' %}
+          <td><input form="{{ f }}" type="text" name="prefix" style="width:76px" placeholder="НК"></td>
+          <td><input form="{{ f }}" type="text" name="attributes" style="width:100%" placeholder="Розміри, Вага"></td>
+        {% endif %}
+        <td><input form="{{ f }}" type="number" name="position" value="{{ g.categories|length }}" style="width:60px"></td>
+        <td></td>
+        <td><button form="{{ f }}" class="primary" type="submit">Додати</button></td>
+      </tr>
+    </table></div>
+  </div>
+{% endfor %}
+{% endblock %}

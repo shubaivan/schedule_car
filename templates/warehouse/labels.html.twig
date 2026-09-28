@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<title>Наклейки</title>
+<style>
+  @page { margin: 8mm; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 12px/1.2 Arial, sans-serif; color: #000; background: #fff; }
+  .bar { padding: 10px 14px; background: #f3f3ee; border-bottom: 1px solid #ccc; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .sheet { display: flex; flex-wrap: wrap; gap: 3mm; padding: 4mm; }
+  .label { border: 1px dashed #999; display: flex; gap: 2.5mm; align-items: center; padding: 2mm; break-inside: avoid; page-break-inside: avoid; }
+  .large .label { width: 60mm; height: 40mm; }
+  .small .label { width: 40mm; height: 25mm; }
+  .qr { flex: none; }
+  .large .qr { width: 34mm; height: 34mm; }
+  .small .qr { width: 20mm; height: 20mm; }
+  .qr svg { width: 100%; height: 100%; display: block; }
+  .text { min-width: 0; overflow: hidden; }
+  .inv { font-weight: 700; font-family: monospace; }
+  .large .inv { font-size: 15px; }
+  .small .inv { font-size: 10px; }
+  .name { margin-top: 1.5mm; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; }
+  .small .name { font-size: 8px; -webkit-line-clamp: 3; }
+  .hint { margin-top: 1.5mm; font-size: 8px; color: #444; }
+  .small .hint { display: none; }
+  @media print { .bar { display: none; } .label { border-color: #ddd; } }
+</style>
+</head>
+<body class="{{ size }}">
+<div class="bar">
+  <strong>Наклейок: {{ labels|length }}</strong>
+  <button onclick="window.print()">🖨 Друкувати</button>
+  <span>Для вулиці й опалубки — друкуйте на ламінованій або вініловій плівці: папір під бетоном не виживе.</span>
+</div>
+{% if labels %}
+<div class="sheet">
+  {% for l in labels %}
+    <div class="label">
+      <div class="qr">{{ l.svg|raw }}</div>
+      <div class="text">
+        <div class="inv">{{ l.item.inventoryNumber }}</div>
+        <div class="name">{{ l.item.name }}</div>
+        <div class="hint">Скануйте камерою телефона</div>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+{% else %}
+  <p style="padding:16px">Не обрано жодної позиції — поверніться до списку й позначте потрібні.</p>
+{% endif %}
+</body>
+</html>

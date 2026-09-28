@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Склад{% endblock %} · {{ company|default('Склад') }}</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏗</text></svg>">
+<style>
+  :root {
+    --bg: #EBEBE5; --surface: #FFFFFF; --surface-2: #F5F5F0; --ink: #1A1C19; --muted: #5D615A;
+    --rule: #C9CAC1; --rule-soft: #DEDFD7; --mark: #E4B106; --mark-ink: #1A1C19; --alert: #9E3521; --ok: #2F6B3A;
+    --body: "Segoe UI", Roboto, Arial, sans-serif; --mono: "SF Mono", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #131511; --surface: #1C1F1A; --surface-2: #232720; --ink: #E8E9E1; --muted: #9BA093;
+      --rule: #363A31; --rule-soft: #2A2E26; --mark: #E4B106; --mark-ink: #131511; --alert: #E08061; --ok: #7FC48A;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 var(--body); }
+  a { color: inherit; }
+  .topbar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 18px; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--rule); }
+  .brand { font-weight: 700; margin-right: 8px; text-decoration: none; }
+  .topbar nav { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .topbar nav a { text-decoration: none; color: var(--muted); padding: 4px 0; border-bottom: 2px solid transparent; }
+  .topbar nav a.on { color: var(--ink); border-bottom-color: var(--mark); }
+  .who { margin-left: auto; color: var(--muted); font-size: 13px; }
+  main { max-width: 1240px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 22px; margin: 4px 0 12px; }
+  h2 { font-size: 17px; margin: 0 0 10px; }
+  .card { background: var(--surface); border: 1px solid var(--rule-soft); border-radius: 8px; padding: 14px 16px; margin-bottom: 14px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-items: start; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+  .mono { font-family: var(--mono); }
+  .flash { padding: 10px 14px; border-radius: 6px; margin-bottom: 12px; border: 1px solid; }
+  .flash.ok { border-color: var(--ok); color: var(--ok); }
+  .flash.error { border-color: var(--alert); color: var(--alert); }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); font-weight: 600; }
+  tr:hover td { background: var(--surface-2); }
+  .num { text-align: right; white-space: nowrap; }
+  form.inline { display: inline; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+  .field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .field label { font-size: 12px; color: var(--muted); }
+  .fields { display: grid; gap: 10px 14px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .fields .wide { grid-column: 1 / -1; }
+  input, select, textarea, button, .btn {
+    font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 7px 10px; max-width: 100%;
+  }
+  textarea { min-height: 70px; resize: vertical; }
+  button, .btn { cursor: pointer; text-decoration: none; display: inline-block; background: var(--surface-2); white-space: nowrap; }
+  .primary { background: var(--mark); color: var(--mark-ink); border-color: var(--mark); font-weight: 600; }
+  .danger { color: var(--alert); }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; border: 1px solid var(--rule); white-space: nowrap; }
+  .pill.warn { border-color: var(--alert); color: var(--alert); }
+  .pill.here { border-color: var(--mark); }
+  dl.facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; }
+  dl.facts dt { color: var(--muted); }
+  dl.facts dd { margin: 0; }
+  .qr { width: 180px; height: 180px; background: #fff; padding: 8px; border-radius: 6px; }
+  .qr svg { width: 100%; height: 100%; display: block; }
+  .head { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  @media (max-width: 640px) { .who { margin-left: 0; width: 100%; } th, td { padding: 6px 4px; } }
+  {% block style %}{% endblock %}
+</style>
+</head>
+<body>
+{% set route = app.request.attributes.get('_route') %}
+<header class="topbar">
+  <a class="brand" href="{{ path('wh_items') }}">🏗 Склад</a>
+  <nav>
+    <a href="{{ path('wh_items') }}" class="{{ route starts with 'wh_item' or route == 'wh_labels' ? 'on' }}">Позиції</a>
+    <a href="{{ path('wh_movements') }}" class="{{ route starts with 'wh_movement' ? 'on' }}">Рухи</a>
+    <a href="{{ path('wh_clients') }}" class="{{ route starts with 'wh_client' ? 'on' }}">Клієнти</a>
+    <a href="{{ path('wh_sites') }}" class="{{ route starts with 'wh_site' ? 'on' }}">Склади й об'єкти</a>
+    <a href="{{ path('wh_journal') }}" class="{{ route == 'wh_journal' ? 'on' }}">Журнал</a>
+    <a href="{{ path('wh_categories') }}" class="{{ route == 'wh_categories' ? 'on' }}">Довідники</a>
+    <a href="/crm/">Заявки</a>
+  </nav>
+  <span class="who">{{ app.user.displayName }} · <a href="{{ path('crm_logout') }}">вийти</a></span>
+</header>
+<main>
+  {% for type, messages in app.flashes %}
+    {% for message in messages %}<div class="flash {{ type }}">{{ message }}</div>{% endfor %}
+  {% endfor %}
+  {% if error is defined and error %}<div class="flash error">{{ error }}</div>{% endif %}
+  {% block body %}{% endblock %}
+</main>
+{% block scripts %}{% endblock %}
+</body>
+</html>

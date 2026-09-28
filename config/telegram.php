@@ -29,6 +29,9 @@ use App\Fleet\Telegram\MyTrips;
 use App\Telegram\Start\Command\FleetMenu;
 use App\Telegram\Start\Command\MainMenu;
 use App\Telegram\Start\Command\StartCommand;
+use App\Warehouse\Telegram\WarehouseLinkAction;
+use App\Warehouse\Telegram\WarehouseCallback;
+use App\Warehouse\Telegram\WarehouseMenu;
 use SergiX44\Nutgram\Conversations\Conversation;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\RunningMode\Webhook;
@@ -49,6 +52,15 @@ $bot->onCallbackQueryData(AccessCallback::REJECT_PREFIX . '{id}', AccessDecision
 $bot->registerCommand(StartCommand::class);
 
 $bot->onCallbackQueryData(StartCommand::MAIN_MENU, MainMenu::class);
+
+##############
+# Склад
+##############
+// Скан QR-наклейки й посилання на картки складу приходять як «/start <payload>»
+// (див. WarehouseLinks). Маршрут з параметром Nutgram
+// якорить, тож голий /start і далі дістається StartCommand.
+$bot->onCommand('start {payload}', WarehouseLinkAction::class);
+$bot->onCallbackQueryData(WarehouseCallback::MENU, WarehouseMenu::class);
 
 ##############
 # Автопарк

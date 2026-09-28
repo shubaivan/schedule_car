@@ -4,7 +4,10 @@ namespace App\Telegram\Start\Command;
 
 use App\Service\ChatScreen;
 use App\Service\FleetSection;
+use App\Service\TelegramUserService;
 use App\Supply\Telegram\SupplyCallback;
+use App\Warehouse\Service\WarehouseSection;
+use App\Warehouse\Telegram\WarehouseCallback;
 use SergiX44\Nutgram\Handlers\Type\Command;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
@@ -26,13 +29,24 @@ class StartCommand extends Command
      * ChatScreen і FleetSection приходять параметрами, а не через конструктор:
      * команди Nutgram створює через new під час реєстрації маршрутів, повз контейнер.
      */
-    public function handle(Nutgram $bot, ChatScreen $screen, FleetSection $fleet): void
-    {
-        $screen->render($bot, 'Вітаю! Оберіть розділ:', self::mainMenuKeyboard($fleet->isEnabled()));
+    public function handle(
+        Nutgram $bot,
+        ChatScreen $screen,
+        FleetSection $fleet,
+        WarehouseSection $warehouse,
+        TelegramUserService $users,
+    ): void {
+        $screen->render($bot, 'Вітаю! Оберіть розділ:', self::mainMenuKeyboard(
+            $fleet->isEnabled(),
+            $warehouse->inMenuFor($users->getCurrentUser()),
+        ));
     }
 
-    /** Вимкнений автопарк не просто нікуди не веде — його кнопки тут немає взагалі. */
-    public static function mainMenuKeyboard(bool $withFleet = true): InlineKeyboardMarkup
+    /**
+     * Вимкнений автопарк не просто нікуди не веде — його кнопки тут немає взагалі.
+     * Склад бачать лише ті, хто його веде: решта потрапляє туди сканом наклейки.
+     */
+    public static function mainMenuKeyboard(bool $withFleet = true, bool $withWarehouse = false): InlineKeyboardMarkup
     {
         $markup = InlineKeyboardMarkup::make();
         $row = [InlineKeyboardButton::make('📦 Постачання', callback_data: SupplyCallback::MENU)];
@@ -41,7 +55,13 @@ class StartCommand extends Command
             $row[] = InlineKeyboardButton::make('🚗 Автопарк', callback_data: self::FLEET_MENU);
         }
 
-        return $markup->addRow(...$row);
+        $markup->addRow(...$row);
+
+        if ($withWarehouse) {
+            $markup->addRow(InlineKeyboardButton::make('🏗 Склад', callback_data: WarehouseCallback::MENU));
+        }
+
+        return $markup;
     }
 
     public static function homeButton(): InlineKeyboardButton

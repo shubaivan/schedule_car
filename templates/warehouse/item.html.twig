@@ -1,0 +1,82 @@
+{% extends 'warehouse/layout.html.twig' %}
+{% block title %}{{ item.inventoryNumber }} {{ item.name }}{% endblock %}
+{% block body %}
+<div class="head">
+  <h1>{{ item.category.emoji }} {{ item.name }} <span class="muted mono">{{ item.inventoryNumber }}</span></h1>
+  <div class="row">
+    {% if item.state.value != 'written_off' %}
+      {% set here = item.currentSite %}
+      {% if item.tracking.value == 'unit' and not here %}
+        <a class="btn" href="{{ path('wh_movement_new', {type: 'receipt', item: item.id}) }}">📥 Прийняти на склад</a>
+      {% elseif item.tracking.value == 'unit' and here.warehouse %}
+        <a class="btn" href="{{ path('wh_movement_new', {type: 'shipment', item: item.id, from: here.id}) }}">📤 Відвантажити</a>
+      {% elseif item.tracking.value == 'unit' %}
+        <a class="btn" href="{{ path('wh_movement_new', {type: 'return', item: item.id, from: here.id}) }}">↩️ Повернути на склад</a>
+        <a class="btn" href="{{ path('wh_movement_new', {type: 'transfer', item: item.id, from: here.id}) }}">🔁 Перемістити</a>
+      {% else %}
+        <a class="btn" href="{{ path('wh_movement_new', {type: 'receipt', item: item.id}) }}">📥 Надходження</a>
+        <a class="btn" href="{{ path('wh_movement_new', {type: 'shipment', item: item.id}) }}">📤 Відвантаження</a>
+      {% endif %}
+    {% endif %}
+    <a class="btn" href="{{ path('wh_item_edit', {id: item.id}) }}">✏️ Редагувати</a>
+  </div>
+</div>
+{% include 'warehouse/_share.html.twig' %}
+
+<div class="grid">
+  <div class="card">
+    <h2>Картка</h2>
+    <dl class="facts">
+      <dt>Категорія</dt><dd>{{ item.category.label }}</dd>
+      <dt>Облік</dt><dd>{{ item.tracking.label }}{% if item.tracking.value == 'bulk' %}, {{ item.unit }}{% endif %}</dd>
+      <dt>Стан</dt><dd>{% if item.state.value == 'active' %}{{ item.state.label }}{% else %}<span class="pill warn">{{ item.state.label }}</span>{% endif %}</dd>
+      {% if item.serialNumber %}<dt>Зав. номер</dt><dd class="mono">{{ item.serialNumber }}</dd>{% endif %}
+      {% for name, value in item.attributes %}<dt>{{ name }}</dt><dd>{{ value }}</dd>{% endfor %}
+      {% if item.supplier %}<dt>Постачальник</dt><dd>{{ item.supplier }}</dd>{% endif %}
+      {% if item.purchasePrice is not null %}<dt>Ціна</dt><dd>{{ item.purchasePrice|number_format(2, ',', ' ') }} грн{% if item.tracking.value == 'bulk' %} / {{ item.unit }}{% endif %}</dd>{% endif %}
+      {% if item.purchasedAt %}<dt>Куплено</dt><dd>{{ item.purchasedAt|date('d.m.Y') }}</dd>{% endif %}
+      {% if item.rentalRate is not null %}<dt>Оренда</dt><dd>{{ item.rentalRate|number_format(2, ',', ' ') }} грн / доба</dd>{% endif %}
+      <dt>Заведено</dt><dd class="small">{{ item.createdAt|date('d.m.Y') }}{% if item.createdBy %} · {{ item.createdBy.displayName }}{% endif %}</dd>
+    </dl>
+    {% if item.description %}<p style="white-space:pre-line">{{ item.description }}</p>{% endif %}
+  </div>
+
+  <div class="card">
+    <h2>📍 Де зараз</h2>
+    {% if places %}
+      <table>
+        {% for p in places %}
+          <tr>
+            <td><a href="{{ path('wh_site', {id: p.site.id}) }}">{{ p.site.label }}</a>
+              {% if p.site.address %}<div class="muted small">{{ p.site.address }}</div>{% endif %}</td>
+            <td class="num">{{ p.quantity }} {{ item.unit }}</td>
+          </tr>
+        {% endfor %}
+        {% if item.tracking.value == 'bulk' %}<tr><th>Разом</th><th class="num">{{ total }} {{ item.unit }}</th></tr>{% endif %}
+      </table>
+      {% if item.tracking.value == 'unit' and item.currentSince %}<p class="muted small">Там з {{ item.currentSince|date('d.m.Y') }}.</p>{% endif %}
+    {% else %}
+      <p class="muted">{{ item.state.value == 'written_off' ? 'Списано.' : 'Ще не надійшло — запишіть надходження.' }}</p>
+    {% endif %}
+  </div>
+
+  <div class="card" style="text-align:center">
+    <h2>QR-наклейка</h2>
+    <div class="qr" style="margin:0 auto">{{ qrSvg|raw }}</div>
+    <p class="mono">{{ item.inventoryNumber }}</p>
+    <div class="row" style="justify-content:center">
+      <a class="btn" target="_blank" href="{{ path('wh_labels', {'ids[]': item.id}) }}">🖨 Друкувати</a>
+      <a class="btn" href="{{ path('wh_item_qr', {id: item.id}) }}" download>⬇ SVG</a>
+    </div>
+    <p class="muted small">Камера телефона → бот покаже цю картку. Кожен скан — у журналі.</p>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Історія рухів</h2>
+  {% include 'warehouse/_movements.html.twig' with {movements: history, item: item} %}
+</div>
+
+{% include 'warehouse/_documents.html.twig' with {owner: 'item', ownerId: item.id} %}
+{% include 'warehouse/_journal.html.twig' with {journalLink: path('wh_journal', {type: 'item'})} %}
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends 'warehouse/layout.html.twig' %}
+{% block title %}Склади й об'єкти{% endblock %}
+{% block body %}
+<h1>Склади й об'єкти</h1>
+<form class="card" method="post">
+  <input type="hidden" name="_token" value="{{ csrf_token('warehouse') }}">
+  <h2>➕ Нове місце</h2>
+  <p class="muted small">Об'єкт клієнта зручніше додати з картки клієнта. Тут — склади й власні об'єкти (наш ЖК, цех).</p>
+  <div class="fields">
+    <div class="field"><label>Що це</label>
+      <select name="kind">{% for k in kinds %}<option value="{{ k.value }}" {{ k.value == 'site' ? 'selected' }}>{{ k.label }}</option>{% endfor %}</select></div>
+    <div class="field"><label>Назва *</label><input type="text" name="name" required></div>
+    <div class="field"><label>Тип об'єкта</label>
+      <select name="categoryId"><option value="">—</option>{% for c in siteCategories %}<option value="{{ c.id }}">{{ c.label }}</option>{% endfor %}</select></div>
+    <div class="field"><label>Клієнт</label>
+      <select name="clientId"><option value="">— власний —</option>{% for c in clients %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></div>
+    <div class="field wide"><label>Адреса</label><input type="text" name="address"></div>
+  </div>
+  <div class="row" style="margin-top:10px"><button class="primary" type="submit">Додати</button></div>
+</form>
+
+<div class="card">
+  <div class="table-wrap"><table>
+    <tr><th>Місце</th><th>Тип</th><th>Клієнт</th><th>Адреса</th><th class="num">Позицій</th></tr>
+    {% for i, s in sites %}
+      <tr>
+        <td><a href="{{ path('wh_site', {id: s.id}) }}">{{ s.warehouse ? '🏠 ' }}{{ s.name }}</a>{% if not s.active %} <span class="pill">закрито</span>{% endif %}</td>
+        <td class="small">{{ s.warehouse ? 'Склад' : (s.category ? s.category.label : "Об'єкт") }}</td>
+        <td class="small">{% if s.client %}<a href="{{ path('wh_client', {id: s.client.id}) }}">{{ s.client.name }}</a>{% elseif not s.warehouse %}власний{% endif %}</td>
+        <td class="small muted">{{ s.address }}</td>
+        <td class="num">{{ counts[i] }}</td>
+      </tr>
+    {% endfor %}
+  </table></div>
+</div>
+{% endblock %}

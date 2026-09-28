@@ -28,6 +28,12 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Supply/Entity'
                 prefix: 'App\Supply\Entity'
                 alias: Supply
+            Warehouse:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Warehouse/Entity'
+                prefix: 'App\Warehouse\Entity'
+                alias: Warehouse
         controller_resolver:
             auto_mapping: true
 

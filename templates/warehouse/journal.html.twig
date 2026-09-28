@@ -1,0 +1,42 @@
+{% extends 'warehouse/layout.html.twig' %}
+{% block title %}Журнал{% endblock %}
+{% block body %}
+<h1>Журнал складу</h1>
+<p class="muted">Хто що сканував, за якими посиланнями переходив, які картки відкривав і що змінював. Показано останні 300 записів за фільтром.</p>
+<form class="card row" method="get">
+  <div class="field"><label>Хто</label>
+    <select name="user"><option value="">усі</option>
+      {% for u in people %}<option value="{{ u.id }}" {{ filters.user == u.id ? 'selected' }}>{{ u.displayName }}</option>{% endfor %}
+    </select></div>
+  <div class="field"><label>Дія</label>
+    <select name="action"><option value="">усі</option>
+      {% for a in actions %}<option value="{{ a.value }}" {{ filters.action == a.value ? 'selected' }}>{{ a.emoji }} {{ a.label }}</option>{% endfor %}
+    </select></div>
+  <div class="field"><label>Що</label>
+    <select name="type"><option value="">усе</option>
+      {% for key, label in types %}<option value="{{ key }}" {{ filters.type == key ? 'selected' }}>{{ label }}</option>{% endfor %}
+    </select></div>
+  <div class="field"><label>З</label><input type="date" name="from" value="{{ filters.from }}"></div>
+  <div class="field"><label>По</label><input type="date" name="to" value="{{ filters.to }}"></div>
+  <button type="submit">Показати</button>
+</form>
+
+<div class="card">
+  {% if entries %}
+  <div class="table-wrap"><table>
+    <tr><th>Коли</th><th>Хто</th><th>Дія</th><th>Що</th><th>Звідки</th></tr>
+    {% set routes = {item: 'wh_item', client: 'wh_client', site: 'wh_site', movement: 'wh_movement'} %}
+    {% for a in entries %}
+      <tr>
+        <td class="mono small" style="white-space:nowrap">{{ a.at|date('d.m.Y H:i') }}</td>
+        <td>{{ a.user ? a.user.displayName : '—' }}{% if a.user and a.user.phoneNumber %}<div class="muted small">{{ a.user.phoneNumber }}</div>{% endif %}</td>
+        <td>{{ a.action.emoji }} {{ a.action.label }}{% if a.details %}<div class="muted small">{{ a.details }}</div>{% endif %}</td>
+        <td><span class="muted small">{{ types[a.subjectType] ?? a.subjectType }}:</span>
+          {% if routes[a.subjectType] is defined %}<a href="{{ path(routes[a.subjectType], {id: a.subjectId}) }}">{{ a.subjectLabel }}</a>{% else %}{{ a.subjectLabel }}{% endif %}</td>
+        <td class="small muted">{{ a.channel == 'bot' ? 'бот' : 'адмінка' }}</td>
+      </tr>
+    {% endfor %}
+  </table></div>
+  {% else %}<p class="muted">Записів за цим фільтром немає.</p>{% endif %}
+</div>
+{% endblock %}

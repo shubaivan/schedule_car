@@ -13,6 +13,9 @@ parameters:
     # Чи показувати в боті розділ «Автопарк». Вимикається на час, поки клієнт
     # запускає лише постачання, — дані при цьому лишаються на місці.
     fleet_enabled: '%env(bool:FLEET_ENABLED)%'
+    # Розділ «Склад» (облік опалубки й техніки, оренда, QR-наклейки).
+    # Каркас спільний на двох клієнтів, а склад поки потрібен лише одному.
+    warehouse_enabled: '%env(bool:WAREHOUSE_ENABLED)%'
 
 services:
     # default configuration for services in *this* file
@@ -32,6 +35,8 @@ services:
             - '../src/Enum/'
             - '../src/Supply/Entity/'
             - '../src/Supply/Enum/'
+            - '../src/Warehouse/Entity/'
+            - '../src/Warehouse/Enum/'
             - '../src/Kernel.php'
 
     # Ключі Google Drive — рядки, автовайринг їх не підставить.
@@ -51,6 +56,17 @@ services:
     App\Service\FleetSection:
         public: true
 
+    # Склад кладе копії на той самий Диск, тими самими ключами.
+    App\Warehouse\Service\WarehouseDriveMirror:
+        arguments:
+            $clientId: '%env(GOOGLE_DRIVE_CLIENT_ID)%'
+            $clientSecret: '%env(GOOGLE_DRIVE_CLIENT_SECRET)%'
+            $refreshToken: '%env(GOOGLE_DRIVE_REFRESH_TOKEN)%'
+            $rootFolderId: '%env(GOOGLE_DRIVE_ROOT_FOLDER_ID)%'
+
+    App\Warehouse\Service\WarehouseSection:
+        public: true
+
     # Nutgram handlers
     App\Telegram\:
         public: true
@@ -65,6 +81,12 @@ services:
         public: true
         shared: false
         resource: '../src/Supply/Telegram'
+
+    # І для складу.
+    App\Warehouse\Telegram\:
+        public: true
+        shared: false
+        resource: '../src/Warehouse/Telegram'
 
     # Те саме для автопарку.
     App\Fleet\Telegram\:

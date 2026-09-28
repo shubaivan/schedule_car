@@ -1,0 +1,16 @@
+{% extends 'warehouse/layout.html.twig' %}
+{% block title %}Рухи{% endblock %}
+{% block body %}
+<div class="head">
+  <h1>Рухи</h1>
+  <div class="row">
+    <a class="btn" href="{{ path('wh_movement_new', {type: 'receipt'}) }}">📥 Надходження</a>
+    <a class="btn" href="{{ path('wh_movement_new', {type: 'shipment'}) }}">📤 Відвантаження</a>
+    <a class="btn" href="{{ path('wh_movement_new', {type: 'return'}) }}">↩️ Повернення</a>
+    <a class="btn" href="{{ path('wh_movement_new', {type: 'transfer'}) }}">🔁 Переміщення</a>
+    <a class="btn" href="{{ path('wh_movement_new', {type: 'writeoff'}) }}">🗑 Списання</a>
+  </div>
+</div>
+<div class="card">{% include 'warehouse/_movements.html.twig' %}</div>
+<p class="muted small">Записаний рух не правиться — помилку виправляють зустрічним рухом, як у паперовому обліку.</p>
+{% endblock %}

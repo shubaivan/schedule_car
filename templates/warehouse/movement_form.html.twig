@@ -1,0 +1,141 @@
+{% extends 'warehouse/layout.html.twig' %}
+{% set v = values ?? {} %}
+{% block title %}{{ type.label }}{% endblock %}
+{% block body %}
+<h1>{{ type.emoji }} {{ type.label }}</h1>
+<div class="row" style="margin-bottom:12px">
+  {% for t in types %}
+    <a class="btn {{ t == type ? 'primary' }}" href="{{ path('wh_movement_new', {type: t.value}) }}">{{ t.emoji }} {{ t.label }}</a>
+  {% endfor %}
+</div>
+
+<form class="card" method="post" enctype="multipart/form-data">
+  <input type="hidden" name="_token" value="{{ csrf_token('warehouse') }}">
+  <input type="hidden" name="type" value="{{ type.value }}">
+  <div class="fields">
+    <div class="field"><label>Дата за документом *</label>
+      <input type="date" name="occurredAt" required value="{{ v.occurredAt ?? today }}"></div>
+    <div class="field"><label>№ накладної / акта</label>
+      <input type="text" name="documentNumber" value="{{ v.documentNumber ?? '' }}"></div>
+
+    {% if type.needsFrom %}
+    <div class="field"><label>Звідки *</label>
+      <select name="fromId" id="fromId" required>
+        <option value="">— оберіть —</option>
+        {% set fromSel = v.fromId ?? presetFrom %}
+        {% for s in sites %}
+          {% if type.fromKind is null or s.kind == type.fromKind %}
+            <option value="{{ s.id }}" {{ fromSel == s.id or fromSel == s.id ~ '' ? 'selected' }}>{{ s.label }}</option>
+          {% endif %}
+        {% endfor %}
+      </select></div>
+    {% else %}
+    <div class="field"><label>Від кого (постачальник)</label>
+      <input type="text" name="counterparty" value="{{ v.counterparty ?? '' }}" placeholder="ТОВ «Опалубка-Україна»"></div>
+    {% endif %}
+
+    {% if type.needsTo %}
+    <div class="field"><label>Куди *</label>
+      <select name="toId" required>
+        <option value="">— оберіть —</option>
+        {% set toSel = v.toId ?? presetTo %}
+        {% for s in sites %}
+          {% if type.toKind is null or s.kind == type.toKind %}
+            <option value="{{ s.id }}" {{ toSel == s.id or toSel == s.id ~ '' ? 'selected' }}>{{ s.label }}</option>
+          {% endif %}
+        {% endfor %}
+      </select>
+      {% if type.value in ['shipment', 'transfer'] %}<span class="muted small">Немає об'єкта? Додайте його в <a href="{{ path('wh_clients') }}">картці клієнта</a>.</span>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  <h2 style="margin-top:16px">Позиції</h2>
+  <div class="table-wrap"><table id="lines">
+    <tr><th>Позиція</th><th style="width:110px">Кількість</th>{% if type.value in ['shipment', 'transfer'] %}<th style="width:150px">Оренда, грн/доба</th>{% endif %}<th></th></tr>
+  </table></div>
+  <button type="button" id="addLine" style="margin-top:8px">+ позиція</button>
+  <p class="muted small">Поштучна річ — завжди 1. Ставку оренди не вказали — візьметься з картки позиції (лише коли везуть клієнту).</p>
+
+  <div class="fields" style="margin-top:12px">
+    <div class="field wide"><label>Примітка</label><textarea name="note">{{ v.note ?? '' }}</textarea></div>
+    <div class="field"><label>Документ до руху</label>
+      <select name="documentType">
+        {% for t in documentTypes %}<option value="{{ t.value }}" {{ t.value == (type.value == 'receipt' ? 'waybill' : (type.value == 'shipment' ? 'expense' : 'waybill')) ? 'selected' }}>{{ t.label }}</option>{% endfor %}
+      </select></div>
+    <div class="field"><label>Файли (накладна, акт, фото)</label>
+      <input type="file" name="files[]" multiple accept=".pdf,.jpg,.jpeg,.png,.heic,.webp,.doc,.docx,.xls,.xlsx"></div>
+  </div>
+
+  <div class="row" style="margin-top:16px">
+    <button class="primary" type="submit">Записати {{ type.label|lower }}</button>
+    <a class="btn" href="{{ path('wh_movements') }}">Скасувати</a>
+  </div>
+</form>
+
+<template id="lineTpl">
+  <tr>
+    <td><select name="item[]" class="item" required style="width:100%"><option value="">— оберіть —</option>
+      {% for i in items %}<option value="{{ i.id }}" data-unit="{{ i.tracking.value == 'unit' ? 1 : 0 }}" data-u="{{ i.unit }}" data-site="{{ i.currentSite ? i.currentSite.id : '' }}" data-rate="{{ i.rentalRate }}">{{ i.inventoryNumber }} · {{ i.name }}{% if i.tracking.value == 'unit' %} — {{ i.currentSite ? i.currentSite.name : 'не надійшло' }}{% endif %}</option>{% endfor %}
+    </select></td>
+    <td><input type="number" name="quantity[]" class="qty" min="1" value="1" required style="width:100px"></td>
+    {% if type.value in ['shipment', 'transfer'] %}<td><input type="text" inputmode="decimal" name="rate[]" class="rate" style="width:140px"></td>{% endif %}
+    <td><button type="button" class="danger del" title="Прибрати рядок">✕</button></td>
+  </tr>
+</template>
+{% endblock %}
+{% block scripts %}
+<script>
+  const table = document.getElementById('lines');
+  const tpl = document.getElementById('lineTpl');
+  const from = document.getElementById('fromId');
+
+  function sync(row) {
+    const option = row.querySelector('.item').selectedOptions[0];
+    const qty = row.querySelector('.qty');
+    const unit = option && option.dataset.unit === '1';
+    qty.readOnly = unit;
+    if (unit) qty.value = 1;
+    const rate = row.querySelector('.rate');
+    if (rate && option && !rate.value) rate.placeholder = option.dataset.rate || '';
+  }
+
+  // Поштучні речі, яких немає в місці «звідки», ховаємо зі списку — їх туди й не записати.
+  function filterByFrom(row) {
+    if (!from) return;
+    row.querySelectorAll('.item option[value]').forEach(o => {
+      if (!o.value) return;
+      o.hidden = o.dataset.unit === '1' && from.value !== '' && o.dataset.site !== from.value;
+    });
+  }
+
+  function addLine(itemId = '', qty = '', rate = '') {
+    const row = tpl.content.firstElementChild.cloneNode(true);
+    table.appendChild(row);
+    const select = row.querySelector('.item');
+    select.value = itemId;
+    if (qty) row.querySelector('.qty').value = qty;
+    if (rate && row.querySelector('.rate')) row.querySelector('.rate').value = rate;
+    select.addEventListener('change', () => sync(row));
+    row.querySelector('.del').addEventListener('click', () => row.remove());
+    filterByFrom(row);
+    sync(row);
+  }
+
+  // Єдиний можливий варіант (скажімо, один склад) обираємо одразу — менше кліків.
+  document.querySelectorAll('select[name="fromId"], select[name="toId"]').forEach(select => {
+    const options = [...select.options].filter(o => o.value);
+    if (!select.value && options.length === 1) select.value = options[0].value;
+  });
+
+  document.getElementById('addLine').addEventListener('click', () => addLine());
+  if (from) from.addEventListener('change', () => table.querySelectorAll('tr').forEach(filterByFrom));
+
+  const posted = {{ {items: v.item ?? [], qty: v.quantity ?? [], rate: v.rate ?? []}|json_encode|raw }};
+  if (posted.items.length) {
+    posted.items.forEach((id, i) => addLine(id, posted.qty[i] || '', posted.rate[i] || ''));
+  } else {
+    addLine('{{ preset }}');
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,64 @@
+{% extends 'warehouse/layout.html.twig' %}
+{% block title %}Майно{% endblock %}
+{% block body %}
+<div class="head">
+  <h1>Майно на обліку</h1>
+  <div class="row">
+    <a class="btn" href="{{ path('wh_movement_new', {type: 'receipt'}) }}">📥 Надходження</a>
+    <a class="btn" href="{{ path('wh_movement_new', {type: 'shipment'}) }}">📤 Відвантаження</a>
+    <a class="btn primary" href="{{ path('wh_item_new') }}">➕ Нова позиція</a>
+  </div>
+</div>
+
+<form class="card row" method="get">
+  <div class="field" style="flex:1;min-width:200px"><label>Пошук</label>
+    <input type="search" name="q" value="{{ filters.q }}" placeholder="назва, інв. номер, зав. номер, постачальник"></div>
+  <div class="field"><label>Категорія</label>
+    <select name="category"><option value="">усі</option>
+      {% for c in categories %}<option value="{{ c.id }}" {{ filters.category == c.id ? 'selected' }}>{{ c.label }}</option>{% endfor %}
+    </select></div>
+  <div class="field"><label>Де</label>
+    <select name="place"><option value="">будь-де</option>
+      <option value="none" {{ filters.place == 'none' ? 'selected' }}>ще не надійшло</option>
+      {% for s in sites %}<option value="{{ s.id }}" {{ filters.place == s.id ~ '' ? 'selected' }}>{{ s.label }}</option>{% endfor %}
+    </select></div>
+  <label class="small"><input type="checkbox" name="off" value="1" {{ filters.off ? 'checked' }}> зі списаним</label>
+  <button type="submit">Показати</button>
+</form>
+
+<form class="card" method="get" action="{{ path('wh_labels') }}" target="_blank">
+  {% if items %}
+  <div class="table-wrap"><table>
+    <tr>
+      <th><input type="checkbox" title="усі" onclick="document.querySelectorAll('.pick').forEach(c => c.checked = this.checked)"></th>
+      <th>Інв. №</th><th>Назва</th><th>Категорія</th><th>Де зараз</th><th class="num">К-сть</th><th>Стан</th>
+    </tr>
+    {% for i, item in items %}
+      <tr>
+        <td><input class="pick" type="checkbox" name="ids[]" value="{{ item.id }}"></td>
+        <td class="mono"><a href="{{ path('wh_item', {id: item.id}) }}">{{ item.inventoryNumber }}</a></td>
+        <td><a href="{{ path('wh_item', {id: item.id}) }}">{{ item.name }}</a></td>
+        <td class="small">{{ item.category.label }}</td>
+        <td class="small">
+          {% if item.tracking.value == 'unit' %}
+            {% if item.currentSite %}<a href="{{ path('wh_site', {id: item.currentSite.id}) }}">{{ item.currentSite.label }}</a>
+              {% if item.currentSince %}<span class="muted">з {{ item.currentSince|date('d.m') }}</span>{% endif %}
+            {% else %}<span class="muted">—</span>{% endif %}
+          {% else %}<span class="muted">по місцях — у картці</span>{% endif %}
+        </td>
+        <td class="num">{{ totals[i] is null ? 1 : totals[i] }} {{ item.unit }}</td>
+        <td>{% if item.state.value != 'active' %}<span class="pill warn">{{ item.state.label }}</span>{% endif %}</td>
+      </tr>
+    {% endfor %}
+  </table></div>
+  <div class="row" style="margin-top:10px">
+    <span class="muted small">Обрані — на друк наклейок:</span>
+    <select name="size"><option value="large">великі (≈ 60×40 мм)</option><option value="small">малі (≈ 40×25 мм)</option></select>
+    <label class="small">копій <input type="number" name="copies" value="1" min="1" max="50" style="width:70px"></label>
+    <button type="submit">🖨 Друкувати наклейки</button>
+  </div>
+  {% else %}
+    <p class="muted">Нічого не знайдено. {% if not filters.q and not filters.category %}Почніть з <a href="{{ path('wh_item_new') }}">нової позиції</a>.{% endif %}</p>
+  {% endif %}
+</form>
+{% endblock %}

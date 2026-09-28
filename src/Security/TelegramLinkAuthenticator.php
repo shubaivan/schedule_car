@@ -57,7 +57,10 @@ class TelegramLinkAuthenticator extends AbstractAuthenticator
 
     public function onAuthenticationSuccess(Request $request, $token, string $firewallName): ?Response
     {
-        return new RedirectResponse($this->urlGenerator->generate('crm_index'));
+        // Посилання з картки складу веде одразу на цю картку, а не на заявки.
+        $next = CrmLoginLink::safeNext($request->query->get('next'));
+
+        return new RedirectResponse($next ?? $this->urlGenerator->generate('crm_index'));
     }
 
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): ?Response

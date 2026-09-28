@@ -1,0 +1,32 @@
+{% extends 'warehouse/layout.html.twig' %}
+{% block title %}{{ movement.title }}{% endblock %}
+{% block body %}
+<h1>{{ movement.type.emoji }} {{ movement.title }}</h1>
+{% include 'warehouse/_share.html.twig' %}
+<div class="grid">
+  <div class="card">
+    <dl class="facts">
+      <dt>Звідки</dt><dd>{% if movement.fromSite %}<a href="{{ path('wh_site', {id: movement.fromSite.id}) }}">{{ movement.fromSite.label }}</a>{% else %}{{ movement.counterparty ?: 'ззовні' }}{% endif %}</dd>
+      <dt>Куди</dt><dd>{% if movement.toSite %}<a href="{{ path('wh_site', {id: movement.toSite.id}) }}">{{ movement.toSite.label }}</a>{% else %}списано{% endif %}</dd>
+      {% if movement.client %}<dt>Клієнт</dt><dd><a href="{{ path('wh_client', {id: movement.client.id}) }}">{{ movement.client.name }}</a></dd>{% endif %}
+      <dt>Записав</dt><dd>{{ movement.createdBy ? movement.createdBy.displayName : '—' }} · {{ movement.createdAt|date('d.m.Y H:i') }}</dd>
+    </dl>
+    {% if movement.note %}<p style="white-space:pre-line">{{ movement.note }}</p>{% endif %}
+  </div>
+  <div class="card">
+    <h2>Позиції</h2>
+    <table>
+      <tr><th>Позиція</th><th class="num">К-сть</th><th class="num">Оренда/доба</th></tr>
+      {% for l in movement.lines %}
+        <tr>
+          <td><a href="{{ path('wh_item', {id: l.item.id}) }}">{{ l.item.label }}</a></td>
+          <td class="num">{{ l.quantity }} {{ l.item.unit }}</td>
+          <td class="num">{{ l.rentalRate is not null ? l.rentalRate|number_format(2, ',', ' ') : '—' }}</td>
+        </tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+{% include 'warehouse/_documents.html.twig' with {owner: 'movement', ownerId: movement.id, defaultType: 'waybill'} %}
+{% include 'warehouse/_journal.html.twig' with {journalLink: path('wh_journal', {type: 'movement'})} %}
+{% endblock %}

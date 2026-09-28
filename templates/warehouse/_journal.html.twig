@@ -1,0 +1,18 @@
+{# Журнал однієї картки: хто сканував, переходив, відкривав, міняв. #}
+<div class="card">
+  <div class="head"><h2>🕓 Журнал</h2>{% if journalLink is defined %}<a class="small" href="{{ journalLink }}">увесь журнал →</a>{% endif %}</div>
+  {% if journal %}
+    <div class="table-wrap"><table>
+      {% for a in journal %}
+        <tr>
+          <td class="mono small" style="white-space:nowrap">{{ a.at|date('d.m.Y H:i') }}</td>
+          <td>{{ a.action.emoji }} {{ a.action.label }}{% if a.details %} <span class="muted small">— {{ a.details }}</span>{% endif %}</td>
+          <td class="small">{{ a.user ? a.user.displayName : '—' }}</td>
+          <td class="small muted">{{ a.channel == 'bot' ? 'бот' : 'адмінка' }}</td>
+        </tr>
+      {% endfor %}
+    </table></div>
+  {% else %}
+    <p class="muted">Поки порожньо.</p>
+  {% endif %}
+</div>

@@ -1,0 +1,105 @@
+{% extends 'warehouse/layout.html.twig' %}
+{% set v = values ?? {} %}
+{% block title %}{{ item.id ? 'Редагувати ' ~ item.inventoryNumber : 'Нова позиція' }}{% endblock %}
+{% block body %}
+<h1>{{ item.id ? 'Редагувати ' ~ item.label : 'Нова позиція' }}</h1>
+<form class="card" method="post">
+  <input type="hidden" name="_token" value="{{ csrf_token('warehouse') }}">
+  <div class="fields">
+    <div class="field wide"><label>Назва *</label>
+      <input type="text" name="name" required value="{{ v.name ?? item.name }}" placeholder="Щит опалубки 1200×600 / Трактор МТЗ-82"></div>
+    <div class="field"><label>Категорія *</label>
+      <select name="categoryId" id="category" required>
+        {% set current = v.categoryId ?? (item.id ? item.category.id : '') %}
+        <option value="">— оберіть —</option>
+        {% for c in categories %}<option value="{{ c.id }}" {{ current == c.id ~ '' or current == c.id ? 'selected' }}>{{ c.label }}</option>{% endfor %}
+      </select>
+      <span class="muted small">Немає потрібної? <a href="{{ path('wh_categories') }}">Додайте в довідник</a>.</span></div>
+    <div class="field"><label>Інвентарний номер</label>
+      <input type="text" name="inventoryNumber" id="inventoryNumber" value="{{ v.inventoryNumber ?? item.inventoryNumber }}" placeholder="присвоїться сам">
+      <span class="muted small" id="numberHint"></span></div>
+    <div class="field"><label>Облік</label>
+      <select name="tracking" id="tracking">
+        {% set tr = v.tracking ?? item.tracking.value %}
+        {% for t in trackings %}<option value="{{ t.value }}" {{ tr == t.value ? 'selected' }}>{{ t.label }}</option>{% endfor %}
+      </select>
+      <span class="muted small">Поштучно — своя наклейка на кожну річ. Кількістю — дрібниця: замки, стяжки.</span></div>
+    <div class="field" id="unitField"><label>Одиниця</label>
+      <input type="text" name="unit" value="{{ v.unit ?? item.unit }}" placeholder="шт, компл., м²"></div>
+    <div class="field"><label>Заводський номер</label>
+      <input type="text" name="serialNumber" value="{{ v.serialNumber ?? item.serialNumber }}"></div>
+    <div class="field"><label>Постачальник / виробник</label>
+      <input type="text" name="supplier" value="{{ v.supplier ?? item.supplier }}"></div>
+    <div class="field"><label>Ціна за одиницю, грн</label>
+      <input type="text" inputmode="decimal" name="purchasePrice" value="{{ v.purchasePrice ?? item.purchasePrice }}"></div>
+    <div class="field"><label>Дата купівлі</label>
+      <input type="date" name="purchasedAt" value="{{ v.purchasedAt ?? (item.purchasedAt ? item.purchasedAt|date('Y-m-d')) }}"></div>
+    <div class="field"><label>Оренда за добу, грн</label>
+      <input type="text" inputmode="decimal" name="rentalRate" value="{{ v.rentalRate ?? item.rentalRate }}" placeholder="якщо здаємо в оренду"></div>
+    {% if item.state.value != 'written_off' %}
+    <div class="field"><label>Стан</label>
+      <select name="state">
+        {% set st = v.state ?? item.state.value %}
+        {% for s in states %}<option value="{{ s.value }}" {{ st == s.value ? 'selected' }}>{{ s.label }}</option>{% endfor %}
+      </select></div>
+    {% endif %}
+    <div class="field wide"><label>Опис</label>
+      <textarea name="description">{{ v.description ?? item.description }}</textarea></div>
+  </div>
+
+  <h2 style="margin-top:16px">Характеристики</h2>
+  <p class="muted small">У кожного майна свої: розміри й вага в щита, держномер і моточаси в трактора. Порожні рядки не зберігаються.</p>
+  <div id="attrs" class="fields">
+    {% set pairs = [] %}
+    {% if values %}
+      {% for idx, n in (v.attrName ?? []) %}{% set pairs = pairs|merge([[n, v.attrValue[idx] ?? '']]) %}{% endfor %}
+    {% else %}
+      {% for n, val in item.attributes %}{% set pairs = pairs|merge([[n, val]]) %}{% endfor %}
+    {% endif %}
+    {% for pair in pairs %}
+      <div class="row attr"><input type="text" name="attrName[]" value="{{ pair[0] }}" placeholder="Назва" style="width:40%"><input type="text" name="attrValue[]" value="{{ pair[1] }}" placeholder="Значення" style="flex:1"></div>
+    {% endfor %}
+  </div>
+  <button type="button" id="addAttr" style="margin-top:8px">+ характеристика</button>
+
+  <div class="row" style="margin-top:16px">
+    <button class="primary" type="submit">Зберегти</button>
+    <a class="btn" href="{{ item.id ? path('wh_item', {id: item.id}) : path('wh_items') }}">Скасувати</a>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+  const hints = {{ categoryHints|json_encode|raw }};
+  const category = document.getElementById('category');
+  const attrs = document.getElementById('attrs');
+  const tracking = document.getElementById('tracking');
+  const unitField = document.getElementById('unitField');
+
+  function addAttr(name = '', value = '') {
+    const row = document.createElement('div');
+    row.className = 'row attr';
+    row.innerHTML = '<input type="text" name="attrName[]" placeholder="Назва" style="width:40%"><input type="text" name="attrValue[]" placeholder="Значення" style="flex:1">';
+    row.children[0].value = name;
+    row.children[1].value = value;
+    attrs.appendChild(row);
+  }
+
+  function onCategory() {
+    const hint = hints.find(h => String(h.id) === category.value);
+    document.getElementById('numberHint').textContent = hint && !document.getElementById('inventoryNumber').value ? 'буде ' + hint.next : '';
+    if (!hint) return;
+    const present = [...attrs.querySelectorAll('input[name="attrName[]"]')].map(i => i.value.trim());
+    // Підказуємо характеристики категорії, яких ще немає у формі.
+    hint.attributes.filter(a => !present.includes(a)).forEach(a => addAttr(a));
+  }
+
+  function onTracking() { unitField.style.display = tracking.value === 'bulk' ? '' : 'none'; }
+
+  category.addEventListener('change', onCategory);
+  tracking.addEventListener('change', onTracking);
+  document.getElementById('addAttr').addEventListener('click', () => addAttr());
+  onCategory();
+  onTracking();
+</script>
+{% endblock %}

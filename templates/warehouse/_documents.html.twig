@@ -1,0 +1,39 @@
+{# Документи картки: список і форма завантаження. owner — client|site|item|movement. #}
+<div class="card">
+  <h2>📎 Документи</h2>
+  {% if documents %}
+    <div class="table-wrap"><table>
+      <tr><th>Тип</th><th>Файл</th><th>Додав</th><th>Google Диск</th><th></th></tr>
+      {% for d in documents %}
+        <tr>
+          <td>{{ d.type.label }}</td>
+          <td><a href="{{ path('wh_document', {id: d.id}) }}" target="_blank">{{ d.originalName }}</a>
+            <div class="muted small">{{ d.sizeLabel }} · {{ d.createdAt|date('d.m.Y H:i') }}</div></td>
+          <td class="small">{{ d.uploadedBy ? d.uploadedBy.displayName : '—' }}</td>
+          <td class="small">{% if d.driveUrl %}<a href="{{ d.driveUrl }}" target="_blank">відкрити</a>{% else %}<span class="muted">у черзі</span>{% endif %}</td>
+          <td class="num">
+            <form class="inline" method="post" action="{{ path('wh_document_delete', {id: d.id}) }}" onsubmit="return confirm('Прибрати документ «{{ d.originalName|e('js') }}»?')">
+              <input type="hidden" name="_token" value="{{ csrf_token('warehouse') }}">
+              <button class="danger" type="submit" title="Прибрати">✕</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+    </table></div>
+  {% else %}
+    <p class="muted">Документів ще немає.</p>
+  {% endif %}
+
+  <form method="post" enctype="multipart/form-data" action="{{ path('wh_document_upload', {owner: owner, id: ownerId}) }}" class="row" style="margin-top:10px">
+    <input type="hidden" name="_token" value="{{ csrf_token('warehouse') }}">
+    <div class="field"><label>Тип</label>
+      <select name="type">
+        {% for t in documentTypes %}<option value="{{ t.value }}" {{ t.value == (defaultType|default('other')) ? 'selected' }}>{{ t.label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field"><label>Файли (PDF, фото, Word, Excel — до 20 МБ)</label>
+      <input type="file" name="files[]" multiple required accept=".pdf,.jpg,.jpeg,.png,.heic,.webp,.doc,.docx,.xls,.xlsx">
+    </div>
+    <button class="primary" type="submit">Додати</button>
+  </form>
+</div>

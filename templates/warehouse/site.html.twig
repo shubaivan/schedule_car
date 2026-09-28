@@ -1,0 +1,52 @@
+{% extends 'warehouse/layout.html.twig' %}
+{% block title %}{{ site.name }}{% endblock %}
+{% block body %}
+<h1>{{ site.warehouse ? '🏠' : (site.category ? site.category.emoji : '🏗') }} {{ site.name }}</h1>
+{% if site.client %}<p>Клієнт: <a href="{{ path('wh_client', {id: site.client.id}) }}">{{ site.client.name }}</a></p>{% endif %}
+{% include 'warehouse/_share.html.twig' %}
+
+<div class="card">
+  <div class="head">
+    <h2>Що тут зараз</h2>
+    <div class="row">
+      {% if site.warehouse %}
+        <a class="btn" href="{{ path('wh_movement_new', {type: 'shipment', from: site.id}) }}">📤 Відвантажити звідси</a>
+      {% else %}
+        <a class="btn" href="{{ path('wh_movement_new', {type: 'return', from: site.id}) }}">↩️ Повернути на склад</a>
+      {% endif %}
+    </div>
+  </div>
+  {% include 'warehouse/_contents.html.twig' %}
+</div>
+
+<form class="card" method="post">
+  <input type="hidden" name="_token" value="{{ csrf_token('warehouse') }}">
+  <input type="hidden" name="kind" value="{{ site.kind.value }}">
+  <h2>Картка місця</h2>
+  <div class="fields">
+    <div class="field"><label>Назва *</label><input type="text" name="name" required value="{{ site.name }}"></div>
+    {% if not site.warehouse %}
+    <div class="field"><label>Тип об'єкта</label>
+      <select name="categoryId"><option value="">—</option>
+        {% for c in siteCategories %}<option value="{{ c.id }}" {{ site.category and site.category.id == c.id ? 'selected' }}>{{ c.label }}</option>{% endfor %}
+      </select></div>
+    <div class="field"><label>Клієнт</label>
+      <select name="clientId"><option value="">— власний —</option>
+        {% for c in clients %}<option value="{{ c.id }}" {{ site.client and site.client.id == c.id ? 'selected' }}>{{ c.name }}</option>{% endfor %}
+      </select></div>
+    {% endif %}
+    <div class="field wide"><label>Адреса</label><input type="text" name="address" value="{{ site.address }}"></div>
+    <div class="field wide"><label>Примітка</label><textarea name="note">{{ site.note }}</textarea></div>
+    <label class="small"><input type="hidden" name="active" value="0"><input type="checkbox" name="active" value="1" {{ site.active ? 'checked' }}> відкритий (на закритий не відвантажують)</label>
+  </div>
+  <div class="row" style="margin-top:10px"><button class="primary" type="submit">Зберегти</button></div>
+</form>
+
+<div class="card">
+  <h2>Рухи</h2>
+  {% include 'warehouse/_movements.html.twig' with {movements: movements} %}
+</div>
+
+{% include 'warehouse/_documents.html.twig' with {owner: 'site', ownerId: site.id} %}
+{% include 'warehouse/_journal.html.twig' with {journalLink: path('wh_journal', {type: 'site'})} %}
+{% endblock %}

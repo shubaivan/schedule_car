@@ -9,3 +9,9 @@ flysystem:
             adapter: 'local'
             options:
                 directory: '%kernel.project_dir%/var/storage/supply'
+
+        # Документи складу: договори клієнтів, накладні рухів, паспорти техніки.
+        warehouse.storage:
+            adapter: 'local'
+            options:
+                directory: '%kernel.project_dir%/var/storage/warehouse'

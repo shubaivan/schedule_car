@@ -1,0 +1,6 @@
+{# Посилання в бот на цю картку — переслати колезі; кожен перехід ляже в журнал. #}
+<div class="row small" style="margin:6px 0 12px">
+  <span class="muted">🔗 Посилання в бот:</span>
+  <input type="text" readonly value="{{ shareUrl }}" style="flex:1;min-width:220px" onclick="this.select()">
+  <button type="button" onclick="navigator.clipboard.writeText('{{ shareUrl|e('js') }}').then(() => { this.textContent = 'Скопійовано' })">Копіювати</button>
+</div>

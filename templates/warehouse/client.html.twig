@@ -1,0 +1,66 @@
+{% extends 'warehouse/layout.html.twig' %}
+{% block title %}{{ client.name }}{% endblock %}
+{% block body %}
+<h1>{{ client.category ? client.category.emoji }} {{ client.name }}</h1>
+{% include 'warehouse/_share.html.twig' %}
+
+<div class="grid">
+  <form class="card" method="post">
+    <input type="hidden" name="_token" value="{{ csrf_token('warehouse') }}">
+    <h2>Картка клієнта</h2>
+    <div class="fields">
+      <div class="field wide"><label>Назва *</label><input type="text" name="name" required value="{{ client.name }}"></div>
+      <div class="field"><label>Тип</label>
+        <select name="categoryId"><option value="">—</option>
+          {% for c in clientCategories %}<option value="{{ c.id }}" {{ client.category and client.category.id == c.id ? 'selected' }}>{{ c.label }}</option>{% endfor %}
+        </select></div>
+      <div class="field"><label>ЄДРПОУ / ІПН</label><input type="text" name="edrpou" value="{{ client.edrpou }}"></div>
+      <div class="field"><label>Телефон</label><input type="text" name="phone" value="{{ client.phone }}"></div>
+      <div class="field"><label>Контактна особа</label><input type="text" name="contactPerson" value="{{ client.contactPerson }}"></div>
+      <div class="field wide"><label>Примітка</label><textarea name="note">{{ client.note }}</textarea></div>
+      <label class="small"><input type="hidden" name="active" value="0"><input type="checkbox" name="active" value="1" {{ client.active ? 'checked' }}> активний (прибраний зникає зі списків вибору)</label>
+    </div>
+    <div class="row" style="margin-top:10px"><button class="primary" type="submit">Зберегти</button></div>
+  </form>
+
+  <form class="card" method="post" action="{{ path('wh_sites') }}">
+    <input type="hidden" name="_token" value="{{ csrf_token('warehouse') }}">
+    <input type="hidden" name="clientId" value="{{ client.id }}">
+    <input type="hidden" name="kind" value="site">
+    <h2>➕ Новий об'єкт клієнта</h2>
+    <div class="fields">
+      <div class="field"><label>Назва *</label><input type="text" name="name" required placeholder="ЖК Сонячний, секція 2"></div>
+      <div class="field"><label>Тип</label>
+        <select name="categoryId"><option value="">—</option>
+          {% for c in siteCategories %}<option value="{{ c.id }}">{{ c.label }}</option>{% endfor %}
+        </select></div>
+      <div class="field wide"><label>Адреса</label><input type="text" name="address"></div>
+    </div>
+    <div class="row" style="margin-top:10px"><button class="primary" type="submit">Додати об'єкт</button></div>
+  </form>
+</div>
+
+<div class="card">
+  <h2>🏗 Об'єкти й що на них зараз</h2>
+  {% for site in client.sites %}
+    <div style="margin-bottom:14px">
+      <div class="head" style="margin:0">
+        <strong><a href="{{ path('wh_site', {id: site.id}) }}">{{ site.name }}</a></strong>
+        <span class="muted small">{{ site.category ? site.category.label }}{% if site.address %} · {{ site.address }}{% endif %}{% if not site.active %} · закрито{% endif %}</span>
+        <a class="btn small" href="{{ path('wh_movement_new', {type: 'shipment', to: site.id}) }}">📤 Відвантажити сюди</a>
+      </div>
+      {% include 'warehouse/_contents.html.twig' with {contents: contents[site.id] ?? []} %}
+    </div>
+  {% else %}
+    <p class="muted">Об'єктів ще немає — додайте перший у формі вище.</p>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <h2>Рухи по клієнту</h2>
+  {% include 'warehouse/_movements.html.twig' with {movements: movements} %}
+</div>
+
+{% include 'warehouse/_documents.html.twig' with {owner: 'client', ownerId: client.id, defaultType: 'contract'} %}
+{% include 'warehouse/_journal.html.twig' with {journalLink: path('wh_journal', {type: 'client'})} %}
+{% endblock %}

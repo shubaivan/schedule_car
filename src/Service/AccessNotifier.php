@@ -8,6 +8,7 @@ use App\Enum\AccessStatus;
 use App\Repository\TelegramUserRepository;
 use App\Telegram\Access\AccessCallback;
 use App\Telegram\Start\Command\StartCommand;
+use App\Warehouse\Service\WarehouseSection;
 use Psr\Log\LoggerInterface;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Properties\ParseMode;
@@ -23,6 +24,7 @@ class AccessNotifier
         private TelegramUserRepository $userRepository,
         private LoggerInterface $logger,
         private FleetSection $fleet,
+        private WarehouseSection $warehouse,
     ) {
     }
 
@@ -77,7 +79,7 @@ class AccessNotifier
         $this->send(
             $user,
             "✅ <b>Доступ відкрито</b>\nОберіть розділ:",
-            StartCommand::mainMenuKeyboard($this->fleet->isEnabled()),
+            StartCommand::mainMenuKeyboard($this->fleet->isEnabled(), $this->warehouse->inMenuFor($user)),
         );
     }
 

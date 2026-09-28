@@ -1,0 +1,24 @@
+{# Таблиця рухів. item — якщо показуємо в картці позиції, беремо кількість саме її. #}
+{% if movements %}
+  <div class="table-wrap"><table>
+    <tr><th>Дата</th><th>Рух</th><th>Звідки → куди</th><th>{{ item is defined and item ? 'Кількість' : 'Позицій' }}</th><th>Хто</th></tr>
+    {% for m in movements %}
+      <tr>
+        <td class="mono">{{ m.occurredAt|date('d.m.Y') }}</td>
+        <td><a href="{{ path('wh_movement', {id: m.id}) }}">{{ m.type.emoji }} {{ m.type.label }}{% if m.documentNumber %} №{{ m.documentNumber }}{% endif %}</a></td>
+        <td class="small">
+          {{ m.fromSite ? m.fromSite.label : (m.counterparty ?: 'ззовні') }}
+          → {{ m.toSite ? m.toSite.label : 'списано' }}
+        </td>
+        <td class="num">
+          {% if item is defined and item %}
+            {% for l in m.lines %}{% if l.item.id == item.id %}{{ l.quantity }} {{ item.unit }}{% endif %}{% endfor %}
+          {% else %}{{ m.lines|length }}{% endif %}
+        </td>
+        <td class="small muted">{{ m.createdBy ? m.createdBy.displayName : '—' }}</td>
+      </tr>
+    {% endfor %}
+  </table></div>
+{% else %}
+  <p class="muted">Рухів ще не було.</p>
+{% endif %}

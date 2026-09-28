@@ -9,3 +9,9 @@ supply_controllers:
         path: ../src/Supply/Controller/
         namespace: App\Supply\Controller
     type: attribute
+
+warehouse_controllers:
+    resource:
+        path: ../src/Warehouse/Controller/
+        namespace: App\Warehouse\Controller
+    type: attribute

@@ -22,7 +22,11 @@ class CrmLoginLink
     ) {
     }
 
-    public function issue(TelegramUser $user): string
+    /**
+     * @param string|null $next куди вести після входу — лише наш шлях у /crm чи /sklad,
+     *                          інакше посилання стало б відкритим редиректом
+     */
+    public function issue(TelegramUser $user, ?string $next = null): string
     {
         $this->repository->deleteExpired();
 
@@ -35,9 +39,15 @@ class CrmLoginLink
         $this->em->persist($loginToken);
         $this->em->flush();
 
+        $parameters = ['token' => $token];
+
+        if (self::safeNext($next) !== null) {
+            $parameters['next'] = $next;
+        }
+
         return $this->urlGenerator->generate(
             'crm_auth',
-            ['token' => $token],
+            $parameters,
             UrlGeneratorInterface::ABSOLUTE_URL,
         );
     }
@@ -55,6 +65,16 @@ class CrmLoginLink
         $this->em->flush();
 
         return $loginToken->getUser();
+    }
+
+    /** Шлях після входу, якщо він наш; null — вести на стартову сторінку CRM. */
+    public static function safeNext(?string $next): ?string
+    {
+        if ($next === null || ! preg_match('#^/(crm|sklad)(/[A-Za-z0-9/_-]*)?(\?via=bot)?$#', $next)) {
+            return null;
+        }
+
+        return $next;
     }
 
     private function hash(string $token): string
