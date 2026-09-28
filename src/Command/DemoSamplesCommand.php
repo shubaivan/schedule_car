@@ -5,7 +5,10 @@ namespace App\Command;
 use App\Entity\Car;
 use App\Entity\ScheduledSet;
 use App\Entity\TelegramUser;
+use App\Supply\Entity\Supplier;
+use App\Supply\Entity\SupplyPurchase;
 use App\Supply\Enum\SupplyRole;
+use App\Supply\Service\SupplierDirectory;
 use App\Warehouse\Entity\WhCategory;
 use App\Warehouse\Entity\WhClient;
 use App\Warehouse\Entity\WhItem;
@@ -57,6 +60,7 @@ class DemoSamplesCommand extends Command
     public function __construct(
         private EntityManagerInterface $em,
         private RecordMovement $record,
+        private SupplierDirectory $suppliers,
     ) {
         parent::__construct();
     }
@@ -99,6 +103,7 @@ class DemoSamplesCommand extends Command
             return;
         }
 
+        $supplier = $this->suppliers->findOrCreate(self::SUPPLIER, $admin);
         $store = $this->em->getRepository(WhSite::class)->findOneBy(['kind' => SiteKind::Warehouse], ['id' => 'ASC']);
         $category = fn (CategoryScope $scope, string $name) => $this->em->getRepository(WhCategory::class)->findOneBy(['scope' => $scope, 'name' => $name]);
 
@@ -129,7 +134,7 @@ class DemoSamplesCommand extends Command
                 ->setUnit($unit)
                 ->setPurchasePrice($price)
                 ->setRentalRate($rate)
-                ->setSupplier(self::SUPPLIER)
+                ->setSupplier($supplier)
                 ->setPurchasedAt(new DateTime('-20 days'))
                 ->setAttributes($attributes)
                 ->setDescription(self::NOTE)
@@ -148,7 +153,7 @@ class DemoSamplesCommand extends Command
             array_map(static fn (WhItem $item, array $row) => ['item' => $item, 'quantity' => $row[6]], $items, self::ITEMS),
             $admin,
             'ЗР-1',
-            self::SUPPLIER,
+            $supplier,
             self::NOTE,
         );
 
@@ -243,6 +248,14 @@ class DemoSamplesCommand extends Command
             foreach ($items as $item) {
                 $this->em->remove($item);
             }
+        }
+
+        // Постачальник-зразок живе в спільному довіднику заявок: прибираємо,
+        // лише якщо на нього не посилається жодна справжня закупівля.
+        $supplier = $this->em->getRepository(Supplier::class)->findOneBy(['nameNormalized' => Supplier::normalize(self::SUPPLIER)]);
+
+        if ($supplier !== null && $this->em->getRepository(SupplyPurchase::class)->count(['supplier' => $supplier]) === 0) {
+            $this->em->remove($supplier);
         }
 
         if ($client !== null) {

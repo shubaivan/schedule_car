@@ -1,0 +1,56 @@
+{#
+  whPicker(селектор, опції) — пошук у списку наявних і, якщо задано create,
+  «➕ Додати …» для нового. Нове приходить на сервер як «new:Назва»
+  (WarehouseDirectory::NEW), і вже там шукається дубль за назвою без регістру
+  й розділових знаків — тож «фоп петренко» не стане другим «ФОП Петренко».
+
+  url — підвантажувати з сервера (довідник великий); без url — шукає серед
+  <option>/<optgroup> самого select.
+#}
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+  const WH_NEW = {{ constant('App\\Warehouse\\Service\\WarehouseDirectory::NEW')|json_encode|raw }};
+  const whNorm = s => (s || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+
+  function whPicker(selector, opts = {}) {
+    const config = {
+      placeholder: opts.placeholder || '— оберіть —',
+      allowClear: !opts.required,
+      language: {
+        searching: () => 'Шукаю…',
+        noResults: () => opts.create ? 'Нічого — допишіть назву повністю' : 'Нічого не знайдено',
+      },
+      templateResult: d => {
+        if (d.loading) return d.text;
+        if (d.isNew) return $('<span>').text('➕ Додати «' + d.text + '» ' + opts.create);
+        return d.edrpou ? $('<span>').text(d.text).append($('<span class="muted small">').text(' · ' + d.edrpou)) : d.text;
+      },
+    };
+
+    if (opts.url) {
+      config.ajax = {
+        url: opts.url,
+        dataType: 'json',
+        delay: 200,
+        data: params => ({ q: params.term || '' }),
+        processResults: data => ({ results: data.results }),
+      };
+    }
+
+    if (opts.create) {
+      config.tags = true;
+      config.createTag = params => {
+        const term = (params.term || '').trim();
+        return term === '' ? null : { id: WH_NEW + term, text: term, isNew: true };
+      };
+      // Нового пропонуємо, лише коли такої назви у списку ще немає.
+      config.insertTag = (data, tag) => {
+        const flat = data.flatMap(d => d.children || [d]);
+        if (!flat.some(d => whNorm(d.text) === whNorm(tag.text))) data.push(tag);
+      };
+    }
+
+    return $(selector).select2(config);
+  }
+</script>

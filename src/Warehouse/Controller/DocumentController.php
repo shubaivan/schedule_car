@@ -68,9 +68,14 @@ class DocumentController extends AbstractWarehouseController
                 ++$saved;
             }
 
-            $saved > 0
-                ? $this->addFlash('ok', sprintf('Додано документів: %d. Копія на Google Диск поїде автоматично.', $saved))
-                : $this->addFlash('error', 'Оберіть файл.');
+            if ($saved === 0) {
+                $this->addFlash('error', 'Оберіть файл.');
+            } elseif ($type === DocumentType::Photo && $entity instanceof WhItem) {
+                // Фото самої позиції лишаються на сервері (див. WhDocumentRepository::findNotMirrored).
+                $this->addFlash('ok', sprintf('Додано фото: %d.', $saved));
+            } else {
+                $this->addFlash('ok', sprintf('Додано документів: %d. Копія на Google Диск поїде автоматично.', $saved));
+            }
         } catch (WarehouseException $e) {
             $this->addFlash('error', $e->getMessage());
         }

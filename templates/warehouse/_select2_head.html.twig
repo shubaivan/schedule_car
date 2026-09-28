@@ -1,0 +1,18 @@
+{# select2 у кольорах складу (зокрема в темній темі). Пара до _select2_js. #}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css">
+<style>
+  .select2-container { width: 100% !important; }
+  .select2-container--default .select2-selection--single { height: auto; min-height: 38px; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; }
+  .select2-container--default .select2-selection--single .select2-selection__rendered { color: var(--ink); line-height: 22px; padding: 7px 28px 7px 10px; }
+  .select2-container--default .select2-selection--single .select2-selection__arrow { height: 100%; }
+  .select2-container--default .select2-selection--single .select2-selection__placeholder { color: var(--muted); }
+  .select2-dropdown { background: var(--surface); color: var(--ink); border-color: var(--rule); }
+  .select2-container--default .select2-search--dropdown .select2-search__field { background: var(--surface); color: var(--ink); border-color: var(--rule); }
+  .select2-container--default .select2-results__group { color: var(--muted); font-size: 12px; }
+  .select2-container--default .select2-results__option--highlighted.select2-results__option--selectable { background: var(--mark); color: var(--mark-ink); }
+  .select2-container--default .select2-results__option--selected { background: var(--mark-soft); color: var(--ink); }
+  @media (max-width: 640px) {
+    .select2-container--default .select2-selection--single { min-height: 44px; }
+    .select2-container--default .select2-selection--single .select2-selection__rendered { line-height: 28px; }
+  }
+</style>

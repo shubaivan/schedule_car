@@ -53,6 +53,8 @@
   .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
   .field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
   .field label { font-size: 12px; color: var(--muted); }
+  /* display:flex у .field інакше перебиває атрибут hidden — поле, сховане скриптом, лишалось видимим. */
+  [hidden] { display: none !important; }
   .fields { display: grid; gap: 10px 14px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
   .fields .wide { grid-column: 1 / -1; }
   input, select, textarea, button, .btn {
@@ -115,6 +117,7 @@
   }
   {% block style %}{% endblock %}
 </style>
+{% block head %}{% endblock %}
 </head>
 <body>
 {% set route = app.request.attributes.get('_route') %}

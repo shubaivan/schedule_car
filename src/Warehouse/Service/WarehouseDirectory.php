@@ -3,6 +3,10 @@
 namespace App\Warehouse\Service;
 
 use App\Entity\TelegramUser;
+use App\Supply\Entity\Supplier;
+use App\Supply\Exception\SupplyException;
+use App\Supply\Repository\SupplierRepository;
+use App\Supply\Service\SupplierDirectory;
 use App\Warehouse\Entity\WhCategory;
 use App\Warehouse\Entity\WhClient;
 use App\Warehouse\Entity\WhItem;
@@ -25,10 +29,15 @@ use Doctrine\ORM\EntityManagerInterface;
  */
 class WarehouseDirectory
 {
+    /** Префікс значення в полі select2, коли запис не знайшли й дописали новий. */
+    public const NEW = 'new:';
+
     public function __construct(
         private EntityManagerInterface $em,
         private WhItemRepository $items,
         private WhCategoryRepository $categories,
+        private SupplierRepository $suppliers,
+        private SupplierDirectory $supplierDirectory,
     ) {
     }
 
@@ -64,7 +73,6 @@ class WarehouseDirectory
             ->setUnit($this->text($data['unit'] ?? null) ?? 'шт')
             ->setDescription($this->text($data['description'] ?? null))
             ->setSerialNumber($this->text($data['serialNumber'] ?? null))
-            ->setSupplier($this->text($data['supplier'] ?? null))
             ->setPurchasePrice($this->money($data['purchasePrice'] ?? null, 'Ціна'))
             ->setPurchasedAt($this->date($data['purchasedAt'] ?? null))
             ->setRentalRate($this->money($data['rentalRate'] ?? null, 'Ставка оренди'))
@@ -85,6 +93,9 @@ class WarehouseDirectory
         }
 
         $item->setInventoryNumber($number);
+        // Останнім: новий постачальник записується в довідник одразу, тож
+        // заводимо його лише тоді, коли решта форми вже пройшла перевірку.
+        $item->setSupplier($this->supplier($data['supplierId'] ?? null, $by));
 
         if ($item->getId() === null) {
             $item->setCreatedBy($by);
@@ -94,6 +105,91 @@ class WarehouseDirectory
         $this->em->flush();
 
         return $item;
+    }
+
+    /**
+     * Постачальник із форми: id зі спільного довідника або «new:Назва», якщо
+     * в списку не знайшли й дописали свого. Нового шукаємо за нормалізованою
+     * назвою, перш ніж заводити: «фоп петренко» — це той самий «ФОП Петренко».
+     */
+    public function supplier(mixed $value, ?TelegramUser $by = null): ?Supplier
+    {
+        $value = $this->text($value);
+
+        if ($value === null) {
+            return null;
+        }
+
+        if (str_starts_with($value, self::NEW)) {
+            try {
+                return $this->supplierDirectory->findOrCreate(substr($value, strlen(self::NEW)), $by);
+            } catch (SupplyException $e) {
+                throw new WarehouseException($e->getMessage());
+            }
+        }
+
+        return (ctype_digit($value) ? $this->suppliers->find((int) $value) : null)
+            ?? throw new WarehouseException('Такого постачальника вже немає в довіднику — оберіть іншого.');
+    }
+
+    /**
+     * Клієнт із поля select2: id або «new:Назва». Нового спершу шукаємо за
+     * назвою без регістру й розділових знаків — «ТОВ Альфа» вже може бути.
+     */
+    public function client(mixed $value, TelegramUser $by): ?WhClient
+    {
+        $value = $this->text($value);
+
+        if ($value === null) {
+            return null;
+        }
+
+        if (str_starts_with($value, self::NEW)) {
+            $name = $this->text(substr($value, strlen(self::NEW))) ?? throw new WarehouseException('Вкажіть назву клієнта.');
+
+            foreach ($this->em->getRepository(WhClient::class)->findAll() as $client) {
+                if (Supplier::normalize($client->getName()) === Supplier::normalize($name)) {
+                    return $client;
+                }
+            }
+
+            return $this->saveClient(new WhClient(), ['name' => $name], $by);
+        }
+
+        return (ctype_digit($value) ? $this->em->getRepository(WhClient::class)->find((int) $value) : null)
+            ?? throw new WarehouseException('Такого клієнта вже немає — оберіть іншого.');
+    }
+
+    /**
+     * Місце «куди» з поля select2: id або «new:Назва» — об'єкт заводиться тут же,
+     * щоб не кидати форму руху заради картки клієнта. Такий самий об'єкт у того
+     * самого клієнта не дублюємо.
+     */
+    public function site(mixed $value, SiteKind $kind, ?WhClient $client, TelegramUser $by): ?WhSite
+    {
+        $value = $this->text($value);
+
+        if ($value === null) {
+            return null;
+        }
+
+        if (! str_starts_with($value, self::NEW)) {
+            return ctype_digit($value) ? $this->em->getRepository(WhSite::class)->find((int) $value) : null;
+        }
+
+        $name = $this->text(substr($value, strlen(self::NEW))) ?? throw new WarehouseException("Вкажіть назву об'єкта.");
+
+        if ($kind === SiteKind::Site && $client === null) {
+            throw new WarehouseException(sprintf("Новий об'єкт «%s» — вкажіть, чий він: без клієнта оренда не рахується.", $name));
+        }
+
+        foreach ($this->em->getRepository(WhSite::class)->findBy(['kind' => $kind]) as $site) {
+            if (Supplier::normalize($site->getName()) === Supplier::normalize($name) && $site->getClient()?->getId() === $client?->getId()) {
+                return $site;
+            }
+        }
+
+        return $this->saveSite(new WhSite(), ['name' => $name, 'kind' => $kind->value], $kind === SiteKind::Site ? $client : null, $by);
     }
 
     /** Наступний вільний номер категорії: ОП-0001, ОП-0002… Без префікса — INV-0001. */
