@@ -178,6 +178,7 @@ class ItemController extends AbstractWarehouseController
             'values' => $values,
             'error' => $error,
             'supplierChoice' => $this->supplierChoice($item, $values),
+            'units' => $this->items->units(),
             'categories' => $categories = $this->categories->of(CategoryScope::Item),
             'trackings' => Tracking::cases(),
             'states' => [ItemState::Active, ItemState::Repair],

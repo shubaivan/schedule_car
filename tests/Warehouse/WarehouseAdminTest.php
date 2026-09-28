@@ -238,6 +238,36 @@ class WarehouseAdminTest extends WebTestCase
         self::assertSelectorTextContains('body', 'ТОВ Альфа-Тест');
     }
 
+    public function testSiteGetsItsClientFromThePickerOrANewOne(): void
+    {
+        $this->login($this->person());
+        $this->browser->request('GET', '/sklad/sites');
+        $token = $this->token();
+
+        $this->browser->request('POST', '/sklad/sites', [
+            '_token' => $token, 'kind' => 'site', 'name' => 'ЖК Гамма-Тест',
+            'clientId' => WarehouseDirectory::NEW . 'ТОВ Гамма-Тест',
+        ]);
+        self::assertResponseRedirects();
+        $client = $this->em->getRepository(WhClient::class)->findOneBy(['name' => 'ТОВ Гамма-Тест']);
+        self::assertNotNull($client, 'клієнта заведено з того самого поля');
+
+        // Той самий клієнт, набраний інакше, — не дубль.
+        $this->browser->request('POST', '/sklad/sites', [
+            '_token' => $token, 'kind' => 'site', 'name' => 'ЖК Гамма-Тест 2',
+            'clientId' => WarehouseDirectory::NEW . 'тов гамма тест',
+        ]);
+        self::assertSame(1, $this->em->getRepository(WhClient::class)->count(['name' => 'ТОВ Гамма-Тест']));
+        self::assertSame(0, $this->em->getRepository(WhClient::class)->count(['name' => 'тов гамма тест']));
+
+        // Складу клієнт не потрібен — під нього й нового не заводимо.
+        $this->browser->request('POST', '/sklad/sites', [
+            '_token' => $token, 'kind' => 'warehouse', 'name' => 'Склад Гамма-Тест',
+            'clientId' => WarehouseDirectory::NEW . 'ТОВ Зайвий-Тест',
+        ]);
+        self::assertNull($this->em->getRepository(WhClient::class)->findOneBy(['name' => 'ТОВ Зайвий-Тест']));
+    }
+
     public function testPostWithoutCsrfIsRefused(): void
     {
         $this->login($this->person());

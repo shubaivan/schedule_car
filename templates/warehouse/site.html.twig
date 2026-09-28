@@ -1,5 +1,10 @@
 {% extends 'warehouse/layout.html.twig' %}
 {% block title %}{{ site.name }}{% endblock %}
+{% block head %}{% include 'warehouse/_select2_head.html.twig' %}{% endblock %}
+{% block scripts %}
+{% include 'warehouse/_select2_js.html.twig' %}
+<script>whPicker('select[name="clientId"]', { placeholder: '— власний —', create: 'як нового клієнта' });</script>
+{% endblock %}
 {% block body %}
 <h1>{{ site.warehouse ? '🏠' : (site.category ? site.category.emoji : '🏗') }} {{ site.name }}</h1>
 {% if site.client %}<p>Клієнт: <a href="{{ path('wh_client', {id: site.client.id}) }}">{{ site.client.name }}</a></p>{% endif %}
@@ -31,7 +36,7 @@
         {% for c in siteCategories %}<option value="{{ c.id }}" {{ site.category and site.category.id == c.id ? 'selected' }}>{{ c.label }}</option>{% endfor %}
       </select></div>
     <div class="field"><label>Клієнт</label>
-      <select name="clientId"><option value="">— власний —</option>
+      <select name="clientId"><option value=""></option>
         {% for c in clients %}<option value="{{ c.id }}" {{ site.client and site.client.id == c.id ? 'selected' }}>{{ c.name }}</option>{% endfor %}
       </select></div>
     {% endif %}

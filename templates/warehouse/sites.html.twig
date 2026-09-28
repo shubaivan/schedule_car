@@ -1,5 +1,10 @@
 {% extends 'warehouse/layout.html.twig' %}
 {% block title %}Склади й об'єкти{% endblock %}
+{% block head %}{% include 'warehouse/_select2_head.html.twig' %}{% endblock %}
+{% block scripts %}
+{% include 'warehouse/_select2_js.html.twig' %}
+<script>whPicker('select[name="clientId"]', { placeholder: '— власний —', create: 'як нового клієнта' });</script>
+{% endblock %}
 {% block body %}
 <h1>Склади й об'єкти</h1>
 <form class="card" method="post">
@@ -13,7 +18,7 @@
     <div class="field"><label>Тип об'єкта</label>
       <select name="categoryId"><option value="">—</option>{% for c in siteCategories %}<option value="{{ c.id }}">{{ c.label }}</option>{% endfor %}</select></div>
     <div class="field"><label>Клієнт</label>
-      <select name="clientId"><option value="">— власний —</option>{% for c in clients %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></div>
+      <select name="clientId"><option value=""></option>{% for c in clients %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></div>
     <div class="field wide"><label>Адреса</label><input type="text" name="address"></div>
   </div>
   <div class="row" style="margin-top:10px"><button class="primary" type="submit">Додати</button></div>
