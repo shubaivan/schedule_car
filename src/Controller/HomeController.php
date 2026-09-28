@@ -32,6 +32,23 @@ class HomeController extends AbstractController
         return $this->render('instrukciya-drive.html.twig', ['company' => $company]);
     }
 
+    /**
+     * Політика конфіденційності — публічна: її посилання вимагає Google, щоб
+     * опублікувати застосунок для підключення Диска.
+     */
+    #[Route('/privacy-policy', name: 'app_privacy_policy', methods: ['GET'])]
+    public function privacyPolicy(
+        #[Autowire('%env(APP_COMPANY_NAME)%')]
+        string $company,
+        #[Autowire('%env(TELEGRAM_BOT_USERNAME)%')]
+        string $botUsername,
+    ): Response {
+        return $this->render('privacy-policy.html.twig', [
+            'company' => $company,
+            'bot_username' => ltrim($botUsername, '@'),
+        ]);
+    }
+
     #[Route('/instrukciya', name: 'app_instrukciya', methods: ['GET'])]
     public function instrukciya(
         #[Autowire('%env(TELEGRAM_BOT_USERNAME)%')]
