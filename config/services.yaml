@@ -46,6 +46,7 @@ services:
             $clientSecret: '%env(GOOGLE_DRIVE_CLIENT_SECRET)%'
             $refreshToken: '%env(GOOGLE_DRIVE_REFRESH_TOKEN)%'
             $rootFolderId: '%env(GOOGLE_DRIVE_ROOT_FOLDER_ID)%'
+            $rootFolder: '%env(GOOGLE_DRIVE_SUPPLY_FOLDER)%'
 
     # Nutgram резолвить залежності хендлерів своїм контейнером із делегуванням
     # у Symfony, а той віддає лише публічні сервіси.

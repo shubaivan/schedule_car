@@ -31,7 +31,6 @@ use function strlen;
  */
 class GoogleDriveMirror
 {
-    private const ROOT_FOLDER = 'Постачання';
     private const FOLDER_MIME = 'application/vnd.google-apps.folder';
 
     private ?Drive $drive = null;
@@ -46,6 +45,11 @@ class GoogleDriveMirror
         private string $clientSecret,
         private string $refreshToken,
         private string $rootFolderId,
+        // Коренева тека заявок на Диску. Налаштування, бо в клієнта вже може бути
+        // своя «Постачання» — система її не бачить (drive.file), і вийшло б дві
+        // однакові теки. Змінювати на стенді, де Диск уже наповнений, не можна:
+        // архів розійдеться на дві теки.
+        private string $rootFolder = 'Постачання',
     ) {
     }
 
@@ -110,7 +114,7 @@ class GoogleDriveMirror
         $created = $request->getCreatedAt();
 
         $path = [
-            self::ROOT_FOLDER,
+            $this->rootFolder,
             $created->format('Y'),
             $created->format('Y-m'),
             $this->folderSafe($request->getAuthor()->displayName()),
