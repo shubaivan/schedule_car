@@ -11,6 +11,12 @@
   .select2-container--default .select2-results__group { color: var(--muted); font-size: 12px; }
   .select2-container--default .select2-results__option--highlighted.select2-results__option--selectable { background: var(--mark); color: var(--mark-ink); }
   .select2-container--default .select2-results__option--selected { background: var(--mark-soft); color: var(--ink); }
+  .wh-add { display: block; width: 100%; padding: 10px; border: 0; border-top: 1px solid var(--rule); background: var(--surface); color: var(--mark); font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
+  .wh-add:hover { background: var(--mark-soft); }
+  #whAddDialog { border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); color: var(--ink); padding: 16px; width: min(420px, calc(100vw - 32px)); }
+  #whAddDialog h3 { margin: 0 0 10px; font-size: 16px; }
+  #whAddDialog input { width: 100%; box-sizing: border-box; padding: 8px 10px; font-size: 16px; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); color: var(--ink); }
+  .wh-add-actions { display: flex; gap: 8px; margin-top: 12px; }
   @media (max-width: 640px) {
     .select2-container--default .select2-selection--single { min-height: 44px; }
     .select2-container--default .select2-selection--single .select2-selection__rendered { line-height: 28px; }

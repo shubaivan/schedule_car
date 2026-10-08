@@ -58,6 +58,53 @@
       };
     }
 
-    return $(selector).select2(config);
+    const $el = $(selector).select2(config);
+    if (opts.create) whAddButton($el, opts);
+    return $el;
+  }
+
+  // «Допишіть назву» ніхто не вгадує: внизу відкритого списку — явна кнопка,
+  // що відкриває віконце з назвою. Далі те саме, що й дописана назва: «new:Назва».
+  function whAddButton($el, opts) {
+    $el.on('select2:open', () => {
+      const $results = $('.select2-container--open .select2-results');
+      if ($results.find('.wh-add').length) return;
+      $('<button type="button" class="wh-add">').text('➕ Додати ' + opts.create)
+        .on('mousedown', e => e.preventDefault())
+        .on('click', () => {
+          const term = $('.select2-container--open .select2-search__field').val() || '';
+          $el.select2('close');
+          whAskName(opts.create, term.trim(), name => {
+            const id = (opts.raw ? '' : WH_NEW) + name;
+            const known = [...$el[0].options].find(o => whNorm(o.text) === whNorm(name));
+            if (known) $el.val(known.value);
+            else $el.append(new Option(name, id, true, true));
+            $el.trigger('change');
+          });
+        })
+        .appendTo($results);
+    });
+  }
+
+  function whAskName(what, value, done) {
+    let dialog = document.getElementById('whAddDialog');
+    if (!dialog) {
+      dialog = document.createElement('dialog');
+      dialog.id = 'whAddDialog';
+      dialog.innerHTML = '<form method="dialog"><h3></h3><input name="name" required autocomplete="off">'
+        + '<div class="wh-add-actions"><button class="btn primary" value="ok">Додати</button>'
+        + '<button class="btn" value="cancel" formnovalidate>Скасувати</button></div></form>';
+      document.body.appendChild(dialog);
+    }
+    dialog.querySelector('h3').textContent = 'Додати ' + what;
+    const input = dialog.querySelector('input');
+    input.value = value;
+    dialog.onclose = () => {
+      const name = input.value.trim();
+      if (dialog.returnValue === 'ok' && name !== '') done(name);
+    };
+    dialog.returnValue = '';
+    dialog.showModal();
+    input.focus();
   }
 </script>
