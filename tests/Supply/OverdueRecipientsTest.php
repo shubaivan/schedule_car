@@ -4,6 +4,7 @@ namespace App\Tests\Supply;
 
 use App\Entity\TelegramUser;
 use App\Repository\TelegramUserRepository;
+use App\Service\TeamChat;
 use App\Supply\Dto\CreateRequestInput;
 use App\Supply\Entity\SupplyRequest;
 use App\Supply\Enum\SupplyRole;
@@ -17,6 +18,7 @@ use Psr\Log\NullLogger;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Testing\FakeNutgram;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
  * Кому йде нагадування про прострочення.
@@ -58,6 +60,8 @@ class OverdueRecipientsTest extends KernelTestCase
             self::getContainer()->get(TelegramUserRepository::class),
             self::getContainer()->get(RequestFormatter::class),
             new NullLogger(),
+            new TeamChat($bot, new NullLogger(), '', '', '', ''),
+            self::getContainer()->get(UrlGeneratorInterface::class),
         );
 
         $notifier->overdue($this->request($author));

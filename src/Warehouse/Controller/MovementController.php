@@ -18,6 +18,7 @@ use App\Warehouse\Repository\WhSiteRepository;
 use App\Warehouse\Service\DocumentStore;
 use App\Warehouse\Service\RecordMovement;
 use App\Warehouse\Service\WarehouseDirectory;
+use App\Warehouse\Service\WarehouseFeed;
 use App\Warehouse\Service\WarehouseLinks;
 use DateTime;
 use Doctrine\ORM\EntityManagerInterface;
@@ -47,6 +48,7 @@ class MovementController extends AbstractWarehouseController
         private WarehouseDirectory $directory,
         private WhClientRepository $clients,
         private SupplierRepository $suppliers,
+        private WarehouseFeed $feed,
     ) {
     }
 
@@ -109,6 +111,7 @@ class MovementController extends AbstractWarehouseController
                     $this->log(ActivityAction::Move, $line->getItem(), sprintf('%s: %s, %d %s', $movement->getTitle(), $route, $line->getQuantity(), $line->getItem()->getUnit()));
                 }
 
+                $this->feed->movementRecorded($movement, $this->user());
                 $this->addFlash('ok', sprintf('Записано: %s.', $movement->getTitle()));
 
                 return $this->redirectToRoute('wh_movement', ['id' => $movement->getId()]);

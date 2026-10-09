@@ -19,6 +19,7 @@ use App\Warehouse\Repository\WhMovementRepository;
 use App\Warehouse\Repository\WhSiteRepository;
 use App\Warehouse\Service\DocumentStore;
 use App\Warehouse\Service\WarehouseDirectory;
+use App\Warehouse\Service\WarehouseFeed;
 use App\Warehouse\Service\WarehouseLinks;
 use App\Warehouse\Service\WarehouseStock;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -43,6 +44,7 @@ class ItemController extends AbstractWarehouseController
         private WhActivityRepository $journal,
         private WhDocumentRepository $documentRows,
         private SupplierRepository $suppliers,
+        private WarehouseFeed $feed,
     ) {
     }
 
@@ -166,6 +168,10 @@ class ItemController extends AbstractWarehouseController
                 $this->log($isNew ? ActivityAction::Create : ActivityAction::Update, $item);
                 $this->addFlash('ok', sprintf('Збережено: %s.', $item->getLabel()));
                 $this->attachPhotos($request, $item);
+
+                if ($isNew) {
+                    $this->feed->itemCreated($item, $this->user());
+                }
 
                 return $this->redirectToRoute('wh_item', ['id' => $item->getId()]);
             } catch (WarehouseException $e) {

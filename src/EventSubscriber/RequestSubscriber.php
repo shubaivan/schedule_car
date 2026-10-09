@@ -52,6 +52,21 @@ class RequestSubscriber implements EventSubscriberInterface
             return;
         }
 
+        // Бот живе в особистих чатах. У робочій групі він лише пише в теми
+        // (TeamChat), а її апдейти — хтось додав бота, повідомлення в темі —
+        // несуть chat.id групи: записаний як chat_id людини, він відправив би
+        // її особисті сповіщення в групу.
+        $chatType = $content['message']['chat']['type']
+            ?? $content['callback_query']['message']['chat']['type']
+            ?? $content['my_chat_member']['chat']['type']
+            ?? 'private';
+
+        if ($chatType !== 'private') {
+            $this->graylogLogger->info('Group update ignored', ['request' => $content]);
+
+            return;
+        }
+
         $from = null;
         if (isset($content['message']['from'])) {
             $from = $content['message']['from'];

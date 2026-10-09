@@ -4,6 +4,7 @@ namespace App\Supply\Service;
 
 use App\Entity\TelegramUser;
 use App\Repository\TelegramUserRepository;
+use App\Service\TeamChat;
 use App\Supply\Entity\SupplyAttachment;
 use App\Supply\Entity\SupplyComment;
 use App\Supply\Entity\SupplyPurchase;
@@ -17,6 +18,7 @@ use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Properties\ParseMode;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardMarkup;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Throwable;
 
 /**
@@ -31,6 +33,9 @@ use Throwable;
  *
  * Помилка доставки (бот заблокований, чат не знайдено) не валить операцію:
  * заявка вже збережена, а проблема потрапляє в лог.
+ *
+ * Ті самі події (крім прострочення — його щоранку отримує менеджер) йдуть
+ * і в тему «Заявки» робочої групи, якщо вона є (TeamChat).
  */
 class SupplyNotifier
 {
@@ -39,6 +44,8 @@ class SupplyNotifier
         private TelegramUserRepository $userRepository,
         private RequestFormatter $formatter,
         private LoggerInterface $logger,
+        private TeamChat $team,
+        private UrlGeneratorInterface $urls,
     ) {
     }
 
@@ -58,6 +65,8 @@ class SupplyNotifier
         foreach ($this->userRepository->findSupplyManagers() as $manager) {
             $this->send($manager, $managerText, $this->keyboardFor($request, $manager));
         }
+
+        $this->toTeam($request, $managerText);
     }
 
     public function statusChanged(SupplyRequest $request, SupplyStatusLog $log): void
@@ -100,6 +109,22 @@ class SupplyNotifier
         if ($this->isDirectorsCall($log)) {
             $this->tellManagers($request, $log);
         }
+
+        $this->toTeam($request, sprintf(
+            "%s <b>Заявка №%s — %s</b>\n\n%s%s%s",
+            $log->getStatusTo()->emoji(),
+            $this->formatter->escape($request->getNumber()),
+            $this->formatter->escape($log->getStatusTo()->label()),
+            $this->formatter->card($request, forManager: true),
+            $log->getComment()
+                ? sprintf(
+                    "\n\n%s: <i>%s</i>",
+                    $log->getStatusTo() === SupplyStatus::Rejected ? 'Причина' : 'Коментар',
+                    $this->formatter->escape($log->getComment()),
+                )
+                : '',
+            $this->by($log->getAuthor()),
+        ));
     }
 
     /** Перехід, який могла зробити тільки людина з правом на гроші. */
@@ -182,6 +207,8 @@ class SupplyNotifier
         $from = $author ? $this->formatter->escape($author->displayName()) : 'Система';
         $text .= "\n\n👤 " . $from;
 
+        $this->toTeam($request, $text);
+
         // Писав заявник — сповіщаємо менеджерів; писав менеджер — сповіщаємо заявника.
         if ($author && $author->getId() === $request->getAuthor()->getId()) {
             foreach ($this->userRepository->findSupplyManagers() as $manager) {
@@ -212,6 +239,7 @@ class SupplyNotifier
         );
 
         $this->send($request->getAuthor(), $text, $this->authorKeyboard($request));
+        $this->toTeam($request, $text);
     }
 
     /**
@@ -231,6 +259,7 @@ class SupplyNotifier
         );
 
         $this->send($request->getAuthor(), $text, $this->authorKeyboard($request));
+        $this->toTeam($request, $text);
     }
 
     /** До заявки прикріпили документ — заявник має бачити накладну так само, як статус. */
@@ -248,6 +277,7 @@ class SupplyNotifier
         );
 
         $this->send($request->getAuthor(), $text, $this->authorKeyboard($request));
+        $this->toTeam($request, $text);
     }
 
     public function fileRemoved(SupplyRequest $request, string $name): void
@@ -259,6 +289,7 @@ class SupplyNotifier
         );
 
         $this->send($request->getAuthor(), $text, $this->authorKeyboard($request));
+        $this->toTeam($request, $text);
     }
 
     /**
@@ -281,6 +312,27 @@ class SupplyNotifier
         foreach ($this->userRepository->findBySupplyRoles(SupplyRole::Manager) as $manager) {
             $this->send($manager, $text, $this->keyboardFor($request, $manager));
         }
+    }
+
+    /**
+     * Подія — у тему «Заявки» робочої групи.
+     *
+     * Під повідомленням посилання в CRM, а не кнопки статусів: callback-кнопки
+     * в групі натискав би будь-хто, а права перевіряються по людині в її чаті.
+     */
+    private function toTeam(SupplyRequest $request, string $text): void
+    {
+        $this->team->post(
+            TeamChat::SUPPLY,
+            $text,
+            $this->urls->generate('crm_index', ['path' => 'requests/' . $request->getId()], UrlGeneratorInterface::ABSOLUTE_URL),
+            '↗️ Відкрити в CRM',
+        );
+    }
+
+    private function by(?TelegramUser $user): string
+    {
+        return $user !== null ? "\n\n✍️ " . $this->formatter->escape($user->displayName()) : '';
     }
 
     private function authorKeyboard(SupplyRequest $request): InlineKeyboardMarkup

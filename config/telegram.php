@@ -17,6 +17,7 @@ use App\Supply\Telegram\SupplyCallback;
 use App\Supply\Telegram\SupplyMenu;
 use App\Telegram\Access\AccessCallback;
 use App\Telegram\Access\AccessDecision;
+use App\Telegram\Access\PrivateChatsOnly;
 use App\Telegram\Access\RequireApproval;
 use App\Telegram\Access\ShareContact;
 use App\Fleet\Telegram\BookCarConversation;
@@ -43,6 +44,9 @@ $bot->setRunningMode(Webhook::class);
 ##############
 # Доступ: реєстрація за номером + підтвердження менеджером
 ##############
+// Глобальні middleware Nutgram виконує в порядку додавання: фільтр груп
+// стоїть першим, щоб бот не відповідав у робочій групі навіть незнайомцю.
+$bot->middleware(PrivateChatsOnly::class);
 $bot->middleware(RequireApproval::class);
 
 $bot->onContact(ShareContact::class);

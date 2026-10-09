@@ -4,6 +4,7 @@ namespace App\Fleet\Service;
 
 use App\Entity\ScheduledSet;
 use App\Entity\TelegramUser;
+use App\Service\TeamChat;
 use Psr\Log\LoggerInterface;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Properties\ParseMode;
@@ -11,6 +12,7 @@ use Throwable;
 
 /**
  * Сповіщення автопарку. Водій має дізнатись про рейс, не гортаючи розклад.
+ * Кожне бронювання й скасування — ще й у тему «Автопарк» робочої групи.
  */
 class FleetNotifier
 {
@@ -18,6 +20,7 @@ class FleetNotifier
         private Nutgram $bot,
         private TripFormatter $formatter,
         private LoggerInterface $logger,
+        private TeamChat $team,
     ) {
     }
 
@@ -27,6 +30,8 @@ class FleetNotifier
             "🚚 <b>Новий рейс</b>\n\n%s",
             $this->formatter->driverLine($set),
         ));
+
+        $this->toTeam('🚚 <b>Нова заявка на авто</b>', $set);
     }
 
     public function cancelled(ScheduledSet $set): void
@@ -34,6 +39,19 @@ class FleetNotifier
         $this->toDrivers($set, sprintf(
             "✖️ <b>Бронювання скасовано</b>\n\n%s",
             $this->formatter->driverLine($set),
+        ));
+
+        $this->toTeam('✖️ <b>Бронювання авто скасовано</b>', $set);
+    }
+
+    /** У групі машина не очевидна, як водієві, — тож день і номер машини в рядку. */
+    private function toTeam(string $title, ScheduledSet $set): void
+    {
+        $this->team->post(TeamChat::FLEET, sprintf(
+            "%s\n\n📅 %s\n%s",
+            $title,
+            $this->formatter->day($set->getScheduledDateTime()),
+            $this->formatter->line($set),
         ));
     }
 
