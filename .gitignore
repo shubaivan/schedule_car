@@ -40,3 +40,8 @@ yarn-error.log
 /.php-cs-fixer.php
 /.php-cs-fixer.cache
 ###< friendsofphp/php-cs-fixer ###
+
+###> symfony/framework-bundle 7.4 ###
+# Генерується Symfony 7.4 під час cache:warmup у debug-режимі (IDE-довідка по конфігу).
+/config/reference.php
+###< symfony/framework-bundle 7.4 ###
