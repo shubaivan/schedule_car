@@ -14,7 +14,7 @@ class ScheduleLimitValidator extends ConstraintValidator
     {
     }
 
-    public function validate(mixed $value, Constraint $constraint)
+    public function validate(mixed $value, Constraint $constraint): void
     {
         if (! $constraint instanceof ScheduleLimit) {
             throw new UnexpectedTypeException($constraint, ScheduleLimit::class);
