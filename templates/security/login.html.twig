@@ -98,7 +98,7 @@
     {% endif %}
     {% if bot_username %}<a class="btn tg" href="https://t.me/{{ bot_username }}">✈️ Відкрити бота @{{ bot_username }}</a>{% endif %}
 
-    {% if not password_login %}
+    {% if bot_username %}
     <ol>
       <li><b>Відкрийте бота</b> кнопкою вище (або знайдіть @{{ bot_username }} у Telegram).</li>
       <li>Уперше? Натисніть <b>«Старт»</b> і <b>«Поділіться номером»</b> — менеджер підтвердить доступ.</li>
