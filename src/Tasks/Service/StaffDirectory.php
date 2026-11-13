@@ -54,6 +54,19 @@ class StaffDirectory
             throw new TaskException('Вкажіть імʼя.');
         }
 
+        // Людина вже є (наприклад, зареєструвалась у боті) — другу картку не заводимо.
+        $tail = substr((string) $user->getPhoneNumber(), -9);
+        $existing = strlen($tail) === 9 ? $this->users->findOneByPhoneTail($tail) : null;
+
+        if ($existing !== null) {
+            throw new TaskException(sprintf(
+                'Людина з таким телефоном уже є: %s%s. Відредагуйте її картку%s.',
+                $existing->shortName(),
+                $existing->isArchived() ? ' (у кошику)' : '',
+                $existing->isArchived() ? ' або відновіть з кошика' : '',
+            ));
+        }
+
         $this->em->persist($user);
         $this->em->flush();
         $this->logger->info('staff: заведено співробітника', ['id' => $user->getId(), 'by' => $by->getId()]);

@@ -76,6 +76,7 @@ class AccessFlowTest extends KernelTestCase
             $c->get('logger'),
             $c->get(\App\Supply\Service\StaffDirectory::class),
             $c->get(\App\Service\FleetDirectory::class),
+            $c->get(\App\Tasks\Service\StaffLinker::class),
             (string) $c->getParameter('supply_manager_phones'),
             (string) $c->getParameter('supply_director_phones'),
             true,

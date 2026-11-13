@@ -7,6 +7,7 @@ use App\Entity\TelegramUser;
 use App\Enum\AccessStatus;
 use App\Supply\Enum\SupplyRole;
 use App\Supply\Service\StaffDirectory;
+use App\Tasks\Service\StaffLinker;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -27,6 +28,7 @@ class AccessService
         private LoggerInterface $logger,
         private StaffDirectory $staff,
         private FleetDirectory $fleet,
+        private StaffLinker $linker,
         #[Autowire('%supply_manager_phones%')]
         private string $managerPhones,
         #[Autowire('%supply_director_phones%')]
@@ -42,6 +44,14 @@ class AccessService
     public function registerPhone(TelegramUser $user, string $phone): void
     {
         $user->setPhoneNumber(self::normalize($phone));
+
+        // Людину вже завели в «Співробітниках» CRM — зливаємо картку з ботом:
+        // доступ, роль і відділ уже вирішив адміністратор.
+        if ($this->linker->link($user)) {
+            $this->notifier->approved($user);
+
+            return;
+        }
 
         // Довідник водіїв питаємо першим: керівник автопарку вніс номер, отже
         // людина своя — доступ відкривається без окремого підтвердження.

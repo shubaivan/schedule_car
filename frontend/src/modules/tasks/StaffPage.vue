@@ -133,7 +133,7 @@ onMounted(load)
                 <tbody>
                     <tr v-for="r in filtered" :key="r.id">
                         <td class="av"><Avatar :person="r" :size="36" /></td>
-                        <td><b>{{ r.name }}</b><div class="t-hint" style="padding: 0">{{ r.position ?? '—' }}</div></td>
+                        <td><b>{{ r.name }}</b> <span v-if="r.telegram" title="Підключений до Telegram-бота: отримує сповіщення">✈️</span><div class="t-hint" style="padding: 0">{{ r.position ?? '—' }}</div></td>
                         <td>{{ r.department ?? '—' }}</td>
                         <td><span class="t-status tone-slate">{{ r.roleLabel }}</span></td>
                         <td class="hide-sm" style="font-size: .85rem">{{ r.email ?? '' }}<div class="t-hint" style="padding: 0">{{ r.phone ? '+' + r.phone : '' }}</div></td>
@@ -235,6 +235,7 @@ onMounted(load)
                         <label class="t-field"><span>Email (логін)</span><input v-model="form.email" type="email" class="t-input" autocomplete="off" /></label>
                         <label class="t-field"><span>Телефон</span><input v-model="form.phone" class="t-input" inputmode="tel" /></label>
                     </div>
+                    <div class="t-hint" style="padding: 0">Коли людина зайде в Telegram-бот і поділиться цим номером, картка сама звʼяжеться з ботом — і сповіщення по задачах підуть у Telegram.</div>
                     <label class="t-field"><span>{{ editing === 'new' ? 'Пароль' : 'Новий пароль (залиште порожнім, щоб не міняти)' }}</span><input v-model="form.password" type="password" class="t-input" autocomplete="new-password" minlength="8" /></label>
                 </div>
                 <footer>

@@ -36,6 +36,7 @@ class TaskService
         private AttachmentStorage $storage,
         private PreviewGenerator $previews,
         private DeferredPreviews $deferred,
+        private TaskNotifier $notifier,
         private LoggerInterface $logger,
     ) {
     }
@@ -61,6 +62,7 @@ class TaskService
         $this->em->flush();
 
         $this->logger->info('Task created', ['task' => $task->getId(), 'by' => $author->getId()]);
+        $this->notifier->created($task);
 
         return $task;
     }
@@ -92,14 +94,21 @@ class TaskService
             static fn ($m) => ! in_array($m->getUser()->getId(), $before, true),
         );
 
+        $notifyAdded = [];
+
         if ($added !== []) {
             $names = implode(', ', array_map(static fn ($m) => $m->getUser()->shortName(), $added));
             $this->event($task, $user, 'додав(ла) учасників: ' . $names);
+            $notifyAdded = array_map(static fn ($m) => $m->getUser(), $added);
         } else {
             $this->event($task, $user, 'оновив(ла) задачу');
         }
 
         $this->em->flush();
+
+        if ($notifyAdded !== []) {
+            $this->notifier->added($task, $notifyAdded, $user);
+        }
 
         return $task;
     }
@@ -122,6 +131,7 @@ class TaskService
 
         $this->em->flush();
         $this->logger->info('Task status', ['task' => $task->getId(), 'from' => $from->value, 'to' => $to->value, 'by' => $user->getId()]);
+        $this->notifier->statusChanged($task, $from, $user, $comment);
 
         return $task;
     }
@@ -180,6 +190,7 @@ class TaskService
         $task->touch();
         $this->em->flush();
         $this->markRead($task, $author);
+        $this->notifier->message($message);
 
         return $message;
     }
