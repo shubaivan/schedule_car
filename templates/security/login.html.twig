@@ -94,9 +94,9 @@
       <input type="hidden" name="_csrf_token" value="{{ csrf_token('login') }}">
       <button class="btn primary" type="submit">Увійти</button>
     </form>
-    <div class="or">або через Telegram</div>
+    {% if bot_username %}<div class="or">або через Telegram</div>{% endif %}
     {% endif %}
-    <a class="btn tg" href="https://t.me/{{ bot_username }}">✈️ Відкрити бота @{{ bot_username }}</a>
+    {% if bot_username %}<a class="btn tg" href="https://t.me/{{ bot_username }}">✈️ Відкрити бота @{{ bot_username }}</a>{% endif %}
 
     {% if not password_login %}
     <ol>
@@ -108,7 +108,7 @@
   {% endif %}
 
   <div class="foot">
-    {% if password_login %}Посилання з бота діє {{ ttl }} хвилин і лише один раз.<br>{% else %}Паролів немає: посилання з бота діє {{ ttl }} хвилин і лише один раз.<br>{% endif %}
+    {% if password_login and not bot_username %}Пароль нікому не передавайте.<br>{% elseif password_login %}Посилання з бота діє {{ ttl }} хвилин і лише один раз.<br>{% else %}Паролів немає: посилання з бота діє {{ ttl }} хвилин і лише один раз.<br>{% endif %}
     Нікому його не пересилайте. Кожен вхід записується в журнал.
   </div>
 </main>
