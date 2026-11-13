@@ -353,3 +353,8 @@ td.wrap {
     padding: 3rem 1rem;
     color: var(--text-muted);
 }
+
+/* Задачі: дошці з пʼятьма колонками й чату потрібна вся ширина. */
+.layout.wide {
+    max-width: 1560px;
+}

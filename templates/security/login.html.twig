@@ -43,7 +43,7 @@
   .note.info { color: var(--ok); border-color: var(--ok); }
   .btn {
     display: block; width: 100%; text-align: center; text-decoration: none; font-weight: 600;
-    padding: 13px 16px; border-radius: 10px; font-size: 16px; border: 1px solid transparent;
+    padding: 13px 16px; border-radius: 10px; font-size: 16px; border: 1px solid transparent; font-family: inherit; cursor: pointer;
   }
   .btn.tg { background: var(--tg); color: #fff; }
   .btn.primary { background: var(--mark); color: var(--mark-ink); }
@@ -58,6 +58,12 @@
   ol b { color: var(--ink); font-weight: 600; }
   .foot { margin-top: 12px; padding-top: 14px; border-top: 1px solid var(--rule); color: var(--muted); font-size: 13px; text-align: center; }
   .foot a { color: inherit; }
+  form.pw { display: flex; flex-direction: column; gap: 10px; }
+  form.pw label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; color: var(--muted); }
+  form.pw input { font: inherit; font-size: 16px; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--rule); background: var(--surface-2); color: var(--ink); }
+  form.pw input:focus { outline: 2px solid var(--mark); border-color: var(--mark); }
+  .or { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; margin: 18px 0 14px; }
+  .or::before, .or::after { content: ''; flex: 1; height: 1px; background: var(--rule); }
 </style>
 </head>
 <body>
@@ -65,7 +71,7 @@
   <div class="brand">
     <div class="logo">🏗</div>
     <h1>{{ company }}</h1>
-    <div class="sub">Заявки · Склад · Автопарк</div>
+    <div class="sub">{% if tasks %}Робоче місце · Задачі · Заявки{% else %}Заявки · Склад · Автопарк{% endif %}</div>
   </div>
 
   {% if error %}<div class="note error">{{ error }}</div>{% endif %}
@@ -73,21 +79,36 @@
 
   {% if app.user %}
     <div class="note info">Ви вже увійшли як <b>{{ app.user.displayName }}</b>.</div>
-    <a class="btn primary" href="{{ path('crm_index') }}">📦 Відкрити заявки</a>
+    <a class="btn primary" href="{{ path('crm_index') }}">{% if tasks %}✅ Відкрити робоче місце{% else %}📦 Відкрити заявки{% endif %}</a>
     {% if warehouse %}<a class="btn ghost" href="{{ path('wh_items') }}">🏗 Відкрити склад</a>{% endif %}
     <a class="btn ghost" href="{{ path('crm_logout') }}">Вийти</a>
   {% else %}
+    {% if password_login %}
+    <form class="pw" method="post" action="{{ path('app_login_password') }}">
+      <label>Email або телефон
+        <input name="login" value="{{ last_login }}" autocomplete="username" inputmode="email" required autofocus>
+      </label>
+      <label>Пароль
+        <input name="password" type="password" autocomplete="current-password" required>
+      </label>
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token('login') }}">
+      <button class="btn primary" type="submit">Увійти</button>
+    </form>
+    <div class="or">або через Telegram</div>
+    {% endif %}
     <a class="btn tg" href="https://t.me/{{ bot_username }}">✈️ Відкрити бота @{{ bot_username }}</a>
 
+    {% if not password_login %}
     <ol>
       <li><b>Відкрийте бота</b> кнопкою вище (або знайдіть @{{ bot_username }} у Telegram).</li>
       <li>Уперше? Натисніть <b>«Старт»</b> і <b>«Поділіться номером»</b> — менеджер підтвердить доступ.</li>
       <li>У меню бота натисніть <b>«🔐 Вхід у CRM»</b> або <b>«🏗 Склад»</b> — і кнопку з посиланням. Ви одразу тут.</li>
     </ol>
+    {% endif %}
   {% endif %}
 
   <div class="foot">
-    Паролів немає: посилання з бота діє {{ ttl }} хвилин і лише один раз.<br>
+    {% if password_login %}Посилання з бота діє {{ ttl }} хвилин і лише один раз.<br>{% else %}Паролів немає: посилання з бота діє {{ ttl }} хвилин і лише один раз.<br>{% endif %}
     Нікому його не пересилайте. Кожен вхід записується в журнал.
   </div>
 </main>

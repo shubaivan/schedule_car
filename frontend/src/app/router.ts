@@ -8,6 +8,12 @@ import DepartmentsPage from '../pages/DepartmentsPage.vue'
 import FleetPage from '../pages/FleetPage.vue'
 import SchedulePage from '../pages/SchedulePage.vue'
 
+// Розділ «Задачі» вантажиться окремим шматком — заявкам він не потрібен.
+const TasksHome = () => import('../modules/tasks/TasksHome.vue')
+const TaskBoard = () => import('../modules/tasks/TaskBoard.vue')
+const TaskView = () => import('../modules/tasks/TaskView.vue')
+const StaffPage = () => import('../modules/tasks/StaffPage.vue')
+
 export const router = createRouter({
     history: createWebHistory('/crm/'),
     routes: [
@@ -19,6 +25,10 @@ export const router = createRouter({
         { path: '/departments', name: 'departments', component: DepartmentsPage },
         { path: '/fleet', name: 'fleet', component: FleetPage },
         { path: '/schedule', name: 'schedule', component: SchedulePage },
+        { path: '/tasks', name: 'tasks', component: TasksHome },
+        { path: '/tasks/board', name: 'tasks-board', component: TaskBoard },
+        { path: '/tasks/:id(\\d+)', name: 'task', component: TaskView, props: true },
+        { path: '/staff', name: 'staff', component: StaffPage },
         { path: '/:pathMatch(.*)*', redirect: '/' },
     ],
 })

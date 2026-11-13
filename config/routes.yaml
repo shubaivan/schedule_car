@@ -15,3 +15,9 @@ warehouse_controllers:
         path: ../src/Warehouse/Controller/
         namespace: App\Warehouse\Controller
     type: attribute
+
+tasks_controllers:
+    resource:
+        path: ../src/Tasks/Controller/
+        namespace: App\Tasks\Controller
+    type: attribute

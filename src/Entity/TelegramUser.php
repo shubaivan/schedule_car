@@ -7,6 +7,7 @@ use App\Enum\AccessStatus;
 use App\Repository\TelegramUserRepository;
 use App\Supply\Entity\Department;
 use App\Supply\Enum\SupplyRole;
+use App\Tasks\Enum\WorkRole;
 use DateTime;
 use DateTimeZone;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -19,10 +20,12 @@ use Symfony\Component\Validator\Constraints\NotBlank;
 
 /**
  * Один запис на людину: і для бота, і для входу в CRM.
- * Логін/пароль заповнені лише в менеджерів — робітники живуть тільки в Telegram.
+ * Пароль — лише в тих, хто працює з робочого місця без Telegram
+ * (PASSWORD_LOGIN_ENABLED); решта входить за посиланням із бота.
  */
 #[ORM\Entity(repositoryClass: TelegramUserRepository::class)]
 #[ORM\HasLifecycleCallbacks()]
+#[ORM\UniqueConstraint(name: 'uniq_telegram_user_email', columns: ['email'])]
 class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface
 {
     use CreatedUpdatedAtAwareTrait;
@@ -79,6 +82,29 @@ class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\ManyToOne(targetEntity: Department::class)]
     #[ORM\JoinColumn(name: 'department_id', referencedColumnName: 'id', nullable: true)]
     private ?Department $department = null;
+
+    /** Хто переніс у кошик: людей не видаляємо назовсім, як у ПланФіксі. */
+    #[ORM\ManyToOne(targetEntity: TelegramUser::class)]
+    #[ORM\JoinColumn(name: 'archived_by_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+    private ?TelegramUser $archivedBy = null;
+
+    /** Хеш пароля для входу з робочого місця; null — входить лише через бота. */
+    #[ORM\Column(name: 'password', type: 'string', length: 255, nullable: true)]
+    private ?string $password = null;
+
+    #[ORM\Column(name: 'email', type: 'string', length: 180, nullable: true)]
+    private ?string $email = null;
+
+    /** Посада: «Технолог», «Майстер дільниці»… */
+    #[ORM\Column(name: 'position', type: 'string', length: 120, nullable: true)]
+    private ?string $position = null;
+
+    /** Роль у задачах; null — виводиться з ролі в заявках (WorkRole::fromSupply). */
+    #[ORM\Column(name: 'work_role', type: 'string', length: 16, enumType: WorkRole::class, nullable: true)]
+    private ?WorkRole $workRole = null;
+
+    #[ORM\Column(name: 'last_seen_at', type: Types::DATETIME_MUTABLE, nullable: true)]
+    private ?DateTime $lastSeenAt = null;
 
     public function __construct()
     {
@@ -281,9 +307,10 @@ class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface
         return $this->archivedAt !== null;
     }
 
-    public function archive(): TelegramUser
+    public function archive(?TelegramUser $by = null): TelegramUser
     {
         $this->archivedAt = new DateTime('now', new DateTimeZone('Europe/Kyiv'));
+        $this->archivedBy = $by;
 
         return $this;
     }
@@ -291,8 +318,77 @@ class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface
     public function restore(): TelegramUser
     {
         $this->archivedAt = null;
+        $this->archivedBy = null;
 
         return $this;
+    }
+
+    public function getArchivedBy(): ?TelegramUser
+    {
+        return $this->archivedBy;
+    }
+
+    public function setPassword(?string $hash): TelegramUser
+    {
+        $this->password = $hash;
+
+        return $this;
+    }
+
+    public function getEmail(): ?string
+    {
+        return $this->email;
+    }
+
+    public function setEmail(?string $email): TelegramUser
+    {
+        $this->email = $email !== null && trim($email) !== '' ? mb_strtolower(trim($email)) : null;
+
+        return $this;
+    }
+
+    public function getPosition(): ?string
+    {
+        return $this->position;
+    }
+
+    public function setPosition(?string $position): TelegramUser
+    {
+        $this->position = $position !== null && trim($position) !== '' ? trim($position) : null;
+
+        return $this;
+    }
+
+    public function getWorkRole(): WorkRole
+    {
+        return $this->workRole ?? WorkRole::fromSupply($this->supplyRole);
+    }
+
+    public function setWorkRole(?WorkRole $workRole): TelegramUser
+    {
+        $this->workRole = $workRole;
+
+        return $this;
+    }
+
+    public function getLastSeenAt(): ?DateTime
+    {
+        return $this->lastSeenAt;
+    }
+
+    public function touchLastSeen(): TelegramUser
+    {
+        $this->lastSeenAt = new DateTime('now', new DateTimeZone('Europe/Kyiv'));
+
+        return $this;
+    }
+
+    /** Ім'я без @username — для аватарок і чату. */
+    public function shortName(): string
+    {
+        $name = trim(sprintf('%s %s', $this->first_name ?? '', $this->last_name ?? ''));
+
+        return $name !== '' ? $name : ($this->username ? '@' . $this->username : ($this->phone_number ?? '—'));
     }
 
     public function displayName(): string
@@ -319,10 +415,10 @@ class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface
         return ['ROLE_USER', $this->supplyRole->securityRole()];
     }
 
-    /** Паролів немає: автентифікація йде одноразовим посиланням із бота. */
+    /** Хеш пароля робочого місця; у більшості людей його немає — вхід через бота. */
     public function getPassword(): ?string
     {
-        return null;
+        return $this->password;
     }
 
     public function eraseCredentials(): void

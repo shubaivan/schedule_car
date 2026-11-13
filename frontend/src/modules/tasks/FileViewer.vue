@@ -1,0 +1,110 @@
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import type { Attachment } from './api'
+import { extClass, pagesLabel } from './files'
+
+/**
+ * Перегляд файлів задачі на весь екран: фото — лайтбокс зі свайпом,
+ * PDF і офісні — сторінки одна під одною (як у читалці), решта — скачати.
+ * Гортається по всіх файлах задачі; Esc закриває, ←/→ — сусідні.
+ */
+const props = defineProps<{ files: Attachment[]; startId: number }>()
+const emit = defineEmits<{ close: [] }>()
+
+const index = ref(Math.max(0, props.files.findIndex((f) => f.id === props.startId)))
+const file = computed(() => props.files[index.value])
+const zoom = ref(false)
+const pages = computed(() => (file.value?.urls.page && file.value.pages ? Array.from({ length: file.value.pages }, (_, i) => i + 1) : []))
+
+watch(index, () => (zoom.value = false))
+
+function go(step: number) {
+    if (props.files.length < 2) return
+    index.value = (index.value + step + props.files.length) % props.files.length
+}
+
+function onKey(e: KeyboardEvent) {
+    if (e.key === 'Escape') emit('close')
+    if (e.key === 'ArrowRight') go(1)
+    if (e.key === 'ArrowLeft') go(-1)
+}
+
+let touchX = 0
+let touchY = 0
+function touchStart(e: TouchEvent) {
+    touchX = e.touches[0].clientX
+    touchY = e.touches[0].clientY
+}
+function touchEnd(e: TouchEvent) {
+    if (pages.value.length) return
+    const dx = e.changedTouches[0].clientX - touchX
+    const dy = e.changedTouches[0].clientY - touchY
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) go(dx < 0 ? 1 : -1)
+    else if (dy > 90 && Math.abs(dy) > Math.abs(dx)) emit('close')
+}
+
+onMounted(() => {
+    document.addEventListener('keydown', onKey)
+    document.body.style.overflow = 'hidden'
+})
+onBeforeUnmount(() => {
+    document.removeEventListener('keydown', onKey)
+    document.body.style.overflow = ''
+})
+</script>
+
+<template>
+    <div class="t-viewer" role="dialog" aria-modal="true" @click.self="emit('close')">
+        <div class="t-viewer-bar">
+            <div class="sp">
+                <div class="name">{{ file.name }}</div>
+                <div class="meta">
+                    {{ file.sizeLabel }}
+                    <template v-if="file.pages"> · {{ pagesLabel(file.pages) }}</template>
+                    <template v-if="file.uploadedBy"> · {{ file.uploadedBy }}</template>
+                    <template v-if="files.length > 1"> · {{ index + 1 }} з {{ files.length }}</template>
+                </div>
+            </div>
+            <a v-if="file.kind === 'pdf'" :href="file.urls.inline" target="_blank" rel="noopener">Відкрити</a>
+            <a :href="file.urls.download">⬇ Скачати</a>
+            <button type="button" aria-label="Закрити" @click="emit('close')">✕</button>
+        </div>
+
+        <div class="t-viewer-stage" @touchstart.passive="touchStart" @touchend="touchEnd" @click.self="emit('close')">
+            <button v-if="files.length > 1" class="t-nav prev" type="button" aria-label="Попередній" @click="go(-1)">‹</button>
+
+            <img
+                v-if="file.kind === 'image' && file.urls.view"
+                :key="file.id"
+                :src="file.urls.view"
+                :alt="file.name"
+                :class="{ zoom }"
+                :style="zoom ? { cursor: 'zoom-out' } : { cursor: 'zoom-in' }"
+                @click="zoom = !zoom"
+            />
+
+            <div v-else-if="pages.length" :key="'p' + file.id" class="scroller" @click.self="emit('close')">
+                <template v-for="n in pages" :key="n">
+                    <img class="page" :src="(file.urls.page ?? '') + n" :alt="'Сторінка ' + n" loading="lazy" />
+                    <div class="pg">{{ n }} / {{ pages.length }}</div>
+                </template>
+            </div>
+
+            <div v-else class="nopv">
+                <div class="big" :class="extClass(file)">{{ file.ext || 'FILE' }}</div>
+                <div v-if="file.preview === 'pending'">Готуємо превʼю…</div>
+                <div v-else>Для цього файлу перегляду немає — його можна скачати.</div>
+                <a class="t-btn primary" :href="file.urls.download">⬇ Скачати {{ file.sizeLabel }}</a>
+            </div>
+
+            <button v-if="files.length > 1" class="t-nav next" type="button" aria-label="Наступний" @click="go(1)">›</button>
+        </div>
+
+        <div v-if="files.length > 1" class="t-viewer-strip">
+            <button v-for="(f, i) in files" :key="f.id" type="button" :class="{ on: i === index }" :title="f.name" @click="index = i">
+                <img v-if="f.urls.thumb" :src="f.urls.thumb" alt="" />
+                <span v-else class="ico" :class="extClass(f)">{{ f.ext }}</span>
+            </button>
+        </div>
+    </div>
+</template>

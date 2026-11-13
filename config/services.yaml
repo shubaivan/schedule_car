@@ -16,6 +16,10 @@ parameters:
     # Розділ «Склад» (облік опалубки й техніки, оренда, QR-наклейки).
     # Каркас спільний на двох клієнтів, а склад поки потрібен лише одному.
     warehouse_enabled: '%env(bool:WAREHOUSE_ENABLED)%'
+    # Розділ «Задачі» (аналог ПланФікса: угоди, чат по задачі, файли з превʼю).
+    tasks_enabled: '%env(bool:TASKS_ENABLED)%'
+    # Вхід за логіном і паролем — «робоче місце» для тих, хто не в Telegram.
+    password_login_enabled: '%env(bool:PASSWORD_LOGIN_ENABLED)%'
 
 services:
     # default configuration for services in *this* file
@@ -37,6 +41,8 @@ services:
             - '../src/Supply/Enum/'
             - '../src/Warehouse/Entity/'
             - '../src/Warehouse/Enum/'
+            - '../src/Tasks/Entity/'
+            - '../src/Tasks/Enum/'
             - '../src/Kernel.php'
 
     # Ключі Google Drive — рядки, автовайринг їх не підставить.

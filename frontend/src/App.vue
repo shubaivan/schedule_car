@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useSession } from './app/store'
+import './modules/tasks/tasks.css'
 
 const session = useSession()
 const route = useRoute()
+const router = useRouter()
 
 /** Довідники, звіти й люди — робоче місце менеджера; заявки відкриті всім. */
 const MANAGER_ROUTES = ['suppliers', 'reports', 'users', 'departments']
@@ -27,16 +29,33 @@ const allowed = computed(() => {
 
 /** Розділ, у якому людина зараз: від нього залежить нижній ряд меню. */
 const FLEET_SECTION = ['schedule', 'fleet']
-const section = computed(() => (FLEET_SECTION.includes(String(route.name)) ? 'fleet' : 'requests'))
+const TASKS_SECTION = ['tasks', 'tasks-board', 'task', 'staff']
+const section = computed(() => {
+    const name = String(route.name)
+    if (TASKS_SECTION.includes(name)) return 'tasks'
+    return FLEET_SECTION.includes(name) ? 'fleet' : 'requests'
+})
+const wide = computed(() => section.value === 'tasks')
 
 onMounted(() => session.load())
+
+// CRM_HOME=tasks: стенд «робочого місця» відкривається з задач, а не з заявок.
+watch(
+    () => session.ready,
+    (ready) => {
+        if (ready && session.user?.home === 'tasks' && route.name === 'requests' && route.path === '/') {
+            router.replace({ name: 'tasks' })
+        }
+    },
+)
 </script>
 
 <template>
-    <div class="layout">
+    <div class="layout" :class="{ wide }">
         <div v-if="session.expired" class="center">
             <p>Сесія завершилась.</p>
             <p class="muted">Відкрийте бота, натисніть «🔐 Вхід у CRM» і перейдіть за новим посиланням.</p>
+            <p><a href="/vhid">Увійти знову</a></p>
         </div>
 
         <div v-else-if="!session.ready" class="center">Завантаження…</div>
@@ -49,8 +68,9 @@ onMounted(() => session.load())
             -->
             <header class="topbar">
                 <nav class="sections">
+                    <router-link v-if="session.user?.tasks" :to="{ name: 'tasks' }" :class="{ on: section === 'tasks' }">✅ Задачі</router-link>
                     <router-link :to="{ name: 'requests' }" :class="{ on: section === 'requests' }">📦 Заявки</router-link>
-                    <router-link :to="{ name: 'schedule' }" :class="{ on: section === 'fleet' }">🚗 Автопарк</router-link>
+                    <router-link v-if="session.user?.fleet !== false" :to="{ name: 'schedule' }" :class="{ on: section === 'fleet' }">🚗 Автопарк</router-link>
                     <a v-if="session.user?.warehouse" href="/sklad">🏗 Склад</a>
                     <a v-if="session.user?.shop" href="/shop">🛒 Магазин</a>
                 </nav>
@@ -60,7 +80,12 @@ onMounted(() => session.load())
                 </span>
             </header>
             <nav class="subnav">
-                <template v-if="section === 'requests'">
+                <template v-if="section === 'tasks'">
+                    <router-link :to="{ name: 'tasks' }" exact-active-class="router-link-active" active-class="">Огляд</router-link>
+                    <router-link :to="{ name: 'tasks-board' }">Дошка</router-link>
+                    <router-link :to="{ name: 'staff' }">Співробітники</router-link>
+                </template>
+                <template v-else-if="section === 'requests'">
                     <router-link :to="{ name: 'requests' }" active-class="" exact-active-class="router-link-active">Заявки</router-link>
                     <template v-if="session.isManager()">
                         <router-link :to="{ name: 'suppliers' }">Постачальники</router-link>

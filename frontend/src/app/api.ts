@@ -16,6 +16,12 @@ export interface ApiUser {
     warehouse?: boolean
     /** Лише в /api/me: чи є пункт «🛒 Магазин» (адмінка сайту через /shop). */
     shop?: boolean
+    /** Лише в /api/me: розділ «Задачі» ввімкнено. */
+    tasks?: boolean
+    /** Лише в /api/me: з якого розділу відкривати CRM — requests | tasks. */
+    home?: string
+    /** Лише в /api/me: розділ «Автопарк» ввімкнено. */
+    fleet?: boolean
 }
 
 /** Підрозділ у довіднику: разом із тим, скільки на ньому висить. */
@@ -191,7 +197,7 @@ export interface Report {
 /** Сесія протухла — далі показуємо екран «візьміть нове посилання в боті». */
 export class SessionExpired extends Error {}
 
-async function call<T>(url: string, init: RequestInit = {}): Promise<T> {
+export async function call<T>(url: string, init: RequestInit = {}): Promise<T> {
     const response = await fetch(url, {
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },

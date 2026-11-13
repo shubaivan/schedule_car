@@ -1,5 +1,9 @@
 security:
-    # Паролів у системі немає: вхід у CRM — за одноразовим посиланням із Telegram-бота.
+    # Основний вхід у CRM — одноразове посилання з Telegram-бота. Де ввімкнено
+    # PASSWORD_LOGIN_ENABLED, поруч є вхід «робочого місця» за логіном і паролем.
+    password_hashers:
+        App\Entity\TelegramUser: auto
+
     providers:
         app_user_provider:
             entity:
@@ -22,6 +26,11 @@ security:
             provider: app_user_provider
             custom_authenticators:
                 - App\Security\TelegramLinkAuthenticator
+                - App\Security\PasswordLoginAuthenticator
+            # 5 хибних паролів на логін+IP за 15 хвилин — далі пауза.
+            login_throttling:
+                max_attempts: 5
+                interval: '15 minutes'
             entry_point: App\Security\LoginEntryPoint
             logout:
                 path: crm_logout

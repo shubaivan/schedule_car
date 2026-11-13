@@ -3,12 +3,14 @@
 namespace App\Supply\Controller;
 
 use App\Entity\TelegramUser;
+use App\Service\FleetSection;
 use App\Service\ShopLink;
 use App\Supply\Enum\SupplyAccent;
 use App\Supply\Enum\SupplyStatus;
 use App\Supply\Enum\Unit;
 use App\Supply\Repository\DepartmentRepository;
 use App\Supply\Service\RequestPresenter;
+use App\Tasks\Service\TasksSection;
 use App\Warehouse\Service\WarehouseSection;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -19,7 +21,7 @@ use Symfony\Component\Routing\Attribute\Route;
 class MetaApiController extends AbstractController
 {
     #[Route('/me', name: 'api_me', methods: ['GET'])]
-    public function me(RequestPresenter $presenter, WarehouseSection $warehouse, ShopLink $shop): JsonResponse
+    public function me(RequestPresenter $presenter, WarehouseSection $warehouse, ShopLink $shop, TasksSection $tasks, FleetSection $fleet): JsonResponse
     {
         /** @var TelegramUser $user */
         $user = $this->getUser();
@@ -29,6 +31,10 @@ class MetaApiController extends AbstractController
             ...$presenter->user($user),
             'warehouse' => $warehouse->inMenuFor($user),
             'shop' => $shop->availableTo($user),
+            // Розділ «Задачі» і з чого відкривати CRM (CRM_HOME).
+            'tasks' => $tasks->enabled(),
+            'home' => $tasks->home(),
+            'fleet' => $fleet->isEnabled(),
         ]);
     }
 

@@ -34,6 +34,12 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Warehouse/Entity'
                 prefix: 'App\Warehouse\Entity'
                 alias: Warehouse
+            Tasks:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Tasks/Entity'
+                prefix: 'App\Tasks\Entity'
+                alias: Tasks
         controller_resolver:
             auto_mapping: true
 

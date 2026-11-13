@@ -19,12 +19,19 @@ use Symfony\Component\Routing\Attribute\Route;
  */
 class LoginController extends AbstractController
 {
+    /** Останній введений логін — щоб після помилки не набирати знову. */
+    public const LAST_LOGIN = '_last_login';
+
     public function __construct(
         #[Autowire('%env(TELEGRAM_BOT_USERNAME)%')]
         private string $botUsername,
         #[Autowire('%env(APP_COMPANY_NAME)%')]
         private string $company,
         private WarehouseSection $warehouse,
+        #[Autowire('%password_login_enabled%')]
+        private bool $passwordLogin = false,
+        #[Autowire('%tasks_enabled%')]
+        private bool $tasks = false,
     ) {
     }
 
@@ -32,6 +39,16 @@ class LoginController extends AbstractController
     public function index(Request $request): Response
     {
         return $this->page(null, $request->query->getBoolean('out'));
+    }
+
+    /**
+     * Вхід за паролем. Тіло не виконується, коли PASSWORD_LOGIN_ENABLED=1, —
+     * запит перехоплює PasswordLoginAuthenticator. Інакше — звичайна сторінка входу.
+     */
+    #[Route('/vhid', name: 'app_login_password', methods: ['POST'])]
+    public function password(): Response
+    {
+        return $this->page(null);
     }
 
     /** Та сама сторінка з причиною відмови — її малює і TelegramLinkAuthenticator. */
@@ -46,6 +63,16 @@ class LoginController extends AbstractController
             'error' => $error,
             'loggedOut' => $loggedOut && $user === null,
             'warehouse' => $user instanceof TelegramUser && $this->warehouse->inMenuFor($user),
+            'password_login' => $this->passwordLogin,
+            'tasks' => $this->tasks,
+            'last_login' => $this->lastLogin(),
         ], new Response(status: $status));
+    }
+
+    private function lastLogin(): string
+    {
+        $request = $this->container->get('request_stack')->getCurrentRequest();
+
+        return $request !== null && $request->hasSession() ? (string) $request->getSession()->get(self::LAST_LOGIN, '') : '';
     }
 }
