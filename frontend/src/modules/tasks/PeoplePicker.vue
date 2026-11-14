@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { people as peopleLabel } from '../../plan/uk'
 import { computed, ref } from 'vue'
 import Avatar from './Avatar.vue'
 import type { TasksMeta } from './api'
@@ -70,7 +71,7 @@ function toggleDep(id: number) {
             <template v-else>
                 <button v-for="d in deps" :key="d.id" type="button" class="item" :class="{ on: departments.includes(d.id) }" @click="toggleDep(d.id)">
                     <span class="t-ava" :style="{ width: '30px', height: '30px', fontSize: '12px', background: '#8b5cf6' }">{{ d.name.replace(/^\d+\.\s*/, '').charAt(0) }}</span>
-                    <span class="grow">{{ d.name }}<small>{{ d.people.length }} осіб — додадуться всі</small></span>
+                    <span class="grow">{{ d.name }}<small>{{ peopleLabel(d.people.length) }} — {{ d.people.length === 1 ? 'додасться' : 'додадуться всі' }}</small></span>
                     <span v-if="departments.includes(d.id)">✓</span>
                 </button>
             </template>

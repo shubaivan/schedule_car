@@ -130,15 +130,15 @@ final class ItemFeed
         $isMovement = $row['subject_type'] === SubjectType::WhMovement->value;
 
         return match ($type) {
-            ItemCreated::TYPE, SubjectCreated::TYPE => ['created', $isMovement ? null : 'створив позицію'],
-            SubjectUpdated::TYPE => ['updated', 'змінив картку' . (($payload['summary'] ?? '') !== '' ? ': ' . $payload['summary'] : '')],
+            ItemCreated::TYPE, SubjectCreated::TYPE => ['created', $isMovement ? null : 'позицію створено'],
+            SubjectUpdated::TYPE => ['updated', 'картку змінено' . (($payload['summary'] ?? '') !== '' ? ' — ' . $payload['summary'] : '')],
             StockMoved::TYPE => ['status', $this->moved($payload, $item, $movement)],
-            FileAdded::TYPE => ['file', 'додав документ: ' . implode(', ', (array) ($payload['names'] ?? []))],
-            FileRemoved::TYPE => ['file', 'прибрав документ: ' . implode(', ', (array) ($payload['names'] ?? []))],
+            FileAdded::TYPE => ['file', 'документ додано — ' . implode(', ', (array) ($payload['names'] ?? []))],
+            FileRemoved::TYPE => ['file', 'документ прибрано — ' . implode(', ', (array) ($payload['names'] ?? []))],
             SubjectViewed::TYPE => ['updated', match ($payload['action'] ?? '') {
-                ActivityAction::Scan->value => '📷 сканував QR-наклейку' . (($payload['details'] ?? '') !== '' ? ' (' . $payload['details'] . ')' : ''),
-                ActivityAction::Link->value => '🔗 перейшов за посиланням' . (($payload['details'] ?? '') !== '' ? ' ' . $payload['details'] : ''),
-                ActivityAction::Labels->value => '🖨 друкував наклейки' . (($payload['details'] ?? '') !== '' ? ' · ' . $payload['details'] : ''),
+                ActivityAction::Scan->value => '📷 скан QR-наклейки' . (($payload['details'] ?? '') !== '' ? ' (' . $payload['details'] . ')' : ''),
+                ActivityAction::Link->value => '🔗 перехід за посиланням' . (($payload['details'] ?? '') !== '' ? ' ' . $payload['details'] : ''),
+                ActivityAction::Labels->value => '🖨 друк наклейок' . (($payload['details'] ?? '') !== '' ? ' · ' . $payload['details'] : ''),
                 default => null,
             }],
             default => ['updated', null],

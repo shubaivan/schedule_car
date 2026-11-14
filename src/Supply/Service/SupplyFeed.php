@@ -17,7 +17,7 @@ use DateTimeInterface;
  * Стрічка заявки у форматі стрічки задачі — щоб «План» малював заявку тими самими
  * MessageBubble / TaskChat, що й задачу (архітектура 14.11, розд. 2.1).
  *
- * Зливає чотири джерела: зміни статусу (перша — «подав(ла) заявку»), коментарі,
+ * Зливає чотири джерела: зміни статусу (перша — «заявку подано»), коментарі,
  * закупівлі й документи. Своїх таблиць не має і нічого не пише: лише читає те,
  * що вже записали CreateRequest / ChangeStatus / AddComment / RecordPurchase / AttachFile.
  *
@@ -165,10 +165,10 @@ class SupplyFeed
     {
         if ($log->getStatusFrom() === null) {
             $request = $log->getRequest();
-            $text = sprintf('подав(ла) заявку: %s — %s', $request->getItem(), $request->getQuantityLabel());
+            $text = sprintf('заявку подано — %s, %s', $request->getItem(), $request->getQuantityLabel());
             $type = 'created';
         } else {
-            $text = sprintf('змінив(ла) статус: %s → %s', $log->getStatusFrom()->label(), $log->getStatusTo()->label());
+            $text = sprintf('статус %s → %s', $log->getStatusFrom()->label(), $log->getStatusTo()->label());
             $type = $log->getStatusTo()->isFinal() ? 'closed' : 'status';
         }
 
@@ -188,7 +188,7 @@ class SupplyFeed
     /** @return array<string, mixed> */
     private function purchase(SupplyPurchase $purchase, TelegramUser $viewer): array
     {
-        $text = sprintf('додав(ла) закупівлю: %s · %s', $purchase->getSupplier()->getName(), $purchase->getTotalLabel());
+        $text = sprintf('закупівля — %s · %s', $purchase->getSupplier()->getName(), $purchase->getTotalLabel());
 
         if ($purchase->getInvoiceNumber() !== null) {
             $text .= ' · накладна ' . $purchase->getInvoiceNumber();

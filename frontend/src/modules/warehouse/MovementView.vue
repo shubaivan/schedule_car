@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { money } from '../../plan/uk'
 import { onMounted, ref, watch } from 'vue'
 import { useSession } from '../../app/store'
 import Icon from '../tasks/shell/Icon.vue'
@@ -74,7 +75,7 @@ onMounted(() => {
                                 <td><router-link :to="{ name: 'warehouse-items', params: { id: l.item.id } }">{{ l.item.inventoryNumber }}</router-link></td>
                                 <td>{{ l.item.name }}</td>
                                 <td class="n">{{ l.quantity.toLocaleString('uk-UA') }} {{ l.item.unit }}</td>
-                                <td v-if="movement.items.some((x) => x.rentalRate)" class="n p-muted">{{ l.rentalRate ? l.rentalRate + ' ₴/доба' : '' }}</td>
+                                <td v-if="movement.items.some((x) => x.rentalRate)" class="n p-muted">{{ l.rentalRate ? money(l.rentalRate) + '/доба' : '' }}</td>
                             </tr>
                         </tbody>
                     </table>

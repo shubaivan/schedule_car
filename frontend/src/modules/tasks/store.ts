@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { tasksApi, type TasksMeta } from './api'
+import { sortByName } from '../../plan/uk'
 
 /** Довідники розділу «Задачі»: люди, відділи, мітки, статуси. */
 export const useTasks = defineStore('tasks', () => {
@@ -10,7 +11,7 @@ export const useTasks = defineStore('tasks', () => {
     async function load(force = false): Promise<TasksMeta> {
         if (meta.value && !force) return meta.value
         if (!loading || force) {
-            loading = tasksApi.meta().then((m) => (meta.value = m)).finally(() => (loading = null))
+            loading = tasksApi.meta().then((m) => (meta.value = { ...m, people: sortByName(m.people) })).finally(() => (loading = null))
         }
         return loading
     }

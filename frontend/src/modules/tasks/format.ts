@@ -1,3 +1,5 @@
+import { plural } from '../../plan/uk'
+
 const TIME = new Intl.DateTimeFormat('uk-UA', { hour: '2-digit', minute: '2-digit' })
 const DAY = new Intl.DateTimeFormat('uk-UA', { day: 'numeric', month: 'long' })
 const DAY_YEAR = new Intl.DateTimeFormat('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -46,13 +48,8 @@ export function today(): string {
     return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
-export function plural(n: number, one: string, few: string, many: string): string {
-    const n10 = n % 10
-    const n100 = n % 100
-    if (n10 === 1 && n100 !== 11) return one
-    if (n10 >= 2 && n10 <= 4 && (n100 < 12 || n100 > 14)) return few
-    return many
-}
+/** Відмінок за числом — через Intl.PluralRules('uk-UA') (див. plan/uk.ts). */
+export { plural }
 
 export function fileSize(bytes: number): string {
     if (bytes >= 1048576) return (bytes / 1048576).toFixed(1).replace('.', ',') + ' МБ'

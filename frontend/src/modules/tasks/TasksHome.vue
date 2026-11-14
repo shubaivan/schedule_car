@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { quantity } from '../../plan/uk'
 import { computed, onMounted, ref } from 'vue'
 import TaskRow from './TaskRow.vue'
 import { tasksApi, type Dashboard } from './api'
@@ -79,7 +80,7 @@ useLiveRefresh(() => load(), { pollMs: 30000, debounceMs: 1000 })
                 <div class="t-rows">
                     <TaskRow v-for="t in data.decisions" :key="'t' + t.id" :task="t" />
                     <router-link v-for="r in data.supply.decisions" :key="'s' + r.id" :to="{ name: 'supply-board', params: { id: r.id } }" class="t-row p-home-supply" data-testid="home-supply-decision">
-                        <span class="title">{{ r.item }} — {{ r.quantityLabel }}</span>
+                        <span class="title">{{ r.item }} — {{ quantity(r) }}</span>
                         <span class="meta">
                             <span>Заявка № {{ r.number }}</span>
                             <span class="t-status" :class="tone(r.status)">{{ r.statusLabel }}</span>

@@ -517,7 +517,7 @@ defineExpose({ scrollDown, remove, removingFile })
             <div v-if="row.type === 'day'" class="t-day">{{ row.label }}</div>
             <div v-else-if="row.type === 'unread'" class="f-unread"><span>Нові повідомлення</span></div>
             <div v-else-if="row.m.kind === 'event'" :id="'msg-' + row.m.id" class="t-event">
-                <b>{{ row.m.author?.name ?? 'Система' }}</b> {{ row.m.text }} · {{ time(row.m.createdAt) }}
+                <b>{{ row.m.author?.name ?? 'Система' }}</b>: {{ row.m.text }} · {{ time(row.m.createdAt) }}
             </div>
             <MessageBubble
                 v-else

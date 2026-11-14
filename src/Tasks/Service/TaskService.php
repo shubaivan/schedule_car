@@ -74,7 +74,7 @@ class TaskService
         $task->addMember($author);
 
         $this->em->persist($task);
-        $created = (new TaskMessage($task, $author, $this->membersLine('створив(ла) задачу', $task), TaskMessage::KIND_EVENT))
+        $created = (new TaskMessage($task, $author, $this->membersLine('задачу створено', $task), TaskMessage::KIND_EVENT))
             ->setEventType(TaskMessage::EVENT_CREATED);
         $this->em->persist($created);
 
@@ -126,11 +126,11 @@ class TaskService
 
         if ($added !== []) {
             $names = implode(', ', array_map(static fn ($m) => $m->getUser()->shortName(), $added));
-            $message = $this->event($task, $user, 'додав(ла) учасників: ' . $names, TaskMessage::EVENT_MEMBERS);
+            $message = $this->event($task, $user, 'додано учасників — ' . $names, TaskMessage::EVENT_MEMBERS);
             $addedIds = array_values(array_map(static fn ($m) => (int) $m->getUser()->getId(), $added));
             $record = fn () => new MemberAdded($ref, $user->getId(), userIds: $addedIds, refId: $message->getId(), removedIds: array_map('intval', $removed));
         } else {
-            $message = $this->event($task, $user, 'оновив(ла) задачу', TaskMessage::EVENT_UPDATED);
+            $message = $this->event($task, $user, 'задачу оновлено', TaskMessage::EVENT_UPDATED);
             $record = $removed !== []
                 ? fn () => new MemberRemoved($ref, $user->getId(), userIds: array_map('intval', $removed), refId: $message->getId())
                 : fn () => new SubjectUpdated($ref, $user->getId(), fields: array_values(array_intersect(array_keys($data), self::FIELDS)), refId: $message->getId());
@@ -154,7 +154,7 @@ class TaskService
 
         $from = $task->getStatus();
         $task->setStatus($to);
-        $message = $this->event($task, $user, sprintf('змінив(ла) статус: %s → %s', $from->label(), $to->label()), $to->isClosed() ? TaskMessage::EVENT_CLOSED : TaskMessage::EVENT_STATUS);
+        $message = $this->event($task, $user, sprintf('статус %s → %s', $from->label(), $to->label()), $to->isClosed() ? TaskMessage::EVENT_CLOSED : TaskMessage::EVENT_STATUS);
 
         if ($comment !== null && trim($comment) !== '') {
             $this->em->persist(new TaskMessage($task, $user, trim($comment)));

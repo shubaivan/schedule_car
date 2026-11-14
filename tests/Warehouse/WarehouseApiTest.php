@@ -254,7 +254,7 @@ class WarehouseApiTest extends WebTestCase
         $texts = array_column($feed['messages'], 'text');
         self::assertCount(2, $texts, implode(' | ', $texts));
         self::assertStringContainsString('Надходження №П-9 від 01.11.2026: ззовні → Тест-склад, 12 шт', $texts[0]);
-        self::assertStringContainsString('сканував QR', $texts[1]);
+        self::assertStringContainsString('скан QR', $texts[1]);
         self::assertSame(['event', 'event'], array_column($feed['messages'], 'kind'));
         self::assertTrue($feed['messages'][0]['mine']);
     }

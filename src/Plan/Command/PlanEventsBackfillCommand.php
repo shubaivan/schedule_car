@@ -173,7 +173,7 @@ final class PlanEventsBackfillCommand extends Command
         return $out;
     }
 
-    /** «змінив(ла) статус: В роботі → Виконана» → значення статусів. */
+    /** «статус В роботі → Виконана» (і старе «змінив(ла) статус: …») → значення статусів. */
     private function taskStatus(SubjectRef $ref, ?int $actor, string $text, int $id, DateTimeImmutable $at): PlanEvent
     {
         $labels = [];
@@ -184,7 +184,7 @@ final class PlanEventsBackfillCommand extends Command
 
         $from = $to = null;
 
-        if (preg_match('/статус: (.+) → (.+)$/u', $text, $m) === 1) {
+        if (preg_match('/статус:? (.+) → (.+)$/u', $text, $m) === 1) {
             $from = $labels[trim($m[1])] ?? null;
             $to = $labels[trim($m[2])] ?? null;
         }

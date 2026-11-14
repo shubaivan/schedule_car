@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { money, quantity } from '../../plan/uk'
 import { vStickyHead } from '../../plan/stickyHead'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -272,7 +273,7 @@ onMounted(load)
                     </div>
                     <h1 class="p-ttitle">
                         <span v-if="request.accent !== 'none'" class="p-accent" :title="request.accentLabel">{{ request.accentEmoji }}</span>
-                        <span :class="{ closed: request.status === 'rejected' }">{{ request.item }} — {{ request.quantityLabel }}</span>
+                        <span :class="{ closed: request.status === 'rejected' }">{{ request.item }} — {{ quantity(request) }}</span>
                     </h1>
                     <div class="p-thead-meta">
                         <div class="p-status">
@@ -334,7 +335,7 @@ onMounted(load)
                 <div v-if="tab !== 'files'" class="t-panel">
                     <h2>Деталі</h2>
                     <dl class="t-dl">
-                        <dt>Кількість</dt><dd>{{ request.quantityLabel }}</dd>
+                        <dt>Кількість</dt><dd>{{ quantity(request) }}</dd>
                         <dt>Потрібно до</dt><dd>{{ request.needBy ? formatDate(request.needBy) : '—' }}</dd>
                         <dt>Обʼєкт</dt><dd>{{ request.site ?? '—' }}</dd>
                         <dt>Заявник</dt><dd>{{ request.author.name }}<template v-if="request.author.phone"><br /><a :href="'tel:+' + request.author.phone.replace(/^\+/, '')">+{{ request.author.phone.replace(/^\+/, '') }}</a></template></dd>
@@ -354,7 +355,7 @@ onMounted(load)
                 </div>
 
                 <div v-if="tab !== 'files'" class="t-panel">
-                    <h2>Закупівля <span v-if="request.purchases?.length" class="count">{{ request.purchaseTotal?.toFixed(2) }} ₴</span></h2>
+                    <h2>Закупівля <span v-if="request.purchases?.length" class="count">{{ money(request.purchaseTotal ?? 0) }}</span></h2>
                     <p v-if="!request.purchases?.length" class="t-hint" style="padding: 0">Ще не вказано, у кого купили. Без цього заявку не перевести на затвердження.</p>
                     <div v-for="p in request.purchases" :key="p.id" class="p-purchase">
                         <div><b>{{ p.supplier.name }}</b> · {{ p.totalLabel }}<span v-if="!p.vatIncluded" class="p-muted"> без ПДВ</span></div>

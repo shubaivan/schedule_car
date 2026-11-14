@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { money } from '../../plan/uk'
 import { vStickyHead } from '../../plan/stickyHead'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
@@ -236,9 +237,9 @@ watch(tab, (t) => {
                         <template v-for="(v, k) in item.attributes" :key="k"><dt>{{ k }}</dt><dd>{{ v }}</dd></template>
                         <template v-if="item.serialNumber"><dt>Серійний №</dt><dd>{{ item.serialNumber }}</dd></template>
                         <template v-if="item.supplier"><dt>Постачальник</dt><dd>{{ item.supplier.name }}</dd></template>
-                        <template v-if="item.purchasePrice"><dt>Ціна</dt><dd>{{ item.purchasePrice }} ₴</dd></template>
+                        <template v-if="item.purchasePrice"><dt>Ціна</dt><dd>{{ money(item.purchasePrice) }}</dd></template>
                         <template v-if="item.purchasedAt"><dt>Куплено</dt><dd>{{ formatDate(item.purchasedAt) }}</dd></template>
-                        <template v-if="item.rentalRate"><dt>Оренда</dt><dd>{{ item.rentalRate }} ₴/доба</dd></template>
+                        <template v-if="item.rentalRate"><dt>Оренда</dt><dd>{{ money(item.rentalRate) }}/доба</dd></template>
                         <template v-if="item.createdBy"><dt>Завів</dt><dd>{{ item.createdBy.name }}</dd></template>
                     </dl>
                     <div v-if="item.description" class="t-desc" style="margin-top: 8px">{{ item.description }}</div>

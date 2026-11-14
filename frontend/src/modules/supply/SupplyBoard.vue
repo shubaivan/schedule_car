@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { quantity } from '../../plan/uk'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useLiveRefresh } from '../../plan/live'
 import { useRoute, useRouter } from 'vue-router'
@@ -219,7 +220,7 @@ onBeforeUnmount(() => {
                             <span v-if="r.urgent" class="p-urgent">терміново</span>
                             <span class="when" :title="'Подано: ' + new Date(r.createdAt).toLocaleString('uk-UA')">{{ ago(r.createdAt) }}</span>
                         </span>
-                        <span class="title">{{ r.item }} — {{ r.quantityLabel }}</span>
+                        <span class="title">{{ r.item }} — {{ quantity(r) }}</span>
                         <span class="client">{{ r.author.name }}<template v-if="r.department"> · [{{ r.department }}]</template><template v-if="r.site"> · {{ r.site }}</template></span>
                         <span class="row foot">
                             <span class="st" :class="tone(r.status)">{{ r.statusLabel }}</span>

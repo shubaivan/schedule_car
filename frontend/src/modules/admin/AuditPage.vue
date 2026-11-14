@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { plural, sortByName } from '../../plan/uk'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter, type LocationQuery } from 'vue-router'
 import { useSession } from '../../app/store'
@@ -169,7 +170,8 @@ async function init() {
     if (!allowed.value) return
     load()
     try {
-        meta.value = await auditApi.meta()
+        const m = await auditApi.meta()
+        meta.value = { ...m, actors: sortByName(m.actors) }
     } catch (e) {
         error.value = session.handle(e)
     }
@@ -243,7 +245,7 @@ onBeforeUnmount(() => {
         <div class="p-split-left t-page a-list-pane">
             <div class="a-head">
                 <h1>Журнал аудиту</h1>
-                <span class="t-sub" aria-live="polite">{{ loading && !items.length ? 'Завантаження…' : totalLabel + ' подій' }}</span>
+                <span class="t-sub" aria-live="polite">{{ loading && !items.length ? 'Завантаження…' : totalLabel + ' ' + plural(total, 'подія', 'події', 'подій') }}</span>
                 <span class="sp" />
                 <button type="button" class="t-btn small ghost a-filters-btn" :aria-expanded="filtersOpen" @click="filtersOpen = !filtersOpen">
                     Фільтри<b v-if="activeCount" class="a-count">{{ activeCount }}</b>

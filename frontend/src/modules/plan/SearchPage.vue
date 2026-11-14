@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { sortByName } from '../../plan/uk'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter, type LocationQueryRaw } from 'vue-router'
 import Avatar from '../tasks/Avatar.vue'
@@ -357,7 +358,8 @@ onMounted(async () => {
     if (openId.value === null && !mobile.value) input.value?.focus()
     run()
     try {
-        meta.value = await planApi.searchMeta()
+        const m = await planApi.searchMeta()
+        meta.value = { ...m, people: sortByName(m.people), departments: sortByName(m.departments) }
         saved.value = meta.value.saved
     } catch (e) {
         error.value = session.handle(e)

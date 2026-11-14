@@ -89,7 +89,7 @@ class SupplyFeedTest extends WebTestCase
         self::assertSame(['created', 'comment', 'updated', 'file'], array_column($messages, 'eventType'), 'подача → коментар → закупівля → документ, за часом');
         self::assertSame(['event', 'comment', 'event', 'comment'], array_column($messages, 'kind'));
         self::assertCount(4, array_unique(array_column($messages, 'id')), 'синтетичні id з різних таблиць не перетинаються');
-        self::assertStringContainsString('подав(ла) заявку: Цемент М500', $messages[0]['text']);
+        self::assertStringContainsString('заявку подано — Цемент М500', $messages[0]['text']);
         self::assertSame('Уточню ціну', $messages[1]['text']);
         self::assertTrue($messages[1]['mine']);
         self::assertStringContainsString(self::MARKER . ' постачальник', $messages[2]['text']);

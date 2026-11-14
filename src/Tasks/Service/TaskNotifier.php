@@ -54,7 +54,7 @@ class TaskNotifier
 
     public function created(Task $task): void
     {
-        $text = sprintf("📌 <b>Вас додали до задачі</b>\n%s\n\nПоставив(ла): %s", $this->head($task), $this->e($task->getCreator()->shortName()));
+        $text = sprintf("📌 <b>Вас додали до задачі</b>\n%s\n\nПостановник: %s", $this->head($task), $this->e($task->getCreator()->shortName()));
 
         if ($task->getDueAt() !== null) {
             $text .= "\nТермін: " . $task->getDueAt()->format('d.m.Y');
@@ -68,7 +68,7 @@ class TaskNotifier
     /** @param TelegramUser[] $people кого щойно додали до задачі */
     public function added(Task $task, array $people, TelegramUser $by): void
     {
-        $text = sprintf("📌 <b>Вас додали до задачі</b>\n%s\n\nДодав(ла): %s", $this->head($task), $this->e($by->shortName()));
+        $text = sprintf("📌 <b>Вас додали до задачі</b>\n%s\n\nВід: %s", $this->head($task), $this->e($by->shortName()));
 
         foreach ($people as $user) {
             if ($user->getId() !== $by->getId()) {
@@ -101,7 +101,7 @@ class TaskNotifier
     public function statusChanged(Task $task, TaskStatus $from, TelegramUser $by, ?string $comment = null, ?TaskStatus $to = null): void
     {
         $to ??= $task->getStatus();
-        $text = sprintf("🔄 <b>%s → %s</b>\n%s\n\nЗмінив(ла): %s", $this->e($from->label()), $this->e($to->label()), $this->head($task), $this->e($by->shortName()));
+        $text = sprintf("🔄 <b>%s → %s</b>\n%s\n\nВід: %s", $this->e($from->label()), $this->e($to->label()), $this->head($task), $this->e($by->shortName()));
 
         if ($comment !== null && trim($comment) !== '') {
             $text .= "\n«" . $this->e(trim($comment)) . '»';

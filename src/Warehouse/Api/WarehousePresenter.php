@@ -269,7 +269,7 @@ final class WarehousePresenter
             'subjectLabel' => $entry->getSubjectLabel(),
             'user' => $this->person($entry->getUser()),
             'channel' => $entry->getChannel(),
-            'channelLabel' => $entry->getChannel() === WhActivity::CHANNEL_BOT ? 'бот' : 'адмінка',
+            'channelLabel' => $entry->getChannel() === WhActivity::CHANNEL_BOT ? 'Telegram-бот' : 'План',
             'details' => $entry->getDetails(),
             'at' => $entry->getAt()->format(DateTimeInterface::ATOM),
         ];

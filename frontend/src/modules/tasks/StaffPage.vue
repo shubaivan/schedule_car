@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { people, plural, sortByName } from '../../plan/uk'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Avatar from './Avatar.vue'
@@ -58,7 +59,7 @@ async function load() {
     try {
         await store.load()
         const [all, d] = await Promise.all([tasksApi.staff(), tasksApi.departments()])
-        rows.value = all.items
+        rows.value = sortByName(all.items)
         deps.value = d.items
         unassigned.value = d.unassigned
         if (isAdmin.value) trash.value = (await tasksApi.staff(true)).items
@@ -156,7 +157,7 @@ onMounted(load)
         <div class="t-head">
             <div>
                 <h1>Співробітники</h1>
-                <div class="t-sub">{{ rows.length }} осіб · {{ deps.length }} відділів</div>
+                <div class="t-sub">{{ people(rows.length) }} · {{ deps.length }} {{ plural(deps.length, 'відділ', 'відділи', 'відділів') }}</div>
             </div>
             <div class="t-actions t-noprint">
                 <button v-if="tab === 'org'" type="button" class="t-btn" @click="printOrg">🖨 Друк</button>
@@ -186,7 +187,7 @@ onMounted(load)
                         <td>{{ r.department ?? '—' }}</td>
                         <td><span class="t-status tone-slate">{{ r.roleLabel }}</span></td>
                         <td class="hide-sm" style="font-size: .85rem">{{ r.email ?? '' }}<div class="t-hint" style="padding: 0">{{ r.phone ? '+' + r.phone : '' }}</div></td>
-                        <td class="hide-sm" style="font-size: .85rem; color: var(--text-muted)">{{ r.lastSeenAt ? ago(r.lastSeenAt) : 'не заходив(ла)' }}</td>
+                        <td class="hide-sm" style="font-size: .85rem; color: var(--text-muted)">{{ r.lastSeenAt ? ago(r.lastSeenAt) : 'входів ще не було' }}</td>
                         <td v-if="isAdmin" style="white-space: nowrap; text-align: right">
                             <button type="button" class="t-btn small ghost" @click="open(r)">✏️</button>
                             <button v-if="!r.me" type="button" class="t-btn small ghost" title="У кошик" @click="toTrash(r)">🗑</button>
