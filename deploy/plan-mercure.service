@@ -1,0 +1,27 @@
+# /etc/systemd/system/plan-mercure.service — Mercure-хаб «Плану» (≈20–30 МБ RAM).
+# Бінарник: /usr/local/bin/mercure (реліз dunglas/mercure v0.21.x, mercure_Linux_x86_64.tar.gz).
+[Unit]
+Description=План — Mercure hub (real-time, 127.0.0.1:3100)
+After=network.target
+
+# Зміна Caddyfile/ключа → `systemctl restart plan-mercure` (reload немає: admin API вимкнено).
+[Service]
+Type=simple
+User=deploy
+Group=deploy
+EnvironmentFile=/etc/plan-mercure/plan-mercure.env
+ExecStart=/usr/local/bin/mercure run --config /etc/plan-mercure/Caddyfile --adapter caddyfile
+Restart=always
+RestartSec=3
+StateDirectory=plan-mercure
+WorkingDirectory=/var/lib/plan-mercure
+Environment=XDG_DATA_HOME=/var/lib/plan-mercure XDG_CONFIG_HOME=/var/lib/plan-mercure
+MemoryMax=96M
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/plan-mercure
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,25 @@
+# /etc/systemd/system/plan-worker.service — воркер подій «Плану»:
+# центр сповіщень, Mercure, Web Push і Telegram (бот Плану) — поза HTTP-запитом.
+# Лише транспорт `plan`: `async` (Mailer/Notifier) План не використовує.
+# Потрібен лише коли в .env.local PLAN_EVENTS_TRANSPORT=doctrine://default?queue_name=plan.
+[Unit]
+Description=План — воркер подій (messenger:consume plan)
+After=network.target postgresql.service plan-mercure.service
+
+[Service]
+Type=simple
+User=deploy
+Group=www-data
+WorkingDirectory=/var/www/plan
+Environment=APP_ENV=prod
+# Воркер сам виходить щогодини / після 1000 повідомлень / при 128 МБ — systemd піднімає новий (свіжий код після деплою).
+ExecStart=/usr/bin/php8.5 bin/console messenger:consume plan --memory-limit=128M --time-limit=3600 --limit=1000 --no-interaction
+Restart=always
+RestartSec=5
+MemoryMax=192M
+NoNewPrivileges=true
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
