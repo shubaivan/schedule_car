@@ -4,57 +4,58 @@
     "minimum-stability": "stable",
     "prefer-stable": true,
     "require": {
-        "php": ">=8.3",
+        "php": ">=8.5",
         "ext-ctype": "*",
         "ext-curl": "*",
         "ext-iconv": "*",
-        "doctrine/dbal": "^3",
-        "doctrine/doctrine-bundle": "^2.12",
-        "doctrine/doctrine-migrations-bundle": "^3.3",
-        "doctrine/orm": "^3.1",
-        "endroid/qr-code": "^6",
-        "friendsofsymfony/jsrouting-bundle": "^3.5",
-        "google/apiclient": "^2.18",
-        "league/flysystem-bundle": "^3.3",
-        "martin-georgiev/postgresql-for-doctrine": "^2.5",
-        "nutgram/symfony-bundle": "^1.1",
-        "oro/doctrine-extensions": "^2.0",
-        "phpdocumentor/reflection-docblock": "^5.4",
-        "phpstan/phpdoc-parser": "^1.28",
+        "doctrine/dbal": "^4.5",
+        "doctrine/doctrine-bundle": "^3.4",
+        "doctrine/doctrine-migrations-bundle": "^4.0",
+        "doctrine/orm": "^3.7.5",
+        "endroid/qr-code": "^6.2",
+        "friendsofsymfony/jsrouting-bundle": "^3.6",
+        "google/apiclient": "^2.20",
+        "league/flysystem-bundle": "^3.7",
+        "martin-georgiev/postgresql-for-doctrine": "^4.10",
+        "nutgram/symfony-bundle": "^1.2",
+        "oro/doctrine-extensions": "^3.0",
+        "phpdocumentor/reflection-docblock": "^6.0",
+        "phpstan/phpdoc-parser": "^2.4",
         "symfony/apache-pack": "^1.0",
-        "symfony/asset": "7.4.*",
-        "symfony/asset-mapper": "7.4.*",
-        "symfony/console": "7.4.*",
-        "symfony/doctrine-messenger": "7.4.*",
-        "symfony/dotenv": "7.4.*",
-        "symfony/expression-language": "7.4.*",
+        "symfony/asset": "8.1.*",
+        "symfony/asset-mapper": "8.1.*",
+        "symfony/console": "8.1.*",
+        "symfony/doctrine-messenger": "8.1.*",
+        "symfony/dotenv": "8.1.*",
+        "symfony/expression-language": "8.1.*",
         "symfony/flex": "^2",
-        "symfony/form": "7.4.*",
-        "symfony/framework-bundle": "7.4.*",
-        "symfony/http-client": "7.4.*",
-        "symfony/intl": "7.4.*",
-        "symfony/mailer": "7.4.*",
-        "symfony/mime": "7.4.*",
-        "symfony/monolog-bundle": "^3.0",
-        "symfony/notifier": "7.4.*",
-        "symfony/process": "7.4.*",
-        "symfony/property-access": "7.4.*",
-        "symfony/property-info": "7.4.*",
-        "symfony/rate-limiter": "7.4.*",
-        "symfony/runtime": "7.4.*",
-        "symfony/security-bundle": "7.4.*",
-        "symfony/serializer": "7.4.*",
-        "symfony/stimulus-bundle": "^2.16",
-        "symfony/string": "7.4.*",
-        "symfony/translation": "7.4.*",
-        "symfony/twig-bundle": "7.4.*",
-        "symfony/ux-turbo": "^2.16",
-        "symfony/validator": "7.4.*",
-        "symfony/web-link": "7.4.*",
-        "symfony/webpack-encore-bundle": "^2.1",
-        "symfony/yaml": "7.4.*",
-        "twig/extra-bundle": "^2.12|^3.0",
-        "twig/twig": "^2.12|^3.0"
+        "symfony/form": "8.1.*",
+        "symfony/framework-bundle": "8.1.*",
+        "symfony/http-client": "8.1.*",
+        "symfony/intl": "8.1.*",
+        "symfony/mailer": "8.1.*",
+        "symfony/mime": "8.1.*",
+        "symfony/monolog-bundle": "^4.1",
+        "symfony/notifier": "8.1.*",
+        "symfony/polyfill-php86": "^1.37",
+        "symfony/process": "8.1.*",
+        "symfony/property-access": "8.1.*",
+        "symfony/property-info": "8.1.*",
+        "symfony/rate-limiter": "8.1.*",
+        "symfony/runtime": "8.1.*",
+        "symfony/security-bundle": "8.1.*",
+        "symfony/serializer": "8.1.*",
+        "symfony/stimulus-bundle": "^3.7",
+        "symfony/string": "8.1.*",
+        "symfony/translation": "8.1.*",
+        "symfony/twig-bundle": "8.1.*",
+        "symfony/ux-turbo": "^3.7",
+        "symfony/validator": "8.1.*",
+        "symfony/web-link": "8.1.*",
+        "symfony/webpack-encore-bundle": "^2.4",
+        "symfony/yaml": "8.1.*",
+        "twig/extra-bundle": "^3.29",
+        "twig/twig": "^3.30"
     },
     "config": {
         "allow-plugins": {
@@ -62,7 +63,10 @@
             "symfony/flex": true,
             "symfony/runtime": true
         },
-        "sort-packages": true
+        "sort-packages": true,
+        "platform": {
+            "php": "8.5.0"
+        }
     },
     "autoload": {
         "psr-4": {
@@ -83,7 +87,9 @@
         "symfony/polyfill-php80": "*",
         "symfony/polyfill-php81": "*",
         "symfony/polyfill-php82": "*",
-        "symfony/polyfill-php83": "*"
+        "symfony/polyfill-php83": "*",
+        "symfony/polyfill-php84": "*",
+        "symfony/polyfill-php85": "*"
     },
     "scripts": {
         "auto-scripts": {
@@ -98,10 +104,10 @@
             "@auto-scripts"
         ],
         "cs-fixer": [
-            "PHP_CS_FIXER_IGNORE_ENV=1 php vendor/bin/php-cs-fixer fix --config=.php-cs-fixer.dist.php"
+            "php vendor/bin/php-cs-fixer fix --config=.php-cs-fixer.dist.php"
         ],
         "cs-check": [
-            "PHP_CS_FIXER_IGNORE_ENV=1 php vendor/bin/php-cs-fixer fix --config=.php-cs-fixer.dist.php --dry-run --diff"
+            "php vendor/bin/php-cs-fixer fix --config=.php-cs-fixer.dist.php --dry-run --diff"
         ],
         "analyze": [
             "php bin/console cache:warmup --env=dev -q",
@@ -126,22 +132,22 @@
     "extra": {
         "symfony": {
             "allow-contrib": false,
-            "require": "7.4.*"
+            "require": "8.1.*"
         }
     },
     "require-dev": {
-        "doctrine/doctrine-fixtures-bundle": "^3.5",
-        "friendsofphp/php-cs-fixer": "^3.64",
-        "phpstan/phpstan": "^2.1",
+        "doctrine/doctrine-fixtures-bundle": "^4.3",
+        "friendsofphp/php-cs-fixer": "^3.95",
+        "phpstan/phpstan": "^2.3",
         "phpstan/phpstan-doctrine": "^2.0",
-        "phpstan/phpstan-symfony": "^2.0",
-        "phpunit/phpunit": "^9.5",
-        "symfony/browser-kit": "7.4.*",
-        "symfony/css-selector": "7.4.*",
-        "symfony/debug-bundle": "7.4.*",
-        "symfony/maker-bundle": "^1.0",
-        "symfony/phpunit-bridge": "^7.0",
-        "symfony/stopwatch": "7.4.*",
-        "symfony/web-profiler-bundle": "7.4.*"
+        "phpstan/phpstan-symfony": "^2.1",
+        "phpunit/phpunit": "^13.4",
+        "symfony/browser-kit": "8.1.*",
+        "symfony/css-selector": "8.1.*",
+        "symfony/debug-bundle": "8.1.*",
+        "symfony/maker-bundle": "^1.68",
+        "symfony/phpunit-bridge": "8.1.*",
+        "symfony/stopwatch": "8.1.*",
+        "symfony/web-profiler-bundle": "8.1.*"
     }
 }

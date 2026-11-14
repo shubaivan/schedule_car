@@ -7,6 +7,7 @@ use App\Supply\Exception\SupplyException;
 use App\Supply\Repository\SupplierRepository;
 use App\Supply\Service\SupplierDirectory;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
@@ -50,7 +51,7 @@ class SupplierDirectoryTest extends KernelTestCase
         self::assertSame('фоппетренкооп', $supplier->getNameNormalized());
     }
 
-    /** @dataProvider sameSupplierWrittenDifferently */
+    #[DataProvider('sameSupplierWrittenDifferently')]
     public function testDuplicateNameIsRejected(string $second): void
     {
         $this->directory->create('ФОП Петренко О.П.');

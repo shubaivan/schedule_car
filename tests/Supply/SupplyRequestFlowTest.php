@@ -18,6 +18,7 @@ use App\Supply\Service\RecordPurchase;
 use App\Supply\Service\SupplierDirectory;
 use DateTime;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
@@ -182,9 +183,8 @@ class SupplyRequestFlowTest extends KernelTestCase
     /**
      * Кількість у картці: «40» має лишитись сорока, а не перетворитись на «4».
      * Значення приходить і як ціле з бота, і як NUMERIC(12,3) з бази.
-     *
-     * @dataProvider quantityLabels
      */
+    #[DataProvider('quantityLabels')]
     public function testQuantityLabel(string $stored, string $expected): void
     {
         $request = (new SupplyRequest())->setQuantity($stored)->setUnit(Unit::Piece);
