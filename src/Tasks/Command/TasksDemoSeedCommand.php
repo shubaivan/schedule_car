@@ -275,6 +275,9 @@ class TasksDemoSeedCommand extends Command
             DemoSupply::reset($this->em);
             $conn->executeStatement("UPDATE telegram_user SET archived_by_id = NULL WHERE telegram_id LIKE 'demo-%'");
             $conn->executeStatement("DELETE FROM login_token WHERE user_id IN (SELECT id FROM telegram_user WHERE telegram_id LIKE 'demo-%')");
+            // Журнал входів демо-людей: без цього рядки лишаються з user_id = NULL, і backfill
+            // показує успішні входи як «Невдалий вхід» невідомого.
+            $conn->executeStatement("DELETE FROM crm_login WHERE user_id IN (SELECT id FROM telegram_user WHERE telegram_id LIKE 'demo-%') OR (success AND user_id IS NULL)");
             $conn->executeStatement("DELETE FROM telegram_user WHERE telegram_id LIKE 'demo-%'");
             self::pruneOrphanEvents($conn);
             $this->em->clear();
