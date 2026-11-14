@@ -4,6 +4,7 @@ namespace App\Tasks\Command;
 
 use App\Entity\TelegramUser;
 use App\Enum\AccessStatus;
+use App\Plan\EventStore\PlanEventRecorder;
 use App\Supply\Entity\Department;
 use App\Supply\Repository\DepartmentRepository;
 use App\Tasks\Demo\DemoDeals;
@@ -29,7 +30,6 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
-use Throwable;
 
 /**
  * Демо-дані для показу «Плану»: відділи, співробітники (вигадані імена),
@@ -85,6 +85,7 @@ class TasksDemoSeedCommand extends Command
         private EntityManagerInterface $em,
         private DepartmentRepository $departmentRepository,
         private TaskService $tasks,
+        private PlanEventRecorder $events,
         private DeferredPreviews $deferred,
         private UserPasswordHasherInterface $hasher,
         #[Autowire('%kernel.project_dir%/demo/tasks')]
@@ -155,18 +156,12 @@ class TasksDemoSeedCommand extends Command
         }
 
         // Усе або нічого: якщо засів упаде посередині (GD, шрифт), база лишиться як була.
-        $conn->beginTransaction();
-
-        try {
+        // Через журнал подій: сповіщення про засіяні задачі — лише після коміту.
+        $this->events->transactional(function () use ($input, $password): void {
             $this->reset($input->getOption('reset') === true);
             $this->seedDirectories($password, (string) $input->getOption('domain'));
             $this->seedTasks();
-            $conn->commit();
-        } catch (Throwable $e) {
-            $conn->rollBack();
-
-            throw $e;
-        }
+        });
 
         $this->deferred->flush();
 

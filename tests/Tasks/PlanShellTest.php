@@ -136,6 +136,7 @@ class PlanShellTest extends WebTestCase
             self::getContainer()->get(EntityManagerInterface::class),
             self::getContainer()->get(\App\Supply\Repository\DepartmentRepository::class),
             self::getContainer()->get(\App\Tasks\Service\TaskService::class),
+            self::getContainer()->get(\App\Plan\EventStore\PlanEventRecorder::class),
             self::getContainer()->get(\App\Tasks\Service\DeferredPreviews::class),
             self::getContainer()->get(\Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface::class),
             '/nonexistent',

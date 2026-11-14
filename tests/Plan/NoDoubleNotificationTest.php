@@ -99,6 +99,32 @@ class NoDoubleNotificationTest extends KernelTestCase
         self::assertSame([], $offenders, 'Нотифаєр кличуть лише слухачі журналу (інакше Telegram подвоїться)');
     }
 
+    /**
+     * Подію роздають лише після коміту transactional() рекордера. Транзакція, відкрита
+     * в обхід нього, зробила б розсилку ДО коміту (і після відкату) — таких у src немає.
+     */
+    public function testNoRawTransactionsAroundEventWriters(): void
+    {
+        $root = dirname(__DIR__, 2);
+        $allowed = [
+            'src/Plan/EventStore/PlanEventRecorder.php',
+            // Лише люди й паролі, подій не пише.
+            'src/Tasks/Command/PlanUserCreateCommand.php',
+        ];
+        $offenders = [];
+
+        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root . '/src')) as $file) {
+            $path = substr($file->getPathname(), strlen($root) + 1);
+
+            if ($file->getExtension() === 'php' && ! in_array($path, $allowed, true) &&
+                preg_match('/->(beginTransaction|wrapInTransaction)\(/', (string) file_get_contents($file->getPathname())) === 1) {
+                $offenders[] = $path;
+            }
+        }
+
+        self::assertSame([], $offenders, 'Транзакції навколо змін — через PlanEventRecorder::transactional()');
+    }
+
     public function testEachTaskActionReachesEveryoneExactlyOnce(): void
     {
         $manager = $this->person(WorkRole::Manager);

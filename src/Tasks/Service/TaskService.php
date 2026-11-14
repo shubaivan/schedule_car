@@ -128,7 +128,7 @@ class TaskService
             $names = implode(', ', array_map(static fn ($m) => $m->getUser()->shortName(), $added));
             $message = $this->event($task, $user, 'додав(ла) учасників: ' . $names, TaskMessage::EVENT_MEMBERS);
             $addedIds = array_values(array_map(static fn ($m) => (int) $m->getUser()->getId(), $added));
-            $record = fn () => new MemberAdded($ref, $user->getId(), userIds: $addedIds, refId: $message->getId());
+            $record = fn () => new MemberAdded($ref, $user->getId(), userIds: $addedIds, refId: $message->getId(), removedIds: array_map('intval', $removed));
         } else {
             $message = $this->event($task, $user, 'оновив(ла) задачу', TaskMessage::EVENT_UPDATED);
             $record = $removed !== []

@@ -55,9 +55,9 @@ class StandModeTest extends WebTestCase
 
         foreach ($this->em->getRepository(TelegramUser::class)->findBy(['first_name' => 'Тест-Стенд']) as $user) {
             $conn->executeStatement('DELETE FROM plan_event WHERE actor_id = ?', [$user->getId()]);
-            $conn->executeStatement('DELETE FROM supply_request WHERE author_id = ?', [$user->getId()]);
-            $conn->executeStatement('DELETE FROM supply_status_log WHERE author_id = ?', [$user->getId()]);
             $conn->executeStatement('DELETE FROM supply_comment WHERE author_id = ?', [$user->getId()]);
+            $conn->executeStatement('DELETE FROM supply_status_log WHERE author_id = ?', [$user->getId()]);
+            $conn->executeStatement('DELETE FROM supply_request WHERE author_id = ?', [$user->getId()]);
             $conn->executeStatement('DELETE FROM telegram_user WHERE id = ?', [$user->getId()]);
         }
 

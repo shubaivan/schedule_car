@@ -2,6 +2,7 @@
 
 namespace App\Warehouse\Controller;
 
+use App\Plan\EventStore\PlanEventRecorder;
 use App\Supply\Repository\SupplierRepository;
 use App\Warehouse\Entity\WhMovement;
 use App\Warehouse\Entity\WhSite;
@@ -49,6 +50,7 @@ class MovementController extends AbstractWarehouseController
         private WhClientRepository $clients,
         private SupplierRepository $suppliers,
         private WarehouseFeed $feed,
+        private PlanEventRecorder $events,
     ) {
     }
 
@@ -71,32 +73,32 @@ class MovementController extends AbstractWarehouseController
             $this->checkCsrf($request);
 
             // Усе або нічого: рух без своєї накладної не записуємо, якщо файл не прийнявся.
-            $this->em->beginTransaction();
-
+            // Транзакція — через журнал подій: споживачі отримають рух лише після коміту.
             try {
-                $movement = ($this->record)(
-                    $type,
-                    $this->date((string) ($values['occurredAt'] ?? '')),
-                    $this->site($values['fromId'] ?? null),
-                    $this->target($type, $values),
-                    $this->lines($values),
-                    $this->user(),
-                    $values['documentNumber'] ?? null,
-                    $type->needsFrom() ? null : $this->directory->supplier($values['supplierId'] ?? null, $this->user()),
-                    $values['note'] ?? null,
-                );
+                $movement = $this->events->transactional(function () use ($type, $values, $request): WhMovement {
+                    $movement = ($this->record)(
+                        $type,
+                        $this->date((string) ($values['occurredAt'] ?? '')),
+                        $this->site($values['fromId'] ?? null),
+                        $this->target($type, $values),
+                        $this->lines($values),
+                        $this->user(),
+                        $values['documentNumber'] ?? null,
+                        $type->needsFrom() ? null : $this->directory->supplier($values['supplierId'] ?? null, $this->user()),
+                        $values['note'] ?? null,
+                    );
 
-                $documentType = DocumentType::tryFrom((string) ($values['documentType'] ?? '')) ?? DocumentType::Waybill;
+                    $documentType = DocumentType::tryFrom((string) ($values['documentType'] ?? '')) ?? DocumentType::Waybill;
 
-                foreach ($request->files->all('files') as $file) {
-                    if ($file instanceof UploadedFile) {
-                        $this->attach($movement, $file, $documentType);
+                    foreach ($request->files->all('files') as $file) {
+                        if ($file instanceof UploadedFile) {
+                            $this->attach($movement, $file, $documentType);
+                        }
                     }
-                }
 
-                $this->em->commit();
+                    return $movement;
+                });
             } catch (WarehouseException $e) {
-                $this->em->rollback();
                 $this->em->clear();
                 $error = $e->getMessage();
             }

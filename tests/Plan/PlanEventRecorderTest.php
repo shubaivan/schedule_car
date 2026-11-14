@@ -181,11 +181,16 @@ class PlanEventRecorderTest extends KernelTestCase
         };
 
         $id = $this->recorder(new SpyBus(), 'sync://')->record($this->event());
-        $handler = new FanOutHandler(self::getContainer()->get(PlanEventStore::class), [$broken, $healthy], new NullLogger());
+        $handler = new FanOutHandler(self::getContainer()->get(PlanEventStore::class), [$broken, $healthy], new NullLogger(), $this->db);
         $handler(new FanOut($id));
         $handler(new FanOut(PHP_INT_MAX));
 
         self::assertSame([$id], $healthy->seen);
+
+        // Повторна доставка того ж повідомлення черги (воркер упав до ack) — нікому вдруге.
+        $handler(new FanOut($id));
+        self::assertCount(1, $healthy->seen, 'Повтор не дійшов до споживача');
+        self::assertSame(2, (int) $this->db->fetchOne('SELECT COUNT(*) FROM plan_event_consumed WHERE event_id = ?', [$id]));
     }
 
     public function testChannelAndIpComeFromTheRequest(): void

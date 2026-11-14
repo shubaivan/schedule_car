@@ -161,6 +161,13 @@ class PlanEventCoverageTest extends KernelTestCase
         $tasks->update($task, $manager, ['memberIds' => [$member->getId()]]);
         self::assertSame([$extra->getId()], $this->one('member_removed', SubjectType::Task, $task->getId(), $manager)->payload()['userIds']);
 
+        // Додали одного й прибрали іншого однією правкою — одна подія, і в ній обидва списки.
+        $this->begin();
+        $tasks->update($task, $manager, ['memberIds' => [$extra->getId()]]);
+        $swap = $this->one('member_added', SubjectType::Task, $task->getId(), $manager)->payload();
+        self::assertSame([[$extra->getId()], [$member->getId()]], [$swap['userIds'], $swap['removedIds']]);
+        $tasks->update($task, $manager, ['memberIds' => [$member->getId()]]);
+
         $this->begin();
         $tasks->changeStatus($task, $manager, TaskStatus::InWork);
         $this->one('status_changed', SubjectType::Task, $task->getId(), $manager);

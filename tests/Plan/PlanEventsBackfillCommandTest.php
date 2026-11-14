@@ -86,6 +86,15 @@ class PlanEventsBackfillCommandTest extends KernelTestCase
         $tasks->post($task, $manager, 'Новий після деплою');
         $this->backfill();
         self::assertSame(['subject_created', 'comment_added', 'subject_closed', 'comment_added'], $this->types('task', (int) $task->getId()));
+
+        // Але межа — своя в кожного джерела: входи наживо ще не пишуться, тож вхід
+        // після першої живої події задач усе одно переноситься.
+        $this->db->executeStatement(
+            "INSERT INTO crm_login (id, user_id, success, ip, user_agent, at) VALUES (nextval('crm_login_id_seq'), ?, true, '10.0.0.6', 'Firefox', '2030-01-01 08:00:00')",
+            [$manager->getId()],
+        );
+        $this->backfill();
+        self::assertSame(['user_logged_in', 'user_logged_in'], $this->types('user', (int) $manager->getId()));
     }
 
     /** @param array<string, mixed> $options */

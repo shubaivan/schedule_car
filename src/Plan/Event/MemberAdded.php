@@ -16,6 +16,8 @@ final class MemberAdded extends PlanEvent
         /** @var list<int> */
         public readonly array $userIds = [],
         public readonly ?int $refId = null,
+        /** @var list<int> кого в тій самій правці прибрали */
+        public readonly array $removedIds = [],
         ?DateTimeImmutable $at = null,
     ) {
         parent::__construct($subject, $actorId, $at);

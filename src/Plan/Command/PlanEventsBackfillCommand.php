@@ -26,6 +26,7 @@ use App\Tasks\Enum\TaskStatus;
 use DateTimeImmutable;
 use DateTimeZone;
 use Doctrine\DBAL\Connection;
+use InvalidArgumentException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -45,7 +46,11 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * (склад — канал із wh_activity, входи — web).
  *
  * Безпечно запускати повторно й після того, як журнал уже пишеться наживо:
- * - береться лише те, що старіше за першу «живу» подію (усе новіше вже записали сервіси);
+ * - по кожному джерелу береться лише те, що старіше за першу «живу» подію цього ж
+ *   джерела (задачі, заявки, склад, входи — окремо): усе новіше вже записали сервіси.
+ *   Входи наживо в S0 ще не пишуться (це S6), тож crm_login переноситься повністю;
+ * - найкраще запускати одразу після migrate, до перших дій людей: тоді й id журналу
+ *   йдуть у хронологічному порядку;
  * - подія, що вже є в журналі (той самий тип, суб'єкт, refId), вдруге не пишеться.
  */
 #[AsCommand(name: 'plan:events:backfill', description: 'Історія задач, заявок, складу й входів → журнал plan_event')]
@@ -68,20 +73,21 @@ final class PlanEventsBackfillCommand extends Command
         $io = new SymfonyStyle($input, $output);
         $dryRun = (bool) $input->getOption('dry-run');
 
-        $cutoff = $this->db->fetchOne("SELECT MIN(occurred_at) FROM plan_event WHERE payload->>'backfill' IS NULL");
-        $cutoff = $cutoff !== null && $cutoff !== false ? new DateTimeImmutable((string) $cutoff, self::zone()) : null;
+        $cutoffs = $this->cutoffs();
         $known = $this->knownKeys();
+        $unknown = 0;
 
-        $events = [...$this->tasks(), ...$this->supply(), ...$this->warehouse(), ...$this->logins()];
+        $events = [...$this->tasks(), ...$this->supply(), ...$this->warehouse($unknown), ...$this->logins()];
         // Хронологічний порядок → id журналу йдуть так само, як події в житті.
         usort($events, static fn (PlanEvent $a, PlanEvent $b) => $a->at <=> $b->at);
 
         $counts = [];
         $skipped = 0;
 
-        $write = function () use ($events, $cutoff, &$known, &$counts, &$skipped, $dryRun): void {
+        $write = function () use ($events, $cutoffs, &$known, &$counts, &$skipped, $dryRun): void {
             foreach ($events as $event) {
                 $key = self::key($event);
+                $cutoff = $cutoffs[self::source($event)] ?? null;
 
                 if (($cutoff !== null && $event->at >= $cutoff) || isset($known[$key])) {
                     ++$skipped;
@@ -102,7 +108,16 @@ final class PlanEventsBackfillCommand extends Command
 
         ksort($counts);
         $io->table(['Тип події', 'Записів'], array_map(null, array_keys($counts), array_values($counts)));
-        $io->writeln(sprintf('Пропущено (уже в журналі або новіші за %s): %d', $cutoff?->format('Y-m-d H:i:s') ?? '—', $skipped));
+        $io->writeln(sprintf('Пропущено (уже в журналі або новіші за першу живу подію джерела): %d', $skipped));
+
+        foreach ($cutoffs as $source => $cutoff) {
+            $io->writeln(sprintf('  %s: живий журнал від %s', $source, $cutoff->format('Y-m-d H:i:s')));
+        }
+
+        if ($unknown > 0) {
+            $io->warning(sprintf('wh_activity з невідомим типом суб\'єкта пропущено: %d', $unknown));
+        }
+
         $io->success(($dryRun ? '[dry-run] Було б записано: ' : 'Записано: ') . array_sum($counts));
 
         return Command::SUCCESS;
@@ -219,7 +234,7 @@ final class PlanEventsBackfillCommand extends Command
     }
 
     /** @return list<PlanEvent> */
-    private function warehouse(): array
+    private function warehouse(int &$unknown): array
     {
         $out = [];
         $lines = [];
@@ -237,7 +252,13 @@ final class PlanEventsBackfillCommand extends Command
         );
 
         foreach ($rows as $r) {
-            $ref = SubjectRef::of(SubjectType::fromWarehouse((string) $r['subject_type']), (int) $r['subject_id']);
+            try {
+                $ref = SubjectRef::of(SubjectType::fromWarehouse((string) $r['subject_type']), (int) $r['subject_id']);
+            } catch (InvalidArgumentException) {
+                ++$unknown;
+                continue;
+            }
+
             $actor = self::int($r['user_id']);
             $at = self::at($r['at']);
             $id = (int) $r['id'];
@@ -304,6 +325,48 @@ final class PlanEventsBackfillCommand extends Command
         }
 
         return $known;
+    }
+
+    /**
+     * Перша «жива» (не перенесена) подія кожного джерела.
+     *
+     * @return array<string, DateTimeImmutable>
+     */
+    private function cutoffs(): array
+    {
+        $out = [];
+
+        foreach ($this->db->fetchAllAssociative(
+            "SELECT subject_type, type, MIN(occurred_at) AS first_at FROM plan_event WHERE payload->>'backfill' IS NULL GROUP BY subject_type, type",
+        ) as $r) {
+            $source = self::sourceOf((string) $r['subject_type'], (string) $r['type']);
+            $at = new DateTimeImmutable((string) $r['first_at'], self::zone());
+
+            if (! isset($out[$source]) || $at < $out[$source]) {
+                $out[$source] = $at;
+            }
+        }
+
+        ksort($out);
+
+        return $out;
+    }
+
+    private static function source(PlanEvent $event): string
+    {
+        return self::sourceOf($event->subject->type->value, $event::type());
+    }
+
+    /** tasks | supply | warehouse | logins — джерело історії, з якого подія переноситься. */
+    private static function sourceOf(string $subjectType, string $type): string
+    {
+        return match (true) {
+            $subjectType === 'task' => 'tasks',
+            $subjectType === 'supply' => 'supply',
+            str_starts_with($subjectType, 'wh_') => 'warehouse',
+            in_array($type, [UserLoggedIn::TYPE, LoginFailed::TYPE], true) => 'logins',
+            default => 'other',
+        };
     }
 
     private static function key(PlanEvent $event): string
