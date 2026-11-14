@@ -29,7 +29,7 @@ const allowed = computed(() => {
 
 /** Розділ, у якому людина зараз: від нього залежить нижній ряд меню. */
 const FLEET_SECTION = ['schedule', 'fleet']
-const TASKS_SECTION = ['tasks', 'tasks-board', 'task', 'staff']
+const TASKS_SECTION = ['tasks', 'tasks-board', 'task', 'staff', 'tasks-chronicle', 'tasks-search']
 const section = computed(() => {
     const name = String(route.name)
     if (TASKS_SECTION.includes(name)) return 'tasks'
@@ -83,6 +83,8 @@ watch(
                 <template v-if="section === 'tasks'">
                     <router-link :to="{ name: 'tasks' }" exact-active-class="router-link-active" active-class="">Огляд</router-link>
                     <router-link :to="{ name: 'tasks-board' }">Дошка</router-link>
+                    <router-link :to="{ name: 'tasks-chronicle' }">Хроніка</router-link>
+                    <router-link :to="{ name: 'tasks-search' }">Пошук</router-link>
                     <router-link :to="{ name: 'staff' }">Співробітники</router-link>
                 </template>
                 <template v-else-if="section === 'requests'">
