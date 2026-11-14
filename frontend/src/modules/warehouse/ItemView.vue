@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vStickyHead } from '../../plan/stickyHead'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useSession } from '../../app/store'
@@ -165,6 +166,10 @@ onMounted(() => {
     // Один раз на відкриття картки — див. ViewJournal на бекенді.
     whApi.viewed(Number(props.id)).catch(() => undefined)
 })
+// Телефон: панель вкладки починається одразу під смугою вкладок — прокрутку стрічки скидаємо.
+watch(tab, (t) => {
+    if (t !== 'feed' && window.matchMedia('(max-width: 760px)').matches) window.scrollTo({ top: 0 })
+})
 </script>
 
 <template>
@@ -176,8 +181,8 @@ onMounted(() => {
         </div>
         <div v-else-if="!item || !feedReady" class="t-empty">{{ error || 'Завантаження…' }}</div>
 
-        <div v-else class="t-task">
-            <section class="t-task-main">
+        <div v-else class="t-task" :class="{ 'side-tab': tab !== 'feed' }">
+            <section v-sticky-head class="t-task-main">
                 <div class="p-thead">
                     <div class="p-thead-top">
                         <button v-if="embedded" type="button" class="p-icon-btn p-back" title="Назад (Esc)" aria-label="Назад" @click="emit('close')"><Icon name="back" /></button>

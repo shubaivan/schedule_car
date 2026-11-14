@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vStickyHead } from '../../plan/stickyHead'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api, call, ATTACHMENT_TYPES, type ApiSupplier, type PurchasePayload, type SupplyRequest } from '../../app/api'
@@ -240,6 +241,10 @@ watch(() => props.id, (id) => {
 watch([() => route.query.f, feedReady, () => subject.files.length], () => {
     if (feedReady.value && route.query.f && viewer.value === null) router.replace({ query: { ...route.query, f: undefined } })
 })
+// Телефон: панель вкладки починається одразу під смугою вкладок — прокрутку стрічки скидаємо.
+watch(tab, (t) => {
+    if (t !== 'chat' && window.matchMedia('(max-width: 760px)').matches) window.scrollTo({ top: 0 })
+})
 onMounted(load)
 </script>
 
@@ -252,8 +257,8 @@ onMounted(load)
         </div>
         <div v-else-if="!request || !feedReady" class="t-empty">{{ error || 'Завантаження…' }}</div>
 
-        <div v-else class="t-task">
-            <section class="t-task-main">
+        <div v-else class="t-task" :class="{ 'side-tab': tab !== 'chat' }">
+            <section v-sticky-head class="t-task-main">
                 <div class="p-thead">
                     <div class="p-thead-top">
                         <button v-if="embedded" type="button" class="p-icon-btn p-back" title="Назад (Esc)" aria-label="Назад" @click="emit('close')"><Icon name="back" /></button>

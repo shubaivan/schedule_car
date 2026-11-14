@@ -398,3 +398,10 @@
     .t-org .node, .t-org .top { box-shadow: none; }
 }
 .t-pending .p .eb { width: 30px; height: 36px; border-radius: 5px; color: #fff; font-weight: 800; display: flex; align-items: flex-end; justify-content: center; font-size: .6rem; padding-bottom: 4px; }
+
+/* Телефон, картка задачі / заявки / позиції: вкладки липнуть під шапкою, панель «Деталі»/«Файли» — одразу під ними. */
+@media (max-width: 760px) {
+    .t-task-main > .t-mobile-tabs { position: sticky; top: var(--p-thead-h, 0px); z-index: 6; background: var(--surface); }
+    .p-shell.task-open .t-task.side-tab .t-task-main, .t-task.side-tab .t-task-main { min-height: 0; }
+    .t-task.side-tab .t-side { padding-bottom: calc(1rem + env(safe-area-inset-bottom)); }
+}
