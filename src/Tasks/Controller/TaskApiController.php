@@ -10,12 +10,16 @@ use App\Tasks\Entity\TaskMessage;
 use App\Tasks\Enum\TaskStatus;
 use App\Tasks\Enum\WorkRole;
 use App\Tasks\Exception\TaskException;
+use App\Tasks\Repository\TaskFeedRepository;
 use App\Tasks\Repository\TaskLabelRepository;
 use App\Tasks\Repository\TaskMessageRepository;
 use App\Tasks\Repository\TaskRepository;
 use App\Tasks\Service\TaskPolicy;
 use App\Tasks\Service\TaskPresenter;
 use App\Tasks\Service\TaskService;
+use DateTime;
+use DateTimeInterface;
+use DateTimeZone;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -32,6 +36,7 @@ class TaskApiController extends TasksController
         private TaskPresenter $presenter,
         private TaskPolicy $policy,
         private TaskService $service,
+        private TaskFeedRepository $feed,
     ) {
     }
 
@@ -172,9 +177,9 @@ class TaskApiController extends TasksController
     public function view(Task $task): JsonResponse
     {
         $me = $this->guard($task);
-        $this->service->markRead($task, $me);
+        $readUpTo = $this->service->markRead($task, $me);
 
-        return $this->json($this->detail($task, $me));
+        return $this->json($this->presenter->detail($task, $me, $this->messages->forTask($task), $readUpTo));
     }
 
     #[Route('/{id}', name: 'api_tasks_update', methods: ['PATCH'], requirements: ['id' => '\d+'])]
@@ -235,10 +240,25 @@ class TaskApiController extends TasksController
             $this->service->markRead($task, $me);
         }
 
+        // Правки, видалення й закріплення вже показаних повідомлень — з моменту
+        // попереднього опитування (сервер віддає свій «now», клієнт повертає його).
+        $changed = [];
+        $since = DateTime::createFromFormat(DateTimeInterface::ATOM, (string) $request->query->get('changedSince'));
+
+        if ($since !== false && $after > 0) {
+            $changed = $this->messages->changedSince($task, $since->setTimezone(new DateTimeZone('Europe/Kyiv')), $after);
+        }
+
+        $all = [...$messages, ...$changed];
+        $starred = $this->feed->starredOf($me, array_map(static fn (TaskMessage $m) => (int) $m->getId(), $all));
+
         return $this->json([
-            'messages' => array_map(fn (TaskMessage $m) => $this->presenter->message($m, $me), $messages),
+            'messages' => array_map(fn (TaskMessage $m) => $this->presenter->message($m, $me, $starred), $messages),
+            'changed' => array_map(fn (TaskMessage $m) => $this->presenter->message($m, $me, $starred), $changed),
             'attachments' => $updated,
             'status' => $task->getStatus()->value,
+            'reads' => $this->feed->reads($task),
+            'now' => Task::now()->format(DateTimeInterface::ATOM),
         ]);
     }
 
@@ -262,6 +282,7 @@ class TaskApiController extends TasksController
                 (string) ($payload['text'] ?? ''),
                 $files,
                 array_map('intval', (array) ($payload['mentions'] ?? [])),
+                isset($payload['replyTo']) ? (int) $payload['replyTo'] : null,
             );
         } catch (TaskException $e) {
             return $this->error($e);

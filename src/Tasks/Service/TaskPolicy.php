@@ -4,6 +4,7 @@ namespace App\Tasks\Service;
 
 use App\Entity\TelegramUser;
 use App\Tasks\Entity\Task;
+use App\Tasks\Entity\TaskMessage;
 use App\Tasks\Enum\TaskStatus;
 
 /**
@@ -58,6 +59,25 @@ class TaskPolicy
             $task->getStatus()->allowedTransitions(),
             fn (TaskStatus $to) => $this->canMove($user, $task, $to),
         ));
+    }
+
+    /** Змінити повідомлення може лише його автор (і лише коментар, не системну подію). */
+    public function canEditMessage(TelegramUser $user, TaskMessage $message): bool
+    {
+        return ! $message->isEvent() &&
+            $message->getDeletedAt() === null &&
+            $message->getAuthor()?->getId() === $user->getId() &&
+            $this->canComment($user, $message->getTask());
+    }
+
+    /** Видалити — автор або адміністратор («видалити для всіх» за правами). */
+    public function canDeleteMessage(TelegramUser $user, TaskMessage $message): bool
+    {
+        if ($message->isEvent() || $message->getDeletedAt() !== null || ! $this->canView($user, $message->getTask())) {
+            return false;
+        }
+
+        return $message->getAuthor()?->getId() === $user->getId() || $user->getWorkRole()->managesStaff();
     }
 
     public function isInvolved(TelegramUser $user, Task $task): bool

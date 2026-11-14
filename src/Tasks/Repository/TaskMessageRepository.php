@@ -4,6 +4,7 @@ namespace App\Tasks\Repository;
 
 use App\Tasks\Entity\Task;
 use App\Tasks\Entity\TaskMessage;
+use DateTimeInterface;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use SortDirection;
@@ -26,6 +27,27 @@ class TaskMessageRepository extends ServiceEntityRepository
             ->andWhere('m.id > :after')
             ->setParameter('task', $task)
             ->setParameter('after', $afterId)
+            ->orderBy('m.id', SortDirection::Ascending)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Старі повідомлення, які змінились (правка, видалення, закріплення) — для опитування чату.
+     *
+     * @return TaskMessage[]
+     */
+    public function changedSince(Task $task, DateTimeInterface $since, int $upToId): array
+    {
+        return $this->createQueryBuilder('m')
+            ->leftJoin('m.attachments', 'a')->addSelect('a')
+            ->leftJoin('m.author', 'u')->addSelect('u')
+            ->andWhere('m.task = :task')
+            ->andWhere('m.id <= :upTo')
+            ->andWhere('m.changedAt >= :since')
+            ->setParameter('task', $task)
+            ->setParameter('upTo', $upToId)
+            ->setParameter('since', $since, \Doctrine\DBAL\Types\Types::DATETIME_MUTABLE)
             ->orderBy('m.id', SortDirection::Ascending)
             ->getQuery()
             ->getResult();

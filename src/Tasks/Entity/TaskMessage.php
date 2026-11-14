@@ -14,6 +14,11 @@ use SortDirection;
 /**
  * Повідомлення в чаті задачі. kind = comment (людина написала) або event
  * (система: створено, змінено статус, додано учасників) — усе в одній стрічці.
+ *
+ * Та сама таблиця — джерело «Хроніки»: кожен рядок — подія задачі
+ * (eventType уточнює, яка саме: створено, статус, учасники, закрито).
+ * changedAt — коли повідомлення востаннє правили, видаляли чи закріплювали:
+ * за ним відкритий чат підтягує зміни старих повідомлень.
  */
 #[ORM\Entity(repositoryClass: TaskMessageRepository::class)]
 #[ORM\Table(name: 'task_message')]
@@ -22,6 +27,12 @@ class TaskMessage
 {
     public const KIND_COMMENT = 'comment';
     public const KIND_EVENT = 'event';
+
+    public const EVENT_CREATED = 'created';
+    public const EVENT_STATUS = 'status';
+    public const EVENT_CLOSED = 'closed';
+    public const EVENT_MEMBERS = 'members';
+    public const EVENT_UPDATED = 'updated';
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -51,6 +62,27 @@ class TaskMessage
 
     #[ORM\Column(name: 'deleted_at', type: Types::DATETIME_MUTABLE, nullable: true)]
     private ?DateTime $deletedAt = null;
+
+    /** Відповідь на повідомлення (цитата над текстом). */
+    #[ORM\ManyToOne(targetEntity: self::class)]
+    #[ORM\JoinColumn(name: 'reply_to_id', nullable: true, onDelete: 'SET NULL')]
+    private ?TaskMessage $replyTo = null;
+
+    #[ORM\Column(name: 'event_type', type: 'string', length: 16, nullable: true)]
+    private ?string $eventType = null;
+
+    #[ORM\Column(name: 'edited_at', type: Types::DATETIME_MUTABLE, nullable: true)]
+    private ?DateTime $editedAt = null;
+
+    #[ORM\Column(name: 'pinned_at', type: Types::DATETIME_MUTABLE, nullable: true)]
+    private ?DateTime $pinnedAt = null;
+
+    #[ORM\ManyToOne(targetEntity: TelegramUser::class)]
+    #[ORM\JoinColumn(name: 'pinned_by_id', nullable: true, onDelete: 'SET NULL')]
+    private ?TelegramUser $pinnedBy = null;
+
+    #[ORM\Column(name: 'changed_at', type: Types::DATETIME_MUTABLE, nullable: true)]
+    private ?DateTime $changedAt = null;
 
     /** @var Collection<int, TaskAttachment> */
     #[ORM\OneToMany(targetEntity: TaskAttachment::class, mappedBy: 'message', cascade: ['persist'])]
@@ -125,9 +157,81 @@ class TaskMessage
     /** Видалене не зникає: у стрічці лишається «повідомлення видалено», файли ховаються. */
     public function delete(): self
     {
-        $this->deletedAt = Task::now();
+        $this->deletedAt = $this->changedAt = Task::now();
+        $this->pinnedAt = null;
+        $this->pinnedBy = null;
 
         return $this;
+    }
+
+    public function getReplyTo(): ?TaskMessage
+    {
+        return $this->replyTo;
+    }
+
+    public function setReplyTo(?TaskMessage $replyTo): self
+    {
+        $this->replyTo = $replyTo;
+
+        return $this;
+    }
+
+    public function getEventType(): ?string
+    {
+        return $this->eventType;
+    }
+
+    public function setEventType(?string $eventType): self
+    {
+        $this->eventType = $eventType;
+
+        return $this;
+    }
+
+    /** Новий текст; старий зберігає сервіс в історії правок. */
+    public function edit(string $text): self
+    {
+        $this->text = $text;
+        $this->editedAt = $this->changedAt = Task::now();
+
+        return $this;
+    }
+
+    public function getEditedAt(): ?DateTime
+    {
+        return $this->editedAt;
+    }
+
+    public function pin(?TelegramUser $by): self
+    {
+        $this->pinnedAt = $this->changedAt = Task::now();
+        $this->pinnedBy = $by;
+
+        return $this;
+    }
+
+    public function unpin(): self
+    {
+        $this->pinnedAt = null;
+        $this->pinnedBy = null;
+        $this->changedAt = Task::now();
+
+        return $this;
+    }
+
+    public function getPinnedAt(): ?DateTime
+    {
+        return $this->pinnedAt;
+    }
+
+    public function getPinnedBy(): ?TelegramUser
+    {
+        return $this->pinnedBy;
+    }
+
+    public function getChangedAt(): ?DateTime
+    {
+        return $this->changedAt;
     }
 
     /** @return Collection<int, TaskAttachment> */

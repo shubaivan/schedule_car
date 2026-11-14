@@ -8,7 +8,10 @@ use App\Supply\Entity\Department;
 use App\Supply\Repository\DepartmentRepository;
 use App\Tasks\Entity\Task;
 use App\Tasks\Entity\TaskAttachment;
+use App\Tasks\Entity\TaskFavorite;
 use App\Tasks\Entity\TaskMessage;
+use App\Tasks\Entity\TaskMessageEdit;
+use App\Tasks\Entity\TaskMessageStar;
 use App\Tasks\Entity\TaskRead;
 use App\Tasks\Enum\TaskStatus;
 use App\Tasks\Exception\TaskException;
@@ -58,7 +61,8 @@ class TaskService
         $task->addMember($author);
 
         $this->em->persist($task);
-        $this->em->persist(new TaskMessage($task, $author, $this->membersLine('створив(ла) задачу', $task), TaskMessage::KIND_EVENT));
+        $this->em->persist((new TaskMessage($task, $author, $this->membersLine('створив(ла) задачу', $task), TaskMessage::KIND_EVENT))
+            ->setEventType(TaskMessage::EVENT_CREATED));
         $this->em->flush();
 
         $this->logger->info('Task created', ['task' => $task->getId(), 'by' => $author->getId()]);
@@ -98,10 +102,10 @@ class TaskService
 
         if ($added !== []) {
             $names = implode(', ', array_map(static fn ($m) => $m->getUser()->shortName(), $added));
-            $this->event($task, $user, 'додав(ла) учасників: ' . $names);
+            $this->event($task, $user, 'додав(ла) учасників: ' . $names, TaskMessage::EVENT_MEMBERS);
             $notifyAdded = array_map(static fn ($m) => $m->getUser(), $added);
         } else {
-            $this->event($task, $user, 'оновив(ла) задачу');
+            $this->event($task, $user, 'оновив(ла) задачу', TaskMessage::EVENT_UPDATED);
         }
 
         $this->em->flush();
@@ -123,7 +127,7 @@ class TaskService
 
         $from = $task->getStatus();
         $task->setStatus($to);
-        $this->event($task, $user, sprintf('змінив(ла) статус: %s → %s', $from->label(), $to->label()));
+        $this->event($task, $user, sprintf('змінив(ла) статус: %s → %s', $from->label(), $to->label()), $to->isClosed() ? TaskMessage::EVENT_CLOSED : TaskMessage::EVENT_STATUS);
 
         if ($comment !== null && trim($comment) !== '') {
             $this->em->persist(new TaskMessage($task, $user, trim($comment)));
@@ -142,7 +146,7 @@ class TaskService
      * @param UploadedFile[] $files
      * @param int[] $mentions
      */
-    public function post(Task $task, TelegramUser $author, string $text, array $files = [], array $mentions = []): TaskMessage
+    public function post(Task $task, TelegramUser $author, string $text, array $files = [], array $mentions = [], ?int $replyToId = null): TaskMessage
     {
         if (! $this->policy->canComment($author, $task)) {
             throw new TaskException('Ви не учасник цієї задачі.');
@@ -168,8 +172,21 @@ class TaskService
             }
         }
 
+        $replyTo = null;
+
+        if ($replyToId !== null && $replyToId > 0) {
+            $replyTo = $this->messages->find($replyToId);
+
+            // Відповідати можна лише на коментар цієї ж задачі — інакше цитата
+            // витягла б текст із задачі, якої людина не бачить.
+            if ($replyTo === null || $replyTo->getTask()->getId() !== $task->getId() || $replyTo->isEvent() || $replyTo->getDeletedAt() !== null) {
+                throw new TaskException('Повідомлення, на яке ви відповідаєте, не знайдено.');
+            }
+        }
+
         $mentions = array_values(array_unique(array_filter(array_map('intval', $mentions))));
         $message = new TaskMessage($task, $author, $text, TaskMessage::KIND_COMMENT, $mentions);
+        $message->setReplyTo($replyTo);
         $this->em->persist($message);
 
         // Згаданий, але не учасник — додаємо, інакше він не побачить, де його кличуть.
@@ -226,19 +243,103 @@ class TaskService
 
     public function deleteMessage(TaskMessage $message, TelegramUser $user): void
     {
-        $isAuthor = $message->getAuthor()?->getId() === $user->getId();
-
-        if ($message->isEvent() || (! $isAuthor && ! $user->getWorkRole()->managesStaff())) {
+        if (! $this->policy->canDeleteMessage($user, $message)) {
             throw new TaskException('Видалити можна лише своє повідомлення.');
         }
 
         $message->delete();
         $this->em->flush();
+        $this->logger->info('Task message deleted', ['task' => $message->getTask()->getId(), 'message' => $message->getId(), 'by' => $user->getId()]);
     }
 
-    public function markRead(Task $task, TelegramUser $user): void
+    /** Правка свого коментаря: старий текст — в історію, у стрічці позначка «змінено». */
+    public function editMessage(TaskMessage $message, TelegramUser $user, string $text): TaskMessage
+    {
+        if (! $this->policy->canEditMessage($user, $message)) {
+            throw new TaskException('Змінити можна лише своє повідомлення.');
+        }
+
+        $text = trim($text);
+
+        if ($text === '' && $message->getAttachments()->isEmpty()) {
+            throw new TaskException('Повідомлення не може бути порожнім.');
+        }
+
+        if (mb_strlen($text) > 10000) {
+            throw new TaskException('Повідомлення задовге.');
+        }
+
+        if ($text === $message->getText()) {
+            return $message;
+        }
+
+        $this->em->persist(new TaskMessageEdit($message, $user, $message->getText()));
+        $message->edit($text);
+        $this->em->flush();
+
+        return $message;
+    }
+
+    /** Закріплене видно всім учасникам над стрічкою. */
+    public function pin(TaskMessage $message, TelegramUser $user, bool $on): TaskMessage
+    {
+        if (! $this->policy->canComment($user, $message->getTask())) {
+            throw new TaskException('Ви не учасник цієї задачі.');
+        }
+
+        if ($message->isEvent() || $message->getDeletedAt() !== null) {
+            throw new TaskException('Закріпити можна лише повідомлення.');
+        }
+
+        $on ? $message->pin($user) : $message->unpin();
+        $this->em->flush();
+
+        return $message;
+    }
+
+    /** ★ повідомлення — особиста закладка. */
+    public function star(TaskMessage $message, TelegramUser $user, bool $on): void
+    {
+        if (! $this->policy->canView($user, $message->getTask())) {
+            throw new TaskException('Ви не учасник цієї задачі.');
+        }
+
+        $repo = $this->em->getRepository(TaskMessageStar::class);
+        $star = $repo->findOneBy(['message' => $message, 'user' => $user]);
+
+        if ($on && $star === null && $message->getDeletedAt() === null) {
+            $this->em->persist(new TaskMessageStar($message, $user));
+        } elseif (! $on && $star !== null) {
+            $this->em->remove($star);
+        }
+
+        $this->em->flush();
+    }
+
+    /** ★ задачі — особисте «Обране». */
+    public function favorite(Task $task, TelegramUser $user, bool $on): void
+    {
+        if (! $this->policy->canView($user, $task)) {
+            throw new TaskException('Ви не учасник цієї задачі.');
+        }
+
+        $repo = $this->em->getRepository(TaskFavorite::class);
+        $favorite = $repo->findOneBy(['task' => $task, 'user' => $user]);
+
+        if ($on && $favorite === null) {
+            $this->em->persist(new TaskFavorite($task, $user));
+        } elseif (! $on && $favorite !== null) {
+            $this->em->remove($favorite);
+        }
+
+        $this->em->flush();
+    }
+
+    /** @return int до якого повідомлення людина дочитала ДО цього відкриття (для «Нові повідомлення») */
+    public function markRead(Task $task, TelegramUser $user): int
     {
         $read = $this->em->getRepository(TaskRead::class)->findOneBy(['task' => $task, 'user' => $user]);
+        $before = $read?->getLastMessageId() ?? 0;
 
         if ($read === null) {
             $read = new TaskRead($task, $user);
@@ -247,6 +348,8 @@ class TaskService
 
         $read->readUpTo($this->messages->lastId($task));
         $this->em->flush();
+
+        return $before;
     }
 
     /** @param array<string, mixed> $data */
@@ -346,9 +449,9 @@ class TaskService
         return $date;
     }
 
-    private function event(Task $task, TelegramUser $user, string $text): void
+    private function event(Task $task, TelegramUser $user, string $text, ?string $type = null): void
     {
-        $this->em->persist(new TaskMessage($task, $user, $text, TaskMessage::KIND_EVENT));
+        $this->em->persist((new TaskMessage($task, $user, $text, TaskMessage::KIND_EVENT))->setEventType($type));
         $task->touch();
     }
 
