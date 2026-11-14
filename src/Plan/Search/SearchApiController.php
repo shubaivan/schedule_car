@@ -66,6 +66,7 @@ final class SearchApiController extends TasksController
             'terms' => $terms,
             'total' => $result['total'],
             'approximate' => $result['approximate'],
+            'totalExact' => $result['totalExact'],
             'offset' => $query->offset,
             'more' => $result['more'],
             'hits' => array_map(fn (array $row) => $this->hit($row, $terms, $people, $departments, $thumbs), $result['hits']),

@@ -2,6 +2,10 @@
 
 namespace App\Plan\Search;
 
+use App\Plan\Event\CommentAdded;
+use App\Plan\Event\CommentDeleted;
+use App\Plan\Event\CommentEdited;
+use App\Plan\Event\FileAdded;
 use App\Plan\Event\FileDownloaded;
 use App\Plan\Event\LeadReceived;
 use App\Plan\Event\LoginFailed;
@@ -48,7 +52,18 @@ final class SearchIndexConsumer implements PlanEventConsumer
             return;
         }
 
-        $this->projector->projectSubject($ref);
+        // Коментар чи файли — лише ці рядки (+ сам суб'єкт), не вся стрічка задачі/заявки.
+        // Зі згадками — повністю: згаданого додають в учасники, видимість усіх рядків змінюється.
+        $child = $ref->type === SubjectType::Task ? ['comment', 'file'] : ['supply_comment', 'supply_file'];
+
+        match (true) {
+            ($ref->type === SubjectType::Task || $ref->type === SubjectType::Supply) &&
+                ($event instanceof CommentAdded && $event->files === 0 && $event->mentions === [] || $event instanceof CommentEdited || $event instanceof CommentDeleted)
+                => $this->projector->projectChildren($ref, $child[0], [(int) $event->refId]),
+            ($ref->type === SubjectType::Task || $ref->type === SubjectType::Supply) && $event instanceof FileAdded && $event->fileIds !== []
+                => $this->projector->projectChildren($ref, $child[1], array_map('intval', $event->fileIds)),
+            default => $this->projector->projectSubject($ref),
+        };
 
         if ($ref->type->isWarehouse()) {
             $this->projector->projectWarehouseDependents($ref, $event instanceof StockMoved ? array_map('intval', $event->itemIds) : []);

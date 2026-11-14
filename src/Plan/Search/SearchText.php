@@ -30,8 +30,10 @@ final class SearchText
     /** @return list<string> слова запиту (до MAX_TERMS, без повторів) */
     public static function terms(string $q): array
     {
-        $words = preg_split('/\s+/u', self::normalize($q)) ?: [];
-        $words = array_values(array_unique(array_filter($words, static fn (string $w) => $w !== '')));
+        // «№ 12», «#0012», «№042/2026» — знак номера окремим словом нічого не дає (і без
+        // триграм змусив би перебрати всю таблицю): прибираємо його, лишаємо число.
+        $words = preg_split('/\s+/u', (string) preg_replace('/[№#]+/u', ' ', self::normalize($q))) ?: [];
+        $words = array_values(array_unique(array_filter($words, static fn (string $w) => preg_match('/[\p{L}\p{N}]/u', $w) === 1)));
 
         return array_slice($words, 0, self::MAX_TERMS);
     }

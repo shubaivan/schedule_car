@@ -349,7 +349,7 @@ const summary = computed(() => {
     if (!r) return ''
     const n = r.total
     const word = n % 10 === 1 && n % 100 !== 11 ? 'результат' : [2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100) ? 'результати' : 'результатів'
-    return `${n}${r.approximate ? '+' : ''} ${word}`
+    return `${n}${r.totalExact ? '' : '+'} ${word}`
 })
 
 let observer: IntersectionObserver | undefined
@@ -513,7 +513,7 @@ onBeforeUnmount(() => {
 
                 <section id="s-results" class="s-results" aria-live="polite">
                     <div class="s-summary">
-                        <span v-if="result"><b>{{ summary }}</b> <span class="t-sub s-took">· {{ result.tookMs }} мс</span></span>
+                        <span v-if="result"><b>{{ summary }}</b> <span class="t-sub s-took">· {{ result.tookMs }} мс<template v-if="result.approximate"> · лічильники фільтрів — приблизні, уточніть запит</template></span></span>
                         <span v-if="loading" class="t-sub">…</span>
                         <span class="sp" />
                         <button type="button" class="t-btn small s-panel-btn" :aria-expanded="panelOpen" @click="togglePanel">Фільтри<template v-if="chips.length"> · {{ chips.length }}</template></button>

@@ -15,6 +15,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  *
  *     php bin/console plan:chronicle:rebuild --dry-run
  *     php bin/console plan:chronicle:rebuild
+ *     php bin/console plan:chronicle:rebuild --mark-history-read   # перший раз після backfill
  *
  * Запускати після `plan:events:backfill` (історія потрапила в журнал без
  * розсилки споживачам). Ідемпотентно: повтор нічого не змінює.
@@ -29,7 +30,9 @@ final class ChronicleRebuildCommand extends Command
 
     protected function configure(): void
     {
-        $this->addOption('dry-run', null, InputOption::VALUE_NONE, 'Лише порахувати');
+        $this
+            ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Лише порахувати')
+            ->addOption('mark-history-read', null, InputOption::VALUE_NONE, 'Першому запуску на стенді: стара історія заявок і складу — прочитана для всіх (без «+N» на кожній старій заявці)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -43,6 +46,10 @@ final class ChronicleRebuildCommand extends Command
         }
 
         $io->success(sprintf('Оновлено рядків Хроніки: %d.', $this->chronicle->rebuild()));
+
+        if ($input->getOption('mark-history-read')) {
+            $io->success(sprintf('Позначено прочитаним (заявки, склад): %d.', $this->chronicle->markHistoryRead()));
+        }
 
         return Command::SUCCESS;
     }

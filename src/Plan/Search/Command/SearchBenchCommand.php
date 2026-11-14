@@ -147,7 +147,7 @@ final class SearchBenchCommand extends Command
                         $times[] = (hrtime(true) - $t) / 1e6;
                     }
 
-                    $found[] = $role . ' ' . $result['total'] . ($result['approximate'] ? '+' : '');
+                    $found[] = $role . ' ' . $result['total'] . ($result['totalExact'] ? '' : '+');
                 }
 
                 array_push($all, ...$times);

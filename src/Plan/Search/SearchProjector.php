@@ -38,7 +38,7 @@ class SearchProjector
         'visible_all', 'visible_to', 'capability', 'created_at', 'updated_at',
     ];
 
-    /** @var array<string, array{subject: list<string>, scope: string, sql: string}>|null */
+    /** @var array<string, array{subject: list<string>, scope: string, sql: string, ref?: string}>|null */
     private ?array $sources = null;
 
     public function __construct(private readonly Connection $db)
@@ -106,15 +106,52 @@ class SearchProjector
     {
         // Окрема транзакція (або savepoint усередині чужої): збій індексу не отруює
         // зовнішню транзакцію PostgreSQL і не лишає суб'єкт напівоновленим.
-        return $this->db->transactional(fn () => $this->project($ref));
+        return $this->db->transactional(function () use ($ref): int {
+            $this->lock($ref);
+
+            return $this->project($ref);
+        });
     }
 
-    private function project(SubjectRef $ref): int
+    /**
+     * Лише окремі дочірні документи суб'єкта (новий/змінений/видалений коментар, нові
+     * файли) і сам суб'єкт (його «оновлено») — без перечитування всієї стрічки задачі.
+     *
+     * @param list<int> $refIds id коментарів / файлів
+     */
+    public function projectChildren(SubjectRef $ref, string $docType, array $refIds): int
+    {
+        $source = $this->sources()[$docType] ?? null;
+        $refIds = array_values(array_unique(array_filter(array_map('intval', $refIds), static fn (int $id) => $id > 0)));
+
+        if ($source === null || ! isset($source['ref']) || $refIds === [] || ! in_array($ref->type->value, $source['subject'], true)) {
+            return $this->projectSubject($ref);
+        }
+
+        return $this->db->transactional(function () use ($ref, $docType, $source, $refIds): int {
+            $this->lock($ref);
+            $changed = $this->project($ref, only: $ref->type->value);
+            $scope = $source['scope'] . ' AND ' . $source['ref'] . ' = ANY(CAST(:rids AS int[]))';
+            $params = ['sid' => $ref->id, 'stype' => $ref->type->value, 'rids' => '{' . implode(',', $refIds) . '}'];
+            $changed += $this->upsert($docType, $source['sql'], $scope, $params);
+
+            return $changed + $this->prune($docType, $source['sql'], $scope, $params, refScoped: true);
+        });
+    }
+
+    /** Дві одночасні події одного суб'єкта не перечитують його навперейми (і без взаємоблокувань). */
+    private function lock(SubjectRef $ref): void
+    {
+        $this->db->executeStatement('SELECT pg_advisory_xact_lock(hashtext(?), ?)', [$ref->type->value, $ref->id]);
+    }
+
+    /** @param string|null $only лише документ цього типу (сам суб'єкт) */
+    private function project(SubjectRef $ref, ?string $only = null): int
     {
         $changed = 0;
 
         foreach ($this->sources() as $docType => $source) {
-            if (! in_array($ref->type->value, $source['subject'], true)) {
+            if (! in_array($ref->type->value, $source['subject'], true) || ($only !== null && $docType !== $only)) {
                 continue;
             }
 
@@ -137,17 +174,40 @@ class SearchProjector
         $changed = 0;
         $ids = $itemIds;
 
+        $sites = [];
+        $movements = [];
+
         if ($ref->type === SubjectType::WhSite) {
-            $ids = [...$ids, ...array_map('intval', $this->db->fetchFirstColumn('SELECT id FROM wh_item WHERE current_site_id = ?', [$ref->id]))];
+            $sites = [$ref->id];
         } elseif ($ref->type === SubjectType::WhClient) {
-            foreach ($this->db->fetchFirstColumn('SELECT id FROM wh_site WHERE client_id = ?', [$ref->id]) as $siteId) {
-                $changed += $this->projectSubject(SubjectRef::of(SubjectType::WhSite, (int) $siteId));
-                $ids = [...$ids, ...array_map('intval', $this->db->fetchFirstColumn('SELECT id FROM wh_item WHERE current_site_id = ?', [$siteId]))];
+            $sites = array_map('intval', $this->db->fetchFirstColumn('SELECT id FROM wh_site WHERE client_id = ?', [$ref->id]));
+
+            foreach ($sites as $siteId) {
+                $changed += $this->projectSubject(SubjectRef::of(SubjectType::WhSite, $siteId));
             }
+        } elseif ($ref->type === SubjectType::WhItem) {
+            // Назва/інв. номер позиції — у текстах рухів, де вона є.
+            $movements = array_map('intval', $this->db->fetchFirstColumn('SELECT DISTINCT movement_id FROM wh_movement_line WHERE item_id = ?', [$ref->id]));
+        }
+
+        if ($sites !== []) {
+            $list = '{' . implode(',', $sites) . '}';
+            array_push($ids, ...array_map('intval', $this->db->fetchFirstColumn('SELECT id FROM wh_item WHERE current_site_id = ANY(CAST(? AS int[]))', [$list])));
+            // Рухи на/з цих об'єктів показують їхні назви й клієнтів.
+            array_push($movements, ...array_map('intval', $this->db->fetchFirstColumn(
+                'SELECT id FROM wh_movement WHERE from_site_id = ANY(CAST(? AS int[])) OR to_site_id = ANY(CAST(? AS int[]))',
+                [$list, $list],
+            )));
         }
 
         foreach (array_values(array_unique(array_filter($ids, static fn (int $id) => $id > 0))) as $id) {
             $changed += $this->projectSubject(SubjectRef::of(SubjectType::WhItem, $id));
+        }
+
+        foreach (array_values(array_unique($movements)) as $id) {
+            if (! ($ref->type === SubjectType::WhMovement && $ref->id === $id)) {
+                $changed += $this->projectSubject(SubjectRef::of(SubjectType::WhMovement, $id));
+            }
         }
 
         return $changed;
@@ -168,6 +228,7 @@ class SearchProjector
                     s.author_id, s.manager_id, s.executor_ids, s.department_ids, s.status,
                     s.visible_all, s.visible_to, s.capability, s.created_at, s.updated_at
                FROM (' . $this->scoped($sql, $scope) . ') ' . self::alias() . "
+              ORDER BY s.ref_id
              ON CONFLICT (doc_type, ref_id) DO UPDATE SET {$set}
               WHERE ({$current}) IS DISTINCT FROM ({$next})",
             $params,
@@ -179,9 +240,13 @@ class SearchProjector
      *
      * @param array<string, int|string> $params
      */
-    private function prune(string $docType, string $sql, string $scope, array $params): int
+    private function prune(string $docType, string $sql, string $scope, array $params, bool $refScoped = false): int
     {
         $where = $scope === '' ? '' : ' AND d.subject_type = :stype AND d.subject_id = :sid';
+
+        if ($refScoped) {
+            $where .= ' AND d.ref_id = ANY(CAST(:rids AS int[]))';
+        }
 
         return (int) $this->db->executeStatement(
             'DELETE FROM search_document d
@@ -209,7 +274,7 @@ class SearchProjector
      * visible_to, capability, created_at, updated_at. `{scope}` — місце для
      * умови «лише цей суб'єкт».
      *
-     * @return array<string, array{subject: list<string>, scope: string, sql: string}>
+     * @return array<string, array{subject: list<string>, scope: string, sql: string, ref?: string}>
      */
     private function sources(): array
     {
@@ -268,6 +333,7 @@ class SearchProjector
             'comment' => [
                 'subject' => ['task'],
                 'scope' => 'm.task_id = :sid',
+                'ref' => 'm.id',
                 'sql' => "SELECT 'comment', 'task', m.task_id, m.id, {$taskTitle}, m.text, COALESCE(t.client, ''), m.text,
                         m.author_id, {$taskInherited}, m.created_at, COALESCE(m.edited_at, m.created_at)
                    FROM task_message m JOIN task t ON t.id = m.task_id
@@ -276,6 +342,7 @@ class SearchProjector
             'file' => [
                 'subject' => ['task'],
                 'scope' => 'm.task_id = :sid',
+                'ref' => 'a.id',
                 'sql' => "SELECT 'file', 'task', m.task_id, a.id, a.original_name, {$taskTitle}, COALESCE(t.client, ''), a.original_name,
                         a.uploaded_by_id, {$taskInherited}, a.created_at, a.created_at
                    FROM task_attachment a JOIN task_message m ON m.id = a.message_id JOIN task t ON t.id = m.task_id
@@ -287,7 +354,7 @@ class SearchProjector
                 'sql' => "SELECT 'supply', 'supply', r.id, r.id, {$supplyTitle},
                         concat_ws(' · ', rtrim(rtrim(r.quantity::text, '0'), '.') || ' ' || {$unitLabel}, NULLIF(r.site, ''), NULLIF(r.note, '')),
                         {$supplyClient},
-                        concat_ws(' ', r.number, r.item, r.site, r.note, {$supplySuppliers},
+                        concat_ws(' ', r.number, replace(r.number, '/', '-'), r.item, r.site, r.note, {$supplySuppliers},
                             (SELECT string_agg(p.invoice_number, ' ') FROM supply_purchase p WHERE p.request_id = r.id)),
                         r.author_id, {$supplyInherited}, r.created_at,
                         GREATEST(r.updated_at, (SELECT MAX(c.created_at) FROM supply_comment c WHERE c.request_id = r.id))
@@ -296,6 +363,7 @@ class SearchProjector
             'supply_comment' => [
                 'subject' => ['supply'],
                 'scope' => 'c.request_id = :sid',
+                'ref' => 'c.id',
                 'sql' => "SELECT 'supply_comment', 'supply', c.request_id, c.id, {$supplyTitle}, c.text, {$supplyClient}, c.text,
                         c.author_id, {$supplyInherited}, c.created_at, c.created_at
                    FROM supply_comment c JOIN supply_request r ON r.id = c.request_id
@@ -304,6 +372,7 @@ class SearchProjector
             'supply_file' => [
                 'subject' => ['supply'],
                 'scope' => 'a.request_id = :sid',
+                'ref' => 'a.id',
                 'sql' => "SELECT 'supply_file', 'supply', a.request_id, a.id, a.original_name, {$supplyTitle}, {$supplyClient}, a.original_name,
                         a.uploaded_by_id, {$supplyInherited}, a.created_at, a.created_at
                    FROM supply_attachment a JOIN supply_request r ON r.id = a.request_id WHERE TRUE {scope}",

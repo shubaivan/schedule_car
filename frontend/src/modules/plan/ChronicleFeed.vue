@@ -152,11 +152,15 @@ async function load(append = false) {
 /** Опитування: свіжа перша сторінка зверху, догорнуте нижче лишається. */
 async function refreshTop() {
     if (loading.value || document.hidden) return
+    const my = seq
     try {
         const page = await planApi.chronicle(filters.value)
+        // Поки чекали — змінили фільтр (почалося нове завантаження): ця відповідь застаріла.
+        if (my !== seq || loading.value) return
         const fresh = new Set(page.items.map((i) => i.key))
         const edge = page.items[page.items.length - 1]?.lastActivityAt ?? ''
-        const tail = page.next ? items.value.filter((i) => !fresh.has(i.key) && i.lastActivityAt < edge) : []
+        const edgeAt = Date.parse(edge)
+        const tail = page.next ? items.value.filter((i) => !fresh.has(i.key) && Date.parse(i.lastActivityAt) < edgeAt) : []
         const rows = [...page.items, ...tail]
         // Відкрита праворуч задача стала прочитаною — у «Непрочитаних» вона лишається на місці, поки її читають.
         const openKey = openId.value === null ? null : 'task-' + openId.value

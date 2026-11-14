@@ -88,6 +88,7 @@ final class ChronicleApiController extends TasksController
         $rows = array_slice($rows, 0, $limit);
         $subjects = $this->subjectsOf($rows);
         $payloads = array_map(static fn (array $r) => json_decode((string) $r['payload'], true) ?: [], $rows);
+        $payloads = $this->liveComments($rows, $payloads);
         $peopleIds = array_column($rows, 'actor_id');
 
         foreach ($subjects as $s) {
@@ -240,6 +241,44 @@ final class ChronicleApiController extends TasksController
         return $out;
     }
 
+    /**
+     * Коментар задачі з журналу міг бути змінений чи видалений — показуємо живий текст
+     * (видалене не має «світитись» у Хроніці, як і в старій стрічці).
+     *
+     * @param list<array<string, mixed>> $rows
+     * @param list<array<string, mixed>> $payloads
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function liveComments(array $rows, array $payloads): array
+    {
+        $ids = [];
+
+        foreach ($rows as $i => $row) {
+            if ($row['subject_type'] === 'task' && $row['event_type'] === CommentAdded::TYPE && isset($payloads[$i]['refId'])) {
+                $ids[$i] = (int) $payloads[$i]['refId'];
+            }
+        }
+
+        if ($ids === []) {
+            return $payloads;
+        }
+
+        $live = [];
+
+        foreach ($this->db->fetchAllAssociative('SELECT id, text, deleted_at FROM task_message WHERE id IN (?)', [array_values($ids)], [ArrayParameterType::INTEGER]) as $m) {
+            $live[(int) $m['id']] = $m['deleted_at'] !== null ? null : (string) $m['text'];
+        }
+
+        foreach ($ids as $i => $id) {
+            $text = $live[$id] ?? null;
+            $payloads[$i]['excerpt'] = $text !== null ? mb_substr($text, 0, 200) : '';
+            $payloads[$i]['deleted'] = $text === null;
+        }
+
+        return $payloads;
+    }
+
     private static function group(string $type): string
     {
         return match ($type) {
@@ -275,6 +314,10 @@ final class ChronicleApiController extends TasksController
 
         switch ($type) {
             case CommentAdded::TYPE:
+                if ((bool) ($p['deleted'] ?? false)) {
+                    return 'Повідомлення видалено';
+                }
+
                 $files = (int) ($p['files'] ?? 0);
 
                 return trim((string) ($p['excerpt'] ?? '')) . ($files > 0 ? ' · 📎 ' . $files : '');
@@ -356,7 +399,10 @@ final class ChronicleApiController extends TasksController
             return [];
         }
 
-        return array_values(array_intersect(array_unique(array_map('trim', explode(',', $value))), $known));
+        $out = array_values(array_intersect(array_unique(array_map('trim', explode(',', $value))), $known));
+
+        // Лише невідомі значення — «нічого», а не «усе».
+        return $out === [] ? ['-'] : $out;
     }
 
     private static function atom(string $value): string

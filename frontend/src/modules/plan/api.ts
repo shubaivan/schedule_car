@@ -52,7 +52,10 @@ export interface SearchResponse {
     q: string
     terms: string[]
     total: number
+    /** лічильники фасетів пораховано по перших 2000 збігах */
     approximate: boolean
+    /** загальна кількість точна (інакше «2000+») */
+    totalExact: boolean
     offset: number
     more: boolean
     hits: SearchHit[]

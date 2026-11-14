@@ -63,6 +63,18 @@ class PlanChronicleTest extends WebTestCase
         $latest = $this->row($this->get('/api/plan/chronicle', ['unread' => 0, 'limit' => 100]), 'task-' . $task['id']);
         self::assertSame('status', $latest['event']['group']);
         self::assertStringContainsString('→', $latest['event']['text']);
+
+        // Невідомий модуль/тип — нічого, а не все.
+        self::assertSame([], $this->get('/api/plan/chronicle', ['unread' => 0, 'module' => 'nope'])['items']);
+
+        // Видалений коментар не «світиться» в Хроніці.
+        $this->login($manager);
+        $secret = $this->send('POST', '/api/tasks/' . $task['id'] . '/messages', ['text' => 'пароль 12345']);
+        $this->client->request('DELETE', '/api/tasks/' . $task['id'] . '/messages/' . $secret['id']);
+        $this->login($director);
+        $row = $this->row($this->get('/api/plan/chronicle', ['unread' => 0, 'event' => 'comment', 'limit' => 100]), 'task-' . $task['id']);
+        self::assertStringNotContainsString('12345', $row['event']['text']);
+        self::assertSame('Повідомлення видалено', $row['event']['text']);
     }
 
     public function testTaskPlusNMatchesOldChronicleAndSupplyPlusNFollowsReads(): void
@@ -153,6 +165,15 @@ class PlanChronicleTest extends WebTestCase
         $chronicle = self::getContainer()->get(PlanChronicle::class);
         self::assertGreaterThanOrEqual(4, $chronicle->rebuild());
         self::assertSame(0, $chronicle->rebuild(), 'Повтор нічого не змінює');
+
+        // Перший запуск на стенді: стара історія заявок — прочитана, «+N» не вибухає.
+        $request = $this->send('POST', '/api/supply/requests', ['item' => 'Історія', 'quantity' => '1', 'unit' => 'piece']);
+        $reader = $this->user(WorkRole::Manager, 'rb-sup', SupplyRole::Manager);
+        $this->login($reader);
+        self::assertGreaterThan(0, $this->row($this->get('/api/plan/chronicle', ['unread' => 1, 'limit' => 100]), 'supply-' . $request['id'])['unread'] ?? 0);
+        self::assertGreaterThan(0, $chronicle->markHistoryRead());
+        self::assertNull($this->row($this->get('/api/plan/chronicle', ['unread' => 1, 'limit' => 100]), 'supply-' . $request['id']));
+        $this->login($manager);
 
         $seen = [];
         $cursor = null;

@@ -21,6 +21,9 @@ use Throwable;
 #[AsDoctrineListener(event: Events::postFlush)]
 final class PersonIndexListener
 {
+    /** Поля, з яких складається документ «людина». */
+    private const INDEXED = ['first_name', 'last_name', 'username', 'position', 'department', 'workRole', 'supplyRole', 'accessStatus', 'archivedAt', 'email'];
+
     /** @var array<int, TelegramUser> змінені/нові люди (id нових з'явиться лише після INSERT) */
     private array $pending = [];
 
@@ -39,8 +42,15 @@ final class PersonIndexListener
 
         $uow = $args->getObjectManager()->getUnitOfWork();
 
-        foreach ([...$uow->getScheduledEntityInsertions(), ...$uow->getScheduledEntityUpdates()] as $entity) {
+        foreach ($uow->getScheduledEntityInsertions() as $entity) {
             if ($entity instanceof TelegramUser) {
+                $this->pending[spl_object_id($entity)] = $entity;
+            }
+        }
+
+        foreach ($uow->getScheduledEntityUpdates() as $entity) {
+            // «Остання активність» (раз на 5 хв) тощо — документ людини не змінює.
+            if ($entity instanceof TelegramUser && array_intersect(array_keys($uow->getEntityChangeSet($entity)), self::INDEXED) !== []) {
                 $this->pending[spl_object_id($entity)] = $entity;
             }
         }

@@ -66,7 +66,8 @@ final readonly class SearchQuery
     /** @return list<string> слова запиту */
     public function terms(): array
     {
-        return mb_strlen($this->q) >= 2 ? SearchText::terms($this->q) : [];
+        // Одна літера — ще не запит; одна цифра — номер задачі («5»).
+        return mb_strlen($this->q) >= 2 || ctype_digit($this->q) ? SearchText::terms($this->q) : [];
     }
 
     /** Чи є хоч один фільтр (порожній q + фільтр = «усі прецеденти менеджера X»). */

@@ -125,6 +125,9 @@ class PlanChronicle
         $types = ['news' => ArrayParameterType::STRING];
         [$visible, $unread] = $this->rules($viewer, $modules, $params);
 
+        $event = 'e.id = a.last_event_id';
+        $lateral = '';
+
         if ($events !== []) {
             $eventTypes = [];
 
@@ -134,14 +137,12 @@ class PlanChronicle
 
             $params['eventTypes'] = $eventTypes === [] ? ['-'] : $eventTypes;
             $types['eventTypes'] = ArrayParameterType::STRING;
-            $params['subjectTypes'] = self::subjectTypes();
-            $types['subjectTypes'] = ArrayParameterType::STRING;
-            // Остання подія ОБРАНОГО типу на суб'єкт (а не просто остання).
-            $source = '(SELECT DISTINCT ON (e.subject_type, e.subject_id) e.subject_type, e.subject_id, e.id AS last_event_id, e.occurred_at AS last_at
-                          FROM plan_event e WHERE e.type IN (:eventTypes) AND e.subject_type IN (:subjectTypes)
-                         ORDER BY e.subject_type, e.subject_id, e.occurred_at DESC, e.id DESC) a';
-        } else {
-            $source = 'plan_subject_activity a';
+            // Остання подія ОБРАНОГО типу цього суб'єкта (індекс subject_type, subject_id, id);
+            // рядки — у порядку останньої активності, тож LIMIT зупиняє прохід рано.
+            $lateral = 'JOIN LATERAL (SELECT le.id FROM plan_event le
+                          WHERE le.subject_type = a.subject_type AND le.subject_id = a.subject_id AND le.type IN (:eventTypes)
+                          ORDER BY le.occurred_at DESC, le.id DESC LIMIT 1) fe ON TRUE';
+            $event = 'e.id = fe.id';
         }
 
         $where = [$visible];
@@ -157,12 +158,21 @@ class PlanChronicle
             $where[] = "a.subject_type = 'task' AND EXISTS (SELECT 1 FROM task_favorite fv WHERE fv.task_id = a.subject_id AND fv.user_id = :me)";
         }
 
+        if ($unreadOnly) {
+            // Дешевий відсів до точного «+N»: є щось новіше за прочитане.
+            $where[] = "(CASE WHEN a.subject_type = 'task'
+                THEN EXISTS (SELECT 1 FROM task_message u LEFT JOIN task_read r ON r.task_id = u.task_id AND r.user_id = :me
+                              WHERE u.task_id = a.subject_id AND " . TaskFeedRepository::UNREAD . ')
+                ELSE a.last_event_id > COALESCE(pr.last_event_id, 0) END)';
+        }
+
         $sql = "SELECT a.subject_type, a.subject_id, a.last_event_id, a.last_at,
                        e.type AS event_type, e.actor_id, e.payload, e.occurred_at,
                        {$unread} AS unread,
                        (a.subject_type = 'task' AND EXISTS (SELECT 1 FROM task_favorite f WHERE f.task_id = a.subject_id AND f.user_id = :me)) AS favorite
-                  FROM {$source}
-                  JOIN plan_event e ON e.id = a.last_event_id
+                  FROM plan_subject_activity a
+                  {$lateral}
+                  JOIN plan_event e ON {$event}
                   LEFT JOIN plan_read pr ON pr.user_id = :me AND pr.subject_type = a.subject_type AND pr.subject_id = a.subject_id
                  WHERE " . implode(' AND ', $where);
 
@@ -261,6 +271,22 @@ class PlanChronicle
               WHERE (plan_subject_activity.last_event_id, plan_subject_activity.last_at) IS DISTINCT FROM (EXCLUDED.last_event_id, EXCLUDED.last_at)',
             ['news' => self::NEWS, 'subjects' => self::subjectTypes()],
             ['news' => ArrayParameterType::STRING, 'subjects' => ArrayParameterType::STRING],
+        );
+    }
+
+    /**
+     * Після першого перенесення історії: усе, що вже є в журналі заявок і складу,
+     * вважається прочитаним для всіх (інакше менеджер постачання побачив би «+N» на кожній
+     * старій заявці). Лише тим, у кого відмітки ще немає. @return int скільки відміток додано.
+     */
+    public function markHistoryRead(): int
+    {
+        return (int) $this->db->executeStatement(
+            "INSERT INTO plan_read (user_id, subject_type, subject_id, last_event_id, read_at)
+             SELECT u.id, a.subject_type, a.subject_id, a.last_event_id, LOCALTIMESTAMP(0)
+               FROM plan_subject_activity a CROSS JOIN telegram_user u
+              WHERE a.subject_type <> 'task' AND u.access_status = 'approved' AND u.archived_at IS NULL
+             ON CONFLICT (user_id, subject_type, subject_id) DO NOTHING",
         );
     }
 

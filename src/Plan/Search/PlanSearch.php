@@ -43,6 +43,7 @@ class PlanSearch
      * @return array{
      *     total: int,
      *     approximate: bool,
+     *     totalExact: bool,
      *     hits: list<array<string, mixed>>,
      *     facets: array{type: array<string, int>, docType: array<string, int>, status: array<string, int>, author: array<int, int>, executor: array<int, int>, department: array<int, int>, client: array<string, int>},
      *     more: bool
@@ -51,6 +52,7 @@ class PlanSearch
     public function search(TelegramUser $viewer, SearchQuery $query, bool $bench = false): array
     {
         $sql = $this->build($viewer, $query, $bench);
+        $totalExact = false;
         $facets = $this->parseFacets($this->db->fetchAllAssociative($sql['facets'], $sql['params'], $sql['types']));
 
         if ($facets['approximate']) {
@@ -59,9 +61,11 @@ class PlanSearch
             // точно, бо обрізаний набір міг відкинути саме ті рядки, що проходять фільтр.
             $rows = $this->rowsByIds(array_map('intval', $this->db->fetchFirstColumn($sql['hits'], $sql['params'], $sql['types'])));
 
+            // Фасети лишаються наближеними (approximate) — рахувались по обрізаному набору,
+            // хоч рядки, що проходять усі фільтри, стоять у ньому першими.
             if ($sql['flagged']) {
                 $facets['total'] = (int) $this->db->fetchOne($sql['count'], $sql['params'], $sql['types']);
-                $facets['approximate'] = false;
+                $totalExact = true;
             } else {
                 $facets['total'] = self::FACET_CAP;
             }
@@ -73,6 +77,7 @@ class PlanSearch
         return [
             'total' => $facets['total'],
             'approximate' => $facets['approximate'],
+            'totalExact' => ! $facets['approximate'] || $totalExact,
             'hits' => array_slice($rows, 0, $query->limit),
             'facets' => $facets['facets'],
             'more' => count($rows) > $query->limit,
@@ -114,9 +119,11 @@ class PlanSearch
             $base[] = '(d.author_id = :person OR d.manager_id = :person OR d.executor_ids @> CAST(:personJson AS jsonb))';
         }
 
-        if ($query->client !== '') {
-            $params['client'] = SearchText::like(mb_strtolower($query->client));
-            $base[] = 'lower(d.client) LIKE :client';
+        // Менеджер — фільтр без власного фасета, тож у базі (інакше рядки «не того менеджера»
+        // займали б ліміт фасетів і ніде не рахувались).
+        if ($query->manager !== null) {
+            $params['manager'] = $query->manager;
+            $base[] = 'd.manager_id = :manager';
         }
 
         if ($query->from !== null) {
@@ -255,7 +262,11 @@ class PlanSearch
         foreach ($terms as $i => $term) {
             $word = (string) preg_replace('/[^\p{L}\p{N}]+/u', '', $term);
 
-            if (mb_strlen($term) < 3 && $word !== '') {
+            if ($word === '') {
+                continue;
+            }
+
+            if (mb_strlen($term) < 3) {
                 // 1–2 літери: трigrам-індекс тут безсилий (повний перебір таблиці), тож шукаємо
                 // слово, що ПОЧИНАЄТЬСЯ з них («пк» → «ПК 60-12»), — через GIN по tsvector.
                 $params['t' . $i] = $word . ':*';
@@ -266,10 +277,14 @@ class PlanSearch
             }
         }
 
+        if ($all === []) {
+            return null;
+        }
+
         $match = '(' . implode(' AND ', $all) . ')';
 
-        // «12», «№ 12», «#0012» — номер задачі.
-        if (count($terms) === 1 && preg_match('/^[№#]?0*(\d{1,9})$/u', $terms[0], $m) === 1) {
+        // «12», «№ 12», «#0012» — номер задачі (знак № прибрав SearchText::terms).
+        if (count($terms) === 1 && preg_match('/^0*(\d{1,9})$/u', $terms[0], $m) === 1) {
             $params['num'] = (int) $m[1];
             $match = "({$match} OR (d.doc_type = 'task' AND d.ref_id = :num))";
         }
@@ -338,9 +353,9 @@ class PlanSearch
             $flags['executor'] = 'd.executor_ids @> CAST(:executorJson AS jsonb)';
         }
 
-        if ($query->manager !== null) {
-            $params['manager'] = $query->manager;
-            $flags['manager'] = 'd.manager_id = :manager';
+        if ($query->client !== '') {
+            $params['client'] = SearchText::like(mb_strtolower($query->client));
+            $flags['client'] = 'lower(d.client) LIKE :client';
         }
 
         if ($query->departments !== []) {
@@ -367,7 +382,7 @@ class PlanSearch
      */
     private function facetSql(string $where, array $flags, string $rank, string $order, string $page): string
     {
-        $names = ['type', 'status', 'author', 'executor', 'manager', 'department'];
+        $names = ['type', 'status', 'author', 'executor', 'client', 'department'];
         $select = [];
 
         foreach ($names as $name) {
@@ -389,13 +404,22 @@ class PlanSearch
 
         // Рядок, що не проходить два й більше фільтрів-фасетів, не потрапляє ні в один лічильник —
         // відсікаємо його ще до ліміту, щоб ліміт не «з'їдав» потрібні рядки.
-        if (count($flags) > 1) {
-            $where .= ' AND (' . implode(' + ', array_map(static fn (string $f) => "(CASE WHEN {$f} THEN 0 ELSE 1 END)", $flags)) . ') <= 1';
+        // Ті, що проходять УСІ фільтри, — першими: якщо збігів більше за ліміт, загальна
+        // кількість і фасети інших вимірів лишаються точними, доки таких рядків ≤ ліміту.
+        $first = '';
+
+        if ($flags !== []) {
+            $failing = '(' . implode(' + ', array_map(static fn (string $f) => "(CASE WHEN {$f} THEN 0 ELSE 1 END)", $flags)) . ')';
+            $first = ' ORDER BY ' . $failing;
+
+            if (count($flags) > 1) {
+                $where .= ' AND ' . $failing . ' <= 1';
+            }
         }
 
         return 'WITH m AS MATERIALIZED (
                 SELECT d.id, d.updated_at, ' . $rank . ' AS rank, d.doc_type, d.status, d.author_id, d.executor_ids, d.department_ids, d.client, ' . implode(', ', $select) . '
-                  FROM search_document d WHERE ' . $where . ' LIMIT ' . (self::FACET_CAP + 1) . "
+                  FROM search_document d WHERE ' . $where . $first . ' LIMIT ' . (self::FACET_CAP + 1) . "
              )
              SELECT 'total' AS dim, '' AS key, COUNT(*) AS n FROM m WHERE " . $except(null) . "
              UNION ALL SELECT 'all', '', COUNT(*) FROM m
@@ -404,7 +428,7 @@ class PlanSearch
              UNION ALL SELECT 'author', author_id::text, COUNT(*) FROM m WHERE author_id IS NOT NULL AND " . $except('author') . " GROUP BY author_id
              UNION ALL SELECT 'executor', e.v, COUNT(*) FROM m, jsonb_array_elements_text(m.executor_ids) e(v) WHERE " . $except('executor') . " GROUP BY e.v
              UNION ALL SELECT 'department', e.v, COUNT(*) FROM m, jsonb_array_elements_text(m.department_ids) e(v) WHERE " . $except('department') . " GROUP BY e.v
-             UNION ALL SELECT 'client', client, COUNT(*) FROM m WHERE client <> '' AND " . $except(null) . " GROUP BY client
+             UNION ALL SELECT 'client', client, COUNT(*) FROM m WHERE client <> '' AND " . $except('client') . " GROUP BY client
              UNION ALL SELECT 'page', p.id::text, p.n FROM (SELECT id, ROW_NUMBER() OVER (ORDER BY " . $order . ') AS n FROM m WHERE ' . $except(null) . ' ORDER BY n' . $page . ') p';
     }
 

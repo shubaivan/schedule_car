@@ -233,6 +233,25 @@ class PlanSearchTest extends WebTestCase
         self::assertSame(2, $tester->execute(['--type' => ['nope']]));
     }
 
+    public function testNumbersFindTasksAndSupplyRequests(): void
+    {
+        $manager = $this->user(WorkRole::Manager, 'num-mgr');
+        $this->login($manager);
+        $task = $this->send('POST', '/api/tasks', ['title' => 'Номерна задача ' . uniqid()]);
+        $request = $this->supply('Номерна заявка', 'Цех 9');
+        $number = (string) $request['number'];
+
+        foreach (['№ ' . $task['id'], '№' . $task['id'], '#' . str_pad((string) $task['id'], 4, '0', STR_PAD_LEFT), (string) $task['id']] as $q) {
+            self::assertContains($task['id'], array_column(array_column($this->search(['q' => $q, 'type' => 'task', 'limit' => 50])['hits'], 'subject'), 'id'), 'Номер задачі: ' . $q);
+        }
+
+        foreach (['№ ' . $number, str_replace('/', '-', $number)] as $q) {
+            self::assertContains($request['id'], array_column(array_column($this->search(['q' => $q, 'type' => 'supply'])['hits'], 'subject'), 'id'), 'Номер заявки: ' . $q);
+        }
+
+        self::assertSame($this->search(['q' => ''])['total'], $this->search(['q' => '№'])['total'], 'Сам знак номера — не запит');
+    }
+
     public function testSavedSearchesBelongToTheirOwner(): void
     {
         $me = $this->user(WorkRole::Manager, 'sv-me');

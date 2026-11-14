@@ -27,6 +27,13 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_search_document_author', columns: ['author_id'])]
 #[ORM\Index(name: 'idx_search_document_manager', columns: ['manager_id'])]
 #[ORM\Index(name: 'idx_search_document_status', columns: ['status'])]
+// Насправді GIN (pg_trgm / jsonb_path_ops) — так їх створює міграція. Тут вони описані
+// лише для того, щоб doctrine:migrations:diff не пропонував їх видалити (DBAL не
+// бачить методу індексу). Вирази-індекси (FTS, lower(client)) DBAL пропускає сам.
+#[ORM\Index(name: 'idx_search_document_trgm', columns: ['search_text'])]
+#[ORM\Index(name: 'idx_search_document_executors', columns: ['executor_ids'])]
+#[ORM\Index(name: 'idx_search_document_departments', columns: ['department_ids'])]
+#[ORM\Index(name: 'idx_search_document_visible', columns: ['visible_to'])]
 class SearchDocument
 {
     #[ORM\Id]
