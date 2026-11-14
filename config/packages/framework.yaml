@@ -7,6 +7,21 @@ framework:
     # Note that the session will be started ONLY if you read or write from it.
     session: true
 
+    # Вхід за паролем — App\Security\PlanLoginRateLimiter (security.yaml → login_throttling).
+    rate_limiter:
+        plan_login_ip:
+            policy: fixed_window
+            limit: 25
+            interval: '15 minutes'
+        plan_login_local:
+            policy: fixed_window
+            limit: 5
+            interval: '15 minutes'
+        plan_login_account:
+            policy: sliding_window
+            limit: 20
+            interval: '1 hour'
+
     #esi: true
     #fragments: true
 

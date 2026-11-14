@@ -4,6 +4,7 @@ namespace App\Tests\Tasks;
 
 use App\Entity\TelegramUser;
 use App\Enum\AccessStatus;
+use App\Security\LoginIdentity;
 use App\Supply\Entity\Department;
 use App\Tasks\Enum\WorkRole;
 use App\Tasks\Service\PreviewGenerator;
@@ -69,6 +70,42 @@ class TasksApiTest extends WebTestCase
         $this->client->request('GET', '/api/tasks/meta');
         self::assertResponseIsSuccessful();
         self::assertSame($user->getId(), $this->json()['me']['id']);
+    }
+
+    public function testLoginThrottleCountsAllSpellingsOfOnePhone(): void
+    {
+        $user = $this->user(WorkRole::Manager, 'phone');
+        $tail = sprintf('%07d', random_int(0, 9999999));
+        $user->setPhoneNumber('38067' . $tail);
+        $this->em->flush();
+
+        // П'ять різних записів того самого номера — одна людина, одне вікно з 5 спроб.
+        $spellings = ['067' . $tail, '+38067' . $tail, '067 ' . substr($tail, 0, 3) . ' ' . substr($tail, 3), '(067)' . $tail, '+38 (067) ' . $tail];
+
+        foreach ($spellings as $login) {
+            $this->client->request('GET', '/vhid');
+            $token = $this->client->getCrawler()->filter('input[name=_csrf_token]')->attr('value');
+            $this->client->request('POST', '/vhid', ['login' => $login, 'password' => 'wrong-password', '_csrf_token' => $token]);
+            self::assertResponseStatusCodeSame(401);
+            self::assertStringContainsString('Невірний логін або пароль', (string) $this->client->getResponse()->getContent());
+        }
+
+        // Шостий запис, уже з правильним паролем, — пауза, а не вхід.
+        $this->client->request('GET', '/vhid');
+        $token = $this->client->getCrawler()->filter('input[name=_csrf_token]')->attr('value');
+        $this->client->request('POST', '/vhid', ['login' => '8067' . $tail, 'password' => self::PASSWORD, '_csrf_token' => $token]);
+        self::assertResponseStatusCodeSame(401);
+        self::assertStringContainsString('Забагато спроб', (string) $this->client->getResponse()->getContent());
+    }
+
+    public function testLoginIdentityNormalisation(): void
+    {
+        self::assertSame('phone:671234567', LoginIdentity::normalize(' +38 (067) 123-45-67 '));
+        self::assertSame('phone:671234567', LoginIdentity::normalize('0671234567'));
+        self::assertSame('ivan@zavod.test', LoginIdentity::normalize(' Ivan@Zavod.TEST '));
+        self::assertSame('abc', LoginIdentity::normalize('ABC'));
+        self::assertSame('671234567', LoginIdentity::phoneTail('phone:671234567'));
+        self::assertNull(LoginIdentity::phoneTail('ivan@zavod.test'));
     }
 
     public function testArchivedUserCannotLogIn(): void

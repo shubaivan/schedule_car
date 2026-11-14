@@ -10,6 +10,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\PasswordHasher\Hasher\PasswordHasherFactoryInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Core\Exception\CustomUserMessageAuthenticationException;
@@ -25,7 +26,9 @@ use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
  *
  * Вмикається PASSWORD_LOGIN_ENABLED: так працюють люди, які сидять за
  * компʼютером і не користуються ботом. Посилання з бота лишається поруч.
- * Перебір паролів стримує login_throttling у security.yaml.
+ * Перебір паролів стримує login_throttling у security.yaml (PlanLoginRateLimiter);
+ * ключ UserBadge — нормалізований логін (LoginIdentity), тож різні записи одного
+ * номера — одна людина і для пошуку, і для лічильника спроб.
  */
 class PasswordLoginAuthenticator extends AbstractAuthenticator
 {
@@ -36,6 +39,7 @@ class PasswordLoginAuthenticator extends AbstractAuthenticator
         private LoginController $login,
         #[Autowire('%password_login_enabled%')]
         private bool $enabled,
+        private PasswordHasherFactoryInterface $hashers,
     ) {
     }
 
@@ -60,11 +64,14 @@ class PasswordLoginAuthenticator extends AbstractAuthenticator
         }
 
         return new Passport(
-            new UserBadge(mb_strtolower($login), function (string $identifier): TelegramUser {
+            new UserBadge(LoginIdentity::normalize($login), function (string $identifier): TelegramUser {
                 $user = $this->find($identifier);
 
                 // Та сама відповідь, що й на хибний пароль: не підказуємо, чи є такий логін.
                 if ($user === null || $user->isArchived() || ! $user->isApproved() || $user->getPassword() === null) {
+                    // Порожнє хешування — щоб за часом відповіді не відрізнити «немає логіна» від «хибний пароль».
+                    $this->hashers->getPasswordHasher(TelegramUser::class)->hash('timing-equaliser');
+
                     throw new CustomUserMessageAuthenticationException('Невірний логін або пароль.');
                 }
 
@@ -104,8 +111,8 @@ class PasswordLoginAuthenticator extends AbstractAuthenticator
             return $this->users->findOneBy(['email' => $identifier]);
         }
 
-        $digits = preg_replace('/\D+/', '', $identifier) ?? '';
+        $tail = LoginIdentity::phoneTail($identifier);
 
-        return strlen($digits) >= 9 ? $this->users->findOneByPhoneTail(substr($digits, -9)) : null;
+        return $tail !== null ? $this->users->findOneByPhoneTail($tail) : null;
     }
 }
