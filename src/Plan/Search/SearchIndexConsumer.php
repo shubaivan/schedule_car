@@ -3,7 +3,6 @@
 namespace App\Plan\Search;
 
 use App\Plan\Event\CommentAdded;
-use App\Plan\Event\CommentDeleted;
 use App\Plan\Event\CommentEdited;
 use App\Plan\Event\FileAdded;
 use App\Plan\Event\LeadReceived;
@@ -46,11 +45,12 @@ final class SearchIndexConsumer implements PlanEventConsumer
 
         // Коментар чи файли — лише ці рядки (+ сам суб'єкт), не вся стрічка задачі/заявки.
         // Зі згадками — повністю: згаданого додають в учасники, видимість усіх рядків змінюється.
+        // Видалений коментар — теж повністю: разом із ним зникають і його файли.
         $child = $ref->type === SubjectType::Task ? ['comment', 'file'] : ['supply_comment', 'supply_file'];
 
         match (true) {
             ($ref->type === SubjectType::Task || $ref->type === SubjectType::Supply) &&
-                ($event instanceof CommentAdded && $event->files === 0 && $event->mentions === [] || $event instanceof CommentEdited || $event instanceof CommentDeleted)
+                ($event instanceof CommentAdded && $event->files === 0 && $event->mentions === [] || $event instanceof CommentEdited)
                 => $this->projector->projectChildren($ref, $child[0], [(int) $event->refId]),
             ($ref->type === SubjectType::Task || $ref->type === SubjectType::Supply) && $event instanceof FileAdded && $event->fileIds !== []
                 => $this->projector->projectChildren($ref, $child[1], array_map('intval', $event->fileIds)),

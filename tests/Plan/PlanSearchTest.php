@@ -174,10 +174,15 @@ class PlanSearchTest extends WebTestCase
         self::assertSame(1, $r['total'], 'Статус задачі оновився в індексі');
         self::assertSame('В роботі', $r['hits'][0]['statusLabel']);
 
-        $this->upload($task['id'], 'Кошторис-' . $token . '.txt');
+        $withFile = $this->upload($task['id'], 'Кошторис-' . $token . '.txt');
         $files = $this->search(['q' => 'кошторис-' . $token, 'type' => 'file']);
         self::assertSame(1, $files['total']);
         self::assertStringContainsString('?f=', $files['hits'][0]['url']);
+
+        // Видалили повідомлення з файлом — файл теж зникає з пошуку (інакше видача веде на 404).
+        $this->client->request('DELETE', '/api/tasks/' . $task['id'] . '/messages/' . $withFile['id']);
+        self::assertResponseIsSuccessful();
+        self::assertSame(0, $this->search(['q' => 'кошторис-' . $token, 'type' => 'file'])['total'], 'Файл видаленого повідомлення зник з індексу');
 
         // Заявка: коментар і зміна статусу — теж у індексі.
         $request = $this->supply('Фанера ' . $token, 'Цех 3');
@@ -295,12 +300,15 @@ class PlanSearchTest extends WebTestCase
         self::assertSame(0, $this->search(['q' => $token, 'type' => 'person'])['total'], 'Архівний — не в пошуку');
     }
 
-    private function upload(int $taskId, string $name): void
+    /** @return array<string, mixed> створене повідомлення */
+    private function upload(int $taskId, string $name): array
     {
         $file = tempnam(sys_get_temp_dir(), 's4');
         file_put_contents($file, 'вміст');
         $this->client->request('POST', '/api/tasks/' . $taskId . '/messages', ['text' => ''], ['files' => [new UploadedFile($file, $name, 'text/plain', null, true)]]);
         self::assertResponseStatusCodeSame(201);
+
+        return $this->json();
     }
 
     /** @return array<string, mixed> */
