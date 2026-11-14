@@ -4,6 +4,7 @@ namespace App\Tasks\Command;
 
 use App\Entity\TelegramUser;
 use App\Enum\AccessStatus;
+use App\Plan\Drive\DriveSync;
 use App\Plan\EventStore\PlanEventRecorder;
 use App\Supply\Entity\Department;
 use App\Supply\Repository\DepartmentRepository;
@@ -50,6 +51,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  *
  * Лише на демо-стенді: команда відмовиться, якщо в базі є живі люди з бота
  * (telegram_id не «demo-»). --reset прибирає попередні демо-дані.
+ * Засіяні файли на Google Диск не йдуть (drive_state = skipped, DriveSync::keepOffDrive).
  */
 #[AsCommand(name: 'tasks:demo-seed', description: 'Заповнити демо-стенд задач прикладами')]
 class TasksDemoSeedCommand extends Command
@@ -112,6 +114,8 @@ class TasksDemoSeedCommand extends Command
         private ?RecordMovement $recordMovement = null,
         private ?ActivityLog $warehouseLog = null,
         private ?DocumentStore $warehouseDocuments = null,
+        // Демо-файли не мають їхати на Google Диск клієнта (рішення Івана 15.11).
+        private ?DriveSync $drive = null,
     ) {
         parent::__construct();
     }
@@ -177,7 +181,9 @@ class TasksDemoSeedCommand extends Command
         $requests = 0;
         $warehouse = ['items' => 0, 'movements' => 0];
         $mark = (int) $conn->fetchOne('SELECT COALESCE(MAX(id), 0) FROM plan_event');
-        $this->events->transactional(function () use ($input, $password, &$requests, &$warehouse): void {
+        $driveMarks = $this->drive?->marks() ?? [];
+        $offDrive = 0;
+        $this->events->transactional(function () use ($input, $password, &$requests, &$warehouse, $driveMarks, &$offDrive): void {
             $this->reset($input->getOption('reset') === true);
             $this->seedDirectories($password, (string) $input->getOption('domain'));
             $this->seedTasks();
@@ -191,12 +197,16 @@ class TasksDemoSeedCommand extends Command
                 $warehouse = (new DemoWarehouse($this->em, $this->recordMovement, $this->warehouseLog, $this->warehouseDocuments, $this->files))
                     ->seed($this->people);
             }
+            // Демо — не робота: жоден засіяний файл не йде на Диск. У тій самій транзакції,
+            // тож воркер, що отримає SyncDriveFiles після коміту, вже бачить skipped.
+            $this->em->flush();
+            $offDrive = $this->drive?->keepOffDrive($driveMarks) ?? 0;
         });
 
         $this->deferred->flush();
         $this->alignEventTimes($mark);
 
-        $output->writeln(sprintf('Готово: людей — %d, відділів — %d, міток — %d, угод — %d, заявок — %d, позицій складу — %d, рухів — %d.', count($this->people), count($this->departments), count($this->labels), count(DemoDeals::all()), $requests, $warehouse['items'], $warehouse['movements']));
+        $output->writeln(sprintf('Готово: людей — %d, відділів — %d, міток — %d, угод — %d, заявок — %d, позицій складу — %d, рухів — %d, файлів поза Диском — %d.', count($this->people), count($this->departments), count($this->labels), count(DemoDeals::all()), $requests, $warehouse['items'], $warehouse['movements'], $offDrive));
 
         return Command::SUCCESS;
     }

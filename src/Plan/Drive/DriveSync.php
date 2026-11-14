@@ -36,6 +36,9 @@ class DriveSync
     public const int MAX_ATTEMPTS = 6;
     public const int QUOTA_PAUSE_MINUTES = 60;
 
+    /** Пояснення в drive_error для файлів демо-засіву (видно в адмінці «Диск»). */
+    public const string DEMO_NOTE = 'Демо-дані — на Диск не копіюються.';
+
     /** Довільне, але стале число для pg_try_advisory_lock. */
     private const int LOCK_KEY = 72_0115_1400;
 
@@ -95,6 +98,45 @@ class DriveSync
         }
 
         return $result;
+    }
+
+    /**
+     * Останній id кожної таблиці файлів — «звідки почались» файли, яких Диск не має
+     * бачити (демо-засів бере позначку до себе й передає її в keepOffDrive()).
+     *
+     * @return array<string, int> FileType value => max id
+     */
+    public function marks(): array
+    {
+        $marks = [];
+
+        foreach (FileType::cases() as $type) {
+            $marks[$type->value] = (int) $this->db->fetchOne(sprintf('SELECT COALESCE(MAX(id), 0) FROM %s', $type->table()));
+        }
+
+        return $marks;
+    }
+
+    /**
+     * Файли, додані після $marks, на Диск не йдуть: skipped (черга, крон і воркер
+     * беруть лише pending) з поясненням $note. Демо-засів робить це в тій самій
+     * транзакції, що й файли, — воркер, який отримає SyncDriveFiles після коміту,
+     * уже бачить skipped. Повертає, скільки файлів позначено.
+     *
+     * @param array<string, int> $marks з marks()
+     */
+    public function keepOffDrive(array $marks, string $note = self::DEMO_NOTE): int
+    {
+        $count = 0;
+
+        foreach (FileType::cases() as $type) {
+            $count += (int) $this->db->executeStatement(
+                sprintf("UPDATE %s SET drive_state = 'skipped', drive_next_at = NULL, drive_error = ? WHERE id > ? AND drive_file_id IS NULL", $type->table()),
+                [$note, $marks[$type->value] ?? 0],
+            );
+        }
+
+        return $count;
     }
 
     /** Знову поставити в чергу файл, що впав (або чекає backoff), — кнопка «Повторити». */

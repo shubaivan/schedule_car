@@ -27,6 +27,8 @@ class SupplyAttachmentRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('a')
             ->andWhere('a.driveFileId IS NULL')
+            // skipped — не для Диска (демо-засів, видалений файл).
+            ->andWhere("a.driveState <> 'skipped'")
             ->orderBy('a.id', SortDirection::Ascending)
             ->setMaxResults($limit)
             ->getQuery()

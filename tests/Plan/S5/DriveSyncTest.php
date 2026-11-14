@@ -219,6 +219,39 @@ class DriveSyncTest extends KernelTestCase
         self::assertSame([sprintf('План/%s/Заявки/№%s Цемент М400/%s', $year, str_replace('/', '-', $request->getNumber()), $attachment->getDriveName())], $drive->paths());
     }
 
+    public function testDemoSeedFilesNeverReachDrive(): void
+    {
+        $author = $this->person(WorkRole::Manager, 'demo');
+        $marks = $this->sync->marks();
+        $demoFile = $this->taskFile($this->task($author, 'Демо-угода'), $author, 'демо.txt');
+        $request = self::getContainer()->get(CreateRequest::class)($author, new CreateRequestInput(item: 'Демо-цемент', quantity: '1', unit: Unit::Pack));
+        self::getContainer()->get(AttachFile::class)($request, $author, 'демо', 'демо.pdf', 'application/pdf');
+        $demoSupply = self::getContainer()->get(SupplyAttachmentRepository::class)->findOneBy(['request' => $request]);
+        self::assertNotNull($demoSupply);
+
+        self::assertSame(2, $this->sync->keepOffDrive($marks));
+        $realFile = $this->taskFile($this->task($author, 'Справжня угода'), $author, 'справжній.txt');
+
+        $drive = new FakeDriveClient();
+        $result = $this->sync->run($drive, 50);
+
+        self::assertSame(1, $result->sent, 'на Диск — лише справжній файл');
+        self::assertCount(1, $drive->paths());
+        self::assertStringEndsWith('/справжній.txt', $drive->paths()[0]);
+        foreach ([['task_attachment', (int) $demoFile->getId()], ['supply_attachment', (int) $demoSupply->getId()]] as [$table, $id]) {
+            $row = $this->row($table, $id);
+            self::assertSame('skipped', $row['drive_state'], $table);
+            self::assertNull($row['drive_file_id'], $table);
+            self::assertSame(DriveSync::DEMO_NOTE, $this->db->fetchOne(sprintf('SELECT drive_error FROM %s WHERE id = ?', $table), [$id]));
+        }
+        self::assertSame('done', $this->row('task_attachment', (int) $realFile->getId())['drive_state']);
+
+        // Ні «Повторити», ні старе дзеркало стенда заявок демо-файл назад у чергу не повертають.
+        self::assertFalse($this->sync->retry(FileType::Task, (int) $demoFile->getId()));
+        self::assertSame(0, $this->sync->retryAllFailed());
+        self::assertNotContains($demoSupply, self::getContainer()->get(SupplyAttachmentRepository::class)->findNotMirrored(500));
+    }
+
     public function testPathNaming(): void
     {
         $paths = new DrivePaths('План');

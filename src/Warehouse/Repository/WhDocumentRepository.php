@@ -28,6 +28,8 @@ class WhDocumentRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('d')
             ->andWhere('d.driveFileId IS NULL')
+            // skipped — не для Диска (демо-засів, видалений файл).
+            ->andWhere("d.driveState <> 'skipped'")
             ->andWhere('d.item IS NULL OR d.type <> :photo')->setParameter('photo', DocumentType::Photo)
             ->orderBy('d.id', SortDirection::Ascending)
             ->setMaxResults($limit)
