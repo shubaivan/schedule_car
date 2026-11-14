@@ -174,6 +174,24 @@ class DriveSyncTest extends KernelTestCase
         self::assertSame(1, $this->sync->run($drive, 50, $now->modify('+61 minutes'))->sent);
     }
 
+    public function testParallelRunIsSkipped(): void
+    {
+        $author = $this->person(WorkRole::Manager, 'mgr');
+        $this->taskFile($this->task($author, 'Паралельно'), $author);
+        $other = \Doctrine\DBAL\DriverManager::getConnection($this->db->getParams());
+        $other->fetchOne('SELECT pg_advisory_lock(7201151400)');
+
+        try {
+            $result = $this->sync->run(new FakeDriveClient(), 50);
+        } finally {
+            $other->fetchOne('SELECT pg_advisory_unlock(7201151400)');
+            $other->close();
+        }
+
+        self::assertSame(DriveSyncResult::STOP_LOCKED, $result->stopped);
+        self::assertSame(0, $result->sent);
+    }
+
     public function testDeletedMessageFileIsSkipped(): void
     {
         $author = $this->person(WorkRole::Manager, 'mgr');

@@ -15,7 +15,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * Сторінка «Диск» для суперадміна й адміністратора: скільки файлів на Диску,
+ * Сторінка «Диск» для суперадміна й адміністратора «Плану» (WorkRole admin): скільки файлів на Диску,
  * у черзі, зі збоєм; зупинка через відкликаний токен / паузу квоти; «Повторити».
  * Іншим — 404 (саме існування сторінки не розкриваємо).
  */
@@ -118,7 +118,7 @@ class DriveStatusController extends AbstractController
     {
         $user = $this->getUser();
 
-        if (! $user instanceof TelegramUser || $user->isArchived() || ! $user->isApproved() || ! ShareService::isAdmin($user)) {
+        if (! $user instanceof TelegramUser || $user->isArchived() || ! $user->isApproved() || ! ShareService::isDriveAdmin($user)) {
             throw $this->createNotFoundException();
         }
 

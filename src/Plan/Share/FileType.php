@@ -21,5 +21,4 @@ enum FileType: string
             self::Warehouse => 'wh_document',
         };
     }
-
 }

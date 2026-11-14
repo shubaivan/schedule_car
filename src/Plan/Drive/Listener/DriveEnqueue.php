@@ -3,24 +3,25 @@
 namespace App\Plan\Drive\Listener;
 
 use App\Plan\Drive\DriveClientFactory;
-use App\Plan\Drive\DriveSync;
+use App\Plan\Drive\SyncDriveFiles;
 use App\Plan\Event\FileAdded;
 use App\Plan\Event\PlanEvent;
 use App\Plan\EventStore\PlanEventConsumer;
 use App\Plan\EventStore\PlanEventRecorder;
 use App\Plan\Share\FileType;
 use App\Plan\Subject\SubjectType;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
- * Новий файл на Плані — одразу на Диск, не чекаючи крону. Лише у воркері
- * (PLAN_EVENTS_TRANSPORT async): у sync-режимі це був би виклик Google посеред
- * HTTP-запиту людини, тож там файл просто чекає plan:drive-sync (рядок уже
- * pending з дефолту колонки). Збій тут нічого не ламає: файл лишається в черзі.
+ * Новий файл на Плані — на Диск одразу, не чекаючи крону: окреме повідомлення
+ * SyncDriveFiles у транспорт async (завантаження не гальмує решту споживачів подій).
+ * Лише коли події йдуть через воркер (PLAN_EVENTS_TRANSPORT async) і розкладка plan:
+ * у sync-режимі стендів файл просто чекає plan:drive-sync (рядок уже pending).
  */
 final readonly class DriveEnqueue implements PlanEventConsumer
 {
     public function __construct(
-        private DriveSync $sync,
+        private MessageBusInterface $bus,
         private DriveClientFactory $drives,
         private PlanEventRecorder $events,
     ) {
@@ -28,7 +29,7 @@ final readonly class DriveEnqueue implements PlanEventConsumer
 
     public function consume(PlanEvent $event): void
     {
-        if (! $event instanceof FileAdded || $event->fileIds === [] || $this->events->isSync() || ! $this->drives->isPlanLayout()) {
+        if (! $event instanceof FileAdded || $event->fileIds === [] || $this->events->isSync() || ! $this->drives->isPlanLayout() || ! $this->drives->isConfigured()) {
             return;
         }
 
@@ -37,10 +38,9 @@ final readonly class DriveEnqueue implements PlanEventConsumer
             SubjectType::Supply => FileType::Supply,
             default => null,
         };
-        $client = $this->drives->client();
 
-        if ($type !== null && $client !== null) {
-            $this->sync->run($client, count($event->fileIds), only: $type, ids: array_map('intval', $event->fileIds));
+        if ($type !== null) {
+            $this->bus->dispatch(new SyncDriveFiles($type->value, array_values(array_map('intval', $event->fileIds))));
         }
     }
 }

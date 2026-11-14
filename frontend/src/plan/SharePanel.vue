@@ -39,7 +39,8 @@ const notice = ref('')
 const error = ref('')
 const copied = ref(false)
 
-const nativeOk = canShareFiles()
+// Web Share з файлом — для телефона/планшета; на десктопі файл наперед не тягнемо.
+const nativeOk = canShareFiles() && window.matchMedia('(pointer: coarse)').matches
 const nativeFile = ref<File | null>(null)
 const nativeState = ref<'idle' | 'loading' | 'ready' | 'none'>(nativeOk ? 'loading' : 'none')
 
@@ -60,8 +61,12 @@ async function guard(label: string, work: () => Promise<void>) {
     }
 }
 
+let seq = 0
 async function loadPeople() {
-    people.value = (await filesApi.recipients(props.type, props.id, q.value)).people
+    const mine = ++seq
+    const r = await filesApi.recipients(props.type, props.id, q.value)
+    // Відповідь на старіший запит пошуку не перетирає новішу.
+    if (mine === seq) people.value = r.people
 }
 
 let searchTimer = 0

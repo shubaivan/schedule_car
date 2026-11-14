@@ -112,14 +112,15 @@ class ShareService
         return [$link, $token];
     }
 
-    public function canRevoke(TelegramUser $actor, ShareLink $link): bool
+    /** Автор — завжди; адміністратор — лише посилання на файли, які бачить сам. */
+    public function canRevoke(TelegramUser $actor, ShareLink $link, PlanFile $file): bool
     {
-        return $link->getCreatedBy()->getId() === $actor->getId() || self::isAdmin($actor);
+        return $link->getCreatedBy()->getId() === $actor->getId() || (self::isAdmin($actor) && $this->files->canView($actor, $file));
     }
 
     public function revoke(ShareLink $link, TelegramUser $actor, PlanFile $file): void
     {
-        if (! $this->canRevoke($actor, $link)) {
+        if (! $this->canRevoke($actor, $link, $file)) {
             throw new ShareException('Відкликати посилання може його автор або адміністратор.');
         }
 
@@ -213,6 +214,15 @@ class ShareService
     public static function isAdmin(TelegramUser $user): bool
     {
         return $user->isSuperadmin() || $user->getWorkRole() === WorkRole::Admin || $user->getSupplyRole() === SupplyRole::Admin;
+    }
+
+    /**
+     * Сторінка «Диск» показує назви файлів усіх модулів — лише тим, хто й так бачить усе:
+     * суперадмін і адміністратор «Плану» (адмін постачання приватних задач не бачить).
+     */
+    public static function isDriveAdmin(TelegramUser $user): bool
+    {
+        return $user->isSuperadmin() || $user->getWorkRole() === WorkRole::Admin;
     }
 
     public static function hash(string $token): string

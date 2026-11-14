@@ -88,8 +88,14 @@ class PlanFilesController extends AbstractController
     {
         $file = $this->planFile($type, $id, $this->me());
         $safe = in_array($file->mime, self::INLINE_SAFE, true);
+        $response = self::send($this->files, $file, $safe ? ResponseHeaderBag::DISPOSITION_INLINE : ResponseHeaderBag::DISPOSITION_ATTACHMENT);
+        // Фото, відкрите напряму, — у пісочниці. PDF не чіпаємо: Chrome не показує PDF
+        // під CSP sandbox, а його вбудований переглядач і так ізольований.
+        if (str_starts_with($file->mime, 'image/')) {
+            $response->headers->set('Content-Security-Policy', "sandbox; default-src 'none'; img-src 'self'; style-src 'unsafe-inline'");
+        }
 
-        return self::send($this->files, $file, $safe ? ResponseHeaderBag::DISPOSITION_INLINE : ResponseHeaderBag::DISPOSITION_ATTACHMENT);
+        return $response;
     }
 
     /** Кому можна надіслати: співробітники з позначкою, чи є в них доступ до файлу. */
@@ -111,16 +117,12 @@ class PlanFilesController extends AbstractController
             }
 
             $out[] = [...(array) $this->people->person($user), 'canView' => $this->files->canView($user, $file)];
-
-            if (count($out) >= 100) {
-                break;
-            }
         }
 
-        // Ті, кому можна, — вгорі.
+        // Ті, кому можна, — вгорі; обрізаємо вже після сортування, щоб їх не загубити.
         usort($out, static fn (array $a, array $b) => [! $a['canView'], $a['name']] <=> [! $b['canView'], $b['name']]);
 
-        return $this->json(['people' => $out]);
+        return $this->json(['people' => array_slice($out, 0, 100)]);
     }
 
     #[Route('/files/{type}/{id}/share', name: 'api_plan_file_share', methods: ['POST'])]
@@ -151,7 +153,7 @@ class PlanFilesController extends AbstractController
         $me = $this->me();
         $file = $this->planFile($type, $id, $me);
 
-        return $this->json(['links' => array_map(fn (ShareLink $l) => $this->link($l, $me), $this->shares->activeLinks($file, $me))]);
+        return $this->json(['links' => array_map(fn (ShareLink $l) => $this->link($l, $me, $file), $this->shares->activeLinks($file, $me))]);
     }
 
     #[Route('/files/{type}/{id}/links', name: 'api_plan_file_link_create', methods: ['POST'])]
@@ -168,7 +170,7 @@ class PlanFilesController extends AbstractController
 
         // Токен — лише в цій відповіді; у базі його немає (тільки хеш).
         return $this->json([
-            ...$this->link($link, $me),
+            ...$this->link($link, $me, $file),
             'url' => $this->shares->publicUrl($token),
         ], Response::HTTP_CREATED);
     }
@@ -180,13 +182,13 @@ class PlanFilesController extends AbstractController
         $link = $this->shares->linkById($id);
         $file = $link !== null ? $this->files->find($link->getFileType(), $link->getFileId()) : null;
 
-        if ($link === null || $file === null || ! $this->shares->canRevoke($me, $link)) {
+        if ($link === null || $file === null || ! $this->shares->canRevoke($me, $link, $file)) {
             throw $this->createNotFoundException();
         }
 
         $this->shares->revoke($link, $me, $file);
 
-        return $this->json($this->link($link, $me));
+        return $this->json($this->link($link, $me, $file));
     }
 
     /** Віддати вміст файлу (спільне з /s/{token}). */
@@ -221,7 +223,7 @@ class PlanFilesController extends AbstractController
     }
 
     /** @return array<string, mixed> */
-    private function link(ShareLink $l, TelegramUser $me): array
+    private function link(ShareLink $l, TelegramUser $me, PlanFile $file): array
     {
         return [
             'id' => $l->getId(),
@@ -231,7 +233,7 @@ class PlanFilesController extends AbstractController
             'expiresAt' => $l->getExpiresAt()->format(DateTimeInterface::ATOM),
             'revokedAt' => $l->getRevokedAt()?->format(DateTimeInterface::ATOM),
             'downloads' => $l->getDownloads(),
-            'canRevoke' => $this->shares->canRevoke($me, $l),
+            'canRevoke' => $this->shares->canRevoke($me, $l, $file),
         ];
     }
 

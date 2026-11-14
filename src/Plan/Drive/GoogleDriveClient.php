@@ -3,6 +3,7 @@
 namespace App\Plan\Drive;
 
 use Google\Client;
+use Google\Http\MediaFileUpload;
 use Google\Service\Drive;
 use Google\Service\Drive\DriveFile;
 use Google\Service\Exception as GoogleException;
@@ -19,6 +20,9 @@ use Throwable;
 final class GoogleDriveClient implements DriveClient
 {
     private const string FOLDER_MIME = 'application/vnd.google-apps.folder';
+    private const int MULTIPART_MAX = 5 * 1024 * 1024;
+    /** Шматок resumable-завантаження — кратний 256 КБ, як вимагає Google. */
+    private const int CHUNK = 4 * 1024 * 1024;
 
     /** Причини 403, які означають «зачекай», а не «файл поганий». */
     private const array QUOTA_REASONS = ['storageQuotaExceeded', 'quotaExceeded', 'userRateLimitExceeded', 'rateLimitExceeded', 'dailyLimitExceeded'];
@@ -92,10 +96,36 @@ final class GoogleDriveClient implements DriveClient
     public function upload(string $name, string $mime, string $contents, string $parentId, string $planKey): DriveUpload
     {
         return $this->call(function () use ($name, $mime, $contents, $parentId, $planKey): DriveUpload {
-            $file = $this->drive()->files->create(
-                new DriveFile(['name' => $name, 'parents' => [$parentId], 'appProperties' => ['planKey' => $planKey]]),
-                ['data' => $contents, 'mimeType' => $mime, 'uploadType' => 'multipart', 'fields' => 'id,webViewLink'],
-            );
+            $meta = new DriveFile(['name' => $name, 'parents' => [$parentId], 'appProperties' => ['planKey' => $planKey]]);
+
+            // Google радить multipart лише до 5 МБ; більше — resumable шматками, щоб 20 МБ не впирались у таймаут.
+            if (strlen($contents) <= self::MULTIPART_MAX) {
+                $file = $this->drive()->files->create($meta, ['data' => $contents, 'mimeType' => $mime, 'uploadType' => 'multipart', 'fields' => 'id,webViewLink']);
+
+                return new DriveUpload((string) $file->getId(), $file->getWebViewLink());
+            }
+
+            $drive = $this->drive();
+            $client = $drive->getClient();
+            $client->setDefer(true);
+
+            try {
+                /** @var \Psr\Http\Message\RequestInterface $request */
+                $request = $drive->files->create($meta, ['fields' => 'id,webViewLink']);
+                $media = new MediaFileUpload($client, $request, $mime, '', true, self::CHUNK);
+                $media->setFileSize(strlen($contents));
+                $file = false;
+
+                foreach (str_split($contents, self::CHUNK) as $chunk) {
+                    $file = $media->nextChunk($chunk);
+                }
+            } finally {
+                $client->setDefer(false);
+            }
+
+            if (! $file instanceof DriveFile) {
+                throw DriveException::transient('Google не підтвердив завантаження файлу.');
+            }
 
             return new DriveUpload((string) $file->getId(), $file->getWebViewLink());
         });

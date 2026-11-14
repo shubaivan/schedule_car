@@ -4,6 +4,7 @@ namespace App\Tests\Plan\S5;
 
 use App\Plan\Drive\DriveException;
 use App\Plan\Drive\GoogleDriveClient;
+use App\Plan\Share\Entity\ShareLink;
 use App\Plan\Share\ShareService;
 use App\Supply\Enum\SupplyRole;
 use App\Tasks\Enum\WorkRole;
@@ -142,7 +143,11 @@ class ShareApiTest extends WebTestCase
         $this->client->request('GET', '/s/' . $token . '/view');
         self::assertResponseStatusCodeSame(410);
 
-        $this->db->executeStatement("UPDATE share_link SET expires_at = NOW() - INTERVAL '1 minute' WHERE id = ?", [$link['id']]);
+        // Межа строку — у київському настінному часі, як і всі дати в базі.
+        $this->db->executeStatement('UPDATE share_link SET expires_at = ? WHERE id = ?', [ShareLink::now()->modify('+2 minutes')->format('Y-m-d H:i:s'), $link['id']]);
+        $this->client->request('GET', '/s/' . $token);
+        self::assertResponseIsSuccessful('за 2 хвилини до кінця строку ще працює');
+        $this->db->executeStatement('UPDATE share_link SET expires_at = ? WHERE id = ?', [ShareLink::now()->modify('-1 minute')->format('Y-m-d H:i:s'), $link['id']]);
         $this->client->request('GET', '/s/' . $token);
         self::assertResponseStatusCodeSame(410);
         self::assertStringContainsString('Термін дії', (string) $this->client->getResponse()->getContent());
@@ -180,6 +185,51 @@ class ShareApiTest extends WebTestCase
         $this->client->getCookieJar()->clear();
         $this->client->request('GET', '/s/' . $token);
         self::assertResponseStatusCodeSame(410);
+        $this->client->request('GET', '/s/' . $token . '/download');
+        self::assertResponseStatusCodeSame(410);
+        $this->client->request('GET', '/s/' . $token . '/view');
+        self::assertResponseStatusCodeSame(410);
+    }
+
+    /** Адмін постачання не бачить приватної задачі — не відкликає її посилань і не бачить сторінки «Диск». */
+    public function testSupplyAdminCannotTouchPrivateTaskLinks(): void
+    {
+        $author = $this->person(WorkRole::Manager, 'author');
+        $supplyAdmin = $this->person(WorkRole::Production, 'sadmin', SupplyRole::Admin);
+        $file = $this->taskFile($this->task($author, 'Приватна'), $author);
+
+        $this->client->loginUser($author);
+        $link = $this->post('/api/plan/files/task/' . $file->getId() . '/links', []);
+
+        $this->client->loginUser($supplyAdmin);
+        $this->post('/api/plan/share-links/' . $link['id'] . '/revoke', []);
+        self::assertResponseStatusCodeSame(404);
+        self::assertArrayNotHasKey('createdBy', $this->json());
+        self::assertNull($this->db->fetchOne('SELECT revoked_at FROM share_link WHERE id = ?', [$link['id']]));
+        $this->client->request('GET', '/api/plan/drive');
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    public function testDangerousTypesNeverInline(): void
+    {
+        $author = $this->person(WorkRole::Manager, 'author');
+        $task = $this->task($author, 'HTML');
+        $html = $this->taskFile($task, $author, 'x.html', '<script>alert(1)</script>');
+        $svg = $this->taskFile($task, $author, 'y.svg', '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>');
+
+        $this->client->loginUser($author);
+        foreach ([$html, $svg] as $file) {
+            $this->client->request('GET', '/api/plan/files/task/' . $file->getId() . '/inline');
+            self::assertStringStartsWith('attachment', (string) $this->client->getResponse()->headers->get('Content-Disposition'));
+            self::assertSame('nosniff', $this->client->getResponse()->headers->get('X-Content-Type-Options'));
+        }
+
+        $token = substr($this->post('/api/plan/files/task/' . $svg->getId() . '/links', [])['url'], -32);
+        $this->client->getCookieJar()->clear();
+        $this->client->request('GET', '/s/' . $token . '/view');
+        self::assertResponseStatusCodeSame(410, 'SVG прев\'ю картинкою не віддається');
+        $this->client->request('GET', '/s/' . $token . '/download');
+        self::assertStringStartsWith('attachment', (string) $this->client->getResponse()->headers->get('Content-Disposition'));
     }
 
     public function testLinkDiesWhenAuthorLosesAccessOrFileDeleted(): void

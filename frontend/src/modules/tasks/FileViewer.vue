@@ -25,7 +25,7 @@ const emit = defineEmits<{ close: []; change: [id: number] }>()
 const index = ref(Math.max(0, props.files.findIndex((f) => f.id === props.startId)))
 const file = computed(() => props.files[index.value])
 const zoom = ref(false)
-const sharing = ref(!!props.shareOpen)
+const sharing = ref(false)
 useHistoryLayer(sharing)
 const driveUrl = computed(() => (file.value as Attachment & { driveUrl?: string | null }).driveUrl ?? null)
 const pages = computed(() => (file.value?.urls.page && file.value.pages ? Array.from({ length: file.value.pages }, (_, i) => i + 1) : []))
@@ -72,6 +72,9 @@ function touchEnd(e: TouchEvent) {
 }
 
 onMounted(() => {
+    // ?share=1 — відкрити панель уже ПІСЛЯ підписки useHistoryLayer: на телефоні вона
+    // отримує свій крок історії, і «Назад» згортає її, а не закриває сторінку.
+    if (props.shareOpen) sharing.value = true
     document.addEventListener('keydown', onKey)
     document.body.style.overflow = 'hidden'
 })

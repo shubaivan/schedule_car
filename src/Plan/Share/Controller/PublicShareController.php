@@ -57,7 +57,11 @@ class PublicShareController extends AbstractController
         }
 
         $response = PlanFilesController::send($this->files, $file, ResponseHeaderBag::DISPOSITION_ATTACHMENT);
-        $this->shares->recordDownload($link, $file, $request->getClientIp());
+
+        // Лічимо одне повне скачування: HEAD і докачування шматками (Range) — не нові.
+        if ($request->isMethod('GET') && ! $request->headers->has('Range')) {
+            $this->shares->recordDownload($link, $file, $request->getClientIp());
+        }
 
         return $this->guard($response);
     }

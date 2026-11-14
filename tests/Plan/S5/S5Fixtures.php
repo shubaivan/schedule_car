@@ -47,7 +47,12 @@ trait S5Fixtures
         $message = $this->tasks()->post($task, $by, 'файл');
         $path = (string) tempnam(sys_get_temp_dir(), 's5');
         file_put_contents($path, $contents);
-        $mime = str_ends_with($name, '.png') ? 'image/png' : 'text/plain';
+        $mime = match (true) {
+            str_ends_with($name, '.png') => 'image/png',
+            str_ends_with($name, '.html') => 'text/html',
+            str_ends_with($name, '.svg') => 'image/svg+xml',
+            default => 'text/plain',
+        };
 
         return $this->tasks()->attach($message, $by, $path, $name, $mime);
     }

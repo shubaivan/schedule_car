@@ -11,6 +11,7 @@ use DateTimeZone;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Throwable;
 
@@ -20,7 +21,7 @@ use Throwable;
  * Черга — самі таблиці файлів: drive_file_id IS NULL, drive_state = 'pending',
  * drive_next_at настав. Кожен файл:
  * 1) спершу шукаємо на Диску свій файл із тим самим ключем (appProperties.planKey =
- *    task:12) — якщо попередній прогін встиг покласти файл, але не встиг записати
+ *    plan.example.com/task:12 — з хостом стенда) — якщо попередній прогін встиг покласти файл, але не встиг записати
  *    це в базу, другої копії не буде (ідемпотентність);
  * 2) теки «План/<рік>/<розділ>/№… назва» знаходимо або створюємо;
  * 3) однакове ім'я в теці — додаємо « (id)».
@@ -41,6 +42,9 @@ class DriveSync
     /** @var array<string, DriveSource> */
     private array $sources = [];
 
+    /** Чий це стенд (хост APP_BASE_URL) — частина ключа файлу на Диску. */
+    private readonly string $instance;
+
     /**
      * @param iterable<DriveSource> $sources
      */
@@ -50,7 +54,15 @@ class DriveSync
         private readonly LoggerInterface $logger,
         #[AutowireIterator('plan.drive_source')]
         iterable $sources,
+        // Кілька стендів «Плану» з одним OAuth-клієнтом бачать файли один одного
+        // (drive.file — усе, що створив клієнт): task:12 стенда А ≠ task:12 стенда Б.
+        #[Autowire('%env(APP_BASE_URL)%')]
+        string $baseUrl = '',
     ) {
+        $host = (string) parse_url($baseUrl, PHP_URL_HOST);
+        $port = parse_url($baseUrl, PHP_URL_PORT);
+        $this->instance = $host !== '' ? $host . ($port !== null ? ':' . $port : '') : 'plan';
+
         foreach ($sources as $source) {
             $this->sources[$source->type()->value] = $source;
         }
@@ -234,7 +246,8 @@ class DriveSync
         }
 
         try {
-            $existing = $client->findByKey($item->key());
+            $key = $this->instance . '/' . $item->key();
+            $existing = $client->findByKey($key);
 
             if ($existing !== null) {
                 $this->done($type, $id, $existing, $now);
@@ -251,7 +264,7 @@ class DriveSync
             }
 
             $name = $client->nameTaken($item->name, $parent) ? DrivePaths::withId($item->name, $id) : $item->name;
-            $upload = $client->upload($name, $item->mime, $source->read($id), $parent, $item->key());
+            $upload = $client->upload($name, $item->mime, $source->read($id), $parent, $key);
 
             $this->done($type, $id, $upload, $now);
             ++$result->sent;
