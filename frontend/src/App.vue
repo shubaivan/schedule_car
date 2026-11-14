@@ -35,7 +35,8 @@ const FLEET_SECTION = ['schedule', 'fleet']
 const TASKS_SECTION = ['tasks', 'tasks-board', 'task', 'task-full', 'staff', 'tasks-profile', CHRONICLE_ROUTE, SEARCH_ROUTE]
 const section = computed(() => {
     const name = String(route.name)
-    if (TASKS_SECTION.includes(name)) return 'tasks'
+    // Сторінки «Плану» з інших модулів (сповіщення…) позначені meta.shell.
+    if (TASKS_SECTION.includes(name) || route.meta.shell === 'plan') return 'tasks'
     return FLEET_SECTION.includes(name) ? 'fleet' : 'requests'
 })
 const wide = computed(() => section.value === 'tasks')

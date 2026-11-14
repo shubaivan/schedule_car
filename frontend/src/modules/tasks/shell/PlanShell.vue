@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watchEffect } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Icon from './Icon.vue'
 import TaskForm from '../TaskForm.vue'
 import { chronicleTarget, CHRONICLE_ROUTE, searchTarget, SEARCH_ROUTE } from './nav'
 import { useSession } from '../../../app/store'
 import { useChronicleCounts } from '../chronicle'
+import NotificationBell from '../../../plan/notifications/NotificationBell.vue'
+import NotificationsHost from '../../../plan/notifications/NotificationsHost.vue'
 
 /**
  * Оболонка «Плану»: на десктопі вузька ліва панель іконок і верхня смуга 48 px,
@@ -28,19 +30,13 @@ const TITLES: Record<string, string> = {
     [CHRONICLE_ROUTE]: 'Хроніка',
     [SEARCH_ROUTE]: 'Пошук',
 }
-const title = computed(() => TITLES[String(route.name)] ?? 'План')
+const title = computed(() => TITLES[String(route.name)] ?? (route.meta.title as string | undefined) ?? 'План')
 
-/** Скільки задач з новим — бейдж на «Хроніці» (рейка й нижня вкладка) і «(N) План» у вкладці браузера. */
+/** Скільки задач з новим — бейдж на «Хроніці» (рейка й нижня вкладка). «(N) План» у вкладці — непрочитані сповіщення (NotificationsHost). */
 const { counts } = useChronicleCounts()
 const unread = computed(() => counts.value.tasks)
 const badge = computed(() => (unread.value > 99 ? '99+' : String(unread.value)))
-const pageTitle = document.title
-watchEffect(() => {
-    document.title = (unread.value ? `(${badge.value}) ` : '') + 'План'
-})
-onBeforeUnmount(() => {
-    document.title = pageTitle
-})
+const onNotifications = computed(() => String(route.name).startsWith('notifications'))
 
 const me = computed(() => session.user)
 const initials = computed(() => ((me.value?.firstName ?? '').charAt(0) + (me.value?.lastName ?? '').charAt(0)).toUpperCase() || '?')
@@ -86,6 +82,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
             <router-link :to="{ name: 'tasks-board' }" class="p-rail-btn" :class="{ on: route.name === 'tasks-board' && !onChronicle && !onSearch }" title="Дошка"><Icon name="board" /><span>Дошка</span></router-link>
             <router-link :to="chronicleTarget(router)" class="p-rail-btn" :class="{ on: onChronicle }" title="Хроніка"><Icon name="activity" /><span>Хроніка</span><b v-if="unread" class="p-badge" :aria-label="unread + ' задач з новим'">{{ badge }}</b></router-link>
             <router-link :to="searchTarget(router)" class="p-rail-btn" :class="{ on: onSearch }" title="Пошук ( / )"><Icon name="search" /><span>Пошук</span></router-link>
+            <router-link :to="{ name: 'notifications' }" class="p-rail-btn" :class="{ on: onNotifications }" title="Сповіщення" data-testid="rail-bell"><NotificationBell label /></router-link>
             <router-link :to="{ name: 'staff' }" class="p-rail-btn" :class="{ on: route.name === 'staff' }" title="Співробітники"><Icon name="users" /><span>Люди</span></router-link>
             <span class="p-rail-sp" />
             <button type="button" class="p-rail-btn p-rail-new" title="Нова задача ( N )" @click="creating = true"><Icon name="plus" :stroke="2.2" /></button>
@@ -116,6 +113,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
                     </div>
                 </template>
                 <h1 v-else class="p-top-title">{{ title }}</h1>
+                <router-link :to="{ name: 'notifications' }" class="p-icon-btn p-mtop-bell" :class="{ on: onNotifications }" title="Сповіщення" aria-label="Сповіщення" data-testid="mobile-bell"><NotificationBell /></router-link>
                 <router-link :to="{ name: 'staff' }" class="p-icon-btn" title="Співробітники" aria-label="Співробітники"><Icon name="users" /></router-link>
             </header>
 
@@ -133,5 +131,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         </nav>
 
         <TaskForm v-if="creating" @close="creating = false" />
+        <NotificationsHost />
     </div>
 </template>

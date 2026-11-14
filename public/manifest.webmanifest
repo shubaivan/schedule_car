@@ -1,0 +1,16 @@
+{
+    "name": "План · Завод",
+    "short_name": "План",
+    "description": "Задачі, заявки й сповіщення заводу",
+    "lang": "uk",
+    "start_url": "/crm/tasks",
+    "scope": "/crm/",
+    "display": "standalone",
+    "background_color": "#f3f4f6",
+    "theme_color": "#2563eb",
+    "icons": [
+        { "src": "/plan-icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+        { "src": "/plan-icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+        { "src": "/plan-icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    ]
+}
