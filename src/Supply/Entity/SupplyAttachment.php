@@ -19,6 +19,8 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: SupplyAttachmentRepository::class)]
 #[ORM\Table(name: 'supply_attachment')]
 #[ORM\Index(name: 'supply_attachment_request_idx', columns: ['request_id'])]
+// Черга plan:drive-sync — частковий індекс (міграція Version20261115170000).
+#[ORM\Index(name: 'idx_supply_attachment_drive_queue', columns: ['id'], options: ['where' => "((drive_file_id IS NULL) AND ((drive_state)::text = 'pending'::text))"])]
 #[ORM\HasLifecycleCallbacks]
 class SupplyAttachment
 {

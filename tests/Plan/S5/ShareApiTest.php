@@ -72,6 +72,7 @@ class ShareApiTest extends WebTestCase
         self::assertSame('users', $payload['via']);
         self::assertSame('Глянь розміри', $payload['note']);
         self::assertSame([$member->getId()], array_map('intval', $this->db->fetchFirstColumn('SELECT user_id FROM notification WHERE event_id = ?', [$event['id']])));
+        self::assertSame(['share'], $this->db->fetchFirstColumn('SELECT event_group FROM notification WHERE event_id = ?', [$event['id']]));
 
         // Чужий файл не бачить узагалі — ні опису, ні «поділитися».
         $this->client->loginUser($outsider);

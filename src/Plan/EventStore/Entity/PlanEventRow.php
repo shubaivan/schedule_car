@@ -20,6 +20,8 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_plan_event_occurred', columns: ['occurred_at'])]
 #[ORM\Index(name: 'idx_plan_event_actor', columns: ['actor_id', 'id'])]
 #[ORM\Index(name: 'idx_plan_event_type', columns: ['type', 'id'])]
+// AuditThrottle (S6): «та сама людина × тип × суб'єкт за 10 хв» (міграція Version20261115170000).
+#[ORM\Index(name: 'idx_plan_event_dedupe', columns: ['actor_id', 'type', 'subject_type', 'subject_id', 'occurred_at'], options: ['where' => '(actor_id IS NOT NULL)'])]
 class PlanEventRow
 {
     #[ORM\Id]

@@ -6,14 +6,10 @@ use App\Plan\Event\CommentAdded;
 use App\Plan\Event\CommentDeleted;
 use App\Plan\Event\CommentEdited;
 use App\Plan\Event\FileAdded;
-use App\Plan\Event\FileDownloaded;
 use App\Plan\Event\LeadReceived;
-use App\Plan\Event\LoginFailed;
 use App\Plan\Event\PlanEvent;
-use App\Plan\Event\ShareCreated;
+use App\Plan\Event\PlanEventTypes;
 use App\Plan\Event\StockMoved;
-use App\Plan\Event\SubjectViewed;
-use App\Plan\Event\UserLoggedIn;
 use App\Plan\EventStore\PlanEventConsumer;
 use App\Plan\Subject\SubjectType;
 use App\Tasks\Service\TasksSection;
@@ -26,9 +22,6 @@ use App\Tasks\Service\TasksSection;
  */
 final class SearchIndexConsumer implements PlanEventConsumer
 {
-    /** Події, які нічого в документах не змінюють, — не витрачаємо на них запити. */
-    private const IGNORED = [SubjectViewed::class, UserLoggedIn::class, LoginFailed::class, FileDownloaded::class, ShareCreated::class, LeadReceived::class];
-
     public function __construct(private readonly SearchProjector $projector, private readonly TasksSection $plan)
     {
     }
@@ -40,10 +33,9 @@ final class SearchIndexConsumer implements PlanEventConsumer
             return;
         }
 
-        foreach (self::IGNORED as $class) {
-            if ($event instanceof $class) {
-                return;
-            }
+        // Події, які нічого в документах не змінюють (аудит, службові; лід — без документа), — не витрачаємо на них запити.
+        if (PlanEventTypes::isAuditOnly($event) || $event instanceof LeadReceived) {
+            return;
         }
 
         $ref = $event->subject;

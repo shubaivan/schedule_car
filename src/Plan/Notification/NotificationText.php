@@ -4,6 +4,7 @@ namespace App\Plan\Notification;
 
 use App\Plan\Event\ApprovalRequested;
 use App\Plan\Event\CommentAdded;
+use App\Plan\Event\DriveAuthBroken;
 use App\Plan\Event\FileAdded;
 use App\Plan\Event\FileRemoved;
 use App\Plan\Event\ItemCreated;
@@ -12,6 +13,7 @@ use App\Plan\Event\MemberAdded;
 use App\Plan\Event\PlanEvent;
 use App\Plan\Event\PurchaseRecorded;
 use App\Plan\Event\PurchaseRemoved;
+use App\Plan\Event\ShareCreated;
 use App\Plan\Event\StatusEvent;
 use App\Plan\Event\StockMoved;
 use App\Plan\Event\SubjectCreated;
@@ -45,6 +47,8 @@ final class NotificationText
             $event instanceof StockMoved => 'Рух на складі',
             $event instanceof ItemCreated => 'Нова позиція складу',
             $event instanceof LeadReceived => 'Новий лід',
+            $event instanceof ShareCreated => 'Вам поділились файлом',
+            $event instanceof DriveAuthBroken => 'Google Диск відкликав доступ',
             default => 'Оновлення',
         };
 
@@ -57,6 +61,8 @@ final class NotificationText
             $event instanceof StockMoved => $who . self::clip($event->title),
             $event instanceof ItemCreated => $who . self::clip($event->title),
             $event instanceof LeadReceived => self::clip(trim(($event->name ?? '') . ' · ' . ($event->interest ?? ''), ' ·')),
+            $event instanceof ShareCreated => $who . self::clip((string) $event->note),
+            $event instanceof DriveAuthBroken => 'Копіювання на Диск зупинено — потрібен новий токен',
             default => rtrim($who, ': '),
         };
 

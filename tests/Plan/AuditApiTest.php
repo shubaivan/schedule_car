@@ -255,7 +255,7 @@ class AuditApiTest extends WebTestCase
         self::assertSame([$manager->getId(), $other->getId()], array_map(static fn (array $r) => (int) $r['actor_id'], $rows));
         self::assertSame(['task', (int) $task['id']], [$rows[0]['subject_type'], (int) $rows[0]['subject_id']]);
         $payload = json_decode((string) $rows[0]['payload'], true);
-        self::assertEquals(['fileId' => $file['id'], 'fileType' => 'task', 'name' => 'Кошторис.txt'], $payload);
+        self::assertEquals(['fileId' => $file['id'], 'fileType' => 'task', 'name' => 'Кошторис.txt', 'shareLinkId' => null], $payload);
         self::assertSame('web', $rows[0]['channel']);
     }
 

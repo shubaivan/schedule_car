@@ -3,8 +3,6 @@
 namespace App\Plan\Share\Controller;
 
 use App\Entity\TelegramUser;
-use App\Plan\Event\FileDownloaded;
-use App\Plan\EventStore\PlanEventRecorder;
 use App\Plan\Share\Entity\ShareLink;
 use App\Plan\Share\FileType;
 use App\Plan\Share\PlanFile;
@@ -40,7 +38,6 @@ class PlanFilesController extends AbstractController
     public function __construct(
         private readonly PlanFiles $files,
         private readonly ShareService $shares,
-        private readonly PlanEventRecorder $events,
         private readonly TelegramUserRepository $users,
         private readonly TaskPresenter $people,
     ) {
@@ -72,15 +69,10 @@ class PlanFilesController extends AbstractController
     }
 
     #[Route('/files/{type}/{id}/download', name: 'api_plan_file_download', methods: ['GET'])]
-    public function download(string $type, int $id, Request $request): Response
+    public function download(string $type, int $id): Response
     {
-        $me = $this->me();
-        $file = $this->planFile($type, $id, $me);
-        $response = self::send($this->files, $file, ResponseHeaderBag::DISPOSITION_ATTACHMENT);
-
-        $this->events->record((new FileDownloaded($file->subject, $me->getId(), $file->id, $file->type->value, $file->name))->via('web', $request->getClientIp()));
-
-        return $response;
+        // Скачування в журнал аудиту пише FileDownloadAudit (за маршрутом, з 10-хв. зведенням повторів).
+        return self::send($this->files, $this->planFile($type, $id, $this->me()), ResponseHeaderBag::DISPOSITION_ATTACHMENT);
     }
 
     #[Route('/files/{type}/{id}/inline', name: 'api_plan_file_inline', methods: ['GET'])]

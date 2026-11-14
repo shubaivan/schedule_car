@@ -3,7 +3,10 @@
 namespace App\Plan\Notification;
 
 use App\Entity\TelegramUser;
+use App\Plan\Event\DriveAuthBroken;
+use App\Plan\Event\ShareCreated;
 use App\Plan\EventStore\PlanEventStore;
+use App\Plan\Share\FileType;
 use App\Plan\Subject\SubjectRegistry;
 use App\Repository\TelegramUserRepository;
 use DateTimeImmutable;
@@ -147,7 +150,9 @@ final class NotificationInbox
             }
 
             $ref = $event->subject;
-            $known = $this->subjects->has($ref->type);
+            // Службове «Диск відкликав доступ» веде на сторінку Диска, а не до суб'єкта файлу.
+            $system = $event instanceof DriveAuthBroken;
+            $known = ! $system && $this->subjects->has($ref->type);
 
             if ($known && ! $this->subjects->visibleTo($ref, $user)) {
                 continue;
@@ -164,8 +169,14 @@ final class NotificationInbox
                 'group' => $group->value,
                 'important' => $group->important(),
                 'subject' => ['type' => $ref->type->value, 'id' => $ref->id, 'key' => $ref->key()],
-                'title' => $known ? ($this->subjects->title($ref) ?? 'Видалено') : 'План',
-                'url' => $known ? $this->subjects->url($ref) : '/crm/notifications',
+                'title' => $system ? 'Google Диск' : ($known ? ($this->subjects->title($ref) ?? 'Видалено') : 'План'),
+                'url' => match (true) {
+                    $system => '/crm/drive',
+                    // Поділились файлом — одразу сам файл (повноекранний переглядач).
+                    $event instanceof ShareCreated => FileType::tryFrom($event->fileType)?->route($event->fileId) ?? ($known ? $this->subjects->url($ref) : '/crm/notifications'),
+                    $known => $this->subjects->url($ref),
+                    default => '/crm/notifications',
+                },
                 'headline' => $text['headline'],
                 'detail' => $text['detail'],
                 'actor' => $actor !== null ? ['id' => (int) $actor->getId(), 'name' => $actor->shortName()] : null,

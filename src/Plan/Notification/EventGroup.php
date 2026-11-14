@@ -4,6 +4,7 @@ namespace App\Plan\Notification;
 
 use App\Plan\Event\ApprovalRequested;
 use App\Plan\Event\CommentAdded;
+use App\Plan\Event\DriveAuthBroken;
 use App\Plan\Event\FileAdded;
 use App\Plan\Event\FileRemoved;
 use App\Plan\Event\ItemCreated;
@@ -12,6 +13,7 @@ use App\Plan\Event\MemberAdded;
 use App\Plan\Event\PlanEvent;
 use App\Plan\Event\PurchaseRecorded;
 use App\Plan\Event\PurchaseRemoved;
+use App\Plan\Event\ShareCreated;
 use App\Plan\Event\StatusChanged;
 use App\Plan\Event\StockMoved;
 use App\Plan\Event\SubjectClosed;
@@ -42,6 +44,10 @@ enum EventGroup: string
     case Warehouse = 'warehouse';
     /** Новий лід із сайту / AI-бота (важливе; потік SL). */
     case Lead = 'lead';
+    /** Вам поділились файлом (потік S5). */
+    case Share = 'share';
+    /** Службове для суперадміна: Google Диск відкликав доступ (важливе). */
+    case System = 'system';
 
     public static function forEvent(PlanEvent $event): ?self
     {
@@ -53,6 +59,9 @@ enum EventGroup: string
             $event instanceof PurchaseRecorded, $event instanceof PurchaseRemoved => self::Purchase,
             $event instanceof StockMoved, $event instanceof ItemCreated => self::Warehouse,
             $event instanceof LeadReceived => self::Lead,
+            // «Поділитися з людьми» — сповіщення; «посилання /s» (без адресатів) — лише аудит.
+            $event instanceof ShareCreated && $event->userIds !== [] => self::Share,
+            $event instanceof DriveAuthBroken => self::System,
             default => null,
         };
     }
@@ -60,7 +69,7 @@ enum EventGroup: string
     /** Жовтий тост на всю ширину, і в «тихі години» теж видно в застосунку. */
     public function important(): bool
     {
-        return $this === self::Mention || $this === self::Approval || $this === self::Lead;
+        return $this === self::Mention || $this === self::Approval || $this === self::Lead || $this === self::System;
     }
 
     public function label(): string
@@ -74,6 +83,8 @@ enum EventGroup: string
             self::Purchase => 'Закупівлі по заявках',
             self::Warehouse => 'Склад: рухи й нові позиції',
             self::Lead => 'Нові ліди',
+            self::Share => 'Мені поділились файлом',
+            self::System => 'Службове: Google Диск',
         };
     }
 }

@@ -19,6 +19,8 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: TaskAttachmentRepository::class)]
 #[ORM\Table(name: 'task_attachment')]
 #[ORM\Index(columns: ['preview_state'], name: 'idx_task_attachment_preview')]
+// Черга plan:drive-sync — частковий індекс (міграція Version20261115170000).
+#[ORM\Index(name: 'idx_task_attachment_drive_queue', columns: ['id'], options: ['where' => "((drive_file_id IS NULL) AND ((drive_state)::text = 'pending'::text))"])]
 class TaskAttachment
 {
     use DriveSyncState;

@@ -21,4 +21,10 @@ enum FileType: string
             self::Warehouse => 'wh_document',
         };
     }
+
+    /** Сторінка файлу у фронті (повноекранний переглядач): /crm/files/12, /crm/files/supply/5, /crm/files/wh/7. */
+    public function route(int $id): string
+    {
+        return $this === self::Task ? '/crm/files/' . $id : '/crm/files/' . $this->value . '/' . $id;
+    }
 }

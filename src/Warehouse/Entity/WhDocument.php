@@ -22,6 +22,8 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'wh_document_site_idx', columns: ['site_id'])]
 #[ORM\Index(name: 'wh_document_item_idx', columns: ['item_id'])]
 #[ORM\Index(name: 'wh_document_movement_idx', columns: ['movement_id'])]
+// Черга plan:drive-sync — частковий індекс (міграція Version20261115170000).
+#[ORM\Index(name: 'idx_wh_document_drive_queue', columns: ['id'], options: ['where' => "((drive_file_id IS NULL) AND ((drive_state)::text = 'pending'::text))"])]
 #[ORM\HasLifecycleCallbacks]
 class WhDocument
 {

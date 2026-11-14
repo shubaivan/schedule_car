@@ -7,10 +7,12 @@ use App\Plan\Access\PlanAccess;
 use App\Plan\Access\PlanCapability;
 use App\Plan\Event\ApprovalRequested;
 use App\Plan\Event\CommentAdded;
+use App\Plan\Event\DriveAuthBroken;
 use App\Plan\Event\FileAdded;
 use App\Plan\Event\MemberAdded;
 use App\Plan\Event\PlanEvent;
 use App\Plan\Event\PurchaseRecorded;
+use App\Plan\Event\ShareCreated;
 use App\Plan\Notification\Entity\NotificationSetting;
 use App\Plan\Subject\SubjectRegistry;
 use App\Plan\Subject\SubjectType;
@@ -70,7 +72,21 @@ final class AudienceResolver
             }
         };
 
-        if ($type === SubjectType::Lead) {
+        if ($event instanceof DriveAuthBroken) {
+            // Службове — суперадмінам, без перевірки суб'єкта (у тексті лише помилка Диска).
+            $alert = [];
+
+            foreach ($this->superadmins() as $id) {
+                $alert[$id] = new Recipient($id, EventGroup::System, false);
+            }
+
+            return $alert;
+        }
+
+        if ($event instanceof ShareCreated) {
+            // Кому поділились — тим і сповіщення (якщо файл їм видно; автор — ні).
+            $add($event->userIds, $group);
+        } elseif ($type === SubjectType::Lead) {
             $add($this->capable(PlanCapability::LeadsReceive), $group);
         } elseif ($type->isWarehouse()) {
             $add(array_map(static fn (TelegramUser $u) => (int) $u->getId(), array_filter($this->users->findPeople(), WarehouseSection::canManage(...))), $group);
@@ -101,6 +117,12 @@ final class AudienceResolver
         unset($out[(int) $event->actorId]);
 
         return $this->visibleOnly($event, $out);
+    }
+
+    /** @return list<int> */
+    private function superadmins(): array
+    {
+        return array_map('intval', $this->db->fetchFirstColumn('SELECT id FROM telegram_user WHERE is_superadmin AND archived_at IS NULL ORDER BY id'));
     }
 
     /** Подія, яку сервіс явно позначив «без сповіщення» (тиха правка закупівлі, службовий файл). */

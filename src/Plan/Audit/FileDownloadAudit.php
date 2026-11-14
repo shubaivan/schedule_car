@@ -29,16 +29,26 @@ use Throwable;
  * (206) і повтор того самого файлу тією ж людиною за 10 хв зводяться в один рядок
  * (AuditThrottle) — переглядач PDF інакше дав би десяток.
  *
- * Новий маршрут віддачі файлу (S5: /files/:id, /s/{token}) — додати в ROUTES.
+ * Це ЄДИНЕ місце, що пише FileDownloaded для людей у системі: контролери файлів
+ * самі подію не пишуть (інакше дубль). Виняток — скачування за посиланням /s/{token}:
+ * там людина анонімна, подію з shareLinkId і лічильник пише ShareService::recordDownload.
+ * Новий маршрут віддачі файлу — додати в ROUTES.
  */
 final class FileDownloadAudit
 {
-    /** Маршрут → тип файлу в payload. */
+    /**
+     * Маршрут → [тип файлу (null — з параметра маршруту {type}), параметр маршруту з id файлу].
+     *
+     * @var array<string, array{0: ?string, 1: string}>
+     */
     public const array ROUTES = [
-        'api_tasks_file_download' => 'task',
-        'api_tasks_file_inline' => 'task',
-        'api_supply_attachment_download' => 'supply',
-        'wh_document' => 'wh',
+        'api_tasks_file_download' => ['task', 'id'],
+        'api_tasks_file_inline' => ['task', 'id'],
+        'api_supply_attachment_download' => ['supply', 'attachmentId'],
+        'wh_document' => ['wh', 'id'],
+        // S5: /api/plan/files/{type}/{id}/download|inline — файли задач, заявок і складу з «Плану».
+        'api_plan_file_download' => [null, 'id'],
+        'api_plan_file_inline' => [null, 'id'],
     ];
 
     public function __construct(
@@ -58,15 +68,18 @@ final class FileDownloadAudit
         }
 
         $request = $event->getRequest();
-        $fileType = self::ROUTES[(string) $request->attributes->get('_route')] ?? null;
+        $route = self::ROUTES[(string) $request->attributes->get('_route')] ?? null;
         $user = $this->security->getUser();
 
-        if ($fileType === null || ! $user instanceof TelegramUser) {
+        if ($route === null || ! $user instanceof TelegramUser) {
             return;
         }
 
+        $fileType = $route[0] ?? (string) $request->attributes->get('type');
+        $fileId = (int) $request->attributes->get($route[1], 0);
+
         try {
-            $file = $this->resolve($fileType, $request->attributes->all());
+            $file = $this->resolve($fileType, $fileId);
 
             if ($file === null) {
                 return;
@@ -86,25 +99,23 @@ final class FileDownloadAudit
     }
 
     /**
-     * @param array<string, mixed> $attributes атрибути запиту (параметри маршруту)
-     *
      * @return array{0: SubjectRef, 1: int, 2: string}|null суб'єкт, id файлу, ім'я
      */
-    private function resolve(string $fileType, array $attributes): ?array
+    private function resolve(string $fileType, int $id): ?array
     {
         switch ($fileType) {
             case 'task':
-                $file = $this->em->find(TaskAttachment::class, (int) ($attributes['id'] ?? 0));
+                $file = $this->em->find(TaskAttachment::class, $id);
 
                 return $file !== null ? [SubjectRef::task((int) $file->getTask()->getId()), (int) $file->getId(), $file->getOriginalName()] : null;
 
             case 'supply':
-                $file = $this->em->find(SupplyAttachment::class, (int) ($attributes['attachmentId'] ?? 0));
+                $file = $this->em->find(SupplyAttachment::class, $id);
 
                 return $file !== null ? [SubjectRef::supply((int) $file->getRequest()->getId()), (int) $file->getId(), $file->getOriginalName()] : null;
 
-            default:
-                $file = $this->em->find(WhDocument::class, (int) ($attributes['id'] ?? 0));
+            case 'wh':
+                $file = $this->em->find(WhDocument::class, $id);
                 $owner = $file?->getOwner();
 
                 if ($file === null || $owner === null) {
@@ -112,6 +123,9 @@ final class FileDownloadAudit
                 }
 
                 return [SubjectRef::of(SubjectType::fromWarehouse(ActivityLog::typeOf($owner)), (int) $owner->getId()), (int) $file->getId(), $file->getOriginalName()];
+
+            default:
+                return null;
         }
     }
 }

@@ -6,6 +6,7 @@ use App\Plan\Event\ApprovalRequested;
 use App\Plan\Event\CommentAdded;
 use App\Plan\Event\CommentDeleted;
 use App\Plan\Event\CommentEdited;
+use App\Plan\Event\DriveAuthBroken;
 use App\Plan\Event\FileAdded;
 use App\Plan\Event\FileDownloaded;
 use App\Plan\Event\FileRemoved;
@@ -18,6 +19,7 @@ use App\Plan\Event\MentionAdded;
 use App\Plan\Event\PurchaseRecorded;
 use App\Plan\Event\PurchaseRemoved;
 use App\Plan\Event\ShareCreated;
+use App\Plan\Event\ShareRevoked;
 use App\Plan\Event\StatusChanged;
 use App\Plan\Event\StockMoved;
 use App\Plan\Event\SubjectClosed;
@@ -44,9 +46,10 @@ final class AuditCatalog
         'members' => ['label' => 'Учасники', 'types' => [MemberAdded::TYPE, MemberRemoved::TYPE]],
         'file' => ['label' => 'Файли', 'types' => [FileAdded::TYPE, FileRemoved::TYPE]],
         'money' => ['label' => 'Закупівлі й склад', 'types' => [PurchaseRecorded::TYPE, PurchaseRemoved::TYPE, StockMoved::TYPE]],
-        'access' => ['label' => 'Скачування й поширення', 'types' => [FileDownloaded::TYPE, ShareCreated::TYPE]],
+        'access' => ['label' => 'Скачування й поширення', 'types' => [FileDownloaded::TYPE, ShareCreated::TYPE, ShareRevoked::TYPE]],
         'view' => ['label' => 'Перегляди й скани', 'types' => [SubjectViewed::TYPE]],
         'login' => ['label' => 'Входи', 'types' => [UserLoggedIn::TYPE, LoginFailed::TYPE]],
+        'system' => ['label' => 'Службові', 'types' => [DriveAuthBroken::TYPE]],
     ];
 
     /** Тип події → назва в журналі. */
@@ -71,6 +74,8 @@ final class AuditCatalog
         StockMoved::TYPE => 'Рух складу',
         FileDownloaded::TYPE => 'Файл скачано',
         ShareCreated::TYPE => 'Файл поширено',
+        ShareRevoked::TYPE => 'Посилання відкликано',
+        DriveAuthBroken::TYPE => 'Google Диск відкликав доступ',
         SubjectViewed::TYPE => 'Перегляд',
         UserLoggedIn::TYPE => 'Вхід',
         LoginFailed::TYPE => 'Невдалий вхід',

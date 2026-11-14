@@ -5,7 +5,7 @@ namespace App\Plan\Event;
 use App\Plan\Subject\SubjectRef;
 use DateTimeImmutable;
 
-/** Файлом поділились (з людьми в «Плані» або тимчасовим посиланням). Лише аудит. */
+/** Файлом поділились (з людьми в «Плані» — ще й сповіщення адресатам; тимчасовим посиланням — лише аудит). */
 final class ShareCreated extends PlanEvent
 {
     public const string TYPE = 'share_created';

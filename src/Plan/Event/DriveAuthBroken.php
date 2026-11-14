@@ -9,7 +9,7 @@ use DateTimeImmutable;
  * Google відкликав доступ до Диска (invalid_grant): копіювання «Плану» стоїть,
  * доки суперадмін не видасть новий токен і не натисне «Відновити». Пишеться ОДИН
  * раз на поломку (DriveSync), суб'єкт — файл, на якому зламалось. Лише аудит +
- * сповіщення суперадмінам (DriveAuthAlert).
+ * сповіщення суперадмінам (NotificationFanout, група «system»).
  */
 final class DriveAuthBroken extends PlanEvent
 {

@@ -3,6 +3,7 @@
 namespace App\Plan\Chronicle;
 
 use App\Plan\Event\PlanEvent;
+use App\Plan\Event\PlanEventTypes;
 use App\Plan\EventStore\PlanEventConsumer;
 use App\Tasks\Service\TasksSection;
 use Doctrine\DBAL\Connection;
@@ -25,7 +26,7 @@ final class ChronicleProjection implements PlanEventConsumer
         $id = $event->id();
 
         // Хроніка — частина «Плану»; стенди заявок (TASKS_ENABLED=0) її не ведуть.
-        if ($id === null || ! $this->plan->enabled() || ! PlanChronicle::isNews($event::type()) || ! in_array($event->subject->type->value, PlanChronicle::subjectTypes(), true)) {
+        if ($id === null || ! $this->plan->enabled() || PlanEventTypes::isAuditOnly($event) || ! PlanChronicle::isNews($event::type()) || ! in_array($event->subject->type->value, PlanChronicle::subjectTypes(), true)) {
             return;
         }
 
