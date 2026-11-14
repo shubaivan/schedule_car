@@ -53,7 +53,7 @@ final class FileDownloadAudit
     #[AsEventListener(event: KernelEvents::RESPONSE, priority: -64)]
     public function onResponse(ResponseEvent $event): void
     {
-        if (! $event->isMainRequest() || $event->getResponse()->getStatusCode() !== 200) {
+        if (! $event->isMainRequest() || ! $event->getRequest()->isMethod('GET') || $event->getResponse()->getStatusCode() !== 200) {
             return;
         }
 

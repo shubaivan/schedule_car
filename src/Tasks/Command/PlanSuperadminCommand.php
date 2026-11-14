@@ -24,8 +24,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  *     php bin/console plan:superadmin 0671112233 --revoke
  *     php bin/console plan:superadmin --list
  *
- * Людину шукаємо за email (як вхід за паролем) або за останніми 9 цифрами
- * телефону. Кожна зміна пишеться в журнал аудиту (user-N, «Змінено», канал cli).
+ * Видати — лише за email (однозначно); зняти — і за email, і за останніми 9 цифрами
+ * телефону (якщо вони впізнають рівно одну людину). Кожна зміна пишеться в журнал аудиту (user-N, «Змінено», канал cli).
  * Нова роль діє з наступного запиту людини (getRoles() читає прапорець).
  */
 #[AsCommand(name: 'plan:superadmin', description: 'Видати або зняти роль суперадміна «Плану» (журнал аудиту)')]
@@ -74,6 +74,12 @@ class PlanSuperadminCommand extends Command
             return Command::INVALID;
         }
 
+        if ($grant && ! str_contains($login, '@')) {
+            $io->error('Роль видається лише за email — телефон може збігтися в кількох людей.');
+
+            return Command::INVALID;
+        }
+
         $user = $this->find($login);
 
         if ($user === null) {
@@ -109,7 +115,7 @@ class PlanSuperadminCommand extends Command
                 SubjectRef::user((int) $user->getId()),
                 null,
                 fields: ['is_superadmin'],
-                summary: $grant ? 'роль суперадміна видано (plan:superadmin)' : 'роль суперадміна знято (plan:superadmin)',
+                summary: sprintf('роль суперадміна %s (plan:superadmin, користувач ОС: %s)', $grant ? 'видано' : 'знято', self::osUser()),
             ))->via('cli'));
         });
 
@@ -136,6 +142,14 @@ class PlanSuperadminCommand extends Command
         return Command::SUCCESS;
     }
 
+    /** Хто запустив команду — у журналі actor порожній (дія з консолі), тож ім'я йде в summary. */
+    private static function osUser(): string
+    {
+        $user = getenv('SUDO_USER') ?: (getenv('USER') ?: get_current_user());
+
+        return $user !== '' ? $user : '?';
+    }
+
     private function find(string $login): ?TelegramUser
     {
         if (str_contains($login, '@')) {
@@ -144,6 +158,19 @@ class PlanSuperadminCommand extends Command
 
         $digits = preg_replace('/\D+/', '', $login) ?? '';
 
-        return strlen($digits) >= 9 ? $this->users->findOneByPhoneTail(substr($digits, -9)) : null;
+        if (strlen($digits) < 9) {
+            return null;
+        }
+
+        /** @var list<TelegramUser> $matches */
+        $matches = $this->users->createQueryBuilder('u')
+            ->where('u.phone_number LIKE :tail')
+            ->setParameter('tail', '%' . substr($digits, -9))
+            ->setMaxResults(2)
+            ->getQuery()
+            ->getResult();
+
+        // Кілька людей з тим самим хвостом номера — не вгадуємо.
+        return count($matches) === 1 ? $matches[0] : null;
     }
 }

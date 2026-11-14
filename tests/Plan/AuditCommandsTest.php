@@ -75,6 +75,7 @@ class AuditCommandsTest extends KernelTestCase
         self::assertSame(Command::INVALID, $tester->execute(['login' => $user->getEmail()]));
         self::assertSame(Command::INVALID, $tester->execute(['login' => $user->getEmail(), '--grant' => true, '--revoke' => true]));
         self::assertSame(Command::FAILURE, $tester->execute(['login' => 'nobody-' . uniqid() . '@example.test', '--grant' => true]));
+        self::assertSame(Command::INVALID, $tester->execute(['login' => (string) $user->getPhoneNumber(), '--grant' => true]), 'видача — лише за email');
 
         self::assertSame(Command::SUCCESS, $tester->execute(['login' => strtoupper((string) $user->getEmail()), '--grant' => true, '--dry-run' => true]));
         $this->em->refresh($user);
@@ -147,11 +148,36 @@ class AuditCommandsTest extends KernelTestCase
 
         self::assertSame(Command::SUCCESS, $tester->execute(['--batch' => '2']));
         self::assertSame([$ids['login11'], $ids['comment13'], $ids['comment35']], $this->existing($ids));
+        self::assertSame(1, $this->em->getConnection()->fetchOne('SELECT 1 FROM crm_login WHERE id = ?', [$oldLogin->getId()]), 'crm_login — лише з --with-crm-login');
+
+        self::assertSame(Command::SUCCESS, $tester->execute(['--with-crm-login' => true]));
         self::assertFalse($this->em->getConnection()->fetchOne('SELECT 1 FROM crm_login WHERE id = ?', [$oldLogin->getId()]));
         self::assertSame(1, $this->em->getConnection()->fetchOne('SELECT 1 FROM crm_login WHERE id = ?', [$freshLogin->getId()]));
 
         self::assertSame(Command::INVALID, $tester->execute(['--access-months' => '40']));
         self::assertSame(Command::INVALID, $tester->execute(['--batch' => '0']));
+    }
+
+    public function testBackfillDoesNotDuplicateLiveFailedLogin(): void
+    {
+        $user = $this->human('victim', email: 'audit-cmd-' . uniqid() . '@example.test');
+        $failed = new CrmLogin(null, false, 'Invalid credentials.', '10.0.0.9', 'agent', '/crm');
+        $this->em->persist($failed);
+        $this->em->flush();
+        $conn = $this->em->getConnection();
+        $conn->executeStatement("UPDATE crm_login SET at = '2020-01-01 10:00:00' WHERE id = ?", [$failed->getId()]);
+
+        // Живий журнал: невдалий вхід на впізнану людину (user-N); crm_login її не знає (user_id NULL).
+        self::getContainer()->get(PlanEventRecorder::class)->import(new \App\Plan\Event\LoginFailed(
+            SubjectRef::user((int) $user->getId()),
+            null,
+            reason: 'Invalid credentials.',
+            refId: (int) $failed->getId(),
+            at: new DateTimeImmutable('2020-01-01 10:00:01', new DateTimeZone('Europe/Kyiv')),
+        ));
+
+        self::assertSame(Command::SUCCESS, $this->command('plan:events:backfill')->execute([]));
+        self::assertSame(1, (int) $conn->fetchOne("SELECT COUNT(*) FROM plan_event WHERE type = 'login_failed' AND (payload->>'refId')::int = ?", [$failed->getId()]));
     }
 
     public function testRepeatedCardViewsCollapseButScansDoNot(): void

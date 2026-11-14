@@ -84,9 +84,16 @@ class CrmLoginSubscriber implements EventSubscriberInterface
                 CrmLoginLink::safeNext($request->query->get('next')) ?? '/crm',
             );
             $this->em->persist($login);
+            // Спершу crm_login окремо (як і раніше): збій журналу аудиту не має забрати рядок входу.
+            $this->em->flush();
+        } catch (Throwable $e) {
+            $this->logger->warning('crm: вхід не записано в журнал', ['error' => $e->getMessage()]);
 
+            return;
+        }
+
+        try {
             $this->events->transactional(function () use ($login, $user, $success, $reason, $method, $request): void {
-                $this->em->flush();
                 $agent = $login->getUserAgent();
                 $ref = (int) $login->getId();
 
@@ -102,7 +109,9 @@ class CrmLoginSubscriber implements EventSubscriberInterface
                 $this->events->record(new LoginFailed(
                     $known !== null ? SubjectRef::user((int) $known->getId()) : SubjectRef::unknownUser(),
                     null,
-                    name: $typed !== '' ? mb_substr($typed, 0, 120) : null,
+                    // Набраний логін — лише якщо він схожий на логін (email/телефон): у поле логіна
+                    // іноді вводять пароль, і він не має лежати в журналі 12 місяців.
+                    name: $known !== null || self::looksLikeLogin($typed) ? mb_substr($typed, 0, 120) : ($typed !== '' ? '(не схоже на логін)' : null),
                     reason: $reason,
                     userAgent: $agent,
                     refId: $ref,
@@ -110,8 +119,14 @@ class CrmLoginSubscriber implements EventSubscriberInterface
             });
         } catch (Throwable $e) {
             // Журнал — не причина не пустити людину.
-            $this->logger->warning('crm: вхід не записано в журнал', ['error' => $e->getMessage()]);
+            $this->logger->warning('plan: вхід не записано в журнал аудиту', ['error' => $e->getMessage()]);
         }
+    }
+
+    private static function looksLikeLogin(string $typed): bool
+    {
+        return filter_var($typed, FILTER_VALIDATE_EMAIL) !== false ||
+            preg_match('/^\+?[\d\s()-]{9,20}$/', $typed) === 1;
     }
 
     /** Та сама логіка пошуку, що в PasswordLoginAuthenticator: email або хвіст телефону. */

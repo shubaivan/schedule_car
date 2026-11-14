@@ -16,9 +16,12 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 /**
  * Строк зберігання журналу аудиту:
  * - доменні події (створення, статуси, коментарі, файли… — вони ж Хроніка) — 36 міс;
- * - журнал доступу (входи, невдалі входи, скачування, перегляди) — 12 міс;
- *   разом із ним — рядки crm_login того ж віку (там IP і браузер), інакше
- *   plan:events:backfill переніс би видалені входи назад.
+ * - журнал доступу (входи, невдалі входи, скачування, перегляди) — 12 міс.
+ *
+ * --with-crm-login — ще й рядки crm_login того ж віку (там IP і браузер). За
+ * замовчуванням вимкнено: на них тримається «востаннє заходив» у журналі входів
+ * складу. Без цього прапорця повторний plan:events:backfill переніс би видалені
+ * входи назад — його запускають один раз, одразу після migrate.
  *
  * Це єдине місце в коді, що видаляє рядки plan_event. Видаляє порціями
  * (--batch), кожна — окрема коротка транзакція: журнал не блокується надовго.
@@ -41,6 +44,7 @@ final class AuditPruneCommand extends Command
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Лише показати, скільки буде видалено')
             ->addOption('domain-months', null, InputOption::VALUE_REQUIRED, 'Строк для доменних подій, міс', (string) AuditCatalog::DOMAIN_MONTHS)
             ->addOption('access-months', null, InputOption::VALUE_REQUIRED, 'Строк для входів, скачувань і переглядів, міс', (string) AuditCatalog::ACCESS_MONTHS)
+            ->addOption('with-crm-login', null, InputOption::VALUE_NONE, 'Також видалити старі рядки crm_login (за строком журналу доступу)')
             ->addOption('batch', null, InputOption::VALUE_REQUIRED, 'Рядків за одну транзакцію', '5000');
     }
 
@@ -94,10 +98,14 @@ final class AuditPruneCommand extends Command
             $total += $count;
         }
 
-        $logins = $dryRun
-            ? (int) $this->db->fetchOne('SELECT COUNT(*) FROM crm_login WHERE at < :before', ['before' => $accessBefore])
-            : $this->deleteInBatches('crm_login', 'at < :before', ['before' => $accessBefore], [], $batch);
-        $rows[] = [sprintf('crm_login (старші за %s)', $accessBefore), $logins];
+        $logins = 0;
+
+        if ($input->getOption('with-crm-login')) {
+            $logins = $dryRun
+                ? (int) $this->db->fetchOne('SELECT COUNT(*) FROM crm_login WHERE at < :before', ['before' => $accessBefore])
+                : $this->deleteInBatches('crm_login', 'at < :before', ['before' => $accessBefore], [], $batch);
+            $rows[] = [sprintf('crm_login (старші за %s)', $accessBefore), $logins];
+        }
 
         $io->table(['Що', $dryRun ? 'Буде видалено' : 'Видалено'], $rows);
         $io->success(sprintf('%s%d подій журналу і %d рядків crm_login.', $dryRun ? '[dry-run] Буде видалено ' : 'Видалено ', $total, $logins));

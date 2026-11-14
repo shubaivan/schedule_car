@@ -279,7 +279,7 @@ class TasksDemoSeedCommand extends Command
                 }
 
                 foreach (array_unique($readers) as $who) {
-                    if ($task->hasMember($this->people[$who]) || $this->people[$who]->getWorkRole()->seesAllTasks()) {
+                    if ($task->hasMember($this->people[$who]) || $this->people[$who]->seesAllTasks()) {
                         $this->tasks->markRead($task, $this->people[$who]);
                     }
                 }

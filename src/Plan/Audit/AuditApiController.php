@@ -87,6 +87,11 @@ final class AuditApiController extends AbstractController
             return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
 
+        // Довгий експорт не має тримати сесію (інші вкладки чекали б на її блокування).
+        if ($request->hasSession()) {
+            $request->getSession()->save();
+        }
+
         $response = new StreamedResponse(function () use ($filter): void {
             $out = fopen('php://output', 'w');
 

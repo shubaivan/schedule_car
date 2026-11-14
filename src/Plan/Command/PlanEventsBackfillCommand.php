@@ -48,7 +48,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * Безпечно запускати повторно й після того, як журнал уже пишеться наживо:
  * - по кожному джерелу береться лише те, що старіше за першу «живу» подію цього ж
  *   джерела (задачі, заявки, склад, входи — окремо): усе новіше вже записали сервіси.
- *   Входи наживо в S0 ще не пишуться (це S6), тож crm_login переноситься повністю;
+ *   входи наживо пише CrmLoginSubscriber з refId = crm_login.id — вони впізнаються за refId;
  * - найкраще запускати одразу після migrate, до перших дій людей: тоді й id журналу
  *   йдуть у хронологічному порядку;
  * - подія, що вже є в журналі (той самий тип, суб'єкт, refId), вдруге не пишеться.
@@ -321,7 +321,10 @@ final class PlanEventsBackfillCommand extends Command
         foreach ($this->db->fetchAllAssociative(
             "SELECT type, subject_type, subject_id, payload->>'refId' AS ref, occurred_at FROM plan_event",
         ) as $r) {
-            $known[implode('|', [$r['type'], $r['subject_type'], $r['subject_id'], $r['ref'] ?? '', in_array($r['type'], [CommentEdited::TYPE, FileRemoved::TYPE], true) || $r['ref'] === null ? (string) $r['occurred_at'] : ''])] = true;
+            // Входи — лише за refId (= crm_login.id): живий невдалий вхід пишеться на впізнану людину (user-N),
+            // а історія crm_login її не знає (user-0) — суб'єкт тут не має значення.
+            $login = in_array($r['type'], [UserLoggedIn::TYPE, LoginFailed::TYPE], true) && $r['ref'] !== null;
+            $known[implode('|', [$r['type'], $login ? '' : $r['subject_type'], $login ? '' : $r['subject_id'], $r['ref'] ?? '', in_array($r['type'], [CommentEdited::TYPE, FileRemoved::TYPE], true) || $r['ref'] === null ? (string) $r['occurred_at'] : ''])] = true;
         }
 
         return $known;
@@ -373,10 +376,12 @@ final class PlanEventsBackfillCommand extends Command
     {
         $ref = $event->payload()['refId'] ?? null;
 
+        $login = ($event instanceof UserLoggedIn || $event instanceof LoginFailed) && $ref !== null;
+
         return implode('|', [
             $event::type(),
-            $event->subject->type->value,
-            $event->subject->id,
+            $login ? '' : $event->subject->type->value,
+            $login ? '' : $event->subject->id,
             $ref ?? '',
             $event instanceof CommentEdited || $event instanceof FileRemoved || $ref === null ? $event->at->format('Y-m-d H:i:s') : '',
         ]);

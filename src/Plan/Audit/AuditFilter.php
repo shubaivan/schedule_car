@@ -123,7 +123,8 @@ final readonly class AuditFilter
             return null;
         }
 
-        if (preg_match('/^\d{1,18}$/', $value) !== 1) {
+        // id у БД — int4 (події — bigint, але курсору вистачає): більше — 400, а не 500 від PostgreSQL.
+        if (preg_match('/^\d{1,10}$/', $value) !== 1 || (int) $value > 2147483647) {
             throw new InvalidArgumentException(sprintf('Параметр %s: очікується число.', $key));
         }
 
