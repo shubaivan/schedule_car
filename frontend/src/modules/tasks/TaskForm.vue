@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import Avatar from './Avatar.vue'
 import PeoplePicker from './PeoplePicker.vue'
 import Icon from './shell/Icon.vue'
@@ -15,14 +14,17 @@ import { useSession } from '../../app/store'
  * «Створити й відкрити» (Ctrl+Enter) або «Створити». Чернетка нової задачі
  * живе в браузері, поки її не створили або не скасували.
  * Правка існуючої — та сама форма, одразу розгорнута.
+ *
+ * Не модалка: форму показує сторінка (/tasks/new, /tasks/:id/edit — TaskFormPage),
+ * вона ж вирішує, куди йти після збереження чи «Скасувати».
  */
 const props = defineProps<{ task?: TaskDetail | null }>()
-const emit = defineEmits<{ close: []; saved: [TaskDetail] }>()
+/** saved: задача, «відкрити її», попередження (напр. файли не завантажились) — для банера на сторінці задачі. */
+const emit = defineEmits<{ close: []; saved: [task: TaskDetail, open: boolean, warning: string | null] }>()
 
 const DRAFT = 'plan.task-draft'
 const store = useTasks()
 const session = useSession()
-const router = useRouter()
 const meta = ref<TasksMeta | null>(null)
 const busy = ref(false)
 const error = ref('')
@@ -121,18 +123,17 @@ async function save(go: boolean) {
         const saved = props.task ? await tasksApi.update(props.task.id, payload) : await tasksApi.create(payload)
         // Задача вже є: чернетку прибираємо одразу, щоб повтор не створив дубль.
         if (!props.task) dropDraft()
+        let warning: string | null = null
         if (!props.task && files.value.length) {
             try {
                 await tasksApi.post(saved.id, '', files.value, [])
             } catch (e) {
-                window.alert('Задачу створено, але файли не завантажились: ' + session.handle(e) + '\nДодайте їх у чат задачі.')
+                warning = `Задачу створено, але ${files.value.length > 1 ? 'файли' : 'файл'} не завантажились: ${session.handle(e)} Додайте їх у чат задачі ще раз.`
             }
         }
         await store.load(true)
-        emit('saved', saved)
         window.dispatchEvent(new Event(TASK_SAVED))
-        if (!props.task && go) router.push({ name: 'tasks-board', params: { id: saved.id } })
-        emit('close')
+        emit('saved', saved, !props.task && go, warning)
     } catch (e) {
         error.value = session.handle(e)
     } finally {
@@ -156,7 +157,6 @@ function onKey(e: KeyboardEvent) {
 }
 
 onMounted(async () => {
-    document.body.classList.add('p-noscroll')
     try {
         meta.value = await store.load()
     } catch (e) {
@@ -167,15 +167,14 @@ onMounted(async () => {
     await nextTick()
     titleBox.value?.focus()
 })
-onBeforeUnmount(() => document.body.classList.remove('p-noscroll'))
 </script>
 
 <template>
-    <div class="t-modal-wrap p-form-wrap" @click.self="emit('close')" @keydown="onKey">
-        <form class="t-modal p-form" role="dialog" aria-modal="true" aria-labelledby="p-form-title" @submit.prevent="save(!task)">
+    <form class="t-formcard p-form p-form-page" aria-labelledby="p-form-title" @submit.prevent="save(!task)" @keydown="onKey">
             <header>
+                <button type="button" class="p-icon-btn p-form-back" aria-label="Назад" title="Назад (Esc)" @click="emit('close')"><Icon name="back" /></button>
                 <h2 id="p-form-title">{{ task ? 'Редагувати задачу' : 'Нова задача' }}</h2>
-                <button type="button" class="p-icon-btn" aria-label="Закрити" @click="emit('close')"><Icon name="x" /></button>
+                <button type="button" class="p-icon-btn p-form-x" aria-label="Закрити" title="Закрити (Esc)" @click="emit('close')"><Icon name="x" /></button>
             </header>
             <div v-if="meta" class="body">
                 <div v-if="error" class="t-error">{{ error }}</div>
@@ -262,6 +261,5 @@ onBeforeUnmount(() => document.body.classList.remove('p-noscroll'))
                     <button type="submit" class="p-btn primary" :disabled="busy">{{ busy ? 'Створюємо…' : 'Створити й відкрити' }}</button>
                 </template>
             </footer>
-        </form>
-    </div>
+    </form>
 </template>

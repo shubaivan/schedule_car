@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import Avatar from './Avatar.vue'
 import FileViewer from './FileViewer.vue'
 import TaskChat from './TaskChat.vue'
-import TaskForm from './TaskForm.vue'
 import TaskHeader from './TaskHeader.vue'
 import { tasksApi, type TaskDetail, type TasksMeta } from './api'
 import { dueLabel } from './format'
@@ -13,6 +12,8 @@ import { refreshChronicleCounts } from './chronicle'
 import { extClass } from './files'
 import { useTasks } from './store'
 import { useSession } from '../../app/store'
+import { closeLayer, openLayer } from '../../plan/layers'
+import { takeFlash } from '../../plan/flash'
 
 /** embedded — права половина розділеного екрана (кнопка «закрити» замість «← Дошка»). */
 const props = defineProps<{ id: string; embedded?: boolean }>()
@@ -20,13 +21,14 @@ const emit = defineEmits<{ close: [] }>()
 const session = useSession()
 const store = useTasks()
 const route = useRoute()
+const router = useRouter()
 
 const task = ref<TaskDetail | null>(null)
 const meta = ref<TasksMeta | null>(null)
 const error = ref('')
 const notFound = ref(false)
-const viewer = ref<number | null>(null)
-const editing = ref(false)
+/** Банер на сторінці (замість alert): напр. «файли не завантажились» після створення. */
+const banner = ref<string | null>(null)
 const tab = ref<'chat' | 'details' | 'files'>('chat')
 const moving = ref(false)
 /** Права панель (деталі, учасники, файли), коли їй не вистачає місця поруч із чатом. */
@@ -34,6 +36,19 @@ const sideOpen = ref(false)
 const chatRef = ref<InstanceType<typeof TaskChat> | null>(null)
 
 const files = computed(() => task.value?.files ?? [])
+
+/**
+ * Відкритий файл — у адресі (?f=12), не в стані компонента: «Назад» закриває
+ * переглядач, посилання з пошуку відкриває одразу файл, ←/→ міняють ?f= без нових кроків.
+ */
+const viewer = computed(() => {
+    const id = Number(route.query.f)
+    return id && files.value.some((f) => f.id === id) ? id : null
+})
+const openFile = (id: number) => openLayer(router, route, 'f', id)
+const closeFile = () => closeLayer(router, route, 'f')
+const showFile = (id: number) => router.replace({ query: { ...route.query, f: String(id) } })
+const edit = () => task.value && router.push({ name: 'task-edit', params: { id: String(task.value.id) } })
 
 async function load() {
     try {
@@ -46,11 +61,9 @@ async function load() {
         error.value = ''
         notFound.value = false
         tab.value = 'chat'
+        banner.value = takeFlash('task-' + loaded.id)
         // Відкрита задача стала прочитаною — бейдж «Хроніки» оновлюємо одразу.
         refreshChronicleCounts()
-        // Із пошуку по файлах — одразу відкрити файл.
-        const file = Number(route.query.f)
-        viewer.value = file && loaded.files.some((f) => f.id === file) ? file : null
     } catch (e) {
         const msg = session.handle(e)
         if (/40[34]|не учасник/i.test(msg)) notFound.value = true
@@ -100,12 +113,6 @@ async function move(to: string, note?: string) {
     }
 }
 
-function saved(updated: TaskDetail) {
-    updated.readUpTo = task.value?.readUpTo ?? null
-    task.value = updated
-    window.dispatchEvent(new Event(TASK_SAVED))
-}
-
 watch(() => props.id, load)
 onMounted(load)
 </script>
@@ -127,12 +134,13 @@ onMounted(load)
                     :moving="moving"
                     :side-open="sideOpen"
                     @move="move"
-                    @edit="editing = true"
+                    @edit="edit"
                     @close="emit('close')"
                     @side="sideOpen = !sideOpen"
                     @favorite="toggleFavorite"
                 />
 
+                <div v-if="banner" class="t-error p-banner" role="status">{{ banner }} <button type="button" class="p-link" @click="banner = null">Зрозуміло</button></div>
                 <div v-if="error" class="t-error" style="margin: 0 1rem">{{ error }}</div>
                 <div class="t-mobile-tabs">
                     <button type="button" :class="{ on: tab === 'chat' }" @click="tab = 'chat'">💬 Чат</button>
@@ -140,7 +148,7 @@ onMounted(load)
                     <button type="button" :class="{ on: tab === 'files' }" @click="tab = 'files'">📎 Файли · {{ files.length }}</button>
                 </div>
 
-                <TaskChat :key="task.id" ref="chatRef" :task="task" :meta="meta" :hidden="tab !== 'chat'" @open="viewer = $event" @reload="reload" />
+                <TaskChat :key="task.id" ref="chatRef" :task="task" :meta="meta" :hidden="tab !== 'chat'" @open="openFile" @reload="reload" />
             </section>
 
             <aside class="t-side" :class="{ 'hide-mobile': tab === 'chat', open: sideOpen }">
@@ -174,7 +182,7 @@ onMounted(load)
                 <div v-if="tab !== 'details'" class="t-panel">
                     <h2>Файли задачі <span class="count">{{ files.length }}</span></h2>
                     <div v-if="files.length" class="t-gallery">
-                        <button v-for="f in files" :key="f.id" type="button" :title="f.name" @click="viewer = f.id">
+                        <button v-for="f in files" :key="f.id" type="button" :title="f.name" @click="openFile(f.id)">
                             <img v-if="f.urls.thumb" :src="f.urls.thumb" :alt="f.name" loading="lazy" />
                             <span v-else class="ico" :class="extClass(f)">{{ f.ext }}</span>
                             <span v-if="f.kind !== 'image'" class="badge" :class="extClass(f)">{{ f.ext }}</span>
@@ -185,7 +193,6 @@ onMounted(load)
             </aside>
         </div>
 
-        <FileViewer v-if="viewer !== null && task" :files="files" :start-id="viewer" @close="viewer = null" />
-        <TaskForm v-if="editing && task" :task="task" @close="editing = false" @saved="saved" />
+        <FileViewer v-if="viewer !== null && task" :files="files" :start-id="viewer" @close="closeFile" @change="showFile" />
     </div>
 </template>

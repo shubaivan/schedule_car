@@ -2,7 +2,6 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import TaskCard from './TaskCard.vue'
-import TaskForm from './TaskForm.vue'
 import TaskView from './TaskView.vue'
 import Icon from './shell/Icon.vue'
 import { TASK_SAVED, useMobile } from './shell/nav'
@@ -32,7 +31,6 @@ const board = ref<Board | null>(null)
 const q = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const label = ref<number | null>(null)
 const error = ref('')
-const creating = ref(false)
 const filter = ref<HTMLInputElement | null>(null)
 
 const COLUMNS: { key: Column; title: string; color: string; empty: string; status?: boolean }[] = [
@@ -128,8 +126,9 @@ function step(delta: number) {
 
 function onKey(e: KeyboardEvent) {
     const el = e.target as HTMLElement | null
-    if (e.ctrlKey || e.metaKey || e.altKey || creating.value || e.defaultPrevented) return
-    if (document.querySelector('.t-modal-wrap, .t-viewer, .p-menu')) return
+    if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return
+    // Відкритий файл (?f=) сам обробляє Esc і стрілки.
+    if (route.query.f) return
     if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) {
         if (e.key === 'Escape' && el === filter.value) el.blur()
         return
@@ -228,7 +227,7 @@ onBeforeUnmount(() => {
                         <span class="dot" :style="{ background: label === l.id ? '#fff' : l.color }" />{{ l.name }}
                     </button>
                 </div>
-                <button type="button" class="p-btn primary p-new" @click="creating = true"><Icon name="plus" :size="18" :stroke="2.2" /><span>Нова задача</span></button>
+                <router-link :to="{ name: 'tasks-new' }" class="p-btn primary p-new"><Icon name="plus" :size="18" :stroke="2.2" /><span>Нова задача</span></router-link>
             </div>
 
             <div v-if="error" class="t-error">{{ error }}</div>
@@ -280,6 +279,5 @@ onBeforeUnmount(() => {
             <TaskView :key="openId" :id="String(openId)" embedded @close="close" />
         </div>
 
-        <TaskForm v-if="creating" @close="creating = false" />
     </div>
 </template>

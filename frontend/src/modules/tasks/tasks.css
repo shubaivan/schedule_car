@@ -302,12 +302,11 @@
 .t-viewer .nopv .big { width: 90px; height: 110px; border-radius: 10px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 12px; font-weight: 800; }
 
 /* --- модалки --- */
-.t-modal-wrap { position: fixed; inset: 0; z-index: 90; background: rgba(15, 23, 42, .45); display: flex; align-items: flex-start; justify-content: center; padding: 4vh 1rem; overflow-y: auto; animation: t-fade .12s; }
-.t-modal { width: 100%; max-width: 640px; background: var(--surface); border-radius: 16px; box-shadow: var(--t-shadow-lg); display: flex; flex-direction: column; }
-.t-modal header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.2rem; border-bottom: 1px solid var(--border); }
-.t-modal header h2 { margin: 0; font-size: 1.15rem; }
-.t-modal .body { padding: 1.1rem 1.2rem; display: flex; flex-direction: column; gap: .9rem; }
-.t-modal footer { padding: .9rem 1.2rem; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: .5rem; }
+.t-formcard { width: 100%; max-width: 640px; background: var(--surface); border-radius: 16px; box-shadow: var(--t-shadow-lg); display: flex; flex-direction: column; }
+.t-formcard header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.2rem; border-bottom: 1px solid var(--border); }
+.t-formcard header h2 { margin: 0; font-size: 1.15rem; }
+.t-formcard .body { padding: 1.1rem 1.2rem; display: flex; flex-direction: column; gap: .9rem; }
+.t-formcard footer { padding: .9rem 1.2rem; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: .5rem; }
 .t-two { display: grid; grid-template-columns: 1fr 1fr; gap: .9rem; }
 .t-error { color: var(--danger); background: var(--danger-soft); padding: .5rem .75rem; border-radius: 8px; font-size: .9rem; }
 
@@ -391,8 +390,7 @@
     .t-table.responsive td.av { grid-row: span 3; }
     .t-table.responsive td.hide-sm { display: none; }
     .t-doc { max-width: 100%; }
-    .t-modal-wrap { padding: 0; }
-    .t-modal { border-radius: 0; min-height: 100vh; }
+    .t-formcard { border-radius: 0; min-height: calc(100dvh - 48px); }
 }
 
 @media print {

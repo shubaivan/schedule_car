@@ -11,9 +11,14 @@ import './feed.css'
  * Коментар у стрічці задачі — «робочий документ», як у ПланФіксі:
  * цитата відповіді, довгий текст згорнуто («Розгорнути»), файли мініатюрами,
  * хто прочитав (кружки), дії: відповісти, змінити своє, закріпити, ★, видалити.
- * Десктоп — панель дій при наведенні; телефон — довге натискання або «⋯».
+ * Десктоп — панель дій при наведенні; телефон — довге натискання або «⋯»
+ * розкриває рядок дій прямо під повідомленням (без шторки поверх сторінки).
+ * features — які дії має ця стрічка: у заявок немає відповіді з цитатою, закріплення й ★.
  */
-const props = defineProps<{ m: Message; cont: boolean; readers: Person[]; highlighted?: boolean }>()
+const props = withDefaults(
+    defineProps<{ m: Message; cont: boolean; readers: Person[]; highlighted?: boolean; features?: { reply: boolean; pin: boolean; star: boolean } }>(),
+    { highlighted: false, features: () => ({ reply: true, pin: true, star: true }) },
+)
 const emit = defineEmits<{
     reply: [m: Message]
     edit: [m: Message]
@@ -49,6 +54,7 @@ const html = computed(() => {
 })
 
 const readerNames = computed(() => props.readers.map((p) => p.name).join(', '))
+const hasActions = computed(() => props.features.reply || props.features.pin || props.features.star || props.m.can.edit || props.m.can.delete)
 
 async function measure() {
     await nextTick()
@@ -71,8 +77,8 @@ function act(kind: 'reply' | 'edit' | 'pin' | 'star' | 'remove') {
 }
 
 function onContext(e: MouseEvent) {
-    // Довге натискання на телефоні = contextmenu: відкриваємо свій лист дій.
-    if (props.m.deleted || !window.matchMedia('(max-width: 760px), (hover: none)').matches) return
+    // Довге натискання на телефоні = contextmenu: розкриваємо рядок дій під повідомленням.
+    if (props.m.deleted || !hasActions.value || !window.matchMedia('(max-width: 760px), (hover: none)').matches) return
     e.preventDefault()
     sheet.value = true
 }
@@ -108,19 +114,28 @@ onMounted(measure)
                 {{ time(m.createdAt) }}
                 <span v-if="m.mine && !m.deleted" class="f-ticks" :class="{ read: readers.length }" :title="readers.length ? 'Прочитали: ' + readerNames : 'Надіслано'">{{ readers.length ? '✓✓' : '✓' }}</span>
                 <button v-if="readers.length" type="button" class="f-readcount" :title="'Прочитали: ' + readerNames" @click="readList = !readList">👁 {{ readers.length }}</button>
-                <button v-if="!m.deleted" type="button" class="f-dots" aria-label="Дії" @click="sheet = true">⋯</button>
+                <button v-if="!m.deleted && hasActions" type="button" class="f-dots" aria-label="Дії" :aria-expanded="sheet" @click="sheet = !sheet">⋯</button>
             </div>
-            <div v-if="!m.deleted" class="f-actions" role="toolbar" aria-label="Дії з повідомленням">
-                <button type="button" title="Відповісти" @click="act('reply')">↩</button>
+            <div v-if="!m.deleted && hasActions" class="f-actions" role="toolbar" aria-label="Дії з повідомленням">
+                <button v-if="features.reply" type="button" title="Відповісти" @click="act('reply')">↩</button>
                 <button v-if="m.can.edit" type="button" title="Змінити" @click="act('edit')">✎</button>
-                <button type="button" :class="{ on: m.pinned }" :title="m.pinned ? 'Відкріпити' : 'Закріпити'" @click="act('pin')">📌</button>
-                <button type="button" :class="{ on: m.starred }" :title="m.starred ? 'Прибрати з обраного' : 'В обране'" @click="act('star')">{{ m.starred ? '★' : '☆' }}</button>
+                <button v-if="features.pin" type="button" :class="{ on: m.pinned }" :title="m.pinned ? 'Відкріпити' : 'Закріпити'" @click="act('pin')">📌</button>
+                <button v-if="features.star" type="button" :class="{ on: m.starred }" :title="m.starred ? 'Прибрати з обраного' : 'В обране'" @click="act('star')">{{ m.starred ? '★' : '☆' }}</button>
                 <button v-if="m.can.delete" type="button" title="Видалити" @click="act('remove')">🗑</button>
             </div>
-            <div v-if="readList" class="f-backdrop" @click="readList = false" />
-            <div v-if="readList" class="f-readlist" @click="readList = false">
-                <div class="h">Прочитали</div>
+            <!-- Хто прочитав — розкривається під повідомленням, а не спливає поверх. -->
+            <div v-if="readList" class="f-readlist inline">
+                <div class="h">Прочитали <button type="button" class="f-inline-x" aria-label="Згорнути" @click="readList = false">✕</button></div>
                 <div v-for="p in readers" :key="p.id" class="r"><Avatar :person="p" :size="20" /> {{ p.name }}</div>
+            </div>
+            <!-- Телефон: дії з повідомленням рядком під ним (без шторки й затемнення). -->
+            <div v-if="sheet && !m.deleted" class="f-inline-actions" role="toolbar" aria-label="Дії з повідомленням">
+                <button v-if="features.reply" type="button" @click="act('reply')">↩ Відповісти</button>
+                <button v-if="m.can.edit" type="button" @click="act('edit')">✎ Змінити</button>
+                <button v-if="features.pin" type="button" @click="act('pin')">📌 {{ m.pinned ? 'Відкріпити' : 'Закріпити' }}</button>
+                <button v-if="features.star" type="button" @click="act('star')">{{ m.starred ? '★ Прибрати' : '☆ В обране' }}</button>
+                <button v-if="m.can.delete" type="button" class="danger" @click="act('remove')">🗑 Видалити</button>
+                <button type="button" class="cancel" aria-label="Згорнути" @click="sheet = false">✕</button>
             </div>
         </div>
         <button v-if="readers.length" type="button" class="f-readers" :title="'Прочитали: ' + readerNames" @click="readList = !readList">
@@ -128,18 +143,5 @@ onMounted(measure)
             <span v-if="readers.length > 5" class="more">+{{ readers.length - 5 }}</span>
         </button>
 
-        <Teleport to="body">
-            <div v-if="sheet" class="f-sheet-wrap" @click.self="sheet = false">
-                <div class="f-sheet" role="menu">
-                    <div class="f-sheet-quote">{{ m.text.slice(0, 120) || (m.attachments.length ? '📎 ' + m.attachments[0].name : '') }}</div>
-                    <button type="button" role="menuitem" @click="act('reply')">↩ Відповісти</button>
-                    <button v-if="m.can.edit" type="button" role="menuitem" @click="act('edit')">✎ Змінити</button>
-                    <button type="button" role="menuitem" @click="act('pin')">📌 {{ m.pinned ? 'Відкріпити' : 'Закріпити' }}</button>
-                    <button type="button" role="menuitem" @click="act('star')">{{ m.starred ? '★ Прибрати з обраного' : '☆ В обране' }}</button>
-                    <button v-if="m.can.delete" type="button" role="menuitem" class="danger" @click="act('remove')">🗑 Видалити</button>
-                    <button type="button" class="cancel" @click="sheet = false">Скасувати</button>
-                </div>
-            </div>
-        </Teleport>
     </div>
 </template>

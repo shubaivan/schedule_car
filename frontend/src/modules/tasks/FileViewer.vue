@@ -7,16 +7,27 @@ import { extClass, pagesLabel } from './files'
  * Перегляд файлів задачі на весь екран: фото — лайтбокс зі свайпом,
  * PDF і офісні — сторінки одна під одною (як у читалці), решта — скачати.
  * Гортається по всіх файлах задачі; Esc закриває, ←/→ — сусідні.
+ *
+ * Не модалка: відкритий файл живе в адресі (?f=… або /files/:id), тож «Назад»
+ * закриває переглядач. change — показано інший файл (сторінка оновлює ?f= без нового кроку історії).
  */
 const props = defineProps<{ files: Attachment[]; startId: number }>()
-const emit = defineEmits<{ close: [] }>()
+const emit = defineEmits<{ close: []; change: [id: number] }>()
 
 const index = ref(Math.max(0, props.files.findIndex((f) => f.id === props.startId)))
 const file = computed(() => props.files[index.value])
 const zoom = ref(false)
 const pages = computed(() => (file.value?.urls.page && file.value.pages ? Array.from({ length: file.value.pages }, (_, i) => i + 1) : []))
 
-watch(index, () => (zoom.value = false))
+watch(index, () => {
+    zoom.value = false
+    if (file.value && file.value.id !== props.startId) emit('change', file.value.id)
+})
+// «Назад»/«Вперед» між файлами — адреса змінилась, показуємо той файл.
+watch(() => props.startId, (id) => {
+    const i = props.files.findIndex((f) => f.id === id)
+    if (i >= 0 && i !== index.value) index.value = i
+})
 
 function go(step: number) {
     if (props.files.length < 2) return
@@ -54,7 +65,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <div class="t-viewer" role="dialog" aria-modal="true" @click.self="emit('close')">
+    <div class="t-viewer" role="region" aria-label="Перегляд файлу" @click.self="emit('close')">
         <div class="t-viewer-bar">
             <div class="sp">
                 <div class="name">{{ file.name }}</div>
