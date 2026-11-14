@@ -3,6 +3,9 @@
 namespace App\Supply\Service;
 
 use App\Entity\TelegramUser;
+use App\Plan\Event\StatusEvent;
+use App\Plan\EventStore\PlanEventRecorder;
+use App\Plan\Subject\SubjectRef;
 use App\Supply\Entity\SupplyRequest;
 use App\Supply\Entity\SupplyStatusLog;
 use App\Supply\Enum\SupplyStatus;
@@ -13,14 +16,15 @@ use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 
 /**
- * Зміна статусу заявки: перевірка переходу, аудит і сповіщення заявника —
- * усе в одному місці, щоб жоден етап життєвого циклу не пройшов повз автора.
+ * Зміна статусу заявки: перевірка переходу, аудит і подія для сповіщення
+ * заявника — усе в одному місці, щоб жоден етап життєвого циклу не пройшов
+ * повз автора (Telegram шле SupplyNotificationListener).
  */
 class ChangeStatus
 {
     public function __construct(
         private EntityManagerInterface $em,
-        private SupplyNotifier $notifier,
+        private PlanEventRecorder $events,
         private LoggerInterface $logger,
     ) {
     }
@@ -80,7 +84,22 @@ class ChangeStatus
         $request->addStatusLog($log);
 
         $this->em->persist($log);
-        $this->em->flush();
+
+        $this->events->transactional(function () use ($request, $log, $from, $to, $by, $comment): void {
+            $this->em->flush();
+
+            // Одна зміна — один рядок журналу; тип за переходом (погодження / закриття / решта).
+            $this->events->record(StatusEvent::for(
+                SubjectRef::supply((int) $request->getId()),
+                $by?->getId(),
+                $from->value,
+                $to->value,
+                closes: $to->isFinal() || $to === SupplyStatus::Rejected,
+                asksApproval: $to === SupplyStatus::Approval,
+                comment: $comment,
+                refId: $log->getId(),
+            ));
+        });
 
         $this->logger->info('supply: зміна статусу заявки', [
             'number' => $request->getNumber(),
@@ -88,8 +107,6 @@ class ChangeStatus
             'to' => $to->value,
             'by' => $by?->displayName(),
         ]);
-
-        $this->notifier->statusChanged($request, $log);
 
         return $request;
     }

@@ -3,6 +3,9 @@
 namespace App\Supply\Service;
 
 use App\Entity\TelegramUser;
+use App\Plan\Event\SubjectCreated;
+use App\Plan\EventStore\PlanEventRecorder;
+use App\Plan\Subject\SubjectRef;
 use App\Supply\Dto\CreateRequestInput;
 use App\Supply\Entity\SupplyRequest;
 use App\Supply\Entity\SupplyStatusLog;
@@ -26,7 +29,7 @@ class CreateRequest
     public function __construct(
         private EntityManagerInterface $em,
         private SupplyRequestRepository $repository,
-        private SupplyNotifier $notifier,
+        private PlanEventRecorder $events,
         private LoggerInterface $logger,
     ) {
     }
@@ -64,7 +67,7 @@ class CreateRequest
         $this->em->persist($request);
         $this->em->persist($log);
 
-        $this->saveWithNumber($request);
+        $this->saveWithNumber($request, $log);
 
         $this->logger->info('supply: створено заявку', [
             'number' => $request->getNumber(),
@@ -72,8 +75,8 @@ class CreateRequest
             'author' => $author->displayName(),
         ]);
 
-        // Тільки після коміту: інакше при відкоті транзакції піде хибне сповіщення.
-        $this->notifier->requestCreated($request);
+        // Сповіщення заявнику й менеджерам — SupplyNotificationListener на подію
+        // SubjectCreated, лише після коміту (відкат — жодного хибного повідомлення).
 
         return $request;
     }
@@ -84,11 +87,11 @@ class CreateRequest
      * ловити унікальний індекс і повторювати не можна — після помилки Doctrine
      * закриває EntityManager.
      */
-    private function saveWithNumber(SupplyRequest $request): void
+    private function saveWithNumber(SupplyRequest $request, SupplyStatusLog $log): void
     {
         $year = (int) (new DateTime('now', new DateTimeZone('Europe/Kyiv')))->format('Y');
 
-        $this->em->wrapInTransaction(function () use ($request, $year): void {
+        $this->events->transactional(function () use ($request, $log, $year): void {
             $this->em->getConnection()->executeStatement(
                 'SELECT pg_advisory_xact_lock(?)',
                 [self::NUMBER_LOCK_KEY],
@@ -96,6 +99,13 @@ class CreateRequest
 
             $request->setNumber($this->repository->nextNumber($year));
             $this->em->flush();
+
+            $this->events->record(new SubjectCreated(
+                SubjectRef::supply((int) $request->getId()),
+                $request->getAuthor()->getId(),
+                title: sprintf('№ %s · %s', $request->getNumber(), $request->getItem()),
+                refId: $log->getId(),
+            ));
         });
     }
 }

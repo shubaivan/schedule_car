@@ -3,6 +3,9 @@
 namespace App\Supply\Service;
 
 use App\Entity\TelegramUser;
+use App\Plan\Event\CommentAdded;
+use App\Plan\EventStore\PlanEventRecorder;
+use App\Plan\Subject\SubjectRef;
 use App\Supply\Entity\SupplyComment;
 use App\Supply\Entity\SupplyRequest;
 use App\Supply\Exception\SupplyException;
@@ -13,7 +16,7 @@ class AddComment
 {
     public function __construct(
         private EntityManagerInterface $em,
-        private SupplyNotifier $notifier,
+        private PlanEventRecorder $events,
     ) {
     }
 
@@ -38,9 +41,16 @@ class AddComment
         $request->addComment($comment);
 
         $this->em->persist($comment);
-        $this->em->flush();
 
-        $this->notifier->commentAdded($comment);
+        $this->events->transactional(function () use ($request, $comment, $author, $text): void {
+            $this->em->flush();
+            $this->events->record(new CommentAdded(
+                SubjectRef::supply((int) $request->getId()),
+                $author->getId(),
+                refId: (int) $comment->getId(),
+                excerpt: mb_substr($text, 0, 200),
+            ));
+        });
 
         return $comment;
     }

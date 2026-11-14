@@ -3,6 +3,17 @@
 namespace App\Tasks\Service;
 
 use App\Entity\TelegramUser;
+use App\Plan\Event\CommentAdded;
+use App\Plan\Event\CommentDeleted;
+use App\Plan\Event\CommentEdited;
+use App\Plan\Event\FileAdded;
+use App\Plan\Event\MemberAdded;
+use App\Plan\Event\MemberRemoved;
+use App\Plan\Event\StatusEvent;
+use App\Plan\Event\SubjectCreated;
+use App\Plan\Event\SubjectUpdated;
+use App\Plan\EventStore\PlanEventRecorder;
+use App\Plan\Subject\SubjectRef;
 use App\Repository\TelegramUserRepository;
 use App\Supply\Entity\Department;
 use App\Supply\Repository\DepartmentRepository;
@@ -22,10 +33,15 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 /**
  * Усе, що змінює задачу. Контролери лише розбирають запит і кличуть сюди;
- * кожна зміна лишає слід у чаті задачі системним повідомленням.
+ * кожна зміна лишає слід у чаті задачі системним повідомленням і рівно одну
+ * подію в журналі «Плану» (plan_event) — у тій самій транзакції. Telegram шле
+ * TaskNotificationListener за цією подією, не сервіс.
  */
 class TaskService
 {
+    /** Поля задачі, зміна яких — SubjectUpdated::$fields. */
+    private const array FIELDS = ['title', 'description', 'client', 'dueAt', 'labelIds', 'departmentIds', 'memberIds'];
+
     public function __construct(
         private EntityManagerInterface $em,
         private TaskPolicy $policy,
@@ -36,7 +52,7 @@ class TaskService
         private AttachmentStorage $storage,
         private PreviewGenerator $previews,
         private DeferredPreviews $deferred,
-        private TaskNotifier $notifier,
+        private PlanEventRecorder $events,
         private LoggerInterface $logger,
     ) {
     }
@@ -58,12 +74,21 @@ class TaskService
         $task->addMember($author);
 
         $this->em->persist($task);
-        $this->em->persist((new TaskMessage($task, $author, $this->membersLine('створив(ла) задачу', $task), TaskMessage::KIND_EVENT))
-            ->setEventType(TaskMessage::EVENT_CREATED));
-        $this->em->flush();
+        $created = (new TaskMessage($task, $author, $this->membersLine('створив(ла) задачу', $task), TaskMessage::KIND_EVENT))
+            ->setEventType(TaskMessage::EVENT_CREATED);
+        $this->em->persist($created);
+
+        $this->events->transactional(function () use ($task, $author, $created): void {
+            $this->em->flush();
+            $this->events->record(new SubjectCreated(
+                SubjectRef::task((int) $task->getId()),
+                $author->getId(),
+                title: $task->getTitle(),
+                refId: $created->getId(),
+            ));
+        });
 
         $this->logger->info('Task created', ['task' => $task->getId(), 'by' => $author->getId()]);
-        $this->notifier->created($task);
 
         return $task;
     }
@@ -95,21 +120,26 @@ class TaskService
             static fn ($m) => ! in_array($m->getUser()->getId(), $before, true),
         );
 
-        $notifyAdded = [];
+        $after = array_map(static fn ($m) => $m->getUser()->getId(), $task->getMembers()->toArray());
+        $removed = array_values(array_diff($before, $after));
+        $ref = SubjectRef::task((int) $task->getId());
 
         if ($added !== []) {
             $names = implode(', ', array_map(static fn ($m) => $m->getUser()->shortName(), $added));
-            $this->event($task, $user, 'додав(ла) учасників: ' . $names, TaskMessage::EVENT_MEMBERS);
-            $notifyAdded = array_map(static fn ($m) => $m->getUser(), $added);
+            $message = $this->event($task, $user, 'додав(ла) учасників: ' . $names, TaskMessage::EVENT_MEMBERS);
+            $addedIds = array_values(array_map(static fn ($m) => (int) $m->getUser()->getId(), $added));
+            $record = fn () => new MemberAdded($ref, $user->getId(), userIds: $addedIds, refId: $message->getId());
         } else {
-            $this->event($task, $user, 'оновив(ла) задачу', TaskMessage::EVENT_UPDATED);
+            $message = $this->event($task, $user, 'оновив(ла) задачу', TaskMessage::EVENT_UPDATED);
+            $record = $removed !== []
+                ? fn () => new MemberRemoved($ref, $user->getId(), userIds: array_map('intval', $removed), refId: $message->getId())
+                : fn () => new SubjectUpdated($ref, $user->getId(), fields: array_values(array_intersect(array_keys($data), self::FIELDS)), refId: $message->getId());
         }
 
-        $this->em->flush();
-
-        if ($notifyAdded !== []) {
-            $this->notifier->added($task, $notifyAdded, $user);
-        }
+        $this->events->transactional(function () use ($record): void {
+            $this->em->flush();
+            $this->events->record($record());
+        });
 
         return $task;
     }
@@ -124,15 +154,26 @@ class TaskService
 
         $from = $task->getStatus();
         $task->setStatus($to);
-        $this->event($task, $user, sprintf('змінив(ла) статус: %s → %s', $from->label(), $to->label()), $to->isClosed() ? TaskMessage::EVENT_CLOSED : TaskMessage::EVENT_STATUS);
+        $message = $this->event($task, $user, sprintf('змінив(ла) статус: %s → %s', $from->label(), $to->label()), $to->isClosed() ? TaskMessage::EVENT_CLOSED : TaskMessage::EVENT_STATUS);
 
         if ($comment !== null && trim($comment) !== '') {
             $this->em->persist(new TaskMessage($task, $user, trim($comment)));
         }
 
-        $this->em->flush();
+        $this->events->transactional(function () use ($task, $user, $from, $to, $comment, $message): void {
+            $this->em->flush();
+            $this->events->record(StatusEvent::for(
+                SubjectRef::task((int) $task->getId()),
+                $user->getId(),
+                $from->value,
+                $to->value,
+                closes: $to->isClosed(),
+                asksApproval: $to === TaskStatus::Approval,
+                comment: $comment,
+                refId: $message->getId(),
+            ));
+        });
         $this->logger->info('Task status', ['task' => $task->getId(), 'from' => $from->value, 'to' => $to->value, 'by' => $user->getId()]);
-        $this->notifier->statusChanged($task, $from, $user, $comment);
 
         return $task;
     }
@@ -195,16 +236,32 @@ class TaskService
             }
         }
 
-        $this->em->flush();
+        // Повідомлення, файли й подія — одна транзакція: файл не завантажився —
+        // немає ні повідомлення, ні сповіщення про нього.
+        $this->events->transactional(function () use ($task, $author, $message, $files, $text, $mentions): void {
+            $this->em->flush();
 
-        foreach ($files as $file) {
-            $this->attach($message, $author, $file->getPathname(), (string) ($file->getClientOriginalName() ?: $file->getFilename()), (string) ($file->getMimeType() ?: $file->getClientMimeType()));
-        }
+            $attachments = [];
 
-        $task->touch();
-        $this->em->flush();
-        $this->markRead($task, $author);
-        $this->notifier->message($message);
+            foreach ($files as $file) {
+                $attachments[] = $this->attach($message, $author, $file->getPathname(), (string) ($file->getClientOriginalName() ?: $file->getFilename()), (string) ($file->getMimeType() ?: $file->getClientMimeType()));
+            }
+
+            $task->touch();
+            $this->em->flush();
+            $this->markRead($task, $author);
+
+            $ref = SubjectRef::task((int) $task->getId());
+            $this->events->record($text === '' && $attachments !== []
+                ? new FileAdded(
+                    $ref,
+                    $author->getId(),
+                    fileIds: array_map(static fn (TaskAttachment $a) => (int) $a->getId(), $attachments),
+                    names: array_map(static fn (TaskAttachment $a) => $a->getOriginalName(), $attachments),
+                    refId: $message->getId(),
+                )
+                : new CommentAdded($ref, $author->getId(), refId: (int) $message->getId(), excerpt: mb_substr($text, 0, 200), mentions: $mentions, files: count($attachments)));
+        });
 
         return $message;
     }
@@ -245,7 +302,10 @@ class TaskService
         }
 
         $message->delete();
-        $this->em->flush();
+        $this->events->transactional(function () use ($message, $user): void {
+            $this->em->flush();
+            $this->events->record(new CommentDeleted(SubjectRef::task((int) $message->getTask()->getId()), $user->getId(), refId: (int) $message->getId()));
+        });
         $this->logger->info('Task message deleted', ['task' => $message->getTask()->getId(), 'message' => $message->getId(), 'by' => $user->getId()]);
     }
 
@@ -272,7 +332,10 @@ class TaskService
 
         $this->em->persist(new TaskMessageEdit($message, $user, $message->getText()));
         $message->edit($text);
-        $this->em->flush();
+        $this->events->transactional(function () use ($message, $user, $text): void {
+            $this->em->flush();
+            $this->events->record(new CommentEdited(SubjectRef::task((int) $message->getTask()->getId()), $user->getId(), refId: (int) $message->getId(), excerpt: mb_substr($text, 0, 200)));
+        });
 
         return $message;
     }
@@ -415,8 +478,11 @@ class TaskService
             if ($replaceMembers) {
                 foreach ($task->getMembers()->toArray() as $member) {
                     $viaKept = $member->getVia() !== null && $task->getDepartments()->contains($member->getVia());
+                    // Автор лишається завжди: прибрати й одразу додати знову — дві операції над
+                    // одним рядком, і Doctrine вставляє раніше, ніж видаляє (uniq_task_member).
+                    $isCreator = $member->getUser()->getId() === $task->getCreator()->getId();
 
-                    if (! in_array($member->getUser()->getId(), $ids, true) && ! $viaKept) {
+                    if (! in_array($member->getUser()->getId(), $ids, true) && ! $viaKept && ! $isCreator) {
                         $task->removeMember($member->getUser());
                     }
                 }
@@ -463,10 +529,13 @@ class TaskService
         return $date;
     }
 
-    private function event(Task $task, TelegramUser $user, string $text, ?string $type = null): void
+    private function event(Task $task, TelegramUser $user, string $text, ?string $type = null): TaskMessage
     {
-        $this->em->persist((new TaskMessage($task, $user, $text, TaskMessage::KIND_EVENT))->setEventType($type));
+        $message = (new TaskMessage($task, $user, $text, TaskMessage::KIND_EVENT))->setEventType($type);
+        $this->em->persist($message);
         $task->touch();
+
+        return $message;
     }
 
     private function membersLine(string $prefix, Task $task): string

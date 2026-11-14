@@ -3,6 +3,10 @@
 namespace App\Supply\Service;
 
 use App\Entity\TelegramUser;
+use App\Plan\Event\PurchaseRecorded;
+use App\Plan\Event\PurchaseRemoved;
+use App\Plan\EventStore\PlanEventRecorder;
+use App\Plan\Subject\SubjectRef;
 use App\Supply\Dto\PurchaseInput;
 use App\Supply\Entity\SupplyPurchase;
 use App\Supply\Entity\SupplyRequest;
@@ -16,15 +20,15 @@ use Psr\Log\LoggerInterface;
  * Запис факту закупівлі: у кого купили за заявкою і за скільки.
  *
  * Викликається з бота (кнопка «Оплачено» питає постачальника й суму) і з CRM.
- * Окремого сповіщення не шлемо: закупівля йде поруч зі зміною статусу, а її
- * заявнику вже показує SupplyNotifier — інакше на одну дію прилітає два
- * повідомлення.
+ * Коли закупівля йде впритул зі зміною статусу (notify: false), окремого
+ * сповіщення не шлемо: її заявнику вже показує картка статусу — інакше на
+ * одну дію прилітає два повідомлення. Подія в журнал пишеться завжди.
  */
 class RecordPurchase
 {
     public function __construct(
         private EntityManagerInterface $em,
-        private SupplyNotifier $notifier,
+        private PlanEventRecorder $events,
         private LoggerInterface $logger,
     ) {
     }
@@ -49,7 +53,7 @@ class RecordPurchase
         $this->fill($purchase, $input);
 
         $this->em->persist($purchase);
-        $this->em->flush();
+        $this->save($purchase, $by, updated: false, notify: $notify);
 
         $this->logger->info('supply: записано закупівлю', [
             'number' => $request->getNumber(),
@@ -57,10 +61,6 @@ class RecordPurchase
             'total' => $purchase->getTotalAmount(),
             'by' => $by->displayName(),
         ]);
-
-        if ($notify) {
-            $this->notifier->purchaseRecorded($purchase);
-        }
 
         return $purchase;
     }
@@ -70,9 +70,7 @@ class RecordPurchase
         $this->assertManager($by);
         $this->fill($purchase, $input);
 
-        $this->em->flush();
-
-        $this->notifier->purchaseRecorded($purchase, updated: true);
+        $this->save($purchase, $by, updated: true, notify: true);
 
         return $purchase;
     }
@@ -96,17 +94,42 @@ class RecordPurchase
         // повідомленні показувала б скасовану закупівлю.
         $supplier = $purchase->getSupplier()->getName();
         $total = $purchase->getTotalLabel();
+        $purchaseId = $purchase->getId();
 
         $request->removePurchase($purchase);
         $this->em->remove($purchase);
-        $this->em->flush();
+
+        $this->events->transactional(function () use ($request, $by, $supplier, $total, $purchaseId): void {
+            $this->em->flush();
+            $this->events->record(new PurchaseRemoved(
+                SubjectRef::supply((int) $request->getId()),
+                $by->getId(),
+                supplier: $supplier,
+                total: $total,
+                refId: $purchaseId,
+            ));
+        });
 
         $this->logger->info('supply: видалено закупівлю', [
             'number' => $request->getNumber(),
             'by' => $by->displayName(),
         ]);
+    }
 
-        $this->notifier->purchaseRemoved($request, $supplier, $total);
+    private function save(SupplyPurchase $purchase, TelegramUser $by, bool $updated, bool $notify): void
+    {
+        $this->events->transactional(function () use ($purchase, $by, $updated, $notify): void {
+            $this->em->flush();
+            $this->events->record(new PurchaseRecorded(
+                SubjectRef::supply((int) $purchase->getRequest()->getId()),
+                $by->getId(),
+                refId: (int) $purchase->getId(),
+                supplier: $purchase->getSupplier()->getName(),
+                total: $purchase->getTotalLabel(),
+                updated: $updated,
+                notify: $notify,
+            ));
+        });
     }
 
     private function fill(SupplyPurchase $purchase, PurchaseInput $input): void
