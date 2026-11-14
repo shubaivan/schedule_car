@@ -10,14 +10,17 @@ framework:
     # Вхід за паролем — App\Security\PlanLoginRateLimiter (security.yaml → login_throttling).
     rate_limiter:
         plan_login_ip:
+            cache_pool: cache.plan_login_limiter
             policy: fixed_window
             limit: 25
             interval: '15 minutes'
         plan_login_local:
+            cache_pool: cache.plan_login_limiter
             policy: fixed_window
             limit: 5
             interval: '15 minutes'
         plan_login_account:
+            cache_pool: cache.plan_login_limiter
             policy: sliding_window
             limit: 20
             interval: '1 hour'
@@ -27,6 +30,14 @@ framework:
 
 when@test:
     framework:
+        # Усі тести ходять з 127.0.0.1, а навмисні хибні входи кількох прогонів поспіль
+        # за 15 хв вичерпали б ліміт IP. Ліміти на людину (їх і перевіряють тести) — як на проді.
+        rate_limiter:
+            plan_login_ip:
+                cache_pool: cache.plan_login_limiter
+                policy: fixed_window
+                limit: 100000
+                interval: '15 minutes'
         test: true
         session:
             storage_factory_id: session.storage.factory.mock_file
