@@ -2,6 +2,10 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { Attachment } from './api'
 import { extClass, pagesLabel } from './files'
+import SharePanel from '../../plan/SharePanel.vue'
+import { fileTypeOf } from '../../plan/files'
+import { useHistoryLayer } from '../../plan/useHistoryLayer'
+import { typing } from '../../plan/layers'
 
 /**
  * Перегляд файлів задачі на весь екран: фото — лайтбокс зі свайпом,
@@ -10,17 +14,25 @@ import { extClass, pagesLabel } from './files'
  *
  * Не модалка: відкритий файл живе в адресі (?f=… або /files/:id), тож «Назад»
  * закриває переглядач. change — показано інший файл (сторінка оновлює ?f= без нового кроку історії).
+ *
+ * «Поділитися» — панель праворуч (на телефоні — на весь екран поверх файлу) у тій самій
+ * читалці; на телефоні вона — свій крок історії (useHistoryLayer), «Назад» згортає її.
+ * Файли задач, заявок і складу — тип береться з самого Attachment (fileTypeOf).
  */
-const props = defineProps<{ files: Attachment[]; startId: number }>()
+const props = defineProps<{ files: Attachment[]; startId: number; shareOpen?: boolean }>()
 const emit = defineEmits<{ close: []; change: [id: number] }>()
 
 const index = ref(Math.max(0, props.files.findIndex((f) => f.id === props.startId)))
 const file = computed(() => props.files[index.value])
 const zoom = ref(false)
+const sharing = ref(false)
+useHistoryLayer(sharing)
+const driveUrl = computed(() => (file.value as Attachment & { driveUrl?: string | null }).driveUrl ?? null)
 const pages = computed(() => (file.value?.urls.page && file.value.pages ? Array.from({ length: file.value.pages }, (_, i) => i + 1) : []))
 
 watch(index, () => {
     zoom.value = false
+    sharing.value = false
     if (file.value && file.value.id !== props.startId) emit('change', file.value.id)
 })
 // «Назад»/«Вперед» між файлами — адреса змінилась, показуємо той файл.
@@ -35,7 +47,12 @@ function go(step: number) {
 }
 
 function onKey(e: KeyboardEvent) {
-    if (e.key === 'Escape') emit('close')
+    if (e.key === 'Escape') {
+        if (sharing.value) sharing.value = false
+        else emit('close')
+        return
+    }
+    if (typing(e.target)) return
     if (e.key === 'ArrowRight') go(1)
     if (e.key === 'ArrowLeft') go(-1)
 }
@@ -55,6 +72,9 @@ function touchEnd(e: TouchEvent) {
 }
 
 onMounted(() => {
+    // ?share=1 — відкрити панель уже ПІСЛЯ підписки useHistoryLayer: на телефоні вона
+    // отримує свій крок історії, і «Назад» згортає її, а не закриває сторінку.
+    if (props.shareOpen) sharing.value = true
     document.addEventListener('keydown', onKey)
     document.body.style.overflow = 'hidden'
 })
@@ -77,10 +97,13 @@ onBeforeUnmount(() => {
                 </div>
             </div>
             <a v-if="file.kind === 'pdf'" :href="file.urls.inline" target="_blank" rel="noopener">Відкрити</a>
-            <a :href="file.urls.download">⬇ Скачати</a>
+            <a v-if="driveUrl" :href="driveUrl" target="_blank" rel="noopener noreferrer" class="hide-sm">Google Drive</a>
+            <a :href="file.urls.download">⬇ <span class="hide-sm">Скачати</span></a>
+            <button type="button" class="share" :class="{ on: sharing }" :aria-pressed="sharing" @click="sharing = !sharing">↗ <span class="hide-sm">Поділитися</span></button>
             <button type="button" aria-label="Закрити" @click="emit('close')">✕</button>
         </div>
 
+        <div class="t-viewer-body">
         <div class="t-viewer-stage" @touchstart.passive="touchStart" @touchend="touchEnd" @click.self="emit('close')">
             <button v-if="files.length > 1" class="t-nav prev" type="button" aria-label="Попередній" @click="go(-1)">‹</button>
 
@@ -110,6 +133,17 @@ onBeforeUnmount(() => {
 
             <button v-if="files.length > 1" class="t-nav next" type="button" aria-label="Наступний" @click="go(1)">›</button>
         </div>
+        <SharePanel
+            v-if="sharing"
+            :key="'s' + file.id"
+            :type="fileTypeOf(file)"
+            :id="file.id"
+            :name="file.name"
+            :mime="file.mime"
+            :fetch-url="file.urls.inline"
+            @close="sharing = false"
+        />
+        </div>
 
         <div v-if="files.length > 1" class="t-viewer-strip">
             <button v-for="(f, i) in files" :key="f.id" type="button" :class="{ on: i === index }" :title="f.name" @click="index = i">
@@ -119,3 +153,12 @@ onBeforeUnmount(() => {
         </div>
     </div>
 </template>
+
+<style>
+.t-viewer-body { flex: 1; min-height: 0; display: flex; position: relative; }
+.t-viewer-body > .t-viewer-stage { flex: 1; min-width: 0; }
+.t-viewer-bar button.share.on { background: rgba(255, 255, 255, .3); }
+@media (max-width: 760px) {
+    .t-viewer-bar .hide-sm { display: none; }
+}
+</style>

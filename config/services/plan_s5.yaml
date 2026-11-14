@@ -1,0 +1,22 @@
+# «План», потік S5 — Google Диск і «поділитися». Решту реєструє автовайринг
+# (DriveSource / PlanEventConsumer мають #[AutoconfigureTag]).
+parameters:
+    plan_drive_root_folder_default: 'План'
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    # Коренева тека «Плану» на Диску (під GOOGLE_DRIVE_ROOT_FOLDER_ID або «Мій диск»).
+    App\Plan\Drive\DrivePaths:
+        arguments:
+            $rootFolder: '%env(default:plan_drive_root_folder_default:PLAN_DRIVE_ROOT_FOLDER)%'
+
+    # Тести й команда беруть їх напряму.
+    App\Plan\Drive\DriveSync:
+        public: true
+    App\Plan\Share\ShareService:
+        public: true
+    App\Plan\Share\PlanFiles:
+        public: true

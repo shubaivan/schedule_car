@@ -18,6 +18,10 @@ final class ShareCreated extends PlanEvent
         /** @var list<int> */
         public readonly array $userIds = [],
         public readonly ?string $via = null,
+        /** Записка до «поділитися» з людьми (до 500 символів). */
+        public readonly ?string $note = null,
+        /** share_link.id — для посилання /s/{token}. */
+        public readonly ?int $linkId = null,
         ?DateTimeImmutable $at = null,
     ) {
         parent::__construct($subject, $actorId, $at);

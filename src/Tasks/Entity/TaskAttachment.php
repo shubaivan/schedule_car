@@ -3,6 +3,7 @@
 namespace App\Tasks\Entity;
 
 use App\Entity\TelegramUser;
+use App\Plan\Drive\Entity\DriveSyncState;
 use App\Tasks\Repository\TaskAttachmentRepository;
 use DateTime;
 use Doctrine\DBAL\Types\Types;
@@ -20,6 +21,8 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(columns: ['preview_state'], name: 'idx_task_attachment_preview')]
 class TaskAttachment
 {
+    use DriveSyncState;
+
     public const KIND_IMAGE = 'image';
     public const KIND_PDF = 'pdf';
     public const KIND_OFFICE = 'office';
@@ -77,6 +80,13 @@ class TaskAttachment
 
     #[ORM\Column(name: 'created_at', type: Types::DATETIME_MUTABLE)]
     private DateTime $createdAt;
+
+    /** Копія на Google Диску «Плану» (план → Диск, односторонньо; див. App\Plan\Drive\DriveSync). */
+    #[ORM\Column(name: 'drive_file_id', type: 'string', length: 128, nullable: true)]
+    private ?string $driveFileId = null;
+
+    #[ORM\Column(name: 'drive_url', type: 'string', length: 512, nullable: true)]
+    private ?string $driveUrl = null;
 
     public function __construct(TaskMessage $message, ?TelegramUser $uploadedBy, string $originalName, string $mime, int $size, string $sha256, string $kind)
     {
@@ -195,5 +205,15 @@ class TaskAttachment
     {
         return ($this->kind === self::KIND_PDF || $this->kind === self::KIND_OFFICE) &&
             $this->previewState === self::PREVIEW_READY;
+    }
+
+    public function getDriveFileId(): ?string
+    {
+        return $this->driveFileId;
+    }
+
+    public function getDriveUrl(): ?string
+    {
+        return $this->driveUrl;
     }
 }

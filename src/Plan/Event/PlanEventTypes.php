@@ -34,6 +34,8 @@ final class PlanEventTypes
         LoginFailed::class,
         FileDownloaded::class,
         ShareCreated::class,
+        ShareRevoked::class,
+        DriveAuthBroken::class,
         LeadReceived::class,
     ];
 

@@ -4,6 +4,7 @@ namespace App\Supply\Entity;
 
 use App\Entity\EntityTrait\CreatedUpdatedAtAwareTrait;
 use App\Entity\TelegramUser;
+use App\Plan\Drive\Entity\DriveSyncState;
 use App\Supply\Enum\AttachmentType;
 use App\Supply\Repository\SupplyAttachmentRepository;
 use Doctrine\ORM\Mapping as ORM;
@@ -22,6 +23,7 @@ use Doctrine\ORM\Mapping as ORM;
 class SupplyAttachment
 {
     use CreatedUpdatedAtAwareTrait;
+    use DriveSyncState;
 
     #[ORM\Id]
     #[ORM\GeneratedValue]

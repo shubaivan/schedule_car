@@ -4,6 +4,7 @@ namespace App\Warehouse\Entity;
 
 use App\Entity\EntityTrait\CreatedUpdatedAtAwareTrait;
 use App\Entity\TelegramUser;
+use App\Plan\Drive\Entity\DriveSyncState;
 use App\Warehouse\Enum\DocumentType;
 use App\Warehouse\Repository\WhDocumentRepository;
 use Doctrine\ORM\Mapping as ORM;
@@ -25,6 +26,7 @@ use Doctrine\ORM\Mapping as ORM;
 class WhDocument
 {
     use CreatedUpdatedAtAwareTrait;
+    use DriveSyncState;
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
