@@ -14,6 +14,7 @@ import type { FeedSubject } from '../tasks/feedApi'
 import { DECISION_FROM, tone } from './status'
 import { closeLayer, openLayer } from '../../plan/layers'
 import { undoable } from '../../plan/undo'
+import { useHistoryLayer } from '../../plan/useHistoryLayer'
 import './supply.css'
 
 /**
@@ -38,6 +39,8 @@ const busy = ref(false)
 const tab = ref<'chat' | 'details' | 'files'>('chat')
 const sideOpen = ref(false)
 const movesOpen = ref(false)
+// Телефон: «Назад» спершу згортає рядок статусів.
+useHistoryLayer(movesOpen)
 const rejecting = ref(false)
 const reason = ref('')
 const note = ref('')

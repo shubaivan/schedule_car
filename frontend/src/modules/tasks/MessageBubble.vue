@@ -5,6 +5,7 @@ import AttachmentPreview from './AttachmentPreview.vue'
 import type { Message, Person } from './api'
 import { time } from './format'
 import { useTasks } from './store'
+import { useHistoryLayer } from '../../plan/useHistoryLayer'
 import './feed.css'
 
 /**
@@ -35,6 +36,9 @@ const long = ref(false)
 const collapsed = ref(false)
 const sheet = ref(false)
 const readList = ref(false)
+// Телефон: «Назад» спершу згортає рядок дій / список «прочитали», а не закриває задачу.
+useHistoryLayer(sheet)
+useHistoryLayer(readList)
 
 /** ~12 рядків — далі згортаємо. */
 const LIMIT_PX = 270

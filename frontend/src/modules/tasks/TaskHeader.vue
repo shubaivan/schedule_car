@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { useHistoryLayer } from '../../plan/useHistoryLayer'
 import AvatarStack from './AvatarStack.vue'
 import Icon from './shell/Icon.vue'
 import { dueLabel, STATUS_TONE } from './format'
@@ -17,6 +18,8 @@ const emit = defineEmits<{ move: [to: string, note?: string]; edit: []; close: [
 
 const route = useRoute()
 const menu = ref(false)
+// Телефон: «Назад» спершу згортає рядок статусів.
+useHistoryLayer(menu)
 const note = ref('')
 
 const transitions = computed(() => props.task.can.transitions)
