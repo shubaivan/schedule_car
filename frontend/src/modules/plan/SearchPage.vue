@@ -10,7 +10,7 @@ import type { Person } from '../tasks/api'
 import { useSession } from '../../app/store'
 import { planApi, type SearchHit, type SearchMeta, type SearchResponse, type SearchGroup, type SavedSearch } from './api'
 import { go, hrefOf } from './links'
-import { forget, hasFilters, isEmpty, isoDay, parse, recent, remember, ROLES, SEARCH_KEYS, toQuery, toString, type PersonRole, type SearchState } from './searchQuery'
+import { forget, hasFilters, isEmpty, isoDay, parse, recent, remember, ROLES, SEARCH_KEYS, tableView, toQuery, toString, type PersonRole, type SearchState } from './searchQuery'
 import '../tasks/feed.css'
 import './plan-search.css'
 
@@ -102,6 +102,9 @@ async function run(append = false) {
     controller = new AbortController()
     loading.value = true
     const params = new URLSearchParams(toQuery(s))
+    // Сервер типово сортує «за збігом» — сортування передаємо завжди; вигляд (таблиця/список) серверу не потрібен.
+    params.set('sort', s.sort)
+    params.delete('view')
     if (append && result.value) params.set('offset', String(result.value.offset + result.value.hits.length))
     try {
         const r = await planApi.search(params.toString(), controller.signal)
@@ -133,7 +136,9 @@ function scheduleRemember(query: string) {
 }
 
 // Адреса змінилась (фільтр, «Назад», посилання) — шукаємо. Відкриття задачі праворуч (:id, ?m=, ?f=) пошук не перезапускає.
-const searchKey = computed(() => toString(state.value))
+const searchKey = computed(() => toString({ ...state.value, view: 'auto' }))
+// Телефон — завжди список (таблиця на 390 px не читається), на десктопі прецеденти — таблицею.
+const asTable = computed(() => !mobile.value && tableView(state.value))
 watch(searchKey, () => run())
 watch(() => state.value.q, (v) => {
     if (v !== qInput.value.trim()) qInput.value = v
@@ -189,7 +194,7 @@ const chips = computed(() => {
 function reset() {
     qInput.value = ''
     clientInput.value = ''
-    apply({ q: '', types: [], person: null, departments: [], statuses: [], client: '', from: '', to: '', starred: false, sort: 'relevance' })
+    apply({ q: '', types: [], person: null, departments: [], statuses: [], client: '', from: '', to: '', starred: false, sort: 'recent', view: 'auto' })
 }
 
 // Фасет «статус»: обрані — завжди в списку (навіть з нулем), згруповані за типом.
@@ -520,9 +525,13 @@ onBeforeUnmount(() => {
                         <span class="sp" />
                         <button type="button" class="t-btn small s-panel-btn" :aria-expanded="panelOpen" @click="togglePanel">Фільтри<template v-if="chips.length"> · {{ chips.length }}</template></button>
                         <select class="t-select s-sort" aria-label="Сортування" :value="state.sort" @change="apply({ sort: ($event.target as HTMLSelectElement).value as SearchState['sort'] })">
-                            <option value="relevance">За збігом</option>
                             <option value="recent">Новіші</option>
+                            <option value="relevance">За збігом</option>
                         </select>
+                        <div class="s-view" role="group" aria-label="Вигляд">
+                            <button type="button" :class="{ on: !asTable }" :aria-pressed="!asTable" title="Список" data-testid="view-list" @click="apply({ view: 'list' }, 'replace')">☰</button>
+                            <button type="button" :class="{ on: asTable }" :aria-pressed="asTable" title="Таблиця" data-testid="view-table" @click="apply({ view: 'table' }, 'replace')">▦</button>
+                        </div>
                     </div>
 
                     <div v-if="isEmpty(state) && recents.length" class="s-recent">
@@ -538,7 +547,24 @@ onBeforeUnmount(() => {
                     <h3 v-if="isEmpty(state) && hits.length" class="s-latest">Останні зміни</h3>
                     <div v-else-if="result && !result.total && !loading" class="f-empty-hint">Нічого не знайдено<template v-if="state.q"> за «{{ state.q }}»</template>. <button v-if="hasFilters(state)" type="button" class="s-link" @click="reset">Скинути фільтри</button></div>
 
-                    <div ref="list" class="s-list" role="listbox" aria-label="Результати">
+                    <div v-if="asTable && hits.length" class="s-table-wrap">
+                        <table class="s-table" data-testid="search-table">
+                            <thead>
+                                <tr><th>Тип</th><th>Назва</th><th>Контрагент</th><th>Статус</th><th>Автор</th><th>Дата</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="(h, i) in hits" :key="h.id" :class="{ sel: i === sel, open: h.subject.type === 'task' && h.subject.id === openId }" @click="onClick($event, h, i)">
+                                    <td class="k">{{ GROUP_ICON[h.group] }} {{ h.docLabel }}</td>
+                                    <td class="t"><a :href="hitHref(h)" @click.stop="onClick($event, h, i)"><template v-for="(p, k) in h.title" :key="k"><mark v-if="p.m">{{ p.t }}</mark><template v-else>{{ p.t }}</template></template></a></td>
+                                    <td>{{ h.client ?? '' }}</td>
+                                    <td><span v-if="h.statusLabel" class="s-status" :class="{ closed: h.closed }">{{ h.statusLabel }}</span></td>
+                                    <td>{{ h.author?.name ?? '' }}</td>
+                                    <td class="d">{{ fmt(h.at) }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div v-show="!asTable" ref="list" class="s-list" role="listbox" aria-label="Результати">
                         <a
                             v-for="(h, i) in hits"
                             :key="h.id"

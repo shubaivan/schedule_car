@@ -18,7 +18,10 @@ export interface SearchState {
     from: string
     to: string
     starred: boolean
+    /** Типово «Новіші»; «За збігом» — лише коли людина обрала (UX: прецеденти шукають за датою). */
     sort: 'relevance' | 'recent'
+    /** Вигляд результатів: auto — таблиця для «прецедентів» (фільтр без слова), інакше список. */
+    view: 'auto' | 'list' | 'table'
 }
 
 export const ROLES: { key: PersonRole; label: string }[] = [
@@ -29,7 +32,7 @@ export const ROLES: { key: PersonRole; label: string }[] = [
 ]
 
 /** Ключі адреси, що належать пошуку (решта — відкрита праворуч задача, панель тощо). */
-export const SEARCH_KEYS = ['q', 'type', 'person', 'author', 'executor', 'manager', 'department', 'status', 'client', 'from', 'to', 'starred', 'sort']
+export const SEARCH_KEYS = ['q', 'type', 'person', 'author', 'executor', 'manager', 'department', 'status', 'client', 'from', 'to', 'starred', 'sort', 'view']
 
 const GROUPS: SearchGroup[] = ['task', 'supply', 'warehouse', 'comment', 'file', 'person']
 
@@ -63,7 +66,8 @@ export function parse(query: LocationQuery): SearchState {
         from: DATE.test(one(query.from)) ? one(query.from) : '',
         to: DATE.test(one(query.to)) ? one(query.to) : '',
         starred: one(query.starred) === '1',
-        sort: one(query.sort) === 'recent' ? 'recent' : 'relevance',
+        sort: one(query.sort) === 'relevance' ? 'relevance' : 'recent',
+        view: one(query.view) === 'list' || one(query.view) === 'table' ? (one(query.view) as 'list' | 'table') : 'auto',
     }
 }
 
@@ -79,7 +83,8 @@ export function toQuery(s: SearchState): Record<string, string> {
     if (s.from) out.from = s.from
     if (s.to) out.to = s.to
     if (s.starred) out.starred = '1'
-    if (s.sort === 'recent') out.sort = 'recent'
+    if (s.sort === 'relevance') out.sort = 'relevance'
+    if (s.view !== 'auto') out.view = s.view
     return out
 }
 
@@ -89,6 +94,11 @@ export function toString(s: SearchState): string {
 
 export function hasFilters(s: SearchState): boolean {
     return !!(s.types.length || s.person || s.departments.length || s.statuses.length || s.client.trim() || s.from || s.to || s.starred)
+}
+
+/** Таблиця — для «усіх прецедентів»: є фільтр (людина, відділ, контрагент…), але немає слова. */
+export function tableView(s: SearchState): boolean {
+    return s.view === 'table' || (s.view === 'auto' && hasFilters(s) && s.q.trim().length < 2)
 }
 
 export function isEmpty(s: SearchState): boolean {
