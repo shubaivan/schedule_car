@@ -125,7 +125,7 @@ class TaskApiController extends TasksController
         $stats = $this->tasks->dashboardStats($me);
         $news = $chronicle->counts($me);
 
-        return $this->json([
+        return self::compact($this->json([
             'stats' => [
                 'mine' => $stats['mine'],
                 'overdue' => $stats['overdue'],
@@ -143,7 +143,7 @@ class TaskApiController extends TasksController
             'recent' => array_map($item, $recent),
             'supply' => $overview->supply($me),
             'warehouse' => $overview->warehouse($me),
-        ]);
+        ]));
     }
 
     /**
@@ -180,10 +180,20 @@ class TaskApiController extends TasksController
         $last = $this->messages->lastComments($ids);
         $files = $this->attachments->statsByTask($ids);
 
-        return $this->json(array_map(
-            fn (array $tasks) => array_map(fn (Task $t) => $this->presenter->listItem($t, $unread, $last, $files), $tasks),
-            $columns,
-        ));
+        // Та сама задача в кількох колонках — одна презентація; кирилиця без \uXXXX
+        // (DB-perf #4: відповідь дошки була 0.5–0.6 МБ, удвічі більша через екранування).
+        $memo = [];
+        $item = function (Task $t) use (&$memo, $unread, $last, $files): array {
+            return $memo[(int) $t->getId()] ??= $this->presenter->listItem($t, $unread, $last, $files);
+        };
+
+        return self::compact($this->json(array_map(static fn (array $tasks) => array_map($item, $tasks), $columns)));
+    }
+
+    /** JSON без екранування кирилиці — у 2–3 рази менше байтів для українського тексту. */
+    private static function compact(JsonResponse $response): JsonResponse
+    {
+        return $response->setEncodingOptions($response->getEncodingOptions() | JSON_UNESCAPED_UNICODE);
     }
 
     #[Route('', name: 'api_tasks_create', methods: ['POST'])]

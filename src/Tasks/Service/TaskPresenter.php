@@ -47,6 +47,24 @@ class TaskPresenter
         ];
     }
 
+    /**
+     * Коротко для аватара в списках: ім'я, ініціали, колір, посада (підказка).
+     *
+     * @return array{id: ?int, name: string, initials: string, color: string, position: ?string}|null
+     */
+    public function brief(?TelegramUser $user): ?array
+    {
+        $full = $this->person($user);
+
+        return $full === null ? null : [
+            'id' => $full['id'],
+            'name' => $full['name'],
+            'initials' => $full['initials'],
+            'color' => $full['color'],
+            'position' => $full['position'],
+        ];
+    }
+
     /** @return array<string, mixed> */
     public function label(TaskLabel $label): array
     {
@@ -73,8 +91,11 @@ class TaskPresenter
      *
      * @return array<string, mixed>
      */
-    public function listItem(Task $task, array $unread = [], array $last = [], array $files = []): array
+    public function listItem(Task $task, array $unread = [], array $last = [], array $files = [], bool $brief = true): array
     {
+        // Картки дошки й «Огляду»: людина — лише те, що малює аватар (DB-perf #4: дошка
+        // повторює ті самі обличчя в кожній картці, повний профіль їй не потрібен).
+        $who = $brief ? $this->brief(...) : $this->person(...);
         $members = $task->getMembers()->toArray();
         $message = $last[$task->getId()] ?? null;
 
@@ -90,8 +111,8 @@ class TaskPresenter
             'labels' => array_map($this->label(...), $task->getLabels()->toArray()),
             'dueAt' => $this->date($task->getDueAt()),
             'overdue' => $task->isOverdue(),
-            'creator' => $this->person($task->getCreator()),
-            'members' => array_map(fn ($m) => $this->person($m->getUser()), array_slice($members, 0, 6)),
+            'creator' => $who($task->getCreator()),
+            'members' => array_map(fn ($m) => $who($m->getUser()), array_slice($members, 0, 6)),
             'membersCount' => count($members),
             'departmentNames' => $this->departmentNames($task),
             'fileStats' => $files[$task->getId()] ?? ['count' => 0, 'pdf' => 0, 'images' => 0],
@@ -130,7 +151,7 @@ class TaskPresenter
         }
 
         return [
-            ...$this->listItem($task),
+            ...$this->listItem($task, brief: false),
             'description' => $task->getDescription(),
             'members' => array_map(fn ($m) => [
                 ...$this->person($m->getUser()),
