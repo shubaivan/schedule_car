@@ -2,10 +2,13 @@
 
 namespace App;
 
+use SergiX44\Nutgram\Nutgram;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
+use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpKernel\Kernel as BaseKernel;
 
-class Kernel extends BaseKernel
+class Kernel extends BaseKernel implements CompilerPassInterface
 {
     use MicroKernelTrait;
 
@@ -21,6 +24,20 @@ class Kernel extends BaseKernel
         date_default_timezone_set('Europe/Kyiv');
 
         parent::boot();
+    }
+
+    /**
+     * Бот створюється лише тоді, коли ним справді користуються.
+     *
+     * Nutgram з порожнім TELEGRAM_TOKEN кидає виняток уже в конструкторі, а його
+     * впроваджено в сповіщувачі, які тягне TaskService, — без цього стенд без бота
+     * («План» до вибору бота) падав би 500 на кожному запиті до задач.
+     */
+    public function process(ContainerBuilder $container): void
+    {
+        if ($container->hasDefinition(Nutgram::class)) {
+            $container->getDefinition(Nutgram::class)->setLazy(true);
+        }
     }
 
     /**

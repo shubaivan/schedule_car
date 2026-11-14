@@ -22,7 +22,14 @@ class TelegramWebhookController extends AbstractController
         Request $request,
         #[Autowire('%env(TELEGRAM_WEBHOOK_SECRET)%')]
         string $secret,
+        #[Autowire('%env(string:TELEGRAM_TOKEN)%')]
+        string $token,
     ): Response {
+        // Стенд без бота (TELEGRAM_TOKEN порожній): вебхука просто нема.
+        if ($token === '') {
+            return new Response('', Response::HTTP_NOT_FOUND);
+        }
+
         if ($secret !== '' && ! hash_equals($secret, (string) $request->headers->get('X-Telegram-Bot-Api-Secret-Token'))) {
             return new Response('', Response::HTTP_FORBIDDEN);
         }

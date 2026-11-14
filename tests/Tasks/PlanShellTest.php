@@ -104,6 +104,19 @@ class PlanShellTest extends WebTestCase
         self::assertSame(0, $this->card($byDepartment['id'])['fileStats']['count']);
     }
 
+    public function testRootOpensThePlanWhenItIsTheHome(): void
+    {
+        $home = self::getContainer()->get(\App\Controller\HomeController::class);
+
+        $plan = $home->index('testbot', new \App\Tasks\Service\TasksSection(true, 'tasks'));
+        self::assertSame(302, $plan->getStatusCode());
+        self::assertSame('/crm/tasks', $plan->headers->get('Location'));
+
+        // Стенд заявок (CRM_HOME=requests) і вимкнений План — як і було, титулка заявок.
+        self::assertSame(200, $home->index('testbot', new \App\Tasks\Service\TasksSection(true, 'requests'))->getStatusCode());
+        self::assertSame(200, $home->index('testbot', new \App\Tasks\Service\TasksSection(false, 'tasks'))->getStatusCode());
+    }
+
     public function testDemoSeedRefusesOnDatabaseWithLivePeople(): void
     {
         $this->user(WorkRole::Manager, 'live');

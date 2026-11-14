@@ -40,7 +40,9 @@ const section = computed(() => {
 })
 const wide = computed(() => section.value === 'tasks')
 
-onMounted(() => session.load())
+// Обірваний запит /api/meta (пішли зі сторінки, мережа зникла) — не необроблений reject у консолі;
+// сесію, що скінчилась, store обробляє сам (expired).
+onMounted(() => session.load().catch((e) => console.warn('session.load', e)))
 
 // CRM_HOME=tasks: стенд «робочого місця» відкривається з задач, а не з заявок.
 watch(

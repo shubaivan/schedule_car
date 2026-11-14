@@ -12,6 +12,7 @@ use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Properties\ParseMode;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardMarkup;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Throwable;
 
@@ -35,6 +36,9 @@ class TaskNotifier
         private TelegramUserRepository $users,
         private UrlGeneratorInterface $urls,
         private LoggerInterface $logger,
+        /** Порожній — бота на стенді ще нема: сповіщення мовчки пропускаємо. */
+        #[Autowire('%env(string:TELEGRAM_TOKEN)%')]
+        private ?string $token = null,
     ) {
     }
 
@@ -133,7 +137,7 @@ class TaskNotifier
 
     private function send(TelegramUser $user, string $text, Task $task): void
     {
-        if (! self::reachable($user)) {
+        if ($this->token === '' || ! self::reachable($user)) {
             return;
         }
 
