@@ -13,6 +13,7 @@ const TasksHome = () => import('../modules/tasks/TasksHome.vue')
 const TaskBoard = () => import('../modules/tasks/TaskBoard.vue')
 const TaskView = () => import('../modules/tasks/TaskView.vue')
 const StaffPage = () => import('../modules/tasks/StaffPage.vue')
+const ProfilePage = () => import('../modules/tasks/shell/ProfilePage.vue')
 
 export const router = createRouter({
     history: createWebHistory('/crm/'),
@@ -26,8 +27,12 @@ export const router = createRouter({
         { path: '/fleet', name: 'fleet', component: FleetPage },
         { path: '/schedule', name: 'schedule', component: SchedulePage },
         { path: '/tasks', name: 'tasks', component: TasksHome },
-        { path: '/tasks/board', name: 'tasks-board', component: TaskBoard },
-        { path: '/tasks/:id(\\d+)', name: 'task', component: TaskView, props: true },
+        // Розділений екран: дошка зліва, відкрита задача справа (на телефоні — на весь екран).
+        { path: '/tasks/board/:id(\\d+)?', name: 'tasks-board', component: TaskBoard },
+        // Старі посилання (Telegram, «Огляд») відкривають задачу на дошці; окрема сторінка — /tasks/:id/full.
+        { path: '/tasks/:id(\\d+)', name: 'task', redirect: (to) => ({ name: 'tasks-board', params: { id: to.params.id }, query: to.query }) },
+        { path: '/tasks/:id(\\d+)/full', name: 'task-full', component: TaskView, props: true },
+        { path: '/me', name: 'tasks-profile', component: ProfilePage },
         { path: '/staff', name: 'staff', component: StaffPage },
         { path: '/:pathMatch(.*)*', redirect: '/' },
     ],

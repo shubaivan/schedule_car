@@ -20,6 +20,10 @@ export interface ApiUser {
     tasks?: boolean
     /** Лише в /api/me: з якого розділу відкривати CRM — requests | tasks. */
     home?: string
+    /** Лише в /api/me: роль у «Плані» (задачах) — її й показуємо в шапці Плану. */
+    workRole?: string
+    workRoleLabel?: string
+    position?: string | null
     /** Лише в /api/me: розділ «Автопарк» ввімкнено. */
     fleet?: boolean
 }

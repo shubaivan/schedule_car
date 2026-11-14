@@ -34,6 +34,10 @@ class MetaApiController extends AbstractController
             // Розділ «Задачі» і з чого відкривати CRM (CRM_HOME).
             'tasks' => $tasks->enabled(),
             'home' => $tasks->home(),
+            // У «Плані» людина — «Менеджер з продажу», а не роль із заявок («Робітник»).
+            'workRole' => $user->getWorkRole()->value,
+            'workRoleLabel' => $user->getWorkRole()->label(),
+            'position' => $user->getPosition(),
             'fleet' => $fleet->isEnabled(),
         ]);
     }

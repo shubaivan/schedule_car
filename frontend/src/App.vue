@@ -2,7 +2,10 @@
 import { computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSession } from './app/store'
+import PlanShell from './modules/tasks/shell/PlanShell.vue'
+import { CHRONICLE_ROUTE, SEARCH_ROUTE } from './modules/tasks/shell/nav'
 import './modules/tasks/tasks.css'
+import './modules/tasks/shell/plan.css'
 
 const session = useSession()
 const route = useRoute()
@@ -29,7 +32,7 @@ const allowed = computed(() => {
 
 /** Розділ, у якому людина зараз: від нього залежить нижній ряд меню. */
 const FLEET_SECTION = ['schedule', 'fleet']
-const TASKS_SECTION = ['tasks', 'tasks-board', 'task', 'staff']
+const TASKS_SECTION = ['tasks', 'tasks-board', 'task', 'task-full', 'staff', 'tasks-profile', CHRONICLE_ROUTE, SEARCH_ROUTE]
 const section = computed(() => {
     const name = String(route.name)
     if (TASKS_SECTION.includes(name)) return 'tasks'
@@ -51,7 +54,7 @@ watch(
 </script>
 
 <template>
-    <div class="layout" :class="{ wide }">
+    <div class="layout" :class="{ wide, plan: section === 'tasks' && session.ready && !session.expired }">
         <div v-if="session.expired" class="center">
             <p>Сесія завершилась.</p>
             <p class="muted">Відкрийте бота, натисніть «🔐 Вхід у CRM» і перейдіть за новим посиланням.</p>
@@ -59,6 +62,11 @@ watch(
         </div>
 
         <div v-else-if="!session.ready" class="center">Завантаження…</div>
+
+        <!-- «План» (задачі) — своя оболонка: ліва панель / нижні вкладки. -->
+        <PlanShell v-else-if="section === 'tasks'">
+            <router-view />
+        </PlanShell>
 
         <template v-else>
             <!--
@@ -68,7 +76,7 @@ watch(
             -->
             <header class="topbar">
                 <nav class="sections">
-                    <router-link v-if="session.user?.tasks" :to="{ name: 'tasks' }" :class="{ on: section === 'tasks' }">✅ Задачі</router-link>
+                    <router-link v-if="session.user?.tasks" :to="{ name: 'tasks' }">✅ Задачі</router-link>
                     <router-link :to="{ name: 'requests' }" :class="{ on: section === 'requests' }">📦 Заявки</router-link>
                     <router-link v-if="session.user?.fleet !== false" :to="{ name: 'schedule' }" :class="{ on: section === 'fleet' }">🚗 Автопарк</router-link>
                     <a v-if="session.user?.warehouse" href="/sklad">🏗 Склад</a>
@@ -80,12 +88,7 @@ watch(
                 </span>
             </header>
             <nav class="subnav">
-                <template v-if="section === 'tasks'">
-                    <router-link :to="{ name: 'tasks' }" exact-active-class="router-link-active" active-class="">Огляд</router-link>
-                    <router-link :to="{ name: 'tasks-board' }">Дошка</router-link>
-                    <router-link :to="{ name: 'staff' }">Співробітники</router-link>
-                </template>
-                <template v-else-if="section === 'requests'">
+                <template v-if="section === 'requests'">
                     <router-link :to="{ name: 'requests' }" active-class="" exact-active-class="router-link-active">Заявки</router-link>
                     <template v-if="session.isManager()">
                         <router-link :to="{ name: 'suppliers' }">Постачальники</router-link>

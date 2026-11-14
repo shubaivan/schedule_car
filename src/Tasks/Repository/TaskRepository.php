@@ -126,6 +126,8 @@ class TaskRepository extends ServiceEntityRepository
             ->leftJoin('t.creator', 'c')->addSelect('c')
             ->leftJoin('t.members', 'm')->addSelect('m')
             ->leftJoin('m.user', 'mu')->addSelect('mu')
+            ->leftJoin('mu.department', 'md')->addSelect('md')
+            ->leftJoin('t.departments', 'd')->addSelect('d')
             ->andWhere('t.id IN (:ids)')->setParameter('ids', $ids)
             ->getQuery()->getResult();
 
