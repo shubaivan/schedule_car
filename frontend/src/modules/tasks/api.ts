@@ -74,6 +74,9 @@ export interface TaskItem {
     creator: Person
     members: Person[]
     membersCount: number
+    /** Відділи-виконавці для картки: «3. Відділ продажу». */
+    departmentNames: string[]
+    fileStats: { count: number; pdf: number; images: number }
     unread: number
     lastActivityAt: string
     createdAt: string
