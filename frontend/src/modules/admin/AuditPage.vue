@@ -248,6 +248,7 @@ onBeforeUnmount(() => {
                 <button type="button" class="t-btn small ghost a-filters-btn" :aria-expanded="filtersOpen" @click="filtersOpen = !filtersOpen">
                     Фільтри<b v-if="activeCount" class="a-count">{{ activeCount }}</b>
                 </button>
+                <router-link class="t-btn small ghost" :to="{ name: 'drive-status' }" title="Стан копіювання файлів на Google Диск">Google Диск</router-link>
                 <a class="t-btn small ghost" :href="csvHref" download :title="'CSV, до ' + (meta?.csvMax ?? 50000).toLocaleString('uk-UA') + ' рядків за поточними фільтрами'">Експорт CSV</a>
             </div>
 

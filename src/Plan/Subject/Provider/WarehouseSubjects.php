@@ -7,6 +7,7 @@ use App\Plan\Subject\SubjectProvider;
 use App\Plan\Subject\SubjectRef;
 use App\Plan\Subject\SubjectType;
 use App\Repository\TelegramUserRepository;
+use App\Tasks\Service\TasksSection;
 use App\Warehouse\Entity\WhCategory;
 use App\Warehouse\Entity\WhClient;
 use App\Warehouse\Entity\WhItem;
@@ -32,6 +33,7 @@ final class WarehouseSubjects implements SubjectProvider
         private readonly EntityManagerInterface $em,
         private readonly TelegramUserRepository $users,
         private readonly UrlGeneratorInterface $urls,
+        private readonly ?TasksSection $plan = null,
     ) {
     }
 
@@ -49,6 +51,14 @@ final class WarehouseSubjects implements SubjectProvider
 
     public function url(SubjectRef $ref): string
     {
+        // «План» (CRM_HOME=tasks): позиції й рухи відкриваються у Vue-складі оболонки;
+        // стенди заявок і решта суб'єктів — у Twig-складі /sklad, як і раніше.
+        if ($this->plan?->home() === 'tasks' && in_array($ref->type, [SubjectType::WhItem, SubjectType::WhMovement], true)) {
+            $path = $ref->type === SubjectType::WhItem ? 'sklad/items/' : 'sklad/movements/';
+
+            return $this->urls->generate('crm_index', ['path' => $path . $ref->id]);
+        }
+
         return match ($ref->type) {
             SubjectType::WhItem => $this->urls->generate('wh_item', ['id' => $ref->id]),
             SubjectType::WhMovement => $this->urls->generate('wh_movement', ['id' => $ref->id]),

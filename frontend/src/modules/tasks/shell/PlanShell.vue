@@ -9,6 +9,7 @@ import NotificationBell from '../../../plan/notifications/NotificationBell.vue'
 import NotificationsHost from '../../../plan/notifications/NotificationsHost.vue'
 import { typing } from '../../../plan/layers'
 import { canSeeAdmin } from '../../admin/access'
+import { WAREHOUSE_FULLSCREEN, WAREHOUSE_SPLIT } from '../../warehouse/routes'
 
 /**
  * Оболонка «Плану» — один продукт: задачі, заявки, склад, люди.
@@ -40,8 +41,8 @@ const canAdmin = computed(() => canSeeAdmin(me.value))
 
 const name = computed(() => String(route.name))
 /** Сторінки-вікна (форма, файл) і відкрита праворуч картка — на телефоні на весь екран. */
-const FULLSCREEN = ['tasks-new', 'task-edit', 'supply-new', 'staff-new', 'staff-card', 'file', 'task-full', 'supply-full']
-const SPLIT = ['tasks-board', CHRONICLE_ROUTE, SEARCH_ROUTE, 'supply-board']
+const FULLSCREEN = ['tasks-new', 'task-edit', 'supply-new', 'staff-new', 'staff-card', 'file', 'task-full', 'supply-full', 'file-typed', ...WAREHOUSE_FULLSCREEN]
+const SPLIT = ['tasks-board', CHRONICLE_ROUTE, SEARCH_ROUTE, 'supply-board', ...WAREHOUSE_SPLIT]
 const fullscreen = computed(() => FULLSCREEN.includes(name.value) || (SPLIT.includes(name.value) && !!route.params.id))
 
 const onChronicle = computed(() => name.value === CHRONICLE_ROUTE || (name.value === 'tasks-board' && route.query.view === 'chronicle'))
@@ -50,11 +51,12 @@ const onTasks = computed(() => ['tasks-board', 'task-full', 'tasks-new', 'task-e
 const onSupply = computed(() => name.value.startsWith('supply-'))
 const onStaff = computed(() => name.value.startsWith('staff'))
 const onAdmin = computed(() => name.value.startsWith('admin'))
-const onMore = computed(() => ['tasks-profile', 'warehouse'].includes(name.value) || onNotifications.value || onAdmin.value || onStaff.value)
+const onWarehouse = computed(() => name.value.startsWith('warehouse'))
+const onMore = computed(() => onWarehouse.value || name.value === 'tasks-profile' || onNotifications.value || onAdmin.value || onStaff.value)
 
-/** «＋» створює те, де людина зараз: у заявках — заявку, деінде — задачу. */
-const newTarget = computed(() => (onSupply.value ? { name: 'supply-new' } : { name: 'tasks-new' }))
-const newLabel = computed(() => (onSupply.value ? 'Нова заявка ( N )' : 'Нова задача ( N )'))
+/** «＋» створює те, де людина зараз: у заявках — заявку, на складі — рух, деінде — задачу. */
+const newTarget = computed(() => (onSupply.value ? { name: 'supply-new' } : onWarehouse.value ? { name: 'warehouse-movement-new' } : { name: 'tasks-new' }))
+const newLabel = computed(() => (onSupply.value ? 'Нова заявка ( N )' : onWarehouse.value ? 'Новий рух ( N )' : 'Нова задача ( N )'))
 
 function search() {
     router.push(searchTarget(router, q.value.trim()))
@@ -87,7 +89,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
             <router-link :to="chronicleTarget(router)" class="p-rail-btn" :class="{ on: onChronicle }" title="Хроніка"><Icon name="activity" /><span>Хроніка</span><b v-if="unread" class="p-badge" :aria-label="unread + ' задач з новим'">{{ badge }}</b></router-link>
             <router-link :to="{ name: 'tasks-board' }" class="p-rail-btn" :class="{ on: onTasks }" title="Задачі"><Icon name="board" /><span>Задачі</span></router-link>
             <router-link :to="{ name: 'supply-board' }" class="p-rail-btn" :class="{ on: onSupply }" title="Заявки на постачання"><Icon name="clipboard" /><span>Заявки</span></router-link>
-            <router-link :to="{ name: 'warehouse' }" class="p-rail-btn" :class="{ on: name === 'warehouse' }" title="Склад"><Icon name="warehouse" /><span>Склад</span></router-link>
+            <router-link :to="{ name: 'warehouse' }" class="p-rail-btn" :class="{ on: onWarehouse }" title="Склад"><Icon name="warehouse" /><span>Склад</span></router-link>
             <router-link v-if="me?.fleet" :to="{ name: 'schedule' }" class="p-rail-btn" title="Автопарк"><Icon name="truck" /><span>Авто</span></router-link>
             <router-link :to="searchTarget(router)" class="p-rail-btn" :class="{ on: onSearch }" title="Пошук ( / )"><Icon name="search" /><span>Пошук</span></router-link>
             <router-link :to="{ name: 'notifications' }" class="p-rail-btn" :class="{ on: onNotifications }" title="Сповіщення" data-testid="rail-bell"><NotificationBell label /></router-link>

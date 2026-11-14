@@ -5,7 +5,7 @@ import Avatar from '../Avatar.vue'
 import { applyTheme, theme, type Theme } from './theme'
 import { useTasks } from '../store'
 import { useSession } from '../../../app/store'
-import { canSeeAdmin } from '../../admin/access'
+import { canSeeAdmin, canSeeDrive } from '../../admin/access'
 
 /** «Я»: хто я в Плані, тема оформлення, інші розділи й вихід. */
 const session = useSession()
@@ -57,6 +57,7 @@ const THEMES: { value: Theme; label: string; icon: string }[] = [
             <router-link :to="{ name: 'notifications' }"><Icon name="bell" />Сповіщення</router-link>
             <router-link :to="{ name: 'staff' }"><Icon name="users" />Співробітники й відділи</router-link>
             <router-link v-if="canSeeAdmin(session.user)" :to="{ name: 'admin' }"><Icon name="shield" />Адмін</router-link>
+            <router-link v-if="canSeeDrive(session.user)" :to="{ name: 'drive-status' }"><Icon name="file" />Google Диск</router-link>
             <a href="/crm/logout" class="danger"><Icon name="logout" />Вийти</a>
         </section>
         <p class="p-muted p-small">Гарячі клавіші: <kbd>/</kbd> пошук · <kbd>N</kbd> нова задача · <kbd>↑</kbd><kbd>↓</kbd> сусідня задача · <kbd>Esc</kbd> закрити.</p>
