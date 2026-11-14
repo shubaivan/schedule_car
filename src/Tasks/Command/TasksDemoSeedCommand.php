@@ -20,6 +20,10 @@ use App\Tasks\Enum\TaskStatus;
 use App\Tasks\Enum\WorkRole;
 use App\Tasks\Service\DeferredPreviews;
 use App\Tasks\Service\TaskService;
+use App\Warehouse\Demo\DemoWarehouse;
+use App\Warehouse\Service\ActivityLog;
+use App\Warehouse\Service\DocumentStore;
+use App\Warehouse\Service\RecordMovement;
 use DateTime;
 use DateTimeZone;
 use Doctrine\ORM\EntityManagerInterface;
@@ -102,6 +106,10 @@ class TasksDemoSeedCommand extends Command
         private ?SupplyRequestRepository $supplyRequests = null,
         private ?SupplierRepository $suppliers = null,
         private ?AttachFile $attachFile = null,
+        // Демо-склад (DemoWarehouse) — так само необовʼязково й наприкінці.
+        private ?RecordMovement $recordMovement = null,
+        private ?ActivityLog $warehouseLog = null,
+        private ?DocumentStore $warehouseDocuments = null,
     ) {
         parent::__construct();
     }
@@ -165,6 +173,7 @@ class TasksDemoSeedCommand extends Command
         // Усе або нічого: якщо засів упаде посередині (GD, шрифт), база лишиться як була.
         $conn->beginTransaction();
         $requests = 0;
+        $warehouse = ['items' => 0, 'movements' => 0];
 
         try {
             $this->reset($input->getOption('reset') === true);
@@ -175,6 +184,11 @@ class TasksDemoSeedCommand extends Command
                 $requests = (new DemoSupply($this->em, $this->supplyRequests, $this->suppliers, $this->attachFile, $this->files))
                     ->seed($this->people, $this->departments);
             }
+            // Склад — теж частина «Плану»: позиції, залишки й місяць рухів.
+            if ($this->recordMovement !== null && $this->warehouseLog !== null && $this->warehouseDocuments !== null) {
+                $warehouse = (new DemoWarehouse($this->em, $this->recordMovement, $this->warehouseLog, $this->warehouseDocuments, $this->files))
+                    ->seed($this->people);
+            }
             $conn->commit();
         } catch (Throwable $e) {
             $conn->rollBack();
@@ -184,7 +198,7 @@ class TasksDemoSeedCommand extends Command
 
         $this->deferred->flush();
 
-        $output->writeln(sprintf('Готово: людей — %d, відділів — %d, міток — %d, угод — %d, заявок — %d.', count($this->people), count($this->departments), count($this->labels), count(DemoDeals::all()), $requests));
+        $output->writeln(sprintf('Готово: людей — %d, відділів — %d, міток — %d, угод — %d, заявок — %d, позицій складу — %d, рухів — %d.', count($this->people), count($this->departments), count($this->labels), count(DemoDeals::all()), $requests, $warehouse['items'], $warehouse['movements']));
 
         return Command::SUCCESS;
     }
@@ -196,6 +210,8 @@ class TasksDemoSeedCommand extends Command
         if ($reset) {
             $conn->executeStatement('DELETE FROM task');
             $conn->executeStatement('DELETE FROM task_label');
+            // Склад — до людей: рухи й журнал складу прив'язані до демо-людей.
+            DemoWarehouse::reset($this->em);
             DemoSupply::reset($this->em);
             $conn->executeStatement("UPDATE telegram_user SET archived_by_id = NULL WHERE telegram_id LIKE 'demo-%'");
             $conn->executeStatement("DELETE FROM login_token WHERE user_id IN (SELECT id FROM telegram_user WHERE telegram_id LIKE 'demo-%')");

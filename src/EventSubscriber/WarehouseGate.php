@@ -11,6 +11,7 @@ use Symfony\Component\HttpKernel\KernelEvents;
 /**
  * Вимкнений склад не існує і в адмінці: /sklad віддає 404, як будь-яка
  * неіснуюча сторінка. Каркас спільний на двох клієнтів, а склад потрібен одному.
+ * Те саме — JSON API складу для «Плану» (/api/warehouse).
  */
 class WarehouseGate implements EventSubscriberInterface
 {
@@ -29,7 +30,7 @@ class WarehouseGate implements EventSubscriberInterface
     {
         $path = $event->getRequest()->getPathInfo();
 
-        if (! $this->section->isEnabled() && ($path === '/sklad' || str_starts_with($path, '/sklad/'))) {
+        if (! $this->section->isEnabled() && ($path === '/sklad' || str_starts_with($path, '/sklad/') || $path === '/api/warehouse' || str_starts_with($path, '/api/warehouse/'))) {
             throw new NotFoundHttpException();
         }
     }
