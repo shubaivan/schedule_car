@@ -3,16 +3,18 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Avatar from './Avatar.vue'
 import AttachmentPreview from './AttachmentPreview.vue'
 import FileViewer from './FileViewer.vue'
-import LabelChip from './LabelChip.vue'
-import StatusPill from './StatusPill.vue'
 import TaskForm from './TaskForm.vue'
+import TaskHeader from './TaskHeader.vue'
 import { tasksApi, type Attachment, type Message, type Person, type TaskDetail, type TasksMeta } from './api'
 import { dayLabel, dueLabel, fileSize, time } from './format'
+import { TASK_SAVED } from './shell/nav'
 import { extClass } from './files'
 import { useTasks } from './store'
 import { useSession } from '../../app/store'
 
-const props = defineProps<{ id: string }>()
+/** embedded — права половина розділеного екрана дошки (кнопка «закрити» замість «← Дошка»). */
+const props = defineProps<{ id: string; embedded?: boolean }>()
+const emit = defineEmits<{ close: [] }>()
 const session = useSession()
 const store = useTasks()
 
@@ -24,8 +26,9 @@ const chat = ref<HTMLElement | null>(null)
 const viewer = ref<number | null>(null)
 const editing = ref(false)
 const tab = ref<'chat' | 'details' | 'files'>('chat')
-const decisionNote = ref('')
 const moving = ref(false)
+/** Права панель (деталі, учасники, файли), коли їй не вистачає місця поруч із чатом. */
+const sideOpen = ref(false)
 
 // --- поле вводу ---
 const text = ref('')
@@ -39,9 +42,6 @@ const mentionIndex = ref(0)
 
 const messages = computed(() => task.value?.messages ?? [])
 const files = computed(() => task.value?.files ?? [])
-const transitions = computed(() => task.value?.can.transitions ?? [])
-const decisions = computed(() => transitions.value.filter((t) => t.decision))
-const moves = computed(() => transitions.value.filter((t) => !t.decision))
 const lastId = computed(() => messages.value.reduce((m, x) => Math.max(m, x.id), 0))
 
 /** Повідомлення з розділювачами днів і злиттям підряд від однієї людини. */
@@ -87,8 +87,13 @@ function render(m: Message): string {
 async function load() {
     try {
         meta.value = await store.load()
-        task.value = await tasksApi.get(Number(props.id))
+        // Гортаючи ↑/↓, відповіді можуть прийти не по черзі — показуємо лише останню.
+        const want = props.id
+        const loaded = await tasksApi.get(Number(want))
+        if (want !== props.id) return
+        task.value = loaded
         error.value = ''
+        notFound.value = false
         await nextTick()
         scrollDown(true)
     } catch (e) {
@@ -269,12 +274,12 @@ async function remove(m: Message) {
     }
 }
 
-async function move(to: string, withNote = false) {
+async function move(to: string, note?: string) {
     if (!task.value) return
     moving.value = true
     try {
-        task.value = await tasksApi.status(task.value.id, to, withNote ? decisionNote.value : undefined)
-        decisionNote.value = ''
+        task.value = await tasksApi.status(task.value.id, to, note)
+        window.dispatchEvent(new Event(TASK_SAVED))
         await nextTick()
         scrollDown(true)
     } catch (e) {
@@ -286,6 +291,7 @@ async function move(to: string, withNote = false) {
 
 function saved(updated: TaskDetail) {
     task.value = updated
+    window.dispatchEvent(new Event(TASK_SAVED))
 }
 
 watch(() => props.id, load)
@@ -301,53 +307,26 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <div class="t-page">
+    <div class="t-page" :class="{ 'p-embedded': embedded }">
         <div v-if="notFound" class="t-panel t-empty">
             <p>Задачу не знайдено або ви не її учасник.</p>
-            <router-link :to="{ name: 'tasks-board' }" class="t-btn">← До дошки</router-link>
+            <button v-if="embedded" type="button" class="t-btn" @click="emit('close')">← До дошки</button>
+            <router-link v-else :to="{ name: 'tasks-board' }" class="t-btn">← До дошки</router-link>
         </div>
         <div v-else-if="!task" class="t-empty">{{ error || 'Завантаження…' }}</div>
 
         <div v-else class="t-task">
             <section class="t-task-main">
-                <div class="t-task-head">
-                    <div class="crumbs">
-                        <router-link :to="{ name: 'tasks-board' }">← Дошка</router-link>
-                        <span>·</span>
-                        <span>№ {{ task.number }}</span>
-                        <span>·</span>
-                        <StatusPill :status="task.status" :label="task.statusLabel" />
-                        <span v-if="task.dueAt" class="t-due" :class="{ over: task.overdue }">⏰ {{ dueLabel(task.dueAt) }}</span>
-                    </div>
-                    <h1>{{ task.title }}</h1>
-                    <div v-if="task.labels.length" class="t-labels">
-                        <LabelChip v-for="l in task.labels" :key="l.id" :label="l" />
-                    </div>
-
-                    <div v-if="decisions.length" class="t-decision">
-                        <span>⚖️ Рішення директора</span>
-                        <input v-model="decisionNote" class="t-input" style="flex: 1 1 200px; font-size: 14px; padding: .4rem .6rem" placeholder="Коментар до рішення (необовʼязково)" />
-                        <div class="t-actions">
-                            <button
-                                v-for="d in decisions"
-                                :key="d.value"
-                                type="button"
-                                class="t-btn small"
-                                :class="d.value === 'approved' ? 'primary' : d.value === 'rejected' ? 'danger' : ''"
-                                :disabled="moving"
-                                @click="move(d.value, true)"
-                            >{{ d.action }}</button>
-                        </div>
-                    </div>
-                    <div v-else-if="task.awaitsDecision" class="t-decision">⏳ Чекає рішення директора</div>
-
-                    <div v-if="moves.length || task.can.edit" class="t-actions">
-                        <button v-for="t in moves" :key="t.value" type="button" class="t-btn small" :class="{ primary: t.value === 'in_work' || t.value === 'done' }" :disabled="moving" @click="move(t.value)">
-                            {{ t.action }}
-                        </button>
-                        <button v-if="task.can.edit" type="button" class="t-btn small ghost" @click="editing = true">✏️ Редагувати</button>
-                    </div>
-                </div>
+                <TaskHeader
+                    :task="task"
+                    :embedded="embedded"
+                    :moving="moving"
+                    :side-open="sideOpen"
+                    @move="move"
+                    @edit="editing = true"
+                    @close="emit('close')"
+                    @side="sideOpen = !sideOpen"
+                />
 
                 <div class="t-mobile-tabs">
                     <button type="button" :class="{ on: tab === 'chat' }" @click="tab = 'chat'">💬 Чат</button>
@@ -430,7 +409,7 @@ onBeforeUnmount(() => {
                 </form>
             </section>
 
-            <aside class="t-side" :class="{ 'hide-mobile': tab === 'chat' }">
+            <aside class="t-side" :class="{ 'hide-mobile': tab === 'chat', open: sideOpen }">
                 <div v-if="tab !== 'files'" class="t-panel">
                     <h2>Деталі</h2>
                     <dl class="t-dl">
@@ -439,7 +418,7 @@ onBeforeUnmount(() => {
                         <dt>Постановник</dt><dd class="t-person"><Avatar :person="task.creator" :size="22" /> {{ task.creator.name }}</dd>
                         <dt>Створено</dt><dd>{{ new Date(task.createdAt).toLocaleDateString('uk-UA') }}</dd>
                         <dt v-if="task.departments.length">Відділи</dt>
-                        <dd v-if="task.departments.length">{{ task.departments.map((d) => d.name).join(', ') }}</dd>
+                        <dd v-if="task.departments.length" class="p-deps-dd"><span v-for="d in task.departments" :key="d.id" class="p-dep">[{{ d.name }}]</span></dd>
                     </dl>
                     <template v-if="task.description">
                         <h2 style="margin-top: 1rem">Опис</h2>
