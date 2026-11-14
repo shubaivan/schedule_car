@@ -6,8 +6,12 @@ use App\Entity\TelegramUser;
 use App\Enum\AccessStatus;
 use App\Supply\Entity\Department;
 use App\Supply\Repository\DepartmentRepository;
+use App\Supply\Repository\SupplierRepository;
+use App\Supply\Repository\SupplyRequestRepository;
+use App\Supply\Service\AttachFile;
 use App\Tasks\Demo\DemoDeals;
 use App\Tasks\Demo\DemoFiles;
+use App\Tasks\Demo\DemoSupply;
 use App\Tasks\Entity\Task;
 use App\Tasks\Entity\TaskLabel;
 use App\Tasks\Entity\TaskMessage;
@@ -94,6 +98,10 @@ class TasksDemoSeedCommand extends Command
         /** На prod засів дозволено лише там, де явно сказано: це демо-стенд (PLAN_DEMO_STAND=1). */
         #[Autowire('%env(default::PLAN_DEMO_STAND)%')]
         private ?string $demoStand = null,
+        // Демо-заявки (DemoSupply). Наприкінці й необовʼязкові — щоб не ламати існуючі виклики конструктора.
+        private ?SupplyRequestRepository $supplyRequests = null,
+        private ?SupplierRepository $suppliers = null,
+        private ?AttachFile $attachFile = null,
     ) {
         parent::__construct();
     }
@@ -156,11 +164,17 @@ class TasksDemoSeedCommand extends Command
 
         // Усе або нічого: якщо засів упаде посередині (GD, шрифт), база лишиться як була.
         $conn->beginTransaction();
+        $requests = 0;
 
         try {
             $this->reset($input->getOption('reset') === true);
             $this->seedDirectories($password, (string) $input->getOption('domain'));
             $this->seedTasks();
+            // Заявки — в тій самій оболонці «Плану», тож і в демо вони мають бути.
+            if ($this->supplyRequests !== null && $this->suppliers !== null && $this->attachFile !== null) {
+                $requests = (new DemoSupply($this->em, $this->supplyRequests, $this->suppliers, $this->attachFile, $this->files))
+                    ->seed($this->people, $this->departments);
+            }
             $conn->commit();
         } catch (Throwable $e) {
             $conn->rollBack();
@@ -170,7 +184,7 @@ class TasksDemoSeedCommand extends Command
 
         $this->deferred->flush();
 
-        $output->writeln(sprintf('Готово: людей — %d, відділів — %d, міток — %d, угод — %d.', count($this->people), count($this->departments), count($this->labels), count(DemoDeals::all())));
+        $output->writeln(sprintf('Готово: людей — %d, відділів — %d, міток — %d, угод — %d, заявок — %d.', count($this->people), count($this->departments), count($this->labels), count(DemoDeals::all()), $requests));
 
         return Command::SUCCESS;
     }
@@ -182,6 +196,7 @@ class TasksDemoSeedCommand extends Command
         if ($reset) {
             $conn->executeStatement('DELETE FROM task');
             $conn->executeStatement('DELETE FROM task_label');
+            DemoSupply::reset($this->em);
             $conn->executeStatement("UPDATE telegram_user SET archived_by_id = NULL WHERE telegram_id LIKE 'demo-%'");
             $conn->executeStatement("DELETE FROM login_token WHERE user_id IN (SELECT id FROM telegram_user WHERE telegram_id LIKE 'demo-%')");
             $conn->executeStatement("DELETE FROM telegram_user WHERE telegram_id LIKE 'demo-%'");
