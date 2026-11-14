@@ -26,6 +26,8 @@ export interface ApiUser {
     position?: string | null
     /** Лише в /api/me: розділ «Автопарк» ввімкнено. */
     fleet?: boolean
+    /** Лише в /api/me: можливості в «Плані» (PlanAccess), напр. `audit.view` — суперадмін. */
+    capabilities?: Record<string, boolean>
 }
 
 /** Підрозділ у довіднику: разом із тим, скільки на ньому висить. */

@@ -1,0 +1,7 @@
+# «План», потік S6 — журнал аудиту суперадміна (/api/plan/audit*).
+# Окремий файл на потік, щоб паралельні гілки не конфліктували в config/routes.yaml.
+plan_audit_controllers:
+    resource:
+        path: ../../src/Plan/Audit/
+        namespace: App\Plan\Audit
+    type: attribute

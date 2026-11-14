@@ -15,7 +15,7 @@ class TaskPolicy
 {
     public function canView(TelegramUser $user, Task $task): bool
     {
-        return $user->getWorkRole()->seesAllTasks() || $this->isInvolved($user, $task);
+        return $user->seesAllTasks() || $this->isInvolved($user, $task);
     }
 
     public function canEdit(TelegramUser $user, Task $task): bool

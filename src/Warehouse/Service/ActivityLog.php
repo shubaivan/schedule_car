@@ -3,6 +3,7 @@
 namespace App\Warehouse\Service;
 
 use App\Entity\TelegramUser;
+use App\Plan\Audit\AuditThrottle;
 use App\Plan\Event\FileAdded;
 use App\Plan\Event\FileRemoved;
 use App\Plan\Event\ItemCreated;
@@ -48,6 +49,7 @@ class ActivityLog
         private EntityManagerInterface $em,
         private LoggerInterface $logger,
         private PlanEventRecorder $events,
+        private AuditThrottle $throttle,
     ) {
     }
 
@@ -74,6 +76,13 @@ class ActivityLog
             $this->events->transactional(function () use ($activity, $action, $subject, $user, $channel, $details): void {
                 $this->em->flush();
                 $event = self::event($action, $subject, $user, $details, (int) $activity->getId());
+
+                // Відкриття картки в адмінці — не частіше одного рядка аудиту на людину й картку
+                // за 10 хв (AuditThrottle); скан, перехід із бота й друк наклейок — кожен.
+                if ($event instanceof SubjectViewed && $action === ActivityAction::View &&
+                    $this->throttle->seenRecently(SubjectViewed::TYPE, $event->actorId, $event->subject, ['action' => ActivityAction::View->value])) {
+                    return;
+                }
 
                 if ($event !== null) {
                     $this->events->record($event->via($channel === WhActivity::CHANNEL_BOT ? 'bot' : 'web'));

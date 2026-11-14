@@ -26,7 +26,7 @@ final class PlanAccess
         $supply = $user->getSupplyRole();
 
         return match ($capability) {
-            PlanCapability::TasksSeeAll => $work->seesAllTasks(),
+            PlanCapability::TasksSeeAll => $user->seesAllTasks(),
             PlanCapability::SupplyManage => $supply->canManage(),
             PlanCapability::SupplyApprove => $supply->canApprovePayment(),
             PlanCapability::WarehouseView, PlanCapability::WarehouseEdit => WarehouseSection::canManage($user),

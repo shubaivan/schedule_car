@@ -42,7 +42,7 @@ class TaskFeedRepository
         [$visible, $params] = TaskVisibility::chronicle($viewer);
         [$involved, $involvedParams] = TaskVisibility::involved($viewer);
         $params = [...$params, ...$involvedParams, 'me' => (int) $viewer->getId()];
-        $counted = $viewer->getWorkRole()->seesAllTasks() ? $involved : 'TRUE';
+        $counted = $viewer->seesAllTasks() ? $involved : 'TRUE';
         $where = [$visible];
 
         if ($cursor !== null) {
