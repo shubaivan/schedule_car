@@ -10,6 +10,7 @@ use App\Tasks\Entity\TaskMessage;
 use App\Tasks\Enum\TaskStatus;
 use App\Tasks\Enum\WorkRole;
 use App\Tasks\Exception\TaskException;
+use App\Tasks\Repository\TaskAttachmentRepository;
 use App\Tasks\Repository\TaskLabelRepository;
 use App\Tasks\Repository\TaskMessageRepository;
 use App\Tasks\Repository\TaskRepository;
@@ -32,6 +33,7 @@ class TaskApiController extends TasksController
         private TaskPresenter $presenter,
         private TaskPolicy $policy,
         private TaskService $service,
+        private TaskAttachmentRepository $attachments,
     ) {
     }
 
@@ -89,7 +91,8 @@ class TaskApiController extends TasksController
         $ids = array_values(array_unique(array_map(static fn (Task $t) => (int) $t->getId(), $all)));
         $unread = $this->tasks->unreadCounts($me, $ids);
         $last = $this->messages->lastComments($ids);
-        $item = fn (Task $t) => $this->presenter->listItem($t, $unread, $last);
+        $files = $this->attachments->statsByTask($ids);
+        $item = fn (Task $t) => $this->presenter->listItem($t, $unread, $last, $files);
 
         $counts = $this->tasks->countByStatus($me);
         $open = array_sum(array_map(static fn (TaskStatus $s) => $s->isClosed() ? 0 : ($counts[$s->value] ?? 0), TaskStatus::cases()));
@@ -147,9 +150,10 @@ class TaskApiController extends TasksController
         $ids = array_values(array_unique($ids));
         $unread = $this->tasks->unreadCounts($me, $ids);
         $last = $this->messages->lastComments($ids);
+        $files = $this->attachments->statsByTask($ids);
 
         return $this->json(array_map(
-            fn (array $tasks) => array_map(fn (Task $t) => $this->presenter->listItem($t, $unread, $last), $tasks),
+            fn (array $tasks) => array_map(fn (Task $t) => $this->presenter->listItem($t, $unread, $last, $files), $tasks),
             $columns,
         ));
     }

@@ -68,10 +68,11 @@ class TaskPresenter
     /**
      * @param array<int, int> $unread
      * @param array<int, TaskMessage> $last
+     * @param array<int, array{count: int, pdf: int, images: int}> $files
      *
      * @return array<string, mixed>
      */
-    public function listItem(Task $task, array $unread = [], array $last = []): array
+    public function listItem(Task $task, array $unread = [], array $last = [], array $files = []): array
     {
         $members = $task->getMembers()->toArray();
         $message = $last[$task->getId()] ?? null;
@@ -91,6 +92,8 @@ class TaskPresenter
             'creator' => $this->person($task->getCreator()),
             'members' => array_map(fn ($m) => $this->person($m->getUser()), array_slice($members, 0, 6)),
             'membersCount' => count($members),
+            'departmentNames' => $this->departmentNames($task),
+            'fileStats' => $files[$task->getId()] ?? ['count' => 0, 'pdf' => 0, 'images' => 0],
             'unread' => $unread[$task->getId()] ?? 0,
             'lastActivityAt' => $this->date($task->getLastActivityAt()),
             'createdAt' => $this->date($task->getCreatedAt()),
@@ -190,6 +193,33 @@ class TaskPresenter
                 'download' => $base . '/download',
             ],
         ];
+    }
+
+    /**
+     * Виконавці на картці дошки — відділи «[3. Відділ продажу]», як у ПланФіксі.
+     * Якщо задачу адресовано людям, а не відділам, — відділи цих людей.
+     * Порядок — за номером у назві відділу («1. Дирекція» … «9. …»).
+     *
+     * @return list<string>
+     */
+    public function departmentNames(Task $task): array
+    {
+        $names = array_map(static fn (Department $d) => $d->getName(), $task->getDepartments()->toArray());
+
+        if ($names === []) {
+            foreach ($task->getMembers() as $member) {
+                $department = $member->getUser()->getDepartment();
+
+                if ($department !== null && $member->getUser() !== $task->getCreator()) {
+                    $names[] = $department->getName();
+                }
+            }
+        }
+
+        $names = array_values(array_unique($names));
+        natsort($names);
+
+        return array_values($names);
     }
 
     public static function size(int $bytes): string
