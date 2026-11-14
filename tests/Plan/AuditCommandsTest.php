@@ -27,7 +27,7 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 
 /**
- * plan:superadmin (видати/зняти з консолі), plan:audit:prune (строки 36/12 міс,
+ * plan:superadmin (видати/зняти з консолі), plan:audit:prune (строк 180 днів,
  * --dry-run нічого не видаляє), зведення повторних переглядів картки складу
  * й повна довідка типів подій для фільтра.
  */
@@ -125,36 +125,43 @@ class AuditCommandsTest extends KernelTestCase
         $ref = SubjectRef::task(900000010);
         $me = SubjectRef::user((int) $user->getId());
 
+        // Строк — 180 днів для всіх типів (PLAN_AUDIT_RETENTION_DAYS, .env = 180).
         $ids = [
-            'login13' => $recorder->import(new UserLoggedIn($me, $user->getId(), at: $ago('-13 months'))),
-            'login11' => $recorder->import(new UserLoggedIn($me, $user->getId(), at: $ago('-11 months'))),
-            'download13' => $recorder->import(new FileDownloaded($ref, $user->getId(), fileId: 1, fileType: 'task', at: $ago('-13 months'))),
-            'view13' => $recorder->import(new SubjectViewed($ref, $user->getId(), action: 'view', at: $ago('-13 months'))),
-            'comment13' => $recorder->import(new CommentAdded($ref, $user->getId(), refId: 1, at: $ago('-13 months'))),
-            'comment37' => $recorder->import(new CommentAdded($ref, $user->getId(), refId: 2, at: $ago('-37 months'))),
-            'comment35' => $recorder->import(new CommentAdded($ref, $user->getId(), refId: 3, at: $ago('-35 months'))),
+            'login181' => $recorder->import(new UserLoggedIn($me, $user->getId(), at: $ago('-181 days'))),
+            'login179' => $recorder->import(new UserLoggedIn($me, $user->getId(), at: $ago('-179 days'))),
+            'download181' => $recorder->import(new FileDownloaded($ref, $user->getId(), fileId: 1, fileType: 'task', at: $ago('-181 days'))),
+            'view181' => $recorder->import(new SubjectViewed($ref, $user->getId(), action: 'view', at: $ago('-181 days'))),
+            'comment181' => $recorder->import(new CommentAdded($ref, $user->getId(), refId: 1, at: $ago('-181 days'))),
+            'comment179' => $recorder->import(new CommentAdded($ref, $user->getId(), refId: 2, at: $ago('-179 days'))),
+            'comment40' => $recorder->import(new CommentAdded($ref, $user->getId(), refId: 3, at: $ago('-40 days'))),
         ];
         $oldLogin = new CrmLogin($user, true, null, '10.0.0.1', 'old-agent', '/crm');
         $freshLogin = new CrmLogin($user, true, null, '10.0.0.2', 'fresh-agent', '/crm');
         $this->em->persist($oldLogin);
         $this->em->persist($freshLogin);
         $this->em->flush();
-        $this->em->getConnection()->executeStatement('UPDATE crm_login SET at = ? WHERE id = ?', [$ago('-13 months')->format('Y-m-d H:i:s'), $oldLogin->getId()]);
+        $this->em->getConnection()->executeStatement('UPDATE crm_login SET at = ? WHERE id = ?', [$ago('-181 days')->format('Y-m-d H:i:s'), $oldLogin->getId()]);
 
         $tester = $this->command('plan:audit:prune');
         self::assertSame(Command::SUCCESS, $tester->execute(['--dry-run' => true]));
         self::assertStringContainsString('[dry-run]', $tester->getDisplay());
+        self::assertStringContainsString('180 дн.', $tester->getDisplay());
         self::assertSame(array_values($ids), $this->existing($ids), 'dry-run нічого не видаляє');
 
+        // --days перевизначає строк лише для цього запуску.
+        self::assertSame(Command::SUCCESS, $tester->execute(['--dry-run' => true, '--days' => '30']));
+        self::assertStringContainsString('30 дн.', $tester->getDisplay());
+        self::assertSame(array_values($ids), $this->existing($ids));
+
         self::assertSame(Command::SUCCESS, $tester->execute(['--batch' => '2']));
-        self::assertSame([$ids['login11'], $ids['comment13'], $ids['comment35']], $this->existing($ids));
+        self::assertSame([$ids['login179'], $ids['comment179'], $ids['comment40']], $this->existing($ids));
         self::assertSame(1, $this->em->getConnection()->fetchOne('SELECT 1 FROM crm_login WHERE id = ?', [$oldLogin->getId()]), 'crm_login — лише з --with-crm-login');
 
         self::assertSame(Command::SUCCESS, $tester->execute(['--with-crm-login' => true]));
         self::assertFalse($this->em->getConnection()->fetchOne('SELECT 1 FROM crm_login WHERE id = ?', [$oldLogin->getId()]));
         self::assertSame(1, $this->em->getConnection()->fetchOne('SELECT 1 FROM crm_login WHERE id = ?', [$freshLogin->getId()]));
 
-        self::assertSame(Command::INVALID, $tester->execute(['--access-months' => '40']));
+        self::assertSame(Command::INVALID, $tester->execute(['--days' => '0']));
         self::assertSame(Command::INVALID, $tester->execute(['--batch' => '0']));
     }
 

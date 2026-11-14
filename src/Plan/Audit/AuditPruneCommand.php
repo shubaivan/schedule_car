@@ -4,7 +4,6 @@ namespace App\Plan\Audit;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -12,11 +11,12 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
- * Строк зберігання журналу аудиту:
- * - доменні події (створення, статуси, коментарі, файли… — вони ж Хроніка) — 36 міс;
- * - журнал доступу (входи, невдалі входи, скачування, перегляди) — 12 міс.
+ * Строк зберігання журналу аудиту — PLAN_AUDIT_RETENTION_DAYS (за замовчуванням
+ * 180 днів, рішення Івана 15.11: пів року на час обкатки). Один строк для всіх
+ * подій plan_event: дій (вони ж Хроніка), входів, скачувань і переглядів.
  *
  * --with-crm-login — ще й рядки crm_login того ж віку (там IP і браузер). За
  * замовчуванням вимкнено: на них тримається «востаннє заходив» у журналі входів
@@ -30,11 +30,14 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  *     php bin/console plan:audit:prune --dry-run        # лише порахувати
  *     php bin/console plan:audit:prune                  # крон щоночі 03:30
  */
-#[AsCommand(name: 'plan:audit:prune', description: 'Видалити з журналу аудиту події, старші за строк зберігання (36/12 міс)')]
+#[AsCommand(name: 'plan:audit:prune', description: 'Видалити з журналу аудиту події, старші за строк зберігання (PLAN_AUDIT_RETENTION_DAYS, 180 днів)')]
 final class AuditPruneCommand extends Command
 {
-    public function __construct(private readonly Connection $db)
-    {
+    public function __construct(
+        private readonly Connection $db,
+        #[Autowire('%plan.audit_retention_days%')]
+        private readonly int $retentionDays = AuditCatalog::DEFAULT_RETENTION_DAYS,
+    ) {
         parent::__construct();
     }
 
@@ -42,9 +45,8 @@ final class AuditPruneCommand extends Command
     {
         $this
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Лише показати, скільки буде видалено')
-            ->addOption('domain-months', null, InputOption::VALUE_REQUIRED, 'Строк для доменних подій, міс', (string) AuditCatalog::DOMAIN_MONTHS)
-            ->addOption('access-months', null, InputOption::VALUE_REQUIRED, 'Строк для входів, скачувань і переглядів, міс', (string) AuditCatalog::ACCESS_MONTHS)
-            ->addOption('with-crm-login', null, InputOption::VALUE_NONE, 'Також видалити старі рядки crm_login (за строком журналу доступу)')
+            ->addOption('days', null, InputOption::VALUE_REQUIRED, 'Строк зберігання, днів (за замовчуванням — PLAN_AUDIT_RETENTION_DAYS)')
+            ->addOption('with-crm-login', null, InputOption::VALUE_NONE, 'Також видалити старі рядки crm_login (за тим самим строком)')
             ->addOption('batch', null, InputOption::VALUE_REQUIRED, 'Рядків за одну транзакцію', '5000');
     }
 
@@ -52,72 +54,41 @@ final class AuditPruneCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
         $dryRun = (bool) $input->getOption('dry-run');
-        $domainMonths = self::positive($input->getOption('domain-months'));
-        $accessMonths = self::positive($input->getOption('access-months'));
+        $days = $input->getOption('days') === null ? $this->retentionDays : self::positive($input->getOption('days'));
         $batch = self::positive($input->getOption('batch'));
 
-        if ($domainMonths === null || $accessMonths === null || $batch === null) {
-            $io->error('--domain-months, --access-months і --batch мають бути додатними цілими.');
+        if ($days === null || $days < 1 || $batch === null) {
+            $io->error('--days (або PLAN_AUDIT_RETENTION_DAYS) і --batch мають бути додатними цілими.');
 
             return Command::INVALID;
         }
 
-        // Журнал доступу не живе довше за доменний — інакше правило не має сенсу.
-        if ($accessMonths > $domainMonths) {
-            $io->error('--access-months не може бути більшим за --domain-months.');
+        $before = (new DateTimeImmutable('now', new DateTimeZone('Europe/Kyiv')))->modify(sprintf('-%d days', $days))->format('Y-m-d H:i:s');
 
-            return Command::INVALID;
-        }
-
-        $now = new DateTimeImmutable('now', new DateTimeZone('Europe/Kyiv'));
-        $domainBefore = $now->modify(sprintf('-%d months', $domainMonths))->format('Y-m-d H:i:s');
-        $accessBefore = $now->modify(sprintf('-%d months', $accessMonths))->format('Y-m-d H:i:s');
-
-        $scopes = [
-            'access' => [
-                'where' => 'type IN (:types) AND occurred_at < :before',
-                'params' => ['types' => AuditCatalog::ACCESS_TYPES, 'before' => $accessBefore],
-                'label' => sprintf('Входи, скачування, перегляди (старші за %s)', $accessBefore),
-            ],
-            'domain' => [
-                'where' => 'type NOT IN (:types) AND occurred_at < :before',
-                'params' => ['types' => AuditCatalog::ACCESS_TYPES, 'before' => $domainBefore],
-                'label' => sprintf('Доменні події (старші за %s)', $domainBefore),
-            ],
-        ];
-        $types = ['types' => ArrayParameterType::STRING];
-
-        $rows = [];
-        $total = 0;
-
-        foreach ($scopes as $scope) {
-            $count = $dryRun
-                ? (int) $this->db->fetchOne('SELECT COUNT(*) FROM plan_event WHERE ' . $scope['where'], $scope['params'], $types)
-                : $this->deleteInBatches('plan_event', $scope['where'], $scope['params'], $types, $batch);
-            $rows[] = [$scope['label'], $count];
-            $total += $count;
-        }
+        $events = $dryRun
+            ? (int) $this->db->fetchOne('SELECT COUNT(*) FROM plan_event WHERE occurred_at < :before', ['before' => $before])
+            : $this->deleteInBatches('plan_event', 'occurred_at < :before', ['before' => $before], $batch);
+        $rows = [[sprintf('Події журналу (старші за %s, строк %d дн.)', $before, $days), $events]];
 
         $logins = 0;
 
         if ($input->getOption('with-crm-login')) {
             $logins = $dryRun
-                ? (int) $this->db->fetchOne('SELECT COUNT(*) FROM crm_login WHERE at < :before', ['before' => $accessBefore])
-                : $this->deleteInBatches('crm_login', 'at < :before', ['before' => $accessBefore], [], $batch);
-            $rows[] = [sprintf('crm_login (старші за %s)', $accessBefore), $logins];
+                ? (int) $this->db->fetchOne('SELECT COUNT(*) FROM crm_login WHERE at < :before', ['before' => $before])
+                : $this->deleteInBatches('crm_login', 'at < :before', ['before' => $before], $batch);
+            $rows[] = [sprintf('crm_login (старші за %s)', $before), $logins];
         }
 
         $io->table(['Що', $dryRun ? 'Буде видалено' : 'Видалено'], $rows);
-        $io->success(sprintf('%s%d подій журналу і %d рядків crm_login.', $dryRun ? '[dry-run] Буде видалено ' : 'Видалено ', $total, $logins));
+        $io->success(sprintf('%s%d подій журналу і %d рядків crm_login.', $dryRun ? '[dry-run] Буде видалено ' : 'Видалено ', $events, $logins));
 
         return Command::SUCCESS;
     }
 
     /**
      * @param array<string, mixed> $params
-     * @param array<string, ArrayParameterType|int|string> $types
      */
-    private function deleteInBatches(string $table, string $where, array $params, array $types, int $batch): int
+    private function deleteInBatches(string $table, string $where, array $params, int $batch): int
     {
         $deleted = 0;
 
@@ -125,7 +96,6 @@ final class AuditPruneCommand extends Command
             $count = $this->db->executeStatement(
                 sprintf('DELETE FROM %1$s WHERE id IN (SELECT id FROM %1$s WHERE %2$s ORDER BY id LIMIT %3$d)', $table, $where, $batch),
                 $params,
-                $types,
             );
             $deleted += (int) $count;
         } while ($count >= $batch);

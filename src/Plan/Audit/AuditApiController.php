@@ -4,6 +4,7 @@ namespace App\Plan\Audit;
 
 use InvalidArgumentException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -29,6 +30,8 @@ final class AuditApiController extends AbstractController
     public function __construct(
         private readonly AuditLog $log,
         private readonly AuditPresenter $presenter,
+        #[Autowire('%plan.audit_retention_days%')]
+        private readonly int $retentionDays = AuditCatalog::DEFAULT_RETENTION_DAYS,
     ) {
     }
 
@@ -61,7 +64,7 @@ final class AuditApiController extends AbstractController
             'subjects' => AuditCatalog::subjectsForUi(),
             'actors' => $this->log->actors(),
             'csvMax' => self::CSV_MAX,
-            'retention' => ['domainMonths' => AuditCatalog::DOMAIN_MONTHS, 'accessMonths' => AuditCatalog::ACCESS_MONTHS],
+            'retention' => ['days' => $this->retentionDays],
         ]);
     }
 

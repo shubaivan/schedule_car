@@ -56,7 +56,7 @@ export interface AuditMeta {
     subjects: { value: string; label: string }[]
     actors: AuditPerson[]
     csvMax: number
-    retention: { domainMonths: number; accessMonths: number }
+    retention: { days: number }
 }
 
 /** Фільтри — ті самі ключі, що в адресі сторінки й у API. */

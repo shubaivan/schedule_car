@@ -94,13 +94,11 @@ final class AuditCatalog
     ];
 
     /**
-     * Журнал доступу (входи, скачування, перегляди) живе 12 місяців, решта
-     * (доменні події — вони ж Хроніка) — 36.
+     * Скільки днів живе журнал аудиту (усі події plan_event — і дії, і входи,
+     * скачування, перегляди; на них же тримається Хроніка). Рішення Івана 15.11:
+     * пів року, поки інструмент обкатується. Перевизначається PLAN_AUDIT_RETENTION_DAYS.
      */
-    public const array ACCESS_TYPES = [UserLoggedIn::TYPE, LoginFailed::TYPE, FileDownloaded::TYPE, SubjectViewed::TYPE];
-
-    public const int DOMAIN_MONTHS = 36;
-    public const int ACCESS_MONTHS = 12;
+    public const int DEFAULT_RETENTION_DAYS = 180;
 
     public static function label(string $type): string
     {

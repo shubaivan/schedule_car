@@ -11,6 +11,9 @@
 parameters:
     # Стенд, чий .env.local ще не знає про журнал подій, працює як раніше (sync).
     env(PLAN_EVENTS_TRANSPORT): 'sync://'
+    # Строк зберігання журналу аудиту (plan:audit:prune, сторінка «Аудит»), днів.
+    env(PLAN_AUDIT_RETENTION_DAYS): '180'
+    plan.audit_retention_days: '%env(int:PLAN_AUDIT_RETENTION_DAYS)%'
     telegram_bot_token: '%env(TELEGRAM_TOKEN)%'
     # Телефони, які отримують роль менеджера одразу при реєстрації в боті.
     # Потрібні для старту: перших менеджерів нікому підтверджувати.

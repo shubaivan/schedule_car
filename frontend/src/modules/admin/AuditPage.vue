@@ -355,7 +355,7 @@ onBeforeUnmount(() => {
             </nav>
 
             <p v-if="meta" class="a-note">
-                Зберігається: дії — {{ meta.retention.domainMonths }} міс., входи, скачування й перегляди — {{ meta.retention.accessMonths }} міс.
+                Зберігається {{ meta.retention.days }} дн. (дії, входи, скачування й перегляди).
                 Перегляд картки й скачування того самого файлу однією людиною — не частіше одного рядка за 10 хв.
             </p>
         </div>
