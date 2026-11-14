@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { autogrow } from '../../plan/autogrow'
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import Avatar from './Avatar.vue'
 import PeoplePicker from './PeoplePicker.vue'
@@ -31,7 +32,13 @@ const error = ref('')
 const files = ref<File[]>([])
 const more = ref(!!props.task)
 const picking = ref(false)
-const titleBox = ref<HTMLInputElement | null>(null)
+const titleBox = ref<HTMLTextAreaElement | null>(null)
+
+/** Назва переноситься, а не обрізається: поле росте разом із текстом. */
+function grow() {
+    const el = titleBox.value
+    autogrow(el instanceof HTMLTextAreaElement ? el : null)
+}
 
 const empty = { title: '', client: '', description: '', dueAt: '', labelIds: [] as number[], memberIds: [] as number[], departmentIds: [] as number[] }
 
@@ -165,6 +172,7 @@ onMounted(async () => {
         return
     }
     await nextTick()
+    grow()
     titleBox.value?.focus()
 })
 </script>
@@ -178,13 +186,16 @@ onMounted(async () => {
             </header>
             <div v-if="meta" class="body">
                 <div v-if="error" class="t-error">{{ error }}</div>
-                <input
+                <textarea
                     ref="titleBox"
                     v-model="form.title"
                     class="p-title-input"
+                    rows="1"
                     placeholder="Назва: напр. «Кільця КС 10-9 — 40 шт, с. Ракове»"
                     aria-label="Назва задачі"
                     maxlength="255"
+                    @input="grow"
+                    @keydown.enter.exact.prevent
                 />
 
                 <div class="p-frow">
@@ -251,7 +262,7 @@ onMounted(async () => {
             </div>
             <div v-else class="body t-empty">Завантаження…</div>
             <footer>
-                <span class="p-hint-keys">Ctrl+Enter — створити й відкрити</span>
+                <span class="p-hint-keys">{{ task ? 'Ctrl+Enter — зберегти' : 'Ctrl+Enter — створити й відкрити' }}</span>
                 <button type="button" class="p-btn ghost" @click="cancel">Скасувати</button>
                 <template v-if="task">
                     <button type="submit" class="p-btn primary" :disabled="busy">{{ busy ? 'Зберігаємо…' : 'Зберегти' }}</button>

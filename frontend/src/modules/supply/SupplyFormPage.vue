@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import { autogrow } from '../../plan/autogrow'
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { api, type NewRequestPayload } from '../../app/api'
 import { useSession } from '../../app/store'
 import Icon from '../tasks/shell/Icon.vue'
 import { goBack } from '../../plan/layers'
+import DateChips from '../../plan/DateChips.vue'
 
 /**
  * «➕ Нова заявка» — окремою сторінкою /supply/new, а не формою над таблицею:
@@ -19,7 +21,23 @@ const list = computed(() => (plan.value ? { name: 'supply-board' } : { name: 're
 
 const saving = ref(false)
 const error = ref('')
-const itemBox = ref<HTMLInputElement | null>(null)
+const itemBox = ref<HTMLInputElement | HTMLTextAreaElement | null>(null)
+
+/** Назва росте разом із текстом (у «Плані» — textarea, як назва задачі). */
+function grow() {
+    const el = itemBox.value
+    autogrow(el instanceof HTMLTextAreaElement ? el : null)
+}
+
+function onKey(e: KeyboardEvent) {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault()
+        void submit()
+    } else if (e.key === 'Escape') {
+        e.preventDefault()
+        cancel()
+    }
+}
 const units = computed(() => session.meta?.units ?? [])
 const departments = computed(() => session.meta?.departments ?? [])
 const draft = ref<NewRequestPayload>({
@@ -54,12 +72,76 @@ async function submit() {
 
 onMounted(async () => {
     await nextTick()
+    grow()
     itemBox.value?.focus()
 })
 </script>
 
 <template>
-    <div :class="plan ? 'p-formpage' : 'supply-formpage'">
+    <!-- «План»: та сама форма, що й задача та рух складу (шапка, рядки «поле — значення», чипи дат, футер). -->
+    <div v-if="plan" class="p-formpage">
+        <form class="new-request t-formcard p-form p-form-page" aria-labelledby="new-request-title" @submit.prevent="submit" @keydown="onKey">
+            <header>
+                <button type="button" class="p-icon-btn p-form-back" aria-label="Назад" title="Назад (Esc)" @click="cancel"><Icon name="back" /></button>
+                <h2 id="new-request-title">Нова заявка</h2>
+                <button type="button" class="p-icon-btn p-form-x" aria-label="Закрити" title="Закрити (Esc)" @click="cancel"><Icon name="x" /></button>
+            </header>
+            <div class="body">
+                <div v-if="error" class="t-error">{{ error }}</div>
+                <textarea
+                    ref="itemBox"
+                    v-model="draft.item"
+                    class="p-title-input"
+                    rows="1"
+                    required
+                    placeholder="Що потрібно: цемент М500, арматура Ø12, фанера 18 мм…"
+                    aria-label="Що потрібно"
+                    @input="grow"
+                    @keydown.enter.exact.prevent
+                />
+                <div class="p-frow">
+                    <span class="k"><Icon name="package" :size="16" />Кількість</span>
+                    <div class="v">
+                        <input v-model="draft.quantity" class="p-inline-input p-qty" type="text" inputmode="decimal" required placeholder="10" aria-label="Кількість" />
+                        <select v-model="draft.unit" class="p-inline-input p-unit" aria-label="Одиниця">
+                            <option v-for="u in units" :key="u.value" :value="u.value">{{ u.label }}</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="p-frow">
+                    <span class="k"><Icon name="calendar" :size="16" />Потрібно до</span>
+                    <div class="v">
+                        <DateChips :model-value="draft.needBy ?? ''" label="Потрібно до" @update:model-value="draft.needBy = $event" />
+                        <button type="button" class="p-chip" :class="{ on: draft.urgent }" :aria-pressed="draft.urgent" @click="draft.urgent = !draft.urgent">терміново</button>
+                    </div>
+                </div>
+                <div class="p-frow">
+                    <span class="k"><Icon name="building" :size="16" />Обʼєкт</span>
+                    <div class="v"><input v-model="draft.site" class="p-inline-input" type="text" placeholder="ЖК, цех, адреса" aria-label="Для якого обʼєкта" /></div>
+                </div>
+                <div class="p-frow">
+                    <span class="k"><Icon name="users" :size="16" />Підрозділ</span>
+                    <div class="v">
+                        <select v-model="draft.departmentId" class="p-inline-input" aria-label="Підрозділ">
+                            <option :value="null">—</option>
+                            <option v-for="d in departments" :key="d.id" :value="d.id">{{ d.name }}</option>
+                        </select>
+                    </div>
+                </div>
+                <label class="t-field">
+                    <span>Примітка</span>
+                    <textarea v-model="draft.note" class="t-textarea" rows="2" placeholder="Марка, розміри, постачальник, якщо відомий…" />
+                </label>
+                <p class="p-muted p-small">Менеджер отримає сповіщення в боті, як і про заявку, подану з телефона.</p>
+            </div>
+            <footer>
+                <span class="p-hint-keys">Ctrl+Enter — подати</span>
+                <button type="button" class="p-btn ghost" @click="cancel">Скасувати</button>
+                <button class="p-btn primary" type="submit" :disabled="saving || !draft.item.trim() || !draft.quantity.trim()">{{ saving ? 'Зберігаю…' : 'Подати заявку' }}</button>
+            </footer>
+        </form>
+    </div>
+    <div v-else :class="plan ? 'p-formpage' : 'supply-formpage'">
         <p v-if="!plan"><router-link :to="list">← До списку</router-link></p>
 
         <form class="new-request" :class="plan ? 't-formcard p-form p-form-page' : 'card'" aria-labelledby="new-request-title" @submit.prevent="submit" @keydown.esc="cancel">

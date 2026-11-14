@@ -26,7 +26,9 @@ use Throwable;
  *
  * Слухаємо відповідь, а не правимо контролери файлів модулів: подія пишеться
  * лише коли файл справді віддано (200 — перевірки доступу пройдено, файл є).
- * Превʼю (thumb/view/page) — не скачування, їх не рахуємо. Докачування шматками
+ * Превʼю (thumb/view/page) і показ у переглядачі чи мініатюрі (відповідь
+ * `Content-Disposition: inline`) — не скачування, їх не рахуємо: інакше відкрита
+ * картка позиції з фото давала «Файл скачано» (UX#9). Докачування шматками
  * (206) і повтор того самого файлу тією ж людиною за 10 хв зводяться в один рядок
  * (AuditThrottle) — переглядач PDF інакше дав би десяток.
  *
@@ -78,6 +80,11 @@ final class FileDownloadAudit
         $user = $this->security->getUser();
 
         if ($route === null || ! $user instanceof TelegramUser) {
+            return;
+        }
+
+        // Лише справжнє скачування (attachment); показ у браузері — перегляд, не скачування.
+        if (! str_starts_with(strtolower(trim((string) $event->getResponse()->headers->get('Content-Disposition', ''))), 'attachment')) {
             return;
         }
 

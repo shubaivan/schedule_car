@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DateChips from '../../plan/DateChips.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api, type ApiSupplier } from '../../app/api'
@@ -160,25 +161,46 @@ onMounted(async () => {
     }
     api.suppliers({ active: true }).then((r) => (suppliers.value = r.items)).catch(() => undefined)
 })
+
+/** Дата руху: здебільше сьогодні або вчора (записують наприкінці зміни). */
+const DAYS = [
+    { label: 'Сьогодні', days: 0 },
+    { label: 'Вчора', days: -1 },
+]
+
+function onKey(e: KeyboardEvent) {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault()
+        void submit()
+    } else if (e.key === 'Escape') {
+        e.preventDefault()
+        cancel()
+    }
+}
 </script>
 
 <template>
-    <div class="t-page w-form-page">
-        <form class="t-panel w-form" @submit.prevent="submit">
-            <div class="w-form-head">
-                <button type="button" class="p-icon-btn" title="Назад" aria-label="Назад" @click="cancel"><Icon name="back" /></button>
-                <h1>Новий рух</h1>
-            </div>
+    <div class="p-formpage w-form-page">
+        <form class="t-formcard p-form p-form-page w-form" aria-labelledby="w-form-title" @submit.prevent="submit" @keydown="onKey">
+            <header>
+                <button type="button" class="p-icon-btn p-form-back" title="Назад (Esc)" aria-label="Назад" @click="cancel"><Icon name="back" /></button>
+                <h2 id="w-form-title">Новий рух</h2>
+                <button type="button" class="p-icon-btn p-form-x" aria-label="Закрити" title="Закрити (Esc)" @click="cancel"><Icon name="x" /></button>
+            </header>
 
-            <div v-if="!meta" class="t-empty">{{ error || 'Завантаження…' }}</div>
-            <template v-else>
+            <div v-if="!meta" class="body t-empty">{{ error || 'Завантаження…' }}</div>
+            <div v-else class="body">
                 <div class="p-chips wrap" role="radiogroup" aria-label="Тип руху">
                     <button v-for="t in meta.movementTypes" :key="t.value" type="button" role="radio" class="p-chip" :class="{ on: draft.type === t.value }" :aria-checked="draft.type === t.value" @click="draft.type = t.value">{{ t.emoji }} {{ t.label }}</button>
                 </div>
 
-                <div class="t-two">
-                    <label class="w-field"><span>Дата</span><input v-model="draft.occurredAt" class="t-input" type="date" required /></label>
-                    <label class="w-field"><span>№ документа</span><input v-model="draft.documentNumber" class="t-input" type="text" placeholder="напр. ВН-118" /></label>
+                <div class="p-frow">
+                    <span class="k"><Icon name="calendar" :size="16" />Дата</span>
+                    <div class="v"><DateChips v-model="draft.occurredAt" :quick="DAYS" :clearable="false" label="Дата руху" /></div>
+                </div>
+                <div class="p-frow">
+                    <span class="k"><Icon name="file" :size="16" />№ документа</span>
+                    <div class="v"><input v-model="draft.documentNumber" class="p-inline-input" type="text" placeholder="напр. ВН-118" aria-label="№ документа" /></div>
                 </div>
 
                 <div class="t-two">
@@ -229,7 +251,7 @@ onMounted(async () => {
                     <button type="button" class="p-link" @click="addLine">+ Ще позиція</button>
                 </div>
 
-                <label class="w-field"><span>Примітка</span><textarea v-model="draft.note" class="t-textarea" rows="2" placeholder="Хто віз, номер машини, що не так" /></label>
+                <label class="t-field"><span>Примітка</span><textarea v-model="draft.note" class="t-textarea" rows="2" placeholder="Хто віз, номер машини, що не так" /></label>
 
                 <div class="w-field">
                     <span>Накладна, акт, фото</span>
@@ -243,11 +265,12 @@ onMounted(async () => {
                 </div>
 
                 <div v-if="error" class="t-error" role="alert">{{ error }}</div>
-                <div class="t-actions">
-                    <button type="submit" class="t-btn primary" :disabled="saving">{{ saving ? 'Записую…' : 'Записати рух' }}</button>
-                    <button type="button" class="t-btn ghost" :disabled="saving" @click="cancel">Скасувати</button>
-                </div>
-            </template>
+            </div>
+            <footer v-if="meta">
+                <span class="p-hint-keys">Ctrl+Enter — записати</span>
+                <button type="button" class="p-btn ghost" :disabled="saving" @click="cancel">Скасувати</button>
+                <button type="submit" class="p-btn primary" :disabled="saving">{{ saving ? 'Записую…' : 'Записати рух' }}</button>
+            </footer>
         </form>
     </div>
 </template>

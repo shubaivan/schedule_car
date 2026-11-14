@@ -103,6 +103,18 @@ class ShareApiTest extends WebTestCase
         self::assertSame(1, (int) $this->db->fetchOne("SELECT COUNT(*) FROM plan_event WHERE type = 'file_downloaded' AND actor_id = ? AND (payload->>'fileId')::int = ?", [$author->getId(), $file->getId()]));
     }
 
+    public function testPreviewInViewerIsNotLoggedAsDownload(): void
+    {
+        $author = $this->person(WorkRole::Manager, 'author');
+        $file = $this->taskFile($this->task($author, 'Перегляд'), $author, 'фото.png', (string) base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='));
+
+        $this->client->loginUser($author);
+        $this->client->request('GET', '/api/plan/files/task/' . $file->getId() . '/inline');
+        self::assertResponseIsSuccessful();
+        self::assertStringStartsWith('inline', (string) $this->client->getResponse()->headers->get('Content-Disposition'));
+        self::assertSame(0, (int) $this->db->fetchOne("SELECT COUNT(*) FROM plan_event WHERE type = 'file_downloaded' AND actor_id = ?", [$author->getId()]), 'Перегляд — не «Файл скачано»');
+    }
+
     public function testLinkWorksUntilExpiryThenGone(): void
     {
         $author = $this->person(WorkRole::Manager, 'author');

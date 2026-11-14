@@ -77,17 +77,28 @@ onMounted(async () => {
     }
     api.suppliers({ active: true }).then((r) => (suppliers.value = r.items)).catch(() => undefined)
 })
+
+function onKey(e: KeyboardEvent) {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault()
+        void submit()
+    } else if (e.key === 'Escape') {
+        e.preventDefault()
+        goBack(router, back.value)
+    }
+}
 </script>
 
 <template>
-    <div class="t-page w-form-page">
-        <form class="t-panel w-form" @submit.prevent="submit">
-            <div class="w-form-head">
-                <button type="button" class="p-icon-btn" title="Назад" aria-label="Назад" @click="goBack(router, back)"><Icon name="back" /></button>
-                <h1>{{ editing ? 'Змінити позицію' : 'Нова позиція' }}</h1>
-            </div>
-            <div v-if="!ready" class="t-empty">{{ error || 'Завантаження…' }}</div>
-            <template v-else-if="meta">
+    <div class="p-formpage w-form-page">
+        <form class="t-formcard p-form p-form-page w-form" aria-labelledby="w-item-title" @submit.prevent="submit" @keydown="onKey">
+            <header>
+                <button type="button" class="p-icon-btn p-form-back" title="Назад (Esc)" aria-label="Назад" @click="goBack(router, back)"><Icon name="back" /></button>
+                <h2 id="w-item-title">{{ editing ? 'Змінити позицію' : 'Нова позиція' }}</h2>
+                <button type="button" class="p-icon-btn p-form-x" aria-label="Закрити" title="Закрити (Esc)" @click="goBack(router, back)"><Icon name="x" /></button>
+            </header>
+            <div v-if="!ready" class="body t-empty">{{ error || 'Завантаження…' }}</div>
+            <div v-else-if="meta" class="body">
                 <label class="w-field"><span>Назва *</span><input v-model="draft.name" class="t-input" type="text" required placeholder="напр. Кільце колодязне КС 10-9" /></label>
                 <div class="t-two">
                     <label class="w-field">
@@ -139,11 +150,12 @@ onMounted(async () => {
                 <label class="w-field"><span>Опис</span><textarea v-model="draft.description" class="t-textarea" rows="3" /></label>
 
                 <div v-if="error" class="t-error" role="alert">{{ error }}</div>
-                <div class="t-actions">
-                    <button type="submit" class="t-btn primary" :disabled="saving">{{ saving ? 'Зберігаю…' : editing ? 'Зберегти' : 'Створити позицію' }}</button>
-                    <button type="button" class="t-btn ghost" :disabled="saving" @click="goBack(router, back)">Скасувати</button>
-                </div>
-            </template>
+            </div>
+            <footer v-if="ready && meta">
+                <span class="p-hint-keys">{{ editing ? 'Ctrl+Enter — зберегти' : 'Ctrl+Enter — створити' }}</span>
+                <button type="button" class="p-btn ghost" :disabled="saving" @click="goBack(router, back)">Скасувати</button>
+                <button type="submit" class="p-btn primary" :disabled="saving">{{ saving ? 'Зберігаю…' : editing ? 'Зберегти' : 'Створити позицію' }}</button>
+            </footer>
         </form>
     </div>
 </template>

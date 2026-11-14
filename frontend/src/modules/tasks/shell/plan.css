@@ -542,3 +542,22 @@ body.p-noscroll { overflow: hidden; }
 .p-placeholder .p-card { text-align: center; padding: 28px 20px; }
 .p-placeholder h2 { margin: 8px 0; font-size: 18px; }
 .p-placeholder-ico { width: 56px; height: 56px; margin: 0 auto; border-radius: 16px; display: flex; align-items: center; justify-content: center; background: var(--accent-soft); color: var(--accent); }
+
+/* ---------- одна форма на весь «План»: задача, заявка, рух складу ---------- */
+textarea.p-title-input { display: block; resize: none; overflow: hidden; min-height: 36px; }
+.p-form .t-input, .p-form .t-select, .p-form select.p-inline-input {
+    height: 32px; padding: 0 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text);
+    font: inherit; font-size: 14px; box-sizing: border-box;
+}
+.p-form .t-input:focus, .p-form .t-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.p-form .t-textarea { border-radius: 8px; font-size: 14px; }
+.p-form .w-field > span, .p-form .t-field > span { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.p-form .p-qty { width: 110px; }
+.p-form .p-unit { width: auto; min-width: 90px; }
+.p-form .p-frow .v > select.p-inline-input { width: auto; max-width: 100%; }
+@media (max-width: 760px) {
+    .p-form input, .p-form select, .p-form textarea { font-size: 16px; }
+    .p-form .p-frow { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+}
+.p-form.w-form { gap: 0; max-width: 760px; }
+.p-formpage.w-form-page { max-width: 760px; }

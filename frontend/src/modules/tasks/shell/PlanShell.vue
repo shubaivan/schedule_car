@@ -108,7 +108,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
                 <h1 class="p-top-title">{{ title }}</h1>
                 <form class="p-top-search" role="search" @submit.prevent="search">
                     <Icon name="search" :size="16" />
-                    <input ref="searchBox" v-model="q" type="search" placeholder="Пошук по задачах" aria-label="Пошук по задачах" />
+                    <input ref="searchBox" v-model="q" type="search" placeholder="Пошук по всьому" aria-label="Пошук по всьому: задачі, заявки, склад, файли, люди" />
                     <kbd>/</kbd>
                 </form>
                 <router-link :to="{ name: 'tasks-profile' }" class="p-me" title="Профіль">
