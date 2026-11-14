@@ -3,6 +3,10 @@
 namespace App\Supply\Service;
 
 use App\Entity\TelegramUser;
+use App\Plan\Event\FileAdded;
+use App\Plan\Event\FileRemoved;
+use App\Plan\EventStore\PlanEventRecorder;
+use App\Plan\Subject\SubjectRef;
 use App\Supply\Entity\SupplyAttachment;
 use App\Supply\Entity\SupplyRequest;
 use App\Supply\Enum\AttachmentType;
@@ -44,7 +48,7 @@ class AttachFile
         private EntityManagerInterface $em,
         #[Target('supply.storage')]
         private FilesystemOperator $supplyStorage,
-        private SupplyNotifier $notifier,
+        private PlanEventRecorder $events,
         private LoggerInterface $logger,
     ) {
     }
@@ -95,7 +99,18 @@ class AttachFile
         $request->addAttachment($attachment);
 
         $this->em->persist($attachment);
-        $this->em->flush();
+
+        // notify=false — файл прийшов разом з іншою дією, повідомлення про яку вже покриє і його.
+        $this->events->transactional(function () use ($request, $attachment, $by, $originalName, $notify): void {
+            $this->em->flush();
+            $this->events->record(new FileAdded(
+                SubjectRef::supply((int) $request->getId()),
+                $by->getId(),
+                fileIds: [(int) $attachment->getId()],
+                names: [$originalName],
+                notify: $notify,
+            ));
+        });
 
         $this->logger->info('supply: прикріплено файл', [
             'number' => $request->getNumber(),
@@ -103,10 +118,6 @@ class AttachFile
             'size' => $size,
             'by' => $by->displayName(),
         ]);
-
-        if ($notify) {
-            $this->notifier->fileAttached($attachment);
-        }
 
         return $attachment;
     }
@@ -119,6 +130,7 @@ class AttachFile
 
         $request = $attachment->getRequest();
         $name = $attachment->getOriginalName();
+        $fileId = (int) $attachment->getId();
 
         try {
             $this->supplyStorage->delete($attachment->getStoragePath());
@@ -132,11 +144,18 @@ class AttachFile
 
         $request->removeAttachment($attachment);
         $this->em->remove($attachment);
-        $this->em->flush();
 
         // Копію в Google Drive навмисно не чіпаємо: там архів, з якого нічого
         // не зникає само по собі.
-        $this->notifier->fileRemoved($request, $name);
+        $this->events->transactional(function () use ($request, $by, $name, $fileId): void {
+            $this->em->flush();
+            $this->events->record(new FileRemoved(
+                SubjectRef::supply((int) $request->getId()),
+                $by->getId(),
+                names: [$name],
+                fileIds: [$fileId],
+            ));
+        });
     }
 
     public function read(SupplyAttachment $attachment): string

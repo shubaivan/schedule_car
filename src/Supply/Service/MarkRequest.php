@@ -3,6 +3,9 @@
 namespace App\Supply\Service;
 
 use App\Entity\TelegramUser;
+use App\Plan\Event\SubjectUpdated;
+use App\Plan\EventStore\PlanEventRecorder;
+use App\Plan\Subject\SubjectRef;
 use App\Supply\Entity\SupplyRequest;
 use App\Supply\Enum\SupplyAccent;
 use App\Supply\Exception\SupplyException;
@@ -18,6 +21,7 @@ class MarkRequest
     public function __construct(
         private EntityManagerInterface $em,
         private LoggerInterface $logger,
+        private PlanEventRecorder $events,
     ) {
     }
 
@@ -32,7 +36,16 @@ class MarkRequest
         }
 
         $request->setAccent($accent);
-        $this->em->flush();
+
+        $this->events->transactional(function () use ($request, $accent, $by): void {
+            $this->em->flush();
+            $this->events->record(new SubjectUpdated(
+                SubjectRef::supply((int) $request->getId()),
+                $by->getId(),
+                fields: ['accent'],
+                summary: $accent->value,
+            ));
+        });
 
         $this->logger->info('supply: мітка заявки', [
             'request' => $request->getNumber(),

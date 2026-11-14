@@ -106,6 +106,13 @@ class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(name: 'last_seen_at', type: Types::DATETIME_MUTABLE, nullable: true)]
     private ?DateTime $lastSeenAt = null;
 
+    /**
+     * Суперадмін «Плану» (журнал аудиту). Видається лише з консолі, в інтерфейсі
+     * не редагується; на стендах заявок завжди false.
+     */
+    #[ORM\Column(name: 'is_superadmin', type: 'boolean', nullable: false, options: ['default' => false])]
+    private bool $superadmin = false;
+
     public function __construct()
     {
         $this->scheduledSet = new ArrayCollection();
@@ -412,7 +419,25 @@ class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function getRoles(): array
     {
-        return ['ROLE_USER', $this->supplyRole->securityRole()];
+        $roles = ['ROLE_USER', $this->supplyRole->securityRole()];
+
+        if ($this->superadmin) {
+            $roles[] = 'ROLE_PLAN_SUPERADMIN';
+        }
+
+        return $roles;
+    }
+
+    public function isSuperadmin(): bool
+    {
+        return $this->superadmin;
+    }
+
+    public function setSuperadmin(bool $superadmin): static
+    {
+        $this->superadmin = $superadmin;
+
+        return $this;
     }
 
     /** Хеш пароля робочого місця; у більшості людей його немає — вхід через бота. */

@@ -18,6 +18,7 @@ use Throwable;
 
 /**
  * Сповіщення по задачах у Telegram — одна точка, як SupplyNotifier у заявках.
+ * Кличе лише TaskNotificationListener за подіями журналу «Плану».
  *
  * Хто що отримує:
  * - нова задача → усі учасники, крім автора («вас додали»);
@@ -86,9 +87,11 @@ class TaskNotifier
         }
     }
 
-    public function statusChanged(Task $task, TaskStatus $from, TelegramUser $by, ?string $comment = null): void
+    /** @param TaskStatus|null $to куди перейшли (з події); null — поточний статус задачі */
+    public function statusChanged(Task $task, TaskStatus $from, TelegramUser $by, ?string $comment = null, ?TaskStatus $to = null): void
     {
-        $text = sprintf("🔄 <b>%s → %s</b>\n%s\n\nЗмінив(ла): %s", $this->e($from->label()), $this->e($task->getStatus()->label()), $this->head($task), $this->e($by->shortName()));
+        $to ??= $task->getStatus();
+        $text = sprintf("🔄 <b>%s → %s</b>\n%s\n\nЗмінив(ла): %s", $this->e($from->label()), $this->e($to->label()), $this->head($task), $this->e($by->shortName()));
 
         if ($comment !== null && trim($comment) !== '') {
             $text .= "\n«" . $this->e(trim($comment)) . '»';
@@ -97,7 +100,7 @@ class TaskNotifier
         $recipients = $this->members($task, except: $by);
 
         // На погодження — тим, хто вирішує, навіть якщо їх у задачі не позначили.
-        if ($task->getStatus() === TaskStatus::Approval) {
+        if ($to === TaskStatus::Approval) {
             foreach ($this->users->findAll() as $user) {
                 if ($user->getWorkRole()->decides() && $user->getId() !== $by->getId() && ! $user->isArchived()) {
                     $recipients[$user->getId()] = $user;

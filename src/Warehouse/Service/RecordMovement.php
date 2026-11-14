@@ -3,6 +3,10 @@
 namespace App\Warehouse\Service;
 
 use App\Entity\TelegramUser;
+use App\Plan\Event\StockMoved;
+use App\Plan\EventStore\PlanEventRecorder;
+use App\Plan\Subject\SubjectRef;
+use App\Plan\Subject\SubjectType;
 use App\Supply\Entity\Supplier;
 use App\Warehouse\Entity\WhItem;
 use App\Warehouse\Entity\WhMovement;
@@ -28,6 +32,7 @@ class RecordMovement
         private EntityManagerInterface $em,
         private WarehouseStock $stock,
         private LoggerInterface $logger,
+        private PlanEventRecorder $events,
     ) {
     }
 
@@ -101,7 +106,19 @@ class RecordMovement
         }
 
         $this->em->persist($movement);
-        $this->em->flush();
+
+        $this->events->transactional(function () use ($movement, $type, $from, $to, $by): void {
+            $this->em->flush();
+            $this->events->record(new StockMoved(
+                SubjectRef::of(SubjectType::WhMovement, (int) $movement->getId()),
+                $by->getId(),
+                movementType: $type->value,
+                title: $movement->getTitle(),
+                fromSiteId: $from?->getId(),
+                toSiteId: $to?->getId(),
+                itemIds: array_values(array_map(static fn (WhMovementLine $l) => (int) $l->getItem()->getId(), $movement->getLines()->toArray())),
+            ));
+        });
 
         $this->logger->info('warehouse: записано рух', [
             'movement' => $movement->getId(),

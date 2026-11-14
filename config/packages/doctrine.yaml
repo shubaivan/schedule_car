@@ -37,6 +37,12 @@ doctrine:
                 is_bundle: false
                 dir: '%kernel.project_dir%/src/Tasks/Entity'
                 prefix: 'App\Tasks\Entity'
+            # Спільний шар «Плану»: сутності лежать у src/Plan/<модуль>/Entity.
+            Plan:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Plan'
+                prefix: 'App\Plan'
 
 when@test:
     doctrine:

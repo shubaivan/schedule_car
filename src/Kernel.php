@@ -4,13 +4,26 @@ namespace App;
 
 use SergiX44\Nutgram\Nutgram;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
+use Symfony\Component\Config\Loader\LoaderInterface;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpKernel\Kernel as BaseKernel;
 
 class Kernel extends BaseKernel implements CompilerPassInterface
 {
-    use MicroKernelTrait;
+    use MicroKernelTrait {
+        registerContainerConfiguration as private registerMicroKernelConfiguration;
+    }
+
+    /**
+     * Після config/services.yaml — config/services/*.yaml (по файлу на потік «Плану»):
+     * вони уточнюють визначення, які `App\:` у services.yaml уже зареєстрував.
+     */
+    public function registerContainerConfiguration(LoaderInterface $loader): void
+    {
+        $this->registerMicroKernelConfiguration($loader);
+        $loader->load($this->getProjectDir() . '/config/services/*.yaml', 'glob');
+    }
 
     /**
      * Увесь застосунок працює в київському часі.
