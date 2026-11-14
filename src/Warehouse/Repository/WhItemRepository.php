@@ -7,6 +7,7 @@ use App\Warehouse\Entity\WhItem;
 use App\Warehouse\Enum\ItemState;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use SortDirection;
 
 /** @extends ServiceEntityRepository<WhItem> */
 class WhItemRepository extends ServiceEntityRepository
@@ -29,7 +30,7 @@ class WhItemRepository extends ServiceEntityRepository
             ->leftJoin('i.currentSite', 's')->addSelect('s')
             ->innerJoin('i.category', 'c')->addSelect('c')
             ->leftJoin('i.supplier', 'sup')->addSelect('sup')
-            ->orderBy('i.inventoryNumber', 'ASC');
+            ->orderBy('i.inventoryNumber', SortDirection::Ascending);
 
         if ($query !== '') {
             $qb->andWhere('LOWER(i.name) LIKE :q OR LOWER(i.inventoryNumber) LIKE :q OR LOWER(i.serialNumber) LIKE :q OR LOWER(sup.name) LIKE :q')
@@ -58,7 +59,7 @@ class WhItemRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('i')
             ->andWhere('i.state <> :off')->setParameter('off', ItemState::WrittenOff)
-            ->orderBy('i.inventoryNumber', 'ASC')
+            ->orderBy('i.inventoryNumber', SortDirection::Ascending)
             ->getQuery()
             ->getResult();
     }

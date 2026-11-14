@@ -9,6 +9,7 @@ use App\Service\KyivTime;
 use DateTime;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use SortDirection;
 
 /**
  * @extends ServiceEntityRepository<ScheduledSet>
@@ -52,8 +53,8 @@ class ScheduledSetRepository extends ServiceEntityRepository
             ->leftJoin('s.telegramUserId', 'u')->addSelect('u')
             ->andWhere('s.scheduledAt >= :from')->setParameter('from', $from)
             ->andWhere('s.scheduledAt < :to')->setParameter('to', $to)
-            ->orderBy('s.scheduledAt', 'ASC')
-            ->addOrderBy('c.carNumber', 'ASC')
+            ->orderBy('s.scheduledAt', SortDirection::Ascending)
+            ->addOrderBy('c.carNumber', SortDirection::Ascending)
             ->getQuery()
             ->getResult();
     }
@@ -69,7 +70,7 @@ class ScheduledSetRepository extends ServiceEntityRepository
             ->leftJoin('s.telegramUserId', 'u')->addSelect('u')
             ->andWhere('s.car = :car')->setParameter('car', $car)
             ->andWhere('s.scheduledAt >= :since')->setParameter('since', $since)
-            ->orderBy('s.scheduledAt', 'ASC')
+            ->orderBy('s.scheduledAt', SortDirection::Ascending)
             ->getQuery()
             ->getResult();
     }
@@ -85,7 +86,7 @@ class ScheduledSetRepository extends ServiceEntityRepository
             ->leftJoin('s.car', 'c')->addSelect('c')
             ->andWhere('s.telegramUserId = :user')->setParameter('user', $user)
             ->andWhere('s.scheduledAt >= :since')->setParameter('since', $since)
-            ->orderBy('s.scheduledAt', 'ASC')
+            ->orderBy('s.scheduledAt', SortDirection::Ascending)
             ->getQuery()
             ->getResult();
     }

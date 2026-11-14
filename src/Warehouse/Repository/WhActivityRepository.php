@@ -8,6 +8,7 @@ use App\Warehouse\Enum\ActivityAction;
 use DateTime;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use SortDirection;
 
 /** @extends ServiceEntityRepository<WhActivity> */
 class WhActivityRepository extends ServiceEntityRepository
@@ -34,7 +35,7 @@ class WhActivityRepository extends ServiceEntityRepository
     ): array {
         $qb = $this->createQueryBuilder('a')
             ->leftJoin('a.user', 'u')->addSelect('u')
-            ->orderBy('a.id', 'DESC')
+            ->orderBy('a.id', SortDirection::Descending)
             ->setMaxResults($limit);
 
         if ($user !== null) {
@@ -67,7 +68,7 @@ class WhActivityRepository extends ServiceEntityRepository
             ->select('u')
             ->from(TelegramUser::class, 'u')
             ->where('u.id IN (SELECT IDENTITY(a.user) FROM ' . WhActivity::class . ' a)')
-            ->orderBy('u.first_name', 'ASC')
+            ->orderBy('u.first_name', SortDirection::Ascending)
             ->getQuery()
             ->getResult();
     }

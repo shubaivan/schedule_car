@@ -6,6 +6,7 @@ use App\Tasks\Entity\Task;
 use App\Tasks\Entity\TaskMessage;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use SortDirection;
 
 /** @extends ServiceEntityRepository<TaskMessage> */
 class TaskMessageRepository extends ServiceEntityRepository
@@ -25,7 +26,7 @@ class TaskMessageRepository extends ServiceEntityRepository
             ->andWhere('m.id > :after')
             ->setParameter('task', $task)
             ->setParameter('after', $afterId)
-            ->orderBy('m.id', 'ASC')
+            ->orderBy('m.id', SortDirection::Ascending)
             ->getQuery()
             ->getResult();
     }

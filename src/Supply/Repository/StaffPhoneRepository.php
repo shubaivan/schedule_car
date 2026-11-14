@@ -5,6 +5,7 @@ namespace App\Supply\Repository;
 use App\Supply\Entity\StaffPhone;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use SortDirection;
 
 /**
  * @extends ServiceEntityRepository<StaffPhone>
@@ -25,8 +26,8 @@ class StaffPhoneRepository extends ServiceEntityRepository
     public function findAllOrdered(): array
     {
         return $this->createQueryBuilder('s')
-            ->orderBy('s.role', 'ASC')
-            ->addOrderBy('s.name', 'ASC')
+            ->orderBy('s.role', SortDirection::Ascending)
+            ->addOrderBy('s.name', SortDirection::Ascending)
             ->getQuery()
             ->getResult();
     }

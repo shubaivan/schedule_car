@@ -5,6 +5,7 @@ namespace App\Supply\Repository;
 use App\Supply\Entity\SupplyAttachment;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use SortDirection;
 
 /**
  * @extends ServiceEntityRepository<SupplyAttachment>
@@ -26,7 +27,7 @@ class SupplyAttachmentRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('a')
             ->andWhere('a.driveFileId IS NULL')
-            ->orderBy('a.id', 'ASC')
+            ->orderBy('a.id', SortDirection::Ascending)
             ->setMaxResults($limit)
             ->getQuery()
             ->getResult();

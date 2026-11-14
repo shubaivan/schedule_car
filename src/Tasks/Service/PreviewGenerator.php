@@ -102,7 +102,7 @@ class PreviewGenerator
 
         $this->saveScaled($image, self::THUMB, $this->storage->thumb($attachment), 80);
         $this->saveScaled($image, self::VIEW, $this->storage->view($attachment), 85);
-        imagedestroy($image);
+        unset($image);
 
         $attachment->previewReady(null, $width, $height);
 
@@ -231,7 +231,6 @@ class PreviewGenerator
                 $rotated = imagerotate($image, $angle, 0);
 
                 if ($rotated instanceof GdImage) {
-                    imagedestroy($image);
                     $image = $rotated;
                 }
             }
@@ -254,6 +253,5 @@ class PreviewGenerator
         imagecopyresampled($canvas, $image, 0, 0, 0, 0, $w, $h, $width, $height);
         imageinterlace($canvas, true);
         imagejpeg($canvas, $target, $quality);
-        imagedestroy($canvas);
     }
 }

@@ -8,6 +8,7 @@ use App\Warehouse\Entity\WhMovement;
 use App\Warehouse\Entity\WhSite;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use SortDirection;
 
 /** @extends ServiceEntityRepository<WhMovement> */
 class WhMovementRepository extends ServiceEntityRepository
@@ -24,8 +25,8 @@ class WhMovementRepository extends ServiceEntityRepository
             ->innerJoin('m.lines', 'l')
             ->andWhere('l.item = :item')
             ->setParameter('item', $item)
-            ->orderBy('m.occurredAt', 'DESC')
-            ->addOrderBy('m.id', 'DESC')
+            ->orderBy('m.occurredAt', SortDirection::Descending)
+            ->addOrderBy('m.id', SortDirection::Descending)
             ->setMaxResults($limit)
             ->getQuery()
             ->getResult();
@@ -37,8 +38,8 @@ class WhMovementRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('m')
             ->andWhere('m.fromSite = :site OR m.toSite = :site')
             ->setParameter('site', $site)
-            ->orderBy('m.occurredAt', 'DESC')
-            ->addOrderBy('m.id', 'DESC')
+            ->orderBy('m.occurredAt', SortDirection::Descending)
+            ->addOrderBy('m.id', SortDirection::Descending)
             ->setMaxResults($limit)
             ->getQuery()
             ->getResult();
@@ -52,8 +53,8 @@ class WhMovementRepository extends ServiceEntityRepository
             ->leftJoin('m.toSite', 't')
             ->andWhere('f.client = :client OR t.client = :client')
             ->setParameter('client', $client)
-            ->orderBy('m.occurredAt', 'DESC')
-            ->addOrderBy('m.id', 'DESC')
+            ->orderBy('m.occurredAt', SortDirection::Descending)
+            ->addOrderBy('m.id', SortDirection::Descending)
             ->setMaxResults($limit)
             ->getQuery()
             ->getResult();

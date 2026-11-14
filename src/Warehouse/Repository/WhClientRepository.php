@@ -5,6 +5,7 @@ namespace App\Warehouse\Repository;
 use App\Warehouse\Entity\WhClient;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use SortDirection;
 
 /** @extends ServiceEntityRepository<WhClient> */
 class WhClientRepository extends ServiceEntityRepository
@@ -17,7 +18,7 @@ class WhClientRepository extends ServiceEntityRepository
     /** @return WhClient[] */
     public function search(string $query = ''): array
     {
-        $qb = $this->createQueryBuilder('c')->orderBy('c.active', 'DESC')->addOrderBy('c.name', 'ASC');
+        $qb = $this->createQueryBuilder('c')->orderBy('c.active', SortDirection::Descending)->addOrderBy('c.name', SortDirection::Ascending);
 
         if ($query !== '') {
             $qb->andWhere('LOWER(c.name) LIKE :q OR c.edrpou LIKE :q OR LOWER(c.contactPerson) LIKE :q OR c.phone LIKE :q')

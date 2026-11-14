@@ -5,6 +5,7 @@ namespace App\Supply\Repository;
 use App\Supply\Entity\Supplier;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use SortDirection;
 
 /**
  * @extends ServiceEntityRepository<Supplier>
@@ -21,7 +22,7 @@ class SupplierRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('s')
             ->andWhere('s.active = true')
-            ->orderBy('s.name', 'ASC')
+            ->orderBy('s.name', SortDirection::Ascending)
             ->getQuery()
             ->getResult();
     }
@@ -44,7 +45,7 @@ class SupplierRepository extends ServiceEntityRepository
     public function search(string $query, int $limit = 20, bool $onlyActive = true): array
     {
         $qb = $this->createQueryBuilder('s')
-            ->orderBy('s.name', 'ASC')
+            ->orderBy('s.name', SortDirection::Ascending)
             ->setMaxResults($limit);
 
         if ($onlyActive) {
@@ -76,7 +77,7 @@ class SupplierRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('s')
             ->andWhere('s.active = true')
-            ->orderBy('s.updated_at', 'DESC')
+            ->orderBy('s.updated_at', SortDirection::Descending)
             ->setMaxResults($limit)
             ->getQuery()
             ->getResult();

@@ -14,6 +14,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use SortDirection;
 use Symfony\Component\Validator\Constraints\NotBlank;
 
 /**
@@ -93,21 +94,21 @@ class SupplyRequest
     private ?DateTime $overdueNotifiedAt = null;
 
     #[ORM\OneToMany(targetEntity: SupplyComment::class, mappedBy: 'request', cascade: ['persist', 'remove'])]
-    #[ORM\OrderBy(['created_at' => 'ASC'])]
+    #[ORM\OrderBy(['created_at' => SortDirection::Ascending])]
     private Collection $comments;
 
     #[ORM\OneToMany(targetEntity: SupplyStatusLog::class, mappedBy: 'request', cascade: ['persist', 'remove'])]
-    #[ORM\OrderBy(['created_at' => 'ASC'])]
+    #[ORM\OrderBy(['created_at' => SortDirection::Ascending])]
     private Collection $statusLogs;
 
     /** У кого купили: зазвичай один запис, але буває й кілька постачальників. */
     #[ORM\OneToMany(targetEntity: SupplyPurchase::class, mappedBy: 'request', cascade: ['persist', 'remove'])]
-    #[ORM\OrderBy(['created_at' => 'ASC'])]
+    #[ORM\OrderBy(['created_at' => SortDirection::Ascending])]
     private Collection $purchases;
 
     /** Накладні, рахунки, договори, фото товару. */
     #[ORM\OneToMany(targetEntity: SupplyAttachment::class, mappedBy: 'request', cascade: ['persist', 'remove'])]
-    #[ORM\OrderBy(['created_at' => 'ASC'])]
+    #[ORM\OrderBy(['created_at' => SortDirection::Ascending])]
     private Collection $attachments;
 
     public function __construct()

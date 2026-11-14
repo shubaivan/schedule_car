@@ -9,6 +9,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use SortDirection;
 
 /**
  * Повідомлення в чаті задачі. kind = comment (людина написала) або event
@@ -53,7 +54,7 @@ class TaskMessage
 
     /** @var Collection<int, TaskAttachment> */
     #[ORM\OneToMany(targetEntity: TaskAttachment::class, mappedBy: 'message', cascade: ['persist'])]
-    #[ORM\OrderBy(['id' => 'ASC'])]
+    #[ORM\OrderBy(['id' => SortDirection::Ascending])]
     private Collection $attachments;
 
     /** @param list<int> $mentions */

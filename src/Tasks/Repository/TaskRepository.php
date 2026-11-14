@@ -10,6 +10,7 @@ use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
+use SortDirection;
 
 /**
  * Вибірки задач з урахуванням видимості: директор і адмін бачать усе,
@@ -105,11 +106,11 @@ class TaskRepository extends ServiceEntityRepository
 
         if ($order === 'due') {
             $idQuery->addSelect('CASE WHEN t.dueAt IS NULL THEN 1 ELSE 0 END AS HIDDEN nodue')
-                ->addOrderBy('nodue', 'ASC')
-                ->addOrderBy('t.dueAt', 'ASC');
+                ->addOrderBy('nodue', SortDirection::Ascending)
+                ->addOrderBy('t.dueAt', SortDirection::Ascending);
         }
 
-        $idQuery->addOrderBy('t.lastActivityAt', 'DESC')->addOrderBy('t.id', 'DESC');
+        $idQuery->addOrderBy('t.lastActivityAt', SortDirection::Descending)->addOrderBy('t.id', SortDirection::Descending);
 
         $ids = array_map(
             static fn (array $row) => (int) $row['id'],

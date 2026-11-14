@@ -5,6 +5,7 @@ namespace App\Repository;
 use App\Entity\DriverPhone;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use SortDirection;
 
 /**
  * @extends ServiceEntityRepository<DriverPhone>
@@ -26,8 +27,8 @@ class DriverPhoneRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('d')
             ->leftJoin('d.car', 'c')->addSelect('c')
-            ->orderBy('d.name', 'ASC')
-            ->addOrderBy('d.phone', 'ASC')
+            ->orderBy('d.name', SortDirection::Ascending)
+            ->addOrderBy('d.phone', SortDirection::Ascending)
             ->getQuery()
             ->getResult();
     }

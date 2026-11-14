@@ -12,6 +12,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use SortDirection;
 
 /**
  * Угода/задача («прецедент» — звернення клієнта до заводу).
@@ -76,7 +77,7 @@ class Task
     #[ORM\JoinTable(name: 'task_task_label')]
     #[ORM\JoinColumn(name: 'task_id', onDelete: 'CASCADE')]
     #[ORM\InverseJoinColumn(name: 'label_id', onDelete: 'CASCADE')]
-    #[ORM\OrderBy(['sort' => 'ASC'])]
+    #[ORM\OrderBy(['sort' => SortDirection::Ascending])]
     private Collection $labels;
 
     public function __construct(string $title, TelegramUser $creator)

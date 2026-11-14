@@ -6,6 +6,7 @@ use App\Entity\CrmLogin;
 use DateTime;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use SortDirection;
 
 /** @extends ServiceEntityRepository<CrmLogin> */
 class CrmLoginRepository extends ServiceEntityRepository
@@ -20,7 +21,7 @@ class CrmLoginRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('l')
             ->leftJoin('l.user', 'u')->addSelect('u')
-            ->orderBy('l.id', 'DESC')
+            ->orderBy('l.id', SortDirection::Descending)
             ->setMaxResults($limit)
             ->getQuery()
             ->getResult();
@@ -38,7 +39,7 @@ class CrmLoginRepository extends ServiceEntityRepository
             ->andWhere('l.success = true')
             ->andWhere('l.name IS NOT NULL')
             ->groupBy('l.name')
-            ->orderBy('at', 'DESC')
+            ->orderBy('at', SortDirection::Descending)
             ->getQuery()
             ->getArrayResult();
 

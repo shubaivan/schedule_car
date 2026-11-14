@@ -7,6 +7,7 @@ use App\Supply\Entity\Department;
 use App\Supply\Enum\SupplyRole;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use SortDirection;
 
 /**
  * @extends ServiceEntityRepository<TelegramUser>
@@ -75,7 +76,7 @@ class TelegramUserRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('tu')
             ->where('tu.phone_number LIKE :tail')
             ->setParameter('tail', '%' . $tail)
-            ->orderBy('tu.id', 'ASC')
+            ->orderBy('tu.id', SortDirection::Ascending)
             ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();
@@ -104,7 +105,7 @@ class TelegramUserRepository extends ServiceEntityRepository
      */
     public function findPeople(bool $withArchived = false): array
     {
-        $qb = $this->createQueryBuilder('u')->orderBy('u.first_name', 'ASC');
+        $qb = $this->createQueryBuilder('u')->orderBy('u.first_name', SortDirection::Ascending);
 
         if (! $withArchived) {
             $qb->andWhere('u.archivedAt IS NULL');

@@ -7,6 +7,7 @@ use App\Warehouse\Entity\WhItem;
 use App\Warehouse\Enum\DocumentType;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use SortDirection;
 
 /** @extends ServiceEntityRepository<WhDocument> */
 class WhDocumentRepository extends ServiceEntityRepository
@@ -28,7 +29,7 @@ class WhDocumentRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('d')
             ->andWhere('d.driveFileId IS NULL')
             ->andWhere('d.item IS NULL OR d.type <> :photo')->setParameter('photo', DocumentType::Photo)
-            ->orderBy('d.id', 'ASC')
+            ->orderBy('d.id', SortDirection::Ascending)
             ->setMaxResults($limit)
             ->getQuery()
             ->getResult();
@@ -52,7 +53,7 @@ class WhDocumentRepository extends ServiceEntityRepository
             ->andWhere('d.item IN (:items)')->setParameter('items', $items)
             ->andWhere('d.type = :photo')->setParameter('photo', DocumentType::Photo)
             ->andWhere('d.mime IN (:mimes)')->setParameter('mimes', WhDocument::VIEWABLE_IMAGES)
-            ->orderBy('d.id', 'DESC')
+            ->orderBy('d.id', SortDirection::Descending)
             ->getQuery()
             ->getResult();
 

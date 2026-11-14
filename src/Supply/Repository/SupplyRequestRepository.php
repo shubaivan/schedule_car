@@ -12,6 +12,7 @@ use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
+use SortDirection;
 
 /**
  * @extends ServiceEntityRepository<SupplyRequest>
@@ -70,8 +71,8 @@ class SupplyRequestRepository extends ServiceEntityRepository
             "CASE r.accent WHEN 'red' THEN 0 WHEN 'yellow' THEN 1 WHEN 'green' THEN 2 ELSE 3 END AS HIDDEN accent_rank",
         );
 
-        $qb->orderBy('accent_rank', 'ASC')
-            ->addOrderBy('r.created_at', 'DESC')
+        $qb->orderBy('accent_rank', SortDirection::Ascending)
+            ->addOrderBy('r.created_at', SortDirection::Descending)
             ->setFirstResult(($page - 1) * $limit)
             ->setMaxResults($limit);
 
@@ -116,7 +117,7 @@ class SupplyRequestRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('r')
             ->andWhere('r.author = :author')
             ->setParameter('author', $author)
-            ->orderBy('r.created_at', 'DESC')
+            ->orderBy('r.created_at', SortDirection::Descending)
             ->setMaxResults($limit)
             ->getQuery()
             ->getResult();
@@ -141,7 +142,7 @@ class SupplyRequestRepository extends ServiceEntityRepository
             ->andWhere('r.status IN (:open)')
             ->setParameter('today', new DateTime('today', new DateTimeZone('Europe/Kyiv')))
             ->setParameter('open', SupplyStatus::openCases())
-            ->orderBy('r.needBy', 'ASC');
+            ->orderBy('r.needBy', SortDirection::Ascending);
 
         if (! $includeReminded) {
             $qb->andWhere('r.overdueNotifiedAt IS NULL OR r.overdueNotifiedAt < r.needBy');

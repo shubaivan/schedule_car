@@ -6,6 +6,7 @@ use App\Entity\TelegramUser;
 use App\Enum\AccessStatus;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
+use SortDirection;
 
 /**
  * Звʼязка співробітника з CRM і його Telegram.
@@ -45,7 +46,7 @@ class StaffLinker
             ->setParameter('placeholder', self::PLACEHOLDER . '%')
             ->setParameter('tail', '%' . $tail)
             ->setParameter('me', $user->getId())
-            ->orderBy('u.id', 'ASC')
+            ->orderBy('u.id', SortDirection::Ascending)
             ->setMaxResults(1)
             ->getQuery()->getOneOrNullResult();
 

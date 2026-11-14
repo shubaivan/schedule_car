@@ -5,6 +5,7 @@ namespace App\Supply\Repository;
 use App\Supply\Entity\Department;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use SortDirection;
 
 /**
  * @extends ServiceEntityRepository<Department>
@@ -32,7 +33,7 @@ class DepartmentRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('d')
             ->andWhere('d.active = true')
-            ->orderBy('d.name', 'ASC')
+            ->orderBy('d.name', SortDirection::Ascending)
             ->getQuery()
             ->getResult();
     }

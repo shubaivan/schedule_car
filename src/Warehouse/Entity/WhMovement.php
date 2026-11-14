@@ -12,6 +12,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use SortDirection;
 
 /**
  * Один рух майна за одним документом: «відвантажили 40 щитів і 200 замків
@@ -67,7 +68,7 @@ class WhMovement
 
     /** @var Collection<int, WhMovementLine> */
     #[ORM\OneToMany(targetEntity: WhMovementLine::class, mappedBy: 'movement', cascade: ['persist'], orphanRemoval: true)]
-    #[ORM\OrderBy(['id' => 'ASC'])]
+    #[ORM\OrderBy(['id' => SortDirection::Ascending])]
     private Collection $lines;
 
     public function __construct()

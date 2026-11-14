@@ -7,6 +7,7 @@ use App\Supply\Entity\SupplyPurchase;
 use DateTimeInterface;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use SortDirection;
 
 /**
  * @extends ServiceEntityRepository<SupplyPurchase>
@@ -48,7 +49,7 @@ class SupplyPurchaseRepository extends ServiceEntityRepository
             ->innerJoin('p.supplier', 's')
             ->andWhere('s.active = true')
             ->groupBy('p.supplier')
-            ->orderBy('last_used', 'DESC')
+            ->orderBy('last_used', SortDirection::Descending)
             ->setMaxResults($limit)
             ->getQuery()
             ->getResult();
