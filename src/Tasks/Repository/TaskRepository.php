@@ -32,7 +32,7 @@ class TaskRepository extends ServiceEntityRepository
             ->leftJoin($alias . '.labels', 'l')->addSelect('l')
             ->leftJoin($alias . '.creator', 'c')->addSelect('c');
 
-        if (! $user->getWorkRole()->seesAllTasks()) {
+        if (! $user->seesAllTasks()) {
             $qb->andWhere(sprintf(
                 '%1$s.creator = :viewer OR EXISTS (SELECT 1 FROM %2$s vm WHERE vm.task = %1$s AND vm.user = :viewer)',
                 $alias,

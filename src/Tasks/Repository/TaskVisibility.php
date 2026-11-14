@@ -43,7 +43,7 @@ final class TaskVisibility
      */
     public static function chronicle(TelegramUser $viewer, string $alias = 't'): array
     {
-        return $viewer->getWorkRole()->seesAllTasks() ? self::sql($viewer, $alias) : self::involved($viewer, $alias);
+        return $viewer->seesAllTasks() ? self::sql($viewer, $alias) : self::involved($viewer, $alias);
     }
 
     /**
@@ -51,7 +51,7 @@ final class TaskVisibility
      */
     public static function sql(TelegramUser $viewer, string $alias = 't'): array
     {
-        if ($viewer->getWorkRole()->seesAllTasks()) {
+        if ($viewer->seesAllTasks()) {
             return ['TRUE', []];
         }
 

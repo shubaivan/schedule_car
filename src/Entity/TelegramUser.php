@@ -433,6 +433,15 @@ class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface
         return $this->superadmin;
     }
 
+    /**
+     * Бачить усі задачі заводу, а не лише ті, де бере участь: директор, адмін
+     * (за роллю в «Плані») і суперадмін (журнал аудиту має вести в будь-яку задачу).
+     */
+    public function seesAllTasks(): bool
+    {
+        return $this->getWorkRole()->seesAllTasks() || $this->superadmin;
+    }
+
     public function setSuperadmin(bool $superadmin): static
     {
         $this->superadmin = $superadmin;

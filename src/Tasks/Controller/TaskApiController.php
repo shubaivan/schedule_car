@@ -57,7 +57,7 @@ class TaskApiController extends TasksController
                 ...$this->presenter->person($me),
                 'can' => [
                     'staff' => $me->getWorkRole()->managesStaff(),
-                    'seeAll' => $me->getWorkRole()->seesAllTasks(),
+                    'seeAll' => $me->seesAllTasks(),
                     'decide' => $me->getWorkRole()->decides(),
                 ],
             ],

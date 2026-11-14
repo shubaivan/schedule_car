@@ -3,6 +3,7 @@
 namespace App\Supply\Controller;
 
 use App\Entity\TelegramUser;
+use App\Plan\Access\PlanAccess;
 use App\Service\FleetSection;
 use App\Service\ShopLink;
 use App\Supply\Enum\SupplyAccent;
@@ -21,7 +22,7 @@ use Symfony\Component\Routing\Attribute\Route;
 class MetaApiController extends AbstractController
 {
     #[Route('/me', name: 'api_me', methods: ['GET'])]
-    public function me(RequestPresenter $presenter, WarehouseSection $warehouse, ShopLink $shop, TasksSection $tasks, FleetSection $fleet): JsonResponse
+    public function me(RequestPresenter $presenter, WarehouseSection $warehouse, ShopLink $shop, TasksSection $tasks, FleetSection $fleet, PlanAccess $access): JsonResponse
     {
         /** @var TelegramUser $user */
         $user = $this->getUser();
@@ -39,6 +40,8 @@ class MetaApiController extends AbstractController
             'workRoleLabel' => $user->getWorkRole()->label(),
             'position' => $user->getPosition(),
             'fleet' => $fleet->isEnabled(),
+            // Матриця можливостей «Плану» (PlanAccess): що показувати в меню, напр. audit.view → «Адмін».
+            'capabilities' => $access->matrix($user),
         ]);
     }
 
