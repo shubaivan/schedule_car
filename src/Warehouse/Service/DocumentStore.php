@@ -109,6 +109,12 @@ class DocumentStore
         return $this->warehouseStorage->read($document->getStoragePath());
     }
 
+    /** @return resource потік для віддачі без читання всього файлу в пам'ять */
+    public function readStream(WhDocument $document)
+    {
+        return $this->warehouseStorage->readStream($document->getStoragePath());
+    }
+
     public function remove(WhDocument $document, TelegramUser $by): void
     {
         if (! WarehouseSection::canManage($by)) {

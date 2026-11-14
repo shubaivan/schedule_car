@@ -77,7 +77,8 @@ final class AudienceResolver
             $alert = [];
 
             foreach ($this->superadmins() as $id) {
-                $alert[$id] = new Recipient($id, EventGroup::System, false);
+                // involved — щоб і Web Push дійшов (важливе службове).
+                $alert[$id] = new Recipient($id, EventGroup::System, true);
             }
 
             return $alert;

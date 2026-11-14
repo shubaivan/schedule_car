@@ -4,6 +4,7 @@ namespace App\Plan\Share\Controller;
 
 use App\Plan\Share\PlanFiles;
 use App\Plan\Share\ShareService;
+use App\Tasks\Service\TasksSection;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -24,13 +25,22 @@ class PublicShareController extends AbstractController
 {
     private const array IMAGE = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
-    public function __construct(private readonly ShareService $shares, private readonly PlanFiles $files)
+    public function __construct(private readonly ShareService $shares, private readonly PlanFiles $files, private readonly TasksSection $plan)
     {
+    }
+
+    /** Посилання /s/… — частина «Плану»; на стендах заявок (TASKS_ENABLED=0) їх немає. */
+    private function enabled(): void
+    {
+        if (! $this->plan->enabled()) {
+            throw $this->createNotFoundException();
+        }
     }
 
     #[Route('', name: 'plan_share_page', methods: ['GET'])]
     public function page(string $token): Response
     {
+        $this->enabled();
         [$link, $file, $reason] = $this->shares->resolve($token);
 
         if ($file === null || $link === null) {
@@ -50,6 +60,7 @@ class PublicShareController extends AbstractController
     #[Route('/download', name: 'plan_share_download', methods: ['GET'])]
     public function download(string $token, Request $request): Response
     {
+        $this->enabled();
         [$link, $file] = $this->shares->resolve($token);
 
         if ($file === null || $link === null) {
@@ -70,6 +81,7 @@ class PublicShareController extends AbstractController
     #[Route('/view', name: 'plan_share_view', methods: ['GET'])]
     public function view(string $token): Response
     {
+        $this->enabled();
         [$link, $file] = $this->shares->resolve($token);
 
         if ($file === null || $link === null || ! in_array($file->mime, self::IMAGE, true)) {

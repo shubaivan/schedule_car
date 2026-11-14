@@ -9,6 +9,7 @@ use App\Plan\Subject\SubjectRef;
 use App\Plan\Subject\SubjectType;
 use App\Supply\Entity\SupplyAttachment;
 use App\Tasks\Entity\TaskAttachment;
+use App\Tasks\Service\TasksSection;
 use App\Warehouse\Entity\WhDocument;
 use App\Warehouse\Service\ActivityLog;
 use Doctrine\ORM\EntityManagerInterface;
@@ -46,6 +47,9 @@ final class FileDownloadAudit
         'api_tasks_file_inline' => ['task', 'id'],
         'api_supply_attachment_download' => ['supply', 'attachmentId'],
         'wh_document' => ['wh', 'id'],
+        // S2: переглядач файлу заявки в «Плані»; S3: документ складу у Vue-складі (і ?download=1).
+        'api_supply_attachment_inline' => ['supply', 'attachmentId'],
+        'api_wh_document' => ['wh', 'id'],
         // S5: /api/plan/files/{type}/{id}/download|inline — файли задач, заявок і складу з «Плану».
         'api_plan_file_download' => [null, 'id'],
         'api_plan_file_inline' => [null, 'id'],
@@ -57,13 +61,15 @@ final class FileDownloadAudit
         private readonly EntityManagerInterface $em,
         private readonly Security $security,
         private readonly LoggerInterface $logger,
+        private readonly TasksSection $plan,
     ) {
     }
 
     #[AsEventListener(event: KernelEvents::RESPONSE, priority: -64)]
     public function onResponse(ResponseEvent $event): void
     {
-        if (! $event->isMainRequest() || ! $event->getRequest()->isMethod('GET') || $event->getResponse()->getStatusCode() !== 200) {
+        // Журнал аудиту дивиться суперадмін «Плану»; стенди заявок (TASKS_ENABLED=0) скачувань не журналять.
+        if (! $event->isMainRequest() || ! $event->getRequest()->isMethod('GET') || $event->getResponse()->getStatusCode() !== 200 || ! $this->plan->enabled()) {
             return;
         }
 

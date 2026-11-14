@@ -163,6 +163,12 @@ class AttachFile
         return $this->supplyStorage->read($attachment->getStoragePath());
     }
 
+    /** @return resource потік для віддачі без читання всього файлу в пам'ять */
+    public function readStream(SupplyAttachment $attachment)
+    {
+        return $this->supplyStorage->readStream($attachment->getStoragePath());
+    }
+
     /** 2026/042-2026/20260812-171233-a1b2c3d4e5f6a7b8.pdf */
     private function path(SupplyRequest $request, string $originalName): string
     {

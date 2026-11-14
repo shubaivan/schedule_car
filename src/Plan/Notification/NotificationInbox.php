@@ -4,9 +4,7 @@ namespace App\Plan\Notification;
 
 use App\Entity\TelegramUser;
 use App\Plan\Event\DriveAuthBroken;
-use App\Plan\Event\ShareCreated;
 use App\Plan\EventStore\PlanEventStore;
-use App\Plan\Share\FileType;
 use App\Plan\Subject\SubjectRegistry;
 use App\Repository\TelegramUserRepository;
 use DateTimeImmutable;
@@ -151,12 +149,13 @@ final class NotificationInbox
 
             $ref = $event->subject;
             // Службове «Диск відкликав доступ» веде на сторінку Диска, а не до суб'єкта файлу.
-            $system = $event instanceof DriveAuthBroken;
-            $known = ! $system && $this->subjects->has($ref->type);
+            $known = ! $event instanceof DriveAuthBroken && $this->subjects->has($ref->type);
 
             if ($known && ! $this->subjects->visibleTo($ref, $user)) {
                 continue;
             }
+
+            $link = NotificationLink::of($event, $this->subjects);
 
             $group = EventGroup::tryFrom((string) $row['n_group']) ?? EventGroup::forEvent($event) ?? EventGroup::Status;
             $actor = $event->actorId !== null ? ($actors[$event->actorId] ?? null) : null;
@@ -169,14 +168,8 @@ final class NotificationInbox
                 'group' => $group->value,
                 'important' => $group->important(),
                 'subject' => ['type' => $ref->type->value, 'id' => $ref->id, 'key' => $ref->key()],
-                'title' => $system ? 'Google Диск' : ($known ? ($this->subjects->title($ref) ?? 'Видалено') : 'План'),
-                'url' => match (true) {
-                    $system => '/crm/drive',
-                    // Поділились файлом — одразу сам файл (повноекранний переглядач).
-                    $event instanceof ShareCreated => FileType::tryFrom($event->fileType)?->route($event->fileId) ?? ($known ? $this->subjects->url($ref) : '/crm/notifications'),
-                    $known => $this->subjects->url($ref),
-                    default => '/crm/notifications',
-                },
+                'title' => $link['title'],
+                'url' => $link['url'],
                 'headline' => $text['headline'],
                 'detail' => $text['detail'],
                 'actor' => $actor !== null ? ['id' => (int) $actor->getId(), 'name' => $actor->shortName()] : null,

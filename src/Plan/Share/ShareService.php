@@ -3,6 +3,7 @@
 namespace App\Plan\Share;
 
 use App\Entity\TelegramUser;
+use App\Plan\Audit\AuditThrottle;
 use App\Plan\Event\FileDownloaded;
 use App\Plan\Event\ShareCreated;
 use App\Plan\Event\ShareRevoked;
@@ -174,7 +175,16 @@ class ShareService
                 'UPDATE share_link SET downloads = downloads + 1, last_download_at = ? WHERE id = ?',
                 [ShareLink::now()->format('Y-m-d H:i:s'), $link->getId()],
             );
-            $this->events->record((new FileDownloaded($file->subject, null, $file->id, $file->type->value, $file->name, $link->getId()))->via('web', $ip));
+            // Лічильник — кожне скачування; рядок журналу — один на посилання × IP за 10 хв
+            // (анонім за посиланням інакше міг би без кінця роздувати plan_event).
+            $recent = $this->em->getConnection()->fetchOne(
+                "SELECT 1 FROM plan_event WHERE type = ? AND subject_type = ? AND subject_id = ? AND actor_id IS NULL AND payload->>'shareLinkId' = ? AND ip IS NOT DISTINCT FROM ? AND occurred_at >= ? LIMIT 1",
+                [FileDownloaded::TYPE, $file->subject->type->value, $file->subject->id, (string) $link->getId(), $ip, ShareLink::now()->modify('-' . AuditThrottle::WINDOW_MINUTES . ' minutes')->format('Y-m-d H:i:s')],
+            );
+
+            if ($recent === false) {
+                $this->events->record((new FileDownloaded($file->subject, null, $file->id, $file->type->value, $file->name, $link->getId()))->via('web', $ip));
+            }
         });
     }
 

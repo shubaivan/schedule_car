@@ -54,7 +54,13 @@ onMounted(() => session.load().catch((e) => console.warn('session.load', e)))
 watch(
     () => [session.ready, route.name] as const,
     ([ready]) => {
-        if (!ready || !planHome.value) return
+        if (!ready) return
+        // Стенд заявок (розділ «Задачі» вимкнено): сторінок оболонки «Плану» там немає — на заявки.
+        if (session.user?.tasks === false && route.meta.shell === 'plan') {
+            router.replace({ name: 'requests' })
+            return
+        }
+        if (!planHome.value) return
         if (route.name === 'requests' && route.path === '/') router.replace({ name: 'tasks' })
         else if (route.name === 'request' && /^\d+$/.test(String(route.params.id))) {
             router.replace({ name: 'supply-board', params: { id: String(route.params.id) } })

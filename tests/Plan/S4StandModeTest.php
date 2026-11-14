@@ -88,5 +88,10 @@ class S4StandModeTest extends WebTestCase
         self::assertResponseStatusCodeSame(404);
         $this->client->request('GET', '/api/plan/chronicle');
         self::assertResponseStatusCodeSame(404);
+        // v2: файли й посилання «поділитися» (S5) — теж лише в «Плані».
+        $this->client->request('GET', '/api/plan/files/supply/1');
+        self::assertResponseStatusCodeSame(404);
+        $this->client->request('GET', '/s/' . str_repeat('a', 32));
+        self::assertResponseStatusCodeSame(404);
     }
 }

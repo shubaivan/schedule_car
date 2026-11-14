@@ -89,6 +89,24 @@ class PlanFiles
     }
 
     /** Шлях на диску, якщо файл лежить звичайним файлом (задачі), — для BinaryFileResponse. */
+    /**
+     * Потік документа заявки чи складу (Flysystem) — для віддачі шматками.
+     *
+     * @return resource
+     */
+    public function readStream(PlanFile $file)
+    {
+        $entity = $file->entity;
+
+        if ($entity instanceof TaskAttachment) {
+            $stream = @fopen($this->taskStorage->original($entity), 'rb');
+
+            return $stream !== false ? $stream : throw new RuntimeException('Файла немає у сховищі.');
+        }
+
+        return $entity instanceof WhDocument ? $this->warehouseStore->readStream($entity) : $this->supplyStore->readStream($entity);
+    }
+
     public function localPath(PlanFile $file): ?string
     {
         return $file->entity instanceof TaskAttachment ? $this->taskStorage->original($file->entity) : null;

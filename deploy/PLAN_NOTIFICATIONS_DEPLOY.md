@@ -17,7 +17,7 @@
 
 | Змінна | Значення | Навіщо |
 |---|---|---|
-| `PLAN_EVENTS_TRANSPORT` | `doctrine://default?queue_name=plan` | події → воркер (Telegram/Mercure/push поза запитом) |
+| `PLAN_EVENTS_TRANSPORT` | `doctrine://default?queue_name=plan` | події → воркер (Telegram/Mercure/push поза запитом); воркер слухає `plan` і `async` (копії на Диск S5, SyncDriveFiles) |
 | `MERCURE_URL` | `http://127.0.0.1:3100/.well-known/mercure` | куди публікує воркер |
 | `MERCURE_PUBLIC_URL` | `https://plan.zavodbuddetal.com.ua/.well-known/mercure` | куди підключається браузер (кука на цьому шляху) |
 | `MERCURE_JWT_SECRET` | `openssl rand -base64 48` (той самий, що в plan-mercure.env) | підпис JWT |

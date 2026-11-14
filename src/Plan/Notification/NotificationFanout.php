@@ -137,8 +137,7 @@ final class NotificationFanout implements PlanEventConsumer
         }
 
         try {
-            $title = $this->subjects->has($event->subject->type) ? ($this->subjects->title($event->subject) ?? 'План') : 'План';
-            $url = $this->subjects->has($event->subject->type) ? $this->subjects->url($event->subject) : '/crm/notifications';
+            ['title' => $title, 'url' => $url] = NotificationLink::of($event, $this->subjects);
             $actor = $event->actorId !== null ? $this->users->find($event->actorId)?->shortName() : null;
         } catch (Throwable $e) {
             $this->logger->warning('plan: push — суб\'єкт не прочитано', ['event' => $event->id(), 'error' => $e->getMessage()]);

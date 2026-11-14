@@ -44,6 +44,8 @@ const name = computed(() => String(route.name))
 /** Сторінки-вікна (форма, файл) і відкрита праворуч картка — на телефоні на весь екран. */
 const FULLSCREEN = ['tasks-new', 'task-edit', 'supply-new', 'staff-new', 'staff-card', 'file', 'task-full', 'supply-full', 'file-typed', ...WAREHOUSE_FULLSCREEN]
 const SPLIT = ['tasks-board', CHRONICLE_ROUTE, SEARCH_ROUTE, 'supply-board', ...WAREHOUSE_SPLIT]
+/** Сторінки-форми: «N» на них не відкриває ще одну форму. */
+const FORM_ROUTES = ['tasks-new', 'task-edit', 'supply-new', 'staff-new', 'warehouse-item-new', 'warehouse-item-edit', 'warehouse-movement-new']
 const fullscreen = computed(() => FULLSCREEN.includes(name.value) || (SPLIT.includes(name.value) && !!route.params.id))
 
 const onChronicle = computed(() => name.value === CHRONICLE_ROUTE || (name.value === 'tasks-board' && route.query.view === 'chronicle'))
@@ -72,7 +74,7 @@ function onKey(e: KeyboardEvent) {
         const boardFilter = document.querySelector<HTMLInputElement>('[data-board-filter], .f-search-box input')
         ;(boardFilter && boardFilter.offsetParent !== null ? boardFilter : searchBox.value)?.focus()
         e.preventDefault()
-    } else if ((e.key === 'n' || e.key === 'т') && !FULLSCREEN.slice(0, 4).includes(name.value)) {
+    } else if ((e.key === 'n' || e.key === 'т') && !FORM_ROUTES.includes(name.value)) {
         router.push(newTarget.value)
         e.preventDefault()
     }

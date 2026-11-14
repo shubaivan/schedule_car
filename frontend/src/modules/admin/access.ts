@@ -18,5 +18,6 @@ export function canSeeDrive(user: ApiUser | null | undefined): boolean {
 
 /** Пункт «Склад» (рейка, «Ще») — лише з правом warehouse.view (інакше API складу відповідає 403). */
 export function canSeeWarehouse(user: ApiUser | null | undefined): boolean {
-    return user?.capabilities?.['warehouse.view'] === true
+    // warehouse — склад увімкнено (WAREHOUSE_ENABLED) і людина його веде; capabilities — право в «Плані».
+    return user?.capabilities?.['warehouse.view'] === true && user?.warehouse === true
 }

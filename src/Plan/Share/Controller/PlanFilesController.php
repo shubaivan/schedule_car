@@ -12,6 +12,7 @@ use App\Plan\Share\ShareService;
 use App\Plan\Subject\SubjectType;
 use App\Repository\TelegramUserRepository;
 use App\Tasks\Service\TaskPresenter;
+use App\Tasks\Service\TasksSection;
 use DateTimeInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -19,6 +20,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 use Throwable;
@@ -40,6 +42,7 @@ class PlanFilesController extends AbstractController
         private readonly ShareService $shares,
         private readonly TelegramUserRepository $users,
         private readonly TaskPresenter $people,
+        private readonly TasksSection $plan,
     ) {
     }
 
@@ -196,9 +199,19 @@ class PlanFilesController extends AbstractController
             $response = new BinaryFileResponse($path, 200, ['Content-Type' => $file->mime]);
         } else {
             try {
-                $response = new Response($files->read($file), 200, ['Content-Type' => $file->mime]);
+                $stream = $files->readStream($file);
             } catch (Throwable) {
                 throw new NotFoundHttpException();
+            }
+
+            // Шматками, а не весь файл у пам'ять дитини FPM (пул — 4 дитини; nginx буферизує відповідь).
+            $response = new StreamedResponse(static function () use ($stream): void {
+                fpassthru($stream);
+                fclose($stream);
+            }, 200, ['Content-Type' => $file->mime]);
+
+            if ($file->size > 0) {
+                $response->headers->set('Content-Length', (string) $file->size);
             }
         }
 
@@ -243,6 +256,11 @@ class PlanFilesController extends AbstractController
     private function me(): TelegramUser
     {
         $user = $this->getUser();
+
+        // Файли й «поділитися» — частина «Плану»; на стендах заявок (TASKS_ENABLED=0) їх немає.
+        if (! $this->plan->enabled()) {
+            throw $this->createNotFoundException();
+        }
 
         if (! $user instanceof TelegramUser || $user->isArchived() || ! $user->isApproved()) {
             throw $this->createAccessDeniedException();

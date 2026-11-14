@@ -215,7 +215,14 @@ class TasksDemoSeedCommand extends Command
         // Події задач, прив'язані до повідомлення стрічки (створення, статус, файли).
         $conn->executeStatement(
             "UPDATE plan_event e SET occurred_at = m.created_at FROM task_message m
-              WHERE e.id > ? AND e.subject_type = 'task' AND e.payload->>'refId' IS NOT NULL AND m.id = (e.payload->>'refId')::int",
+              WHERE e.id > ? AND e.subject_type = 'task' AND e.type NOT IN ('comment_edited', 'comment_deleted')
+                AND e.payload->>'refId' IS NOT NULL AND m.id = (e.payload->>'refId')::int",
+            [$mark],
+        );
+        // Правка — час правки (той самий, що в task_message_edit: backfill за ним упізнає подію й не дублює).
+        $conn->executeStatement(
+            "UPDATE plan_event e SET occurred_at = m.edited_at FROM task_message m
+              WHERE e.id > ? AND e.type = 'comment_edited' AND m.id = (e.payload->>'refId')::int AND m.edited_at IS NOT NULL",
             [$mark],
         );
         // Файли заявок — час самого файлу.
