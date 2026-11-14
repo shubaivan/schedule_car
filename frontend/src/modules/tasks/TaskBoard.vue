@@ -74,7 +74,8 @@ async function load() {
         if (!picked) {
             picked = true
             active.value = smartColumn(fresh)
-            router.replace({ name: 'tasks-board', params: route.params, query: keepQuery({ col: active.value }) })
+            // Людина могла вже піти з дошки, поки йшла відповідь, — не тягнемо її назад.
+            if (route.name === 'tasks-board') router.replace({ name: 'tasks-board', params: route.params, query: keepQuery({ col: active.value }) })
         }
         // Задачу відкрили з посилання: зліва — колонка, де вона є.
         if (openId.value && !fresh[active.value].some((t) => t.id === openId.value)) {

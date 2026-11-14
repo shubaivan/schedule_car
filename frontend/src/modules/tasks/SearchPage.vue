@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Avatar from './Avatar.vue'
+import TaskView from './TaskView.vue'
+import { useSplitTask } from './shell/split'
 import { tasksApi, type Hit, type SearchResult, type SearchTab } from './api'
 import { ago } from './format'
 import { useSession } from '../../app/store'
@@ -15,6 +17,7 @@ import './feed.css'
 const route = useRoute()
 const router = useRouter()
 const session = useSession()
+const { openId, open: openTask, close } = useSplitTask('tasks-search')
 
 const TABS: { key: SearchTab; title: string }[] = [
     { key: 'all', title: 'Усе' },
@@ -49,8 +52,13 @@ function plain(parts: Hit[]): string {
 
 let seq = 0
 async function run(append = false) {
+    // Сторінку вже закрили (debounce спрацював після переходу) — адресу чужого екрана не чіпаємо.
+    if (route.name !== 'tasks-search') return
     const query = q.value.trim()
-    router.replace({ query: { ...(query ? { q: query } : {}), ...(tab.value !== 'all' ? { tab: tab.value } : {}), ...(starred.value ? { starred: '1' } : {}) } })
+    // ?m= / ?f= належать відкритій праворуч задачі — не губимо їх.
+    const keep: Record<string, string> = {}
+    for (const k of ['m', 'f']) if (typeof route.query[k] === 'string') keep[k] = route.query[k] as string
+    router.replace({ query: { ...(query ? { q: query } : {}), ...(tab.value !== 'all' ? { tab: tab.value } : {}), ...(starred.value ? { starred: '1' } : {}), ...keep } })
     if (query.length < 2) {
         result.value = null
         return
@@ -102,9 +110,9 @@ function hits(): HTMLElement[] {
 
 function go(el: HTMLElement) {
     const [kind, a, b] = (el.dataset.go ?? '').split(':')
-    if (kind === 'task') router.push({ name: 'task', params: { id: a } })
-    if (kind === 'msg') router.push({ name: 'task', params: { id: a }, query: { m: b } })
-    if (kind === 'file') router.push({ name: 'task', params: { id: a }, query: { f: b } })
+    if (kind === 'task') openTask(Number(a))
+    if (kind === 'msg') openTask(Number(a), { m: b })
+    if (kind === 'file') openTask(Number(a), { f: b })
 }
 
 function onKey(e: KeyboardEvent) {
@@ -128,14 +136,18 @@ function isSel(key: string): boolean {
     return order.value[sel.value] === key
 }
 
+onBeforeUnmount(() => window.clearTimeout(debounce))
+
 onMounted(() => {
-    input.value?.focus()
+    // Посилання з відкритою задачею (телефон) — фокус не в поле, щоб не вискакувала клавіатура.
+    if (openId.value === null) input.value?.focus()
     if (q.value) run()
 })
 </script>
 
 <template>
-    <div class="t-page f-page">
+    <div class="p-split" :class="{ split: openId !== null }">
+    <div class="p-split-left t-page f-page">
         <div class="f-search-box">
             <input
                 ref="input"
@@ -171,7 +183,7 @@ onMounted(() => {
                     </h2>
 
                     <template v-if="g === 'tasks'">
-                        <a v-for="t in result.tasks" :key="'t' + t.id" class="f-hit" :class="{ sel: isSel('task:' + t.id) }" :data-go="'task:' + t.id" :href="'/crm/tasks/' + t.id" @click.prevent="go($event.currentTarget as HTMLElement)">
+                        <a v-for="t in result.tasks" :key="'t' + t.id" class="f-hit" :class="{ sel: isSel('task:' + t.id) }" :data-go="'task:' + t.id" :href="'/crm/tasks/search/' + t.id" @click.prevent="go($event.currentTarget as HTMLElement)">
                             <div class="top"><span>№ {{ t.number }} · {{ t.statusLabel }}</span><span v-if="t.favorite">★</span><span class="date">{{ date(t.at) }}</span></div>
                             <div class="ttl" :class="{ closed: t.closed }"><template v-for="(p, i) in t.title" :key="i"><mark v-if="p.m">{{ p.t }}</mark><template v-else>{{ p.t }}</template></template></div>
                             <div v-if="t.snippet.length" class="snip"><template v-for="(p, i) in t.snippet" :key="i"><mark v-if="p.m">{{ p.t }}</mark><template v-else>{{ p.t }}</template></template></div>
@@ -179,7 +191,7 @@ onMounted(() => {
                     </template>
 
                     <template v-else-if="g === 'comments'">
-                        <a v-for="c in result.comments" :key="'c' + c.id" class="f-hit" :class="{ sel: isSel('msg:' + c.taskId + ':' + c.id) }" :data-go="'msg:' + c.taskId + ':' + c.id" :href="'/crm/tasks/' + c.taskId + '?m=' + c.id" @click.prevent="go($event.currentTarget as HTMLElement)">
+                        <a v-for="c in result.comments" :key="'c' + c.id" class="f-hit" :class="{ sel: isSel('msg:' + c.taskId + ':' + c.id) }" :data-go="'msg:' + c.taskId + ':' + c.id" :href="'/crm/tasks/search/' + c.taskId + '?m=' + c.id" @click.prevent="go($event.currentTarget as HTMLElement)">
                             <div class="top">
                                 <Avatar :person="c.author" :size="18" /><span>{{ c.author?.name ?? 'Система' }}</span><span v-if="c.starred">★</span>
                                 <span class="date">{{ ago(c.at) }}</span>
@@ -190,7 +202,7 @@ onMounted(() => {
                     </template>
 
                     <template v-else-if="g === 'files'">
-                        <a v-for="f in result.files" :key="'f' + f.id" class="f-hit file" :class="{ sel: isSel('file:' + f.taskId + ':' + f.id) }" :data-go="'file:' + f.taskId + ':' + f.id" :href="'/crm/tasks/' + f.taskId + '?f=' + f.id" @click.prevent="go($event.currentTarget as HTMLElement)">
+                        <a v-for="f in result.files" :key="'f' + f.id" class="f-hit file" :class="{ sel: isSel('file:' + f.taskId + ':' + f.id) }" :data-go="'file:' + f.taskId + ':' + f.id" :href="'/crm/tasks/search/' + f.taskId + '?f=' + f.id" @click.prevent="go($event.currentTarget as HTMLElement)">
                             <span class="th"><img v-if="f.thumb" :src="f.thumb" :alt="f.plainName" loading="lazy" /><template v-else>{{ (f.plainName.split('.').pop() ?? '').toUpperCase().slice(0, 4) }}</template></span>
                             <span style="min-width: 0; display: flex; flex-direction: column; gap: 2px">
                                 <span class="ttl" style="color: var(--text)"><template v-for="(p, i) in f.name" :key="i"><mark v-if="p.m">{{ p.t }}</mark><template v-else>{{ p.t }}</template></template></span>
@@ -212,5 +224,9 @@ onMounted(() => {
             </template>
             <button v-if="tab !== 'all' && result.counts[tab] > (result[tab]?.length ?? 0)" type="button" class="t-btn small f-more-btn" :disabled="loading" @click="run(true)">Показати ще</button>
         </div>
+    </div>
+    <div v-if="openId !== null" class="p-split-right p-board-right">
+        <TaskView :key="openId + ':' + (route.query.m ?? '') + ':' + (route.query.f ?? '')" :id="String(openId)" embedded @close="close" />
+    </div>
     </div>
 </template>

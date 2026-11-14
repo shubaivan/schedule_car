@@ -9,6 +9,7 @@ import TaskHeader from './TaskHeader.vue'
 import { tasksApi, type TaskDetail, type TasksMeta } from './api'
 import { dueLabel } from './format'
 import { TASK_SAVED } from './shell/nav'
+import { refreshChronicleCounts } from './chronicle'
 import { extClass } from './files'
 import { useTasks } from './store'
 import { useSession } from '../../app/store'
@@ -45,6 +46,8 @@ async function load() {
         error.value = ''
         notFound.value = false
         tab.value = 'chat'
+        // Відкрита задача стала прочитаною — бейдж «Хроніки» оновлюємо одразу.
+        refreshChronicleCounts()
         // Із пошуку по файлах — одразу відкрити файл.
         const file = Number(route.query.f)
         viewer.value = file && loaded.files.some((f) => f.id === file) ? file : null

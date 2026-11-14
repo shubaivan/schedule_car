@@ -458,7 +458,7 @@ defineExpose({ scrollDown })
         </template>
     </div>
 
-    <form v-if="task.can.comment" class="t-composer" :class="{ 't-main-hide-mobile': hidden }" style="position: relative" @submit.prevent="send">
+    <form v-if="task.can.comment" class="t-composer" :class="{ 't-main-hide-mobile': hidden }" @submit.prevent="send">
         <div v-if="mentionList.length" class="t-mentions">
             <button v-for="(p, i) in mentionList" :key="p.id" type="button" :class="{ on: i === mentionIndex }" @mousedown.prevent="chooseMention(p)">
                 <Avatar :person="p" :size="26" /> <span>{{ p.name }} <small>· {{ p.position ?? p.roleLabel }}</small></span>

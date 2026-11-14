@@ -20,6 +20,14 @@ use InvalidArgumentException;
  */
 class TaskFeedRepository
 {
+    /**
+     * Що вважається «новим» для людини — одне правило на всю CRM: «+N» у Хроніці,
+     * на картці дошки, лічильник у меню й «Непрочитані» в «Огляді» рахуються однаково.
+     * Будь-яка подія задачі (коментар, файл, зміна статусу) від когось іншого,
+     * новіша за task_read.last_message_id. Псевдоніми: u — task_message, r — task_read, :me — глядач.
+     */
+    public const string UNREAD = 'u.id > COALESCE(r.last_message_id, 0) AND u.deleted_at IS NULL AND u.author_id IS DISTINCT FROM :me';
+
     public function __construct(private Connection $db)
     {
     }
@@ -44,8 +52,7 @@ class TaskFeedRepository
         }
 
         if ($unreadOnly) {
-            $where[] = 'EXISTS (SELECT 1 FROM task_message u WHERE u.task_id = t.id AND u.id > COALESCE(r.last_message_id, 0)
-                AND u.deleted_at IS NULL AND u.author_id IS DISTINCT FROM :me)';
+            $where[] = 'EXISTS (SELECT 1 FROM task_message u WHERE u.task_id = t.id AND ' . self::UNREAD . ')';
         }
 
         if ($favoritesOnly) {
@@ -58,8 +65,7 @@ class TaskFeedRepository
                     COALESCE(r.last_message_id, 0) AS read_upto,
                     lm.id AS msg_id, lm.kind AS msg_kind, lm.event_type AS msg_event, lm.text AS msg_text,
                     lm.author_id AS msg_author, lm.created_at AS msg_at,
-                    (SELECT COUNT(*) FROM task_message u WHERE u.task_id = t.id AND u.id > COALESCE(r.last_message_id, 0)
-                        AND u.deleted_at IS NULL AND u.author_id IS DISTINCT FROM :me) AS unread
+                    (SELECT COUNT(*) FROM task_message u WHERE u.task_id = t.id AND ' . self::UNREAD . ') AS unread
                FROM task t
                LEFT JOIN task_read r ON r.task_id = t.id AND r.user_id = :me
                LEFT JOIN task_favorite f ON f.task_id = t.id AND f.user_id = :me
@@ -82,8 +88,7 @@ class TaskFeedRepository
 
         $row = $this->db->fetchAssociative(
             'SELECT COUNT(*) AS tasks, COALESCE(SUM(n), 0) AS events FROM (
-                SELECT (SELECT COUNT(*) FROM task_message u WHERE u.task_id = t.id AND u.id > COALESCE(r.last_message_id, 0)
-                           AND u.deleted_at IS NULL AND u.author_id IS DISTINCT FROM :me) AS n
+                SELECT (SELECT COUNT(*) FROM task_message u WHERE u.task_id = t.id AND ' . self::UNREAD . ') AS n
                   FROM task t
                   LEFT JOIN task_read r ON r.task_id = t.id AND r.user_id = :me
                  WHERE ' . $visible . '

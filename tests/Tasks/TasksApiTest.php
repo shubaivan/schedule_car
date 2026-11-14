@@ -187,7 +187,8 @@ class TasksApiTest extends WebTestCase
         $this->client->request('GET', $image['urls']['view']);
         self::assertResponseIsSuccessful();
         self::assertContains($task['id'], array_column($this->get('/api/tasks/board')['messages'], 'id'));
-        self::assertSame(1, $this->unread($task['id']));
+        // «+N» — як у Хроніці: подія «створено» + коментар (TaskFeedRepository::UNREAD).
+        self::assertSame(2, $this->unread($task['id']));
 
         // Чужий — ні.
         $this->login($outsider);

@@ -10,7 +10,8 @@ const counts = ref<ChronicleCounts>({ tasks: 0, events: 0 })
 let users = 0
 let timer: number | undefined
 
-async function refresh(): Promise<void> {
+/** Оновити лічильник зараз (відкрили задачу, прочитали) — не чекаючи 15 с. */
+export async function refreshChronicleCounts(): Promise<void> {
     if (document.hidden) return
     try {
         counts.value = await tasksApi.chronicleCounts()
@@ -26,13 +27,13 @@ export function setChronicleCounts(value: ChronicleCounts): void {
 export function useChronicleCounts(intervalMs = 15000) {
     onMounted(() => {
         if (users++ === 0) {
-            refresh()
-            timer = window.setInterval(refresh, intervalMs)
+            refreshChronicleCounts()
+            timer = window.setInterval(refreshChronicleCounts, intervalMs)
         }
     })
     onBeforeUnmount(() => {
         if (--users === 0) window.clearInterval(timer)
     })
 
-    return { counts, refresh }
+    return { counts, refresh: refreshChronicleCounts }
 }

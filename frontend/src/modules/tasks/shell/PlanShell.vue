@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Icon from './Icon.vue'
 import TaskForm from '../TaskForm.vue'
 import { chronicleTarget, CHRONICLE_ROUTE, searchTarget, SEARCH_ROUTE } from './nav'
 import { useSession } from '../../../app/store'
+import { useChronicleCounts } from '../chronicle'
 
 /**
  * Оболонка «Плану»: на десктопі вузька ліва панель іконок і верхня смуга 48 px,
@@ -28,6 +29,18 @@ const TITLES: Record<string, string> = {
     [SEARCH_ROUTE]: 'Пошук',
 }
 const title = computed(() => TITLES[String(route.name)] ?? 'План')
+
+/** Скільки задач з новим — бейдж на «Хроніці» (рейка й нижня вкладка) і «(N) План» у вкладці браузера. */
+const { counts } = useChronicleCounts()
+const unread = computed(() => counts.value.tasks)
+const badge = computed(() => (unread.value > 99 ? '99+' : String(unread.value)))
+const pageTitle = document.title
+watchEffect(() => {
+    document.title = (unread.value ? `(${badge.value}) ` : '') + 'План'
+})
+onBeforeUnmount(() => {
+    document.title = pageTitle
+})
 
 const me = computed(() => session.user)
 const initials = computed(() => ((me.value?.firstName ?? '').charAt(0) + (me.value?.lastName ?? '').charAt(0)).toUpperCase() || '?')
@@ -71,7 +84,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
             <router-link :to="{ name: 'tasks' }" class="p-logo" title="План · Огляд">П</router-link>
             <router-link :to="{ name: 'tasks' }" class="p-rail-btn" :class="{ on: route.name === 'tasks' }" title="Огляд"><Icon name="home" /><span>Огляд</span></router-link>
             <router-link :to="{ name: 'tasks-board' }" class="p-rail-btn" :class="{ on: route.name === 'tasks-board' && !onChronicle && !onSearch }" title="Дошка"><Icon name="board" /><span>Дошка</span></router-link>
-            <router-link :to="chronicleTarget(router)" class="p-rail-btn" :class="{ on: onChronicle }" title="Хроніка"><Icon name="activity" /><span>Хроніка</span></router-link>
+            <router-link :to="chronicleTarget(router)" class="p-rail-btn" :class="{ on: onChronicle }" title="Хроніка"><Icon name="activity" /><span>Хроніка</span><b v-if="unread" class="p-badge" :aria-label="unread + ' задач з новим'">{{ badge }}</b></router-link>
             <router-link :to="searchTarget(router)" class="p-rail-btn" :class="{ on: onSearch }" title="Пошук ( / )"><Icon name="search" /><span>Пошук</span></router-link>
             <router-link :to="{ name: 'staff' }" class="p-rail-btn" :class="{ on: route.name === 'staff' }" title="Співробітники"><Icon name="users" /><span>Люди</span></router-link>
             <span class="p-rail-sp" />
@@ -112,7 +125,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         </div>
 
         <nav class="p-tabbar" aria-label="Вкладки">
-            <router-link :to="chronicleTarget(router)" :class="{ on: onChronicle }"><Icon name="activity" /><span>Хроніка</span></router-link>
+            <router-link :to="chronicleTarget(router)" :class="{ on: onChronicle }"><Icon name="activity" /><span>Хроніка</span><b v-if="unread" class="p-badge" :aria-label="unread + ' задач з новим'">{{ badge }}</b></router-link>
             <router-link :to="{ name: 'tasks-board' }" :class="{ on: onTasks }"><Icon name="board" /><span>Задачі</span></router-link>
             <router-link :to="searchTarget(router)" :class="{ on: onSearch }"><Icon name="search" /><span>Пошук</span></router-link>
             <button type="button" class="p-tab-new" aria-label="Нова задача" @click="creating = true"><Icon name="plus" :size="26" :stroke="2.2" /></button>

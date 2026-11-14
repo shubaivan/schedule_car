@@ -11,6 +11,7 @@ use App\Tasks\Demo\DemoFiles;
 use App\Tasks\Entity\Task;
 use App\Tasks\Entity\TaskLabel;
 use App\Tasks\Entity\TaskMessage;
+use App\Tasks\Entity\TaskMessageEdit;
 use App\Tasks\Entity\TaskRead;
 use App\Tasks\Enum\TaskStatus;
 use App\Tasks\Enum\WorkRole;
@@ -283,9 +284,109 @@ class TasksDemoSeedCommand extends Command
             }
 
             $this->em->flush();
+            $this->enliven();
         } finally {
             (new Filesystem())->remove($tmp);
         }
+    }
+
+    /** Логіни, під якими показують демо: кожен має побачити живу Хроніку й «хто прочитав». */
+    public const DEMO_LOGINS = ['admin', 'dyrektor', 'prodazhi', 'buhgalter', 'vyrobnytstvo'];
+
+    /**
+     * Робочий документ, а не голий чат: відповіді з цитатою, закріплене, правки з історією,
+     * ★ на повідомленнях і задачах, різні межі прочитаного у колег (кружечки «хто прочитав»)
+     * і непрочитане «+N» у кожного демо-логіна. Детерміновано — однаково на кожному засіві.
+     */
+    private function enliven(): void
+    {
+        /** @var list<Task> $tasks */
+        $tasks = $this->em->getRepository(Task::class)->findBy([], ['id' => 'ASC']);
+        $admin = $this->people['admin'];
+        $favorites = array_fill_keys(self::DEMO_LOGINS, 0);
+        $stars = array_fill_keys(self::DEMO_LOGINS, 0);
+
+        foreach ($tasks as $i => $task) {
+            /** @var list<TaskMessage> $all */
+            $all = $this->em->getRepository(TaskMessage::class)->findBy(['task' => $task], ['id' => 'ASC']);
+            $comments = array_values(array_filter($all, static fn (TaskMessage $m) => ! $m->isEvent() && $m->getDeletedAt() === null));
+            $count = count($comments);
+
+            // Відповідь із цитатою: друге повідомлення відповідає першому.
+            if ($count >= 2 && $i % 2 === 0 && $comments[1]->getAuthor() !== $comments[0]->getAuthor()) {
+                $comments[1]->setReplyTo($comments[0]);
+            }
+
+            if ($count >= 4 && $i % 3 === 0 && $comments[3]->getAuthor() !== $comments[2]->getAuthor()) {
+                $comments[3]->setReplyTo($comments[2]);
+            }
+
+            // Закріплене: перший документ задачі (специфікація, рахунок), інколи ще й останнє слово.
+            if ($count >= 3 && $i % 3 !== 2) {
+                $withFiles = array_values(array_filter($comments, static fn (TaskMessage $m) => ! $m->getAttachments()->isEmpty()));
+                ($withFiles[0] ?? $comments[0])->pin($task->getCreator());
+
+                if ($i % 5 === 0 && $comments[$count - 1] !== ($withFiles[0] ?? $comments[0])) {
+                    $comments[$count - 1]->pin($task->getCreator());
+                }
+            }
+
+            // Правка з історією: виправили кількість (перше число в тексті).
+            if ($count >= 3 && $i % 4 === 1) {
+                foreach (array_reverse($comments) as $m) {
+                    if (preg_match('/\d+/', $m->getText()) === 1) {
+                        $old = (string) preg_replace_callback('/\d+/', static fn (array $d) => (string) ((int) $d[0] + 2), $m->getText(), 1);
+                        $this->em->persist(new TaskMessageEdit($m, $m->getAuthor(), $old));
+                        $m->edit($m->getText());
+
+                        break;
+                    }
+                }
+            }
+
+            // Адмін — не учасник угод; у кількох він стежить (учасник), щоб і в нього Хроніка жила.
+            if ($i % 6 === 2 && ! $task->hasMember($admin)) {
+                $task->addMember($admin);
+            }
+
+            // Колеги (не демо-логіни) дочитали хто до кінця, хто до середини — звідси кружечки «хто прочитав».
+            foreach ($task->getMembers() as $member) {
+                $user = $member->getUser();
+                $login = substr((string) $user->getTelegramId(), 5);
+
+                if (in_array($login, self::DEMO_LOGINS, true) || $count === 0) {
+                    continue;
+                }
+
+                $upTo = (crc32($login . $i) % 3 === 0) ? $comments[intdiv($count - 1, 2)] : $comments[$count - 1];
+                $this->tasks->markRead($task, $user, (int) $upTo->getId());
+            }
+
+            foreach (self::DEMO_LOGINS as $login) {
+                $user = $this->people[$login];
+                $involved = $task->getCreator() === $user || $task->hasMember($user);
+
+                // ★ задачі: дві відкриті угоди кожному (адмін і директор — і не свої: вони бачать усе).
+                if ($favorites[$login] < 2 && ! $task->getStatus()->isClosed() && ($involved || ($login === 'admin' && $i % 4 === 0))) {
+                    $this->tasks->favorite($task, $user, true);
+                    ++$favorites[$login];
+                }
+
+                // ★ повідомлення: перший чужий документ у задачі, де людина бере участь.
+                if ($stars[$login] < 2 && $involved) {
+                    foreach ($comments as $m) {
+                        if ($m->getAuthor() !== $user && ! $m->getAttachments()->isEmpty()) {
+                            $this->tasks->star($m, $user, true);
+                            ++$stars[$login];
+
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        $this->em->flush();
     }
 
     /** @param array<string, mixed> $generated */
@@ -374,6 +475,9 @@ class TasksDemoSeedCommand extends Command
     {
         $message = new TaskMessage($task, $this->people[$who], $text, TaskMessage::KIND_EVENT);
         $message->setCreatedAt($this->at($hoursAgo));
+        // Тип події — як у живих змін статусу: Хроніка показує закриття інакше, ніж зміну статусу.
+        $closed = array_filter(TaskStatus::cases(), static fn (TaskStatus $s) => $s->isClosed() && str_ends_with($text, '→ ' . $s->label()));
+        $message->setEventType($closed !== [] ? TaskMessage::EVENT_CLOSED : TaskMessage::EVENT_STATUS);
         $this->em->persist($message);
         $task->touch($this->at($hoursAgo));
     }

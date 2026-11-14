@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import Avatar from './Avatar.vue'
+import TaskView from './TaskView.vue'
 import { tasksApi, type ChronicleItem } from './api'
 import { setChronicleCounts, useChronicleCounts } from './chronicle'
 import { plural } from './format'
+import { TASK_SAVED } from './shell/nav'
+import { useSplitTask } from './shell/split'
 import { useSession } from '../../app/store'
 import './feed.css'
 
@@ -18,9 +20,9 @@ import './feed.css'
 const props = defineProps<{ embedded?: boolean }>()
 const emit = defineEmits<{ open: [taskId: number] }>()
 
-const router = useRouter()
 const session = useSession()
 const { counts } = useChronicleCounts()
+const { openId, open: openTask, close } = useSplitTask('tasks-chronicle')
 
 const items = ref<ChronicleItem[]>([])
 const next = ref<string | null>(null)
@@ -120,7 +122,13 @@ async function refreshTop() {
         const fresh = new Set(page.items.map((i) => i.task.id))
         const edge = page.items[page.items.length - 1]?.lastActivityAt ?? ''
         const tail = page.next ? items.value.filter((i) => !fresh.has(i.task.id) && i.lastActivityAt < edge) : []
-        items.value = [...page.items, ...tail]
+        const rows = [...page.items, ...tail]
+        // Відкрита праворуч задача стала прочитаною — у «Непрочитаних» вона лишається на місці, поки її читають.
+        const open = openId.value === null ? -1 : items.value.findIndex((i) => i.task.id === openId.value)
+        if (open >= 0 && !rows.some((i) => i.task.id === openId.value)) {
+            rows.splice(Math.min(open, rows.length), 0, { ...items.value[open], unread: 0 })
+        }
+        items.value = rows
         if (!tail.length) next.value = page.next
         setChronicleCounts(page.counts)
     } catch {
@@ -131,7 +139,7 @@ async function refreshTop() {
 function open(item: ChronicleItem) {
     item.unread = 0
     if (props.embedded) emit('open', item.task.id)
-    else router.push({ name: 'task', params: { id: item.task.id } })
+    else openTask(item.task.id)
 }
 
 async function markRead(item: ChronicleItem) {
@@ -192,20 +200,24 @@ watch(() => counts.value.events, (now, before) => now !== before && refreshTop()
 // Окремого таймера немає: лічильник (useChronicleCounts) опитує раз на 15 с,
 // і стрічка оновлюється, лише коли там щось змінилось.
 let observer: IntersectionObserver | undefined
+const onSaved = () => refreshTop()
 onMounted(() => {
     load()
+    window.addEventListener(TASK_SAVED, onSaved)
     if ('IntersectionObserver' in window) {
         observer = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && next.value && load(true), { rootMargin: '300px' })
         if (sentinel.value) observer.observe(sentinel.value)
     }
 })
 onBeforeUnmount(() => {
+    window.removeEventListener(TASK_SAVED, onSaved)
     observer?.disconnect()
 })
 </script>
 
 <template>
-    <div class="t-page f-page" :class="{ embedded }">
+    <div class="p-split" :class="{ split: !embedded && openId !== null }">
+    <div class="p-split-left t-page f-page" :class="{ embedded }">
         <div class="f-head">
             <h1 v-if="!embedded">Хроніка</h1>
             <span v-if="counts.tasks" class="t-sub">{{ counts.tasks }} {{ plural(counts.tasks, 'задача', 'задачі', 'задач') }} з новим</span>
@@ -224,7 +236,7 @@ onBeforeUnmount(() => {
                     v-for="item in g.items"
                     :key="item.task.id"
                     class="f-item"
-                    :class="{ unread: item.unread > 0 }"
+                    :class="{ unread: item.unread > 0, sel: !embedded && item.task.id === openId }"
                     role="link"
                     tabindex="0"
                     @click="open(item)"
@@ -256,5 +268,9 @@ onBeforeUnmount(() => {
             <div ref="sentinel" />
             <button v-if="next" type="button" class="t-btn small f-more-btn" :disabled="loading" @click="load(true)">{{ loading ? 'Завантаження…' : 'Показати ще' }}</button>
         </div>
+    </div>
+    <div v-if="!embedded && openId !== null" class="p-split-right p-board-right">
+        <TaskView :key="openId" :id="String(openId)" embedded @close="close" />
+    </div>
     </div>
 </template>

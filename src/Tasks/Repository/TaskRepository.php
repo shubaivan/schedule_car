@@ -138,7 +138,8 @@ class TaskRepository extends ServiceEntityRepository
     }
 
     /**
-     * Непрочитані коментарі інших людей по кожній задачі.
+     * Нові події від інших людей по кожній задачі — те саме правило, що й «+N» у Хроніці
+     * (TaskFeedRepository::UNREAD).
      *
      * @param int[] $taskIds
      *
@@ -151,13 +152,11 @@ class TaskRepository extends ServiceEntityRepository
         }
 
         $rows = $this->getEntityManager()->getConnection()->fetchAllKeyValue(
-            "SELECT m.task_id, COUNT(*) FROM task_message m
-               LEFT JOIN task_read r ON r.task_id = m.task_id AND r.user_id = :user
-              WHERE m.task_id IN (:ids) AND m.kind = 'comment' AND m.deleted_at IS NULL
-                AND (m.author_id IS NULL OR m.author_id <> :user)
-                AND m.id > COALESCE(r.last_message_id, 0)
-              GROUP BY m.task_id",
-            ['user' => $user->getId(), 'ids' => $taskIds],
+            'SELECT u.task_id, COUNT(*) FROM task_message u
+               LEFT JOIN task_read r ON r.task_id = u.task_id AND r.user_id = :me
+              WHERE u.task_id IN (:ids) AND ' . TaskFeedRepository::UNREAD . '
+              GROUP BY u.task_id',
+            ['me' => $user->getId(), 'ids' => $taskIds],
             ['ids' => ArrayParameterType::INTEGER],
         );
 

@@ -100,6 +100,40 @@ class TaskFeedTest extends WebTestCase
         self::assertResponseStatusCodeSame(403);
     }
 
+    /** «+N» на картці дошки, у Хроніці й лічильник меню — одне джерело (TaskFeedRepository::UNREAD). */
+    public function testBoardAndChronicleAgreeOnUnread(): void
+    {
+        $manager = $this->user(WorkRole::Manager, 'agm');
+        $worker = $this->user(WorkRole::Production, 'agw');
+
+        $this->login($manager);
+        $task = $this->send('POST', '/api/tasks', ['title' => 'Кільця КС узгодження', 'memberIds' => [$worker->getId()]]);
+        $this->send('POST', '/api/tasks/' . $task['id'] . '/messages', ['text' => 'Перше']);
+        $this->send('POST', '/api/tasks/' . $task['id'] . '/status', ['to' => 'in_work']);
+        $this->send('POST', '/api/tasks/' . $task['id'] . '/messages', ['text' => 'Друге']);
+
+        $this->login($worker);
+        $chronicle = $this->row($this->get('/api/tasks/chronicle'), $task['id']);
+        $board = $this->get('/api/tasks/board');
+        $card = null;
+        foreach ($board as $column) {
+            foreach ($column as $item) {
+                if ($item['id'] === $task['id']) {
+                    $card = $item;
+                }
+            }
+        }
+
+        self::assertNotNull($card);
+        self::assertSame(4, $chronicle['unread'], 'створення + 2 коментарі + зміна статусу');
+        self::assertSame($chronicle['unread'], $card['unread']);
+        self::assertSame(1, $this->get('/api/tasks/chronicle/counts')['tasks']);
+
+        $this->get('/api/tasks/' . $task['id']);
+        self::assertSame(0, $this->row($this->get('/api/tasks/chronicle'), $task['id'])['unread']);
+        self::assertSame(0, $this->get('/api/tasks/chronicle/counts')['tasks']);
+    }
+
     public function testChroniclePagesByCursorAndFiltersFavorites(): void
     {
         $manager = $this->user(WorkRole::Manager, 'pager');

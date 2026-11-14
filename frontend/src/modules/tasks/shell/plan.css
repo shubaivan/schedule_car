@@ -275,6 +275,21 @@ body.p-noscroll { overflow: hidden; }
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--p-r-lg); overflow: hidden; box-shadow: var(--t-shadow);
 }
 
+/* ---------- Хроніка й Пошук: той самий розділений екран ---------- */
+.p-split.split { display: flex; height: calc(100dvh - var(--p-top) - 32px); min-height: 420px; }
+.p-split.split > .p-split-left { flex: 0 0 400px; min-width: 0; overflow-y: auto; padding-right: 12px; overscroll-behavior: contain; }
+/* Назву екрана вже показує шапка оболонки — не дублюємо. */
+.p-shell .f-head h1 { display: none; }
+.p-split.split .f-head { flex-wrap: wrap; }
+.f-item.sel { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+
+/* ---------- лічильник непрочитаного в меню ---------- */
+.p-badge {
+    position: absolute; top: 2px; right: 6px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; box-sizing: border-box;
+    background: #ea580c; color: #fff; font: 700 10.5px/17px var(--p-font); text-align: center; pointer-events: none;
+}
+.p-rail-btn, .p-tabbar a { position: relative; }
+
 /* ---------- задача у правій половині ---------- */
 .t-page.p-embedded { height: 100%; gap: 0; }
 .p-embedded > .t-empty { margin: auto; }
@@ -385,6 +400,7 @@ body.p-noscroll { overflow: hidden; }
 /* ---------- планшет ---------- */
 @media (max-width: 1180px) and (min-width: 761px) {
     .p-board.split .p-board-left { flex-basis: 320px; }
+    .p-split.split > .p-split-left { flex-basis: 320px; }
     .p-top-search { width: min(300px, 34vw); }
     .p-me-text { display: none; }
 }
@@ -426,6 +442,9 @@ body.p-noscroll { overflow: hidden; }
     .p-board { display: block; height: auto; min-height: 0; }
     .p-board-left { gap: 8px; }
     .p-board.split .p-board-left { display: none; }
+    .p-split.split { display: block; height: auto; min-height: 0; }
+    .p-split.split > .p-split-left { display: none; }
+    .p-tabbar .p-badge { top: 1px; right: calc(50% - 22px); }
     .p-board-bar { flex-wrap: wrap; gap: 8px; }
     .p-filter { flex: 1 1 auto; height: 38px; }
     .p-filter input { font-size: 16px; }
