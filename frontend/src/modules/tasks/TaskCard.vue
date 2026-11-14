@@ -63,7 +63,7 @@ function click(e: MouseEvent) {
             <span v-if="task.dueAt" class="due" :class="{ over: task.overdue && !task.closed }" :title="'Термін: ' + new Date(task.dueAt).toLocaleDateString('uk-UA')">
                 <Icon name="clock" :size="13" :stroke="2" />{{ dueLabel(task.dueAt) }}
             </span>
-            <AvatarStack class="people" :people="task.members" :total="task.membersCount" :max="3" :size="22" />
+            <AvatarStack class="people" :people="task.members" :total="task.membersCount" :max="2" :size="22" />
         </span>
     </a>
 </template>

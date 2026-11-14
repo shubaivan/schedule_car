@@ -45,33 +45,36 @@ const COLUMNS: { key: Column; title: string; color: string; empty: string; statu
 const isColumn = (v: unknown): v is Column => typeof v === 'string' && COLUMNS.some((c) => c.key === v)
 
 const openId = computed(() => (route.params.id ? Number(route.params.id) : null))
-const active = ref<Column>(isColumn(route.query.col) ? route.query.col : 'new')
+/** ?view=chronicle — так на дошку веде «Хроніка», поки немає окремого екрана стрічки. */
+const fromQuery = (): Column | null => (isColumn(route.query.col) ? route.query.col : route.query.view === 'chronicle' ? 'chronicle' : null)
+const active = ref<Column>(fromQuery() ?? 'new')
 // Вкладку обрала людина (або посилання) — розумний вибір за замовчуванням уже не потрібен.
-let picked = isColumn(route.query.col)
+let picked = fromQuery() !== null
 
 const unreadIn = (key: Column) => (board.value ? board.value[key].reduce((s, t) => s + t.unread, 0) : 0)
 const activeList = computed(() => (board.value ? board.value[active.value] : []))
 
-/** Перша колонка з непрочитаним, інакше перша непорожня з робочих. */
+/** Перша робоча колонка з непрочитаним («Мої повідомлення» першою), інакше перша непорожня. */
 function smartColumn(b: Board): Column {
-    const withUnread = COLUMNS.find((c) => c.key !== 'done' && b[c.key].some((t) => t.unread > 0))
-    if (withUnread) return withUnread.key
-    return (['messages', 'new', 'work', 'chronicle', 'done'] as Column[]).find((k) => b[k].length) ?? 'new'
+    const order: Column[] = ['messages', 'new', 'work', 'chronicle']
+    return order.find((k) => b[k].some((t) => t.unread > 0)) ?? [...order, 'done' as Column].find((k) => b[k].length) ?? 'new'
 }
 
 let debounce: number | undefined
-let loading = false
+// Кожне завантаження має номер: застосовуємо лише найсвіжішу відповідь, жодне не губимо.
+let request = 0
 async function load() {
-    if (loading) return
-    loading = true
+    const seq = ++request
     try {
         await store.load()
         const fresh = await tasksApi.board(q.value.trim(), label.value)
+        if (seq !== request) return
         board.value = fresh
         error.value = ''
         if (!picked) {
-            active.value = smartColumn(fresh)
             picked = true
+            active.value = smartColumn(fresh)
+            router.replace({ name: 'tasks-board', params: route.params, query: keepQuery({ col: active.value }) })
         }
         // Задачу відкрили з посилання: зліва — колонка, де вона є.
         if (openId.value && !fresh[active.value].some((t) => t.id === openId.value)) {
@@ -79,9 +82,7 @@ async function load() {
             if (home) active.value = home.key
         }
     } catch (e) {
-        error.value = session.handle(e)
-    } finally {
-        loading = false
+        if (seq === request) error.value = session.handle(e)
     }
 }
 
@@ -96,7 +97,7 @@ function keepQuery(extra: Record<string, string | undefined> = {}) {
 function pick(key: Column) {
     active.value = key
     picked = true
-    router.replace({ name: 'tasks-board', params: route.params, query: keepQuery({ col: key }) })
+    router.replace({ name: 'tasks-board', params: route.params, query: keepQuery({ col: key, view: undefined }) })
 }
 
 function open(id: number, column?: Column) {
@@ -109,8 +110,9 @@ function open(id: number, column?: Column) {
 }
 
 function close() {
+    // Відкрили з дошки (push) — повертаємось «назад», щоб в історії не лишалось зайвих кроків.
     const back = (window.history.state as { back?: string } | null)?.back
-    if (mobile.value && back && back.startsWith('/tasks/board') && !/\/tasks\/board\/\d/.test(back)) router.back()
+    if (back && back.startsWith('/tasks/board') && !/\/tasks\/board\/\d/.test(back)) router.back()
     else router.replace({ name: 'tasks-board', query: keepQuery() })
 }
 
@@ -125,17 +127,21 @@ function step(delta: number) {
 
 function onKey(e: KeyboardEvent) {
     const el = e.target as HTMLElement | null
-    if (e.ctrlKey || e.metaKey || e.altKey || creating.value) return
-    if (document.querySelector('.t-modal-wrap, .t-viewer')) return
+    if (e.ctrlKey || e.metaKey || e.altKey || creating.value || e.defaultPrevented) return
+    if (document.querySelector('.t-modal-wrap, .t-viewer, .p-menu')) return
     if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) {
         if (e.key === 'Escape' && el === filter.value) el.blur()
         return
     }
     if (!openId.value) return
+    // Стрілки — лише коли фокус у списку зліва (інакше ними гортають чат); J/K — будь-де.
+    const inList = !!el?.closest('.p-board-left')
     if (e.key === 'Escape') close()
-    else if (e.key === 'ArrowDown' || e.key === 'j' || e.key === 'о') step(1)
-    else if (e.key === 'ArrowUp' || e.key === 'k' || e.key === 'л') step(-1)
-    else return
+    else if ((e.key === 'ArrowDown' && inList) || e.key === 'j' || e.key === 'о') {
+        if (!e.repeat) step(1)
+    } else if ((e.key === 'ArrowUp' && inList) || e.key === 'k' || e.key === 'л') {
+        if (!e.repeat) step(-1)
+    } else return
     e.preventDefault()
 }
 
@@ -144,8 +150,9 @@ watch(q, () => {
     debounce = window.setTimeout(load, 300)
 })
 watch(label, load)
-watch(() => route.query.col, (col) => {
-    if (isColumn(col)) {
+watch(() => [route.query.col, route.query.view], () => {
+    const col = fromQuery()
+    if (col) {
         active.value = col
         picked = true
     }
@@ -268,7 +275,8 @@ onBeforeUnmount(() => {
         </div>
 
         <div v-if="openId !== null" class="p-board-right">
-            <TaskView :id="String(openId)" embedded @close="close" />
+            <!-- key: при переході на іншу задачу — чистий стан (поле вводу, опитування, нотатка рішення). -->
+            <TaskView :key="openId" :id="String(openId)" embedded @close="close" />
         </div>
 
         <TaskForm v-if="creating" @close="creating = false" />

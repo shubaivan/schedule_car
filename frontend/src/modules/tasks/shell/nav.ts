@@ -10,7 +10,7 @@ export const CHRONICLE_ROUTE = 'tasks-chronicle'
 export const SEARCH_ROUTE = 'tasks-search'
 
 export function chronicleTarget(router: Router): RouteLocationRaw {
-    return router.hasRoute(CHRONICLE_ROUTE) ? { name: CHRONICLE_ROUTE } : { name: 'tasks-board', query: { col: 'chronicle' } }
+    return router.hasRoute(CHRONICLE_ROUTE) ? { name: CHRONICLE_ROUTE } : { name: 'tasks-board', query: { view: 'chronicle' } }
 }
 
 export function searchTarget(router: Router, q = ''): RouteLocationRaw {

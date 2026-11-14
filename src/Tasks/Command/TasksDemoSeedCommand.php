@@ -28,6 +28,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Throwable;
 
 /**
  * Демо-дані для показу «Плану»: відділи, співробітники (вигадані імена),
@@ -86,6 +87,11 @@ class TasksDemoSeedCommand extends Command
         private UserPasswordHasherInterface $hasher,
         #[Autowire('%kernel.project_dir%/demo/tasks')]
         private string $files,
+        #[Autowire('%kernel.environment%')]
+        private string $environment = 'dev',
+        /** На prod засів дозволено лише там, де явно сказано: це демо-стенд (PLAN_DEMO_STAND=1). */
+        #[Autowire('%env(default::PLAN_DEMO_STAND)%')]
+        private ?string $demoStand = null,
     ) {
         parent::__construct();
     }
@@ -101,6 +107,15 @@ class TasksDemoSeedCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $conn = $this->em->getConnection();
+
+        // Порожня бойова база (одразу після розгортання) теж «без живих людей» —
+        // тому на prod потрібна ще й явна позначка демо-стенду.
+        if ($this->environment === 'prod' && $this->demoStand !== '1') {
+            $output->writeln('<error>APP_ENV=prod без PLAN_DEMO_STAND=1 — це не демо-стенд. Нічого не роблю.</error>');
+
+            return Command::FAILURE;
+        }
+
         $live = (int) $conn->fetchOne("SELECT COUNT(*) FROM telegram_user WHERE telegram_id NOT LIKE 'demo-%'");
 
         if ($live > 0) {
@@ -131,7 +146,32 @@ class TasksDemoSeedCommand extends Command
             return Command::FAILURE;
         }
 
-        if ($input->getOption('reset')) {
+        // Усе або нічого: якщо засів упаде посередині (GD, шрифт), база лишиться як була.
+        $conn->beginTransaction();
+
+        try {
+            $this->reset($input->getOption('reset') === true);
+            $this->seedDirectories($password, (string) $input->getOption('domain'));
+            $this->seedTasks();
+            $conn->commit();
+        } catch (Throwable $e) {
+            $conn->rollBack();
+
+            throw $e;
+        }
+
+        $this->deferred->flush();
+
+        $output->writeln(sprintf('Готово: людей — %d, відділів — %d, міток — %d, угод — %d.', count($this->people), count($this->departments), count($this->labels), count(DemoDeals::all())));
+
+        return Command::SUCCESS;
+    }
+
+    private function reset(bool $reset): void
+    {
+        $conn = $this->em->getConnection();
+
+        if ($reset) {
             $conn->executeStatement('DELETE FROM task');
             $conn->executeStatement('DELETE FROM task_label');
             $conn->executeStatement("UPDATE telegram_user SET archived_by_id = NULL WHERE telegram_id LIKE 'demo-%'");
@@ -139,14 +179,6 @@ class TasksDemoSeedCommand extends Command
             $conn->executeStatement("DELETE FROM telegram_user WHERE telegram_id LIKE 'demo-%'");
             $this->em->clear();
         }
-
-        $this->seedDirectories($password, (string) $input->getOption('domain'));
-        $this->seedTasks();
-        $this->deferred->flush();
-
-        $output->writeln(sprintf('Готово: людей — %d, відділів — %d, міток — %d, угод — %d.', count($this->people), count($this->departments), count($this->labels), count(DemoDeals::all())));
-
-        return Command::SUCCESS;
     }
 
     private function seedDirectories(string $password, string $domain): void

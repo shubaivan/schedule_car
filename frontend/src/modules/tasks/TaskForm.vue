@@ -108,6 +108,7 @@ function pick(e: Event) {
 }
 
 async function save(go: boolean) {
+    if (busy.value) return
     if (!form.title.trim()) {
         error.value = 'Вкажіть назву задачі.'
         titleBox.value?.focus()
@@ -118,10 +119,15 @@ async function save(go: boolean) {
     try {
         const payload = { ...form }
         const saved = props.task ? await tasksApi.update(props.task.id, payload) : await tasksApi.create(payload)
-        if (!props.task && files.value.length) {
-            await tasksApi.post(saved.id, '', files.value, [])
-        }
+        // Задача вже є: чернетку прибираємо одразу, щоб повтор не створив дубль.
         if (!props.task) dropDraft()
+        if (!props.task && files.value.length) {
+            try {
+                await tasksApi.post(saved.id, '', files.value, [])
+            } catch (e) {
+                window.alert('Задачу створено, але файли не завантажились: ' + session.handle(e) + '\nДодайте їх у чат задачі.')
+            }
+        }
         await store.load(true)
         emit('saved', saved)
         window.dispatchEvent(new Event(TASK_SAVED))
@@ -159,9 +165,9 @@ onBeforeUnmount(() => document.body.classList.remove('p-noscroll'))
 
 <template>
     <div class="t-modal-wrap p-form-wrap" @click.self="emit('close')" @keydown="onKey">
-        <form class="t-modal p-form" @submit.prevent="save(!task)">
+        <form class="t-modal p-form" role="dialog" aria-modal="true" aria-labelledby="p-form-title" @submit.prevent="save(!task)">
             <header>
-                <h2>{{ task ? 'Редагувати задачу' : 'Нова задача' }}</h2>
+                <h2 id="p-form-title">{{ task ? 'Редагувати задачу' : 'Нова задача' }}</h2>
                 <button type="button" class="p-icon-btn" aria-label="Закрити" @click="emit('close')"><Icon name="x" /></button>
             </header>
             <div v-if="meta" class="body">

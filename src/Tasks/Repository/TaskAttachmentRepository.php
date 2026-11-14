@@ -23,7 +23,7 @@ class TaskAttachmentRepository extends ServiceEntityRepository
 
     /**
      * Скільки файлів у задачі (без видалених повідомлень) і чи є серед них PDF/фото —
-     * для значка «📎 N» на картці дошки. Один запит на всю дошку.
+     * для значка «📎 N» на картці дошки. Один запит на всю дошку (FILTER — PostgreSQL).
      *
      * @param int[] $taskIds
      *
@@ -36,14 +36,14 @@ class TaskAttachmentRepository extends ServiceEntityRepository
         }
 
         $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
-            "SELECT m.task_id, COUNT(*) AS n,
-                    COUNT(*) FILTER (WHERE a.kind = 'pdf') AS pdf,
-                    COUNT(*) FILTER (WHERE a.kind = 'image') AS images
+            'SELECT m.task_id, COUNT(*) AS n,
+                    COUNT(*) FILTER (WHERE a.kind = :pdf) AS pdf,
+                    COUNT(*) FILTER (WHERE a.kind = :image) AS images
                FROM task_attachment a
                JOIN task_message m ON m.id = a.message_id
               WHERE m.task_id IN (:ids) AND m.deleted_at IS NULL
-              GROUP BY m.task_id",
-            ['ids' => $taskIds],
+              GROUP BY m.task_id',
+            ['ids' => $taskIds, 'pdf' => TaskAttachment::KIND_PDF, 'image' => TaskAttachment::KIND_IMAGE],
             ['ids' => ArrayParameterType::INTEGER],
         );
 

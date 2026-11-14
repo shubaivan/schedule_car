@@ -3,7 +3,6 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Icon from './Icon.vue'
 import TaskForm from '../TaskForm.vue'
-import { applyTheme } from './theme'
 import { chronicleTarget, CHRONICLE_ROUTE, searchTarget, SEARCH_ROUTE } from './nav'
 import { useSession } from '../../../app/store'
 
@@ -19,8 +18,6 @@ const router = useRouter()
 const creating = ref(false)
 const q = ref('')
 const searchBox = ref<HTMLInputElement | null>(null)
-
-applyTheme()
 
 const TITLES: Record<string, string> = {
     tasks: 'Огляд',
@@ -38,7 +35,7 @@ const initials = computed(() => ((me.value?.firstName ?? '').charAt(0) + (me.val
 const roleLabel = computed(() => me.value?.position || me.value?.workRoleLabel || '')
 
 const taskOpen = computed(() => !!route.params.id)
-const onChronicle = computed(() => route.name === CHRONICLE_ROUTE || (route.name === 'tasks-board' && route.query.col === 'chronicle'))
+const onChronicle = computed(() => route.name === CHRONICLE_ROUTE || (route.name === 'tasks-board' && route.query.view === 'chronicle'))
 const onSearch = computed(() => route.name === SEARCH_ROUTE || (route.name === 'tasks-board' && route.query.find === '1'))
 const onTasks = computed(() => (route.name === 'tasks' || route.name === 'tasks-board') && !onChronicle.value && !onSearch.value)
 
@@ -106,7 +103,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
                     </div>
                 </template>
                 <h1 v-else class="p-top-title">{{ title }}</h1>
-                <router-link :to="{ name: 'staff' }" class="p-icon-btn" title="Співробітники"><Icon name="users" /></router-link>
+                <router-link :to="{ name: 'staff' }" class="p-icon-btn" title="Співробітники" aria-label="Співробітники"><Icon name="users" /></router-link>
             </header>
 
             <main class="p-content">

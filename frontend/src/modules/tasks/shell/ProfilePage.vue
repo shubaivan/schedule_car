@@ -26,7 +26,7 @@ const THEMES: { value: Theme; label: string; icon: string }[] = [
             <div>
                 <h2>{{ me?.name ?? session.user?.name }}</h2>
                 <div class="p-muted">{{ me?.position ?? session.user?.workRoleLabel }}</div>
-                <div v-if="me?.department" class="p-dept">[{{ me.department }}]</div>
+                <div v-if="me?.department" class="p-dep">[{{ me.department }}]</div>
             </div>
         </section>
 

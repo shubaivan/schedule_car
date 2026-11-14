@@ -35,8 +35,25 @@ function decide(to: string) {
 function outside(e: MouseEvent) {
     if (menu.value && root.value && !root.value.querySelector('.p-status')?.contains(e.target as Node)) menu.value = false
 }
-onMounted(() => document.addEventListener('click', outside))
-onBeforeUnmount(() => document.removeEventListener('click', outside))
+/** Esc спершу закриває меню статусу й бічну панель, а не всю задачу. */
+function esc(e: KeyboardEvent) {
+    if (e.key !== 'Escape') return
+    if (menu.value) {
+        menu.value = false
+        e.preventDefault()
+    } else if (props.sideOpen && !document.querySelector('.t-modal-wrap, .t-viewer')) {
+        emit('side')
+        e.preventDefault()
+    }
+}
+onMounted(() => {
+    document.addEventListener('click', outside)
+    window.addEventListener('keydown', esc, true)
+})
+onBeforeUnmount(() => {
+    document.removeEventListener('click', outside)
+    window.removeEventListener('keydown', esc, true)
+})
 </script>
 
 <template>

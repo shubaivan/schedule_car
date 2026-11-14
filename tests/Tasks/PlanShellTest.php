@@ -117,6 +117,25 @@ class PlanShellTest extends WebTestCase
         self::assertGreaterThan(0, (int) $this->em->getConnection()->fetchOne("SELECT COUNT(*) FROM telegram_user WHERE telegram_id LIKE 'plan-shell-test-%'"));
     }
 
+    public function testDemoSeedRefusesOnProdWithoutDemoFlag(): void
+    {
+        $prod = new TasksDemoSeedCommand(
+            self::getContainer()->get(EntityManagerInterface::class),
+            self::getContainer()->get(\App\Supply\Repository\DepartmentRepository::class),
+            self::getContainer()->get(\App\Tasks\Service\TaskService::class),
+            self::getContainer()->get(\App\Tasks\Service\DeferredPreviews::class),
+            self::getContainer()->get(\Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface::class),
+            '/nonexistent',
+            'prod',
+            null,
+        );
+        $tester = new CommandTester($prod);
+        $tester->execute(['--password' => 'demo-pass-12345', '--dry-run' => true]);
+
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+        self::assertStringContainsString('PLAN_DEMO_STAND', $tester->getDisplay());
+    }
+
     public function testDemoDealsReferenceKnownPeopleLabelsDepartmentsAndFiles(): void
     {
         $deals = DemoDeals::all();
