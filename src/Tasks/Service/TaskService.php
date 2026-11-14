@@ -10,7 +10,6 @@ use App\Tasks\Entity\Task;
 use App\Tasks\Entity\TaskAttachment;
 use App\Tasks\Entity\TaskMessage;
 use App\Tasks\Entity\TaskMessageEdit;
-use App\Tasks\Entity\TaskRead;
 use App\Tasks\Enum\TaskStatus;
 use App\Tasks\Exception\TaskException;
 use App\Tasks\Repository\TaskLabelRepository;
@@ -336,21 +335,35 @@ class TaskService
         }
     }
 
-    /** @return int до якого повідомлення людина дочитала ДО цього відкриття (для «Нові повідомлення») */
+    /**
+     * Одним запитом (upsert), щоб два одночасні відкриття задачі не впали на uniq_task_read.
+     * Позначка лише росте: старіша відповідь не відкотить «дочитав до».
+     *
+     * @return int до якого повідомлення людина дочитала ДО цього відкриття (для «Нові повідомлення»)
+     */
     public function markRead(Task $task, TelegramUser $user, ?int $upTo = null): int
     {
-        $read = $this->em->getRepository(TaskRead::class)->findOneBy(['task' => $task, 'user' => $user]);
-        $before = $read?->getLastMessageId() ?? 0;
+        // CTE prev читає знімок до вставки; INSERT у WITH виконується, навіть якщо на нього не посилаються.
+        $before = $this->em->getConnection()->fetchOne(
+            "WITH prev AS (
+                 SELECT last_message_id FROM task_read WHERE task_id = :task AND user_id = :user
+             ), up AS (
+                 INSERT INTO task_read (id, task_id, user_id, last_message_id, read_at)
+                 VALUES (nextval('task_read_id_seq'), :task, :user, :upTo, CAST(:now AS timestamp))
+                 ON CONFLICT (task_id, user_id) DO UPDATE
+                    SET last_message_id = GREATEST(task_read.last_message_id, EXCLUDED.last_message_id),
+                        read_at = EXCLUDED.read_at
+             )
+             SELECT COALESCE((SELECT last_message_id FROM prev), 0)",
+            [
+                'task' => $task->getId(),
+                'user' => $user->getId(),
+                'upTo' => $upTo ?? $this->messages->lastId($task),
+                'now' => Task::now()->format('Y-m-d H:i:s'),
+            ],
+        );
 
-        if ($read === null) {
-            $read = new TaskRead($task, $user);
-            $this->em->persist($read);
-        }
-
-        $read->readUpTo($upTo ?? $this->messages->lastId($task));
-        $this->em->flush();
-
-        return $before;
+        return (int) $before;
     }
 
     /** @param array<string, mixed> $data */

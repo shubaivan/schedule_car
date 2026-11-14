@@ -9,7 +9,8 @@ import { useSession } from '../../../app/store'
 /** «Я»: хто я в Плані, тема оформлення, інші розділи й вихід. */
 const session = useSession()
 const store = useTasks()
-onMounted(() => store.load())
+// Обірваний запит (пішли зі сторінки) — не необроблена помилка; сесію, що скінчилась, усе одно обробляємо.
+onMounted(() => store.load().catch((e) => session.handle(e)))
 
 const me = computed(() => store.meta?.me ?? null)
 const THEMES: { value: Theme; label: string; icon: string }[] = [

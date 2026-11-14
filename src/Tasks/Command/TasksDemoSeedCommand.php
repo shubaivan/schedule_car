@@ -12,7 +12,6 @@ use App\Tasks\Entity\Task;
 use App\Tasks\Entity\TaskLabel;
 use App\Tasks\Entity\TaskMessage;
 use App\Tasks\Entity\TaskMessageEdit;
-use App\Tasks\Entity\TaskRead;
 use App\Tasks\Enum\TaskStatus;
 use App\Tasks\Enum\WorkRole;
 use App\Tasks\Service\DeferredPreviews;
@@ -25,6 +24,7 @@ use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Input\StreamableInputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Filesystem\Filesystem;
@@ -37,6 +37,7 @@ use Throwable;
  * Частину файлів (PDF, «фото») малює DemoFiles прямо під час засіву.
  *
  *     php bin/console tasks:demo-seed --password='…'
+ *     printf '%s\n' "$PASS" | php bin/console tasks:demo-seed --password-stdin   # бойовий сервер: пароля нема в `ps` та історії
  *
  * Лише на демо-стенді: команда відмовиться, якщо в базі є живі люди з бота
  * (telegram_id не «demo-»). --reset прибирає попередні демо-дані.
@@ -100,6 +101,7 @@ class TasksDemoSeedCommand extends Command
     protected function configure(): void
     {
         $this->addOption('password', null, InputOption::VALUE_REQUIRED, 'Спільний пароль демо-співробітників (≥ 10 символів)');
+        $this->addOption('password-stdin', null, InputOption::VALUE_NONE, 'Прочитати пароль із першого рядка stdin (замість --password)');
         $this->addOption('domain', null, InputOption::VALUE_REQUIRED, 'Домен демо-логінів', 'zavod.test');
         $this->addOption('reset', null, InputOption::VALUE_NONE, 'Прибрати попередні демо-задачі й людей');
         $this->addOption('dry-run', null, InputOption::VALUE_NONE, 'Лише перевірити, чи можна');
@@ -125,10 +127,15 @@ class TasksDemoSeedCommand extends Command
             return Command::FAILURE;
         }
 
-        $password = (string) $input->getOption('password');
+        if ($input->getOption('password-stdin')) {
+            $stream = ($input instanceof StreamableInputInterface ? $input->getStream() : null) ?? STDIN;
+            $password = rtrim((string) fgets($stream), "\r\n");
+        } else {
+            $password = (string) $input->getOption('password');
+        }
 
         if (mb_strlen($password) < 10) {
-            $output->writeln('<error>--password: щонайменше 10 символів.</error>');
+            $output->writeln('<error>Пароль (--password або --password-stdin): щонайменше 10 символів.</error>');
 
             return Command::INVALID;
         }
@@ -466,9 +473,7 @@ class TasksDemoSeedCommand extends Command
         $this->em->flush();
 
         // Автор свої повідомлення прочитав.
-        $read = $this->em->getRepository(TaskRead::class)->findOneBy(['task' => $task, 'user' => $author]) ?? new TaskRead($task, $author);
-        $read->readUpTo((int) $message->getId());
-        $this->em->persist($read);
+        $this->tasks->markRead($task, $author, (int) $message->getId());
     }
 
     private function event(Task $task, string $who, int $hoursAgo, string $text): void

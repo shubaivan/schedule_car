@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import Avatar from './Avatar.vue'
 import PeoplePicker from './PeoplePicker.vue'
@@ -156,9 +156,16 @@ function onKey(e: KeyboardEvent) {
 }
 
 onMounted(async () => {
-    meta.value = await store.load()
-    titleBox.value?.focus()
     document.body.classList.add('p-noscroll')
+    try {
+        meta.value = await store.load()
+    } catch (e) {
+        // Обірваний запит довідників — показуємо помилку, а не необроблений reject.
+        error.value = session.handle(e)
+        return
+    }
+    await nextTick()
+    titleBox.value?.focus()
 })
 onBeforeUnmount(() => document.body.classList.remove('p-noscroll'))
 </script>

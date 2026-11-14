@@ -101,6 +101,31 @@ class TaskFeedTest extends WebTestCase
     }
 
     /** «+N» на картці дошки, у Хроніці й лічильник меню — одне джерело (TaskFeedRepository::UNREAD). */
+    public function testMarkReadIsAnUpsertThatNeverGoesBack(): void
+    {
+        $manager = $this->user(WorkRole::Manager, 'mrk');
+        $this->login($manager);
+        $created = $this->send('POST', '/api/tasks', ['title' => 'Плити П-3']);
+        $first = $this->send('POST', '/api/tasks/' . $created['id'] . '/messages', ['text' => 'Перше']);
+        $second = $this->send('POST', '/api/tasks/' . $created['id'] . '/messages', ['text' => 'Друге']);
+
+        $service = self::getContainer()->get(\App\Tasks\Service\TaskService::class);
+        $task = $this->em->find(\App\Tasks\Entity\Task::class, $created['id']);
+        $user = $this->em->find(TelegramUser::class, $manager->getId());
+        $conn = $this->em->getConnection();
+        $conn->executeStatement('DELETE FROM task_read WHERE task_id = ?', [$created['id']]);
+
+        // Першого запису ще нема — «до відкриття» 0, і рядок з'являється.
+        self::assertSame(0, $service->markRead($task, $user, (int) $first['id']));
+        // Повторне відкриття (як два одночасні запити) не падає на uniq_task_read і повертає попередню позначку.
+        self::assertSame((int) $first['id'], $service->markRead($task, $user));
+        self::assertSame((int) $second['id'], $service->markRead($task, $user));
+        // Старіша відповідь не відкочує «дочитав до».
+        self::assertSame((int) $second['id'], $service->markRead($task, $user, (int) $first['id']));
+        self::assertSame(1, (int) $conn->fetchOne('SELECT COUNT(*) FROM task_read WHERE task_id = ? AND user_id = ?', [$created['id'], $manager->getId()]));
+        self::assertSame((int) $second['id'], (int) $conn->fetchOne('SELECT last_message_id FROM task_read WHERE task_id = ? AND user_id = ?', [$created['id'], $manager->getId()]));
+    }
+
     public function testBoardAndChronicleAgreeOnUnread(): void
     {
         $manager = $this->user(WorkRole::Manager, 'agm');
