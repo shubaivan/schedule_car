@@ -86,7 +86,23 @@ function pickFiles(e: Event) {
     input.value = ''
 }
 
-function cancel() {
+/**
+ * Поля нового об'єкта відкриті — у історії є їхній крок (useHistoryLayer). Перш ніж
+ * іти зі сторінки, знімаємо його й чекаємо, поки браузер зробить «назад», — інакше
+ * replace/back нижче спрацює по кроку шару, і людина опиниться знову в порожній формі.
+ */
+async function closeLayer() {
+    if (!newSite.value) return
+    const popped = new Promise((resolve) => {
+        window.addEventListener('popstate', resolve, { once: true })
+        window.setTimeout(resolve, 400)
+    })
+    newSite.value = false
+    await popped
+}
+
+async function cancel() {
+    await closeLayer()
     goBack(router, route.query.item ? { name: 'warehouse-items', params: { id: str(route.query.item) } } : { name: 'warehouse-movements' })
 }
 
@@ -119,6 +135,7 @@ async function submit() {
         }
         const created = await whApi.createMovement(payload, files.value)
         if (newSite.value) whApi.meta(true).catch(() => undefined)
+        await closeLayer()
         // Форму в історії заміняє сам рух: «Назад» із руху веде до списку, а не знову у форму.
         router.replace({ name: 'warehouse-movements', params: { id: String(created.id) } })
     } catch (e) {

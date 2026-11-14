@@ -47,7 +47,10 @@ async function submit() {
         const payload = { ...draft.value, supplierId: supplierId.value ? String(supplierId.value) : '' }
         const saved = props.id ? await whApi.updateItem(Number(props.id), payload) : await whApi.createItem(payload)
         whApi.meta(true).catch(() => undefined)
-        router.replace({ name: 'warehouse-items', params: { id: String(saved.id) } })
+        // Правка — назад до картки, з якої прийшли (без другого такого ж кроку історії);
+        // нова позиція — форму в історії заміняє її картка.
+        if (props.id) goBack(router, back.value)
+        else router.replace({ name: 'warehouse-items', params: { id: String(saved.id) } })
     } catch (e) {
         error.value = accessError(e) || session.handle(e)
     } finally {

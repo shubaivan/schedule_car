@@ -38,18 +38,22 @@ function link(e: WhActivity) {
     return null
 }
 
+let seq = 0
 async function load() {
+    const mine = ++seq
     loading.value = true
     try {
         const r = await whApi.journal(filters.value)
+        if (mine !== seq) return
         entries.value = r.items
         people.value = r.people
         error.value = ''
     } catch (e) {
+        if (mine !== seq) return
         denied.value = accessError(e)
         if (!denied.value) error.value = session.handle(e)
     } finally {
-        loading.value = false
+        if (mine === seq) loading.value = false
     }
 }
 

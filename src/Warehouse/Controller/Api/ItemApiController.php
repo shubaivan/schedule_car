@@ -5,6 +5,7 @@ namespace App\Warehouse\Controller\Api;
 use App\Warehouse\Api\ItemCatalog;
 use App\Warehouse\Api\ItemFeed;
 use App\Warehouse\Api\ItemMentions;
+use App\Warehouse\Api\MovementLoader;
 use App\Warehouse\Api\ViewJournal;
 use App\Warehouse\Api\WarehousePresenter;
 use App\Warehouse\Entity\WhActivity;
@@ -12,7 +13,6 @@ use App\Warehouse\Entity\WhItem;
 use App\Warehouse\Enum\ActivityAction;
 use App\Warehouse\Enum\DocumentType;
 use App\Warehouse\Exception\WarehouseException;
-use App\Warehouse\Repository\WhMovementRepository;
 use App\Warehouse\Service\ActivityLog;
 use App\Warehouse\Service\DocumentStore;
 use App\Warehouse\Service\WarehouseDirectory;
@@ -41,7 +41,7 @@ class ItemApiController extends AbstractWarehouseApiController
         private readonly ItemCatalog $catalog,
         private readonly WarehousePresenter $presenter,
         private readonly WarehouseStock $stock,
-        private readonly WhMovementRepository $movements,
+        private readonly MovementLoader $loader,
         private readonly DocumentStore $documents,
         private readonly WarehouseDirectory $directory,
         private readonly ActivityLog $activity,
@@ -153,7 +153,7 @@ class ItemApiController extends AbstractWarehouseApiController
             return $this->error('Оберіть файл.');
         }
 
-        $saved = 0;
+        $saved = [];
 
         try {
             foreach ($files as $file) {
@@ -169,15 +169,30 @@ class ItemApiController extends AbstractWarehouseApiController
                     (string) ($file->getMimeType() ?: $file->getClientMimeType()),
                     $type,
                 );
-                $this->activity->record(ActivityAction::DocumentAdd, $item, $this->me(), WhActivity::CHANNEL_ADMIN, sprintf('%s: %s', $type->label(), $document->getOriginalName()));
-                ++$saved;
+                $saved[] = $document->getOriginalName();
             }
         } catch (WarehouseException $e) {
             // Те, що вже лягло, лишається (як у Twig) — кажемо, на якому файлі зупинились.
-            return $this->json(['error' => $e->getMessage(), 'saved' => $saved, ...$this->card($item)], Response::HTTP_UNPROCESSABLE_ENTITY);
+            $this->journalUpload($item, $type, $saved);
+
+            return $this->json(['error' => $e->getMessage(), 'saved' => count($saved), ...$this->card($item)], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        $this->journalUpload($item, $type, $saved);
+
         return $this->json($this->card($item));
+    }
+
+    /**
+     * Одне надсилання — один рядок журналу й одна подія FileAdded, навіть якщо файлів кілька.
+     *
+     * @param list<string> $names
+     */
+    private function journalUpload(WhItem $item, DocumentType $type, array $names): void
+    {
+        if ($names !== []) {
+            $this->activity->record(ActivityAction::DocumentAdd, $item, $this->me(), WhActivity::CHANNEL_ADMIN, sprintf('%s: %s', $type->label(), implode(', ', $names)));
+        }
     }
 
     /** @return array<string, mixed> */
@@ -188,7 +203,11 @@ class ItemApiController extends AbstractWarehouseApiController
             $this->stock->total($item),
             $this->stock->placesOf($item),
             $this->documents->of($item),
-            $this->movements->historyOf($item),
+            // Те саме, що WhMovementRepository::historyOf, але без запиту на кожен рух.
+            $this->loader->load(
+                $this->loader->filter()->andWhere('EXISTS (SELECT 1 FROM App\Warehouse\Entity\WhMovementLine hl WHERE hl.movement = m AND hl.item = :item)')->setParameter('item', $item),
+                50,
+            ),
             trim($this->botUsername) !== '' ? $this->links->url($item) : null,
         );
     }

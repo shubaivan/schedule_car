@@ -2,6 +2,7 @@
 
 namespace App\Warehouse\Controller\Api;
 
+use App\Warehouse\Api\MovementLoader;
 use App\Warehouse\Api\MovementWriter;
 use App\Warehouse\Api\ViewJournal;
 use App\Warehouse\Api\WarehousePresenter;
@@ -11,8 +12,6 @@ use App\Warehouse\Exception\WarehouseException;
 use App\Warehouse\Repository\WhActivityRepository;
 use App\Warehouse\Service\DocumentStore;
 use DateTime;
-use Doctrine\ORM\EntityManagerInterface;
-use SortDirection;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -29,7 +28,6 @@ class MovementApiController extends AbstractWarehouseApiController
 
     public function __construct(
         private readonly WarehousePresenter $presenter,
-        private readonly EntityManagerInterface $em,
         private readonly DocumentStore $documents,
         private readonly WhActivityRepository $journal,
     ) {
@@ -37,18 +35,10 @@ class MovementApiController extends AbstractWarehouseApiController
 
     /** ?type=shipment&site=4&item=7&q=накладна&from=2026-11-01&to=2026-11-14 */
     #[Route('', name: 'api_wh_movements', methods: ['GET'])]
-    public function index(Request $request): JsonResponse
+    public function index(Request $request, MovementLoader $loader): JsonResponse
     {
         $q = $request->query;
-        $qb = $this->em->createQueryBuilder()
-            ->select('m')
-            ->from(WhMovement::class, 'm')
-            ->leftJoin('m.fromSite', 'f')->addSelect('f')
-            ->leftJoin('m.toSite', 't')->addSelect('t')
-            ->leftJoin('m.supplier', 's')->addSelect('s')
-            ->orderBy('m.occurredAt', SortDirection::Descending)
-            ->addOrderBy('m.id', SortDirection::Descending)
-            ->setMaxResults(self::LIMIT);
+        $qb = $loader->filter();
 
         if (($type = MovementType::tryFrom((string) $q->get('type', ''))) !== null) {
             $qb->andWhere('m.type = :type')->setParameter('type', $type);
@@ -77,8 +67,7 @@ class MovementApiController extends AbstractWarehouseApiController
             }
         }
 
-        /** @var WhMovement[] $movements */
-        $movements = $qb->getQuery()->getResult();
+        $movements = $loader->load($qb, self::LIMIT);
 
         return $this->json([
             'items' => array_map(fn (WhMovement $m) => $this->presenter->movementRow($m), $movements),

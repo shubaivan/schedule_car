@@ -69,9 +69,13 @@ const actions = computed(() => {
 })
 const moveTo = (a: { type: string; from?: number }) => ({ name: 'warehouse-movement-new', query: { type: a.type, item: String(props.id), ...(a.from ? { from: String(a.from) } : {}) } })
 
+// Кожне завантаження має номер: відповідь про попередню позицію (/full, гортання) не перезапише нову.
+let seq = 0
 async function load() {
+    const mine = ++seq
     try {
         const [i, f, m] = await Promise.all([whApi.item(Number(props.id)), whApi.feed(Number(props.id)), whApi.meta()])
+        if (mine !== seq) return
         item.value = i
         meta.value = m
         subject.status = f.status
@@ -81,6 +85,7 @@ async function load() {
         notFound.value = false
         error.value = ''
     } catch (e) {
+        if (mine !== seq) return
         const msg = accessError(e) || session.handle(e)
         if (/40[34]|не знайдено/i.test(msg) || accessError(e)) notFound.value = true
         error.value = msg
@@ -116,8 +121,16 @@ function removeDoc(d: WhDocument) {
             removing.value = next
         },
         commit: async () => {
-            await whApi.removeDocument(d.id)
-            if (item.value) item.value.documents = item.value.documents.filter((x) => x.id !== d.id)
+            try {
+                await whApi.removeDocument(d.id)
+                if (item.value) item.value.documents = item.value.documents.filter((x) => x.id !== d.id)
+            } catch (e) {
+                // Не вдалось — документ на місці, показуємо його знову (тост помилки покаже undo.ts).
+                const next = new Set(removing.value)
+                next.delete(d.id)
+                removing.value = next
+                throw e
+            }
         },
     })
 }

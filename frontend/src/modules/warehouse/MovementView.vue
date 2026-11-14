@@ -15,11 +15,16 @@ const session = useSession()
 const movement = ref<WhMovement | null>(null)
 const error = ref('')
 
+let seq = 0
 async function load() {
+    const mine = ++seq
     try {
-        movement.value = await whApi.movement(Number(props.id))
+        const m = await whApi.movement(Number(props.id))
+        if (mine !== seq) return
+        movement.value = m
         error.value = ''
     } catch (e) {
+        if (mine !== seq) return
         error.value = accessError(e) || session.handle(e)
     }
 }

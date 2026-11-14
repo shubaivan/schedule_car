@@ -50,8 +50,12 @@ final class ItemFeed
                 SELECT * FROM (
                     SELECT id, type, subject_type, subject_id, actor_id, occurred_at, payload
                     FROM plan_event
-                    WHERE (subject_type = :item_type AND subject_id = :id)
+                    WHERE ((subject_type = :item_type AND subject_id = :id
+                            -- «відкрив картку» — лише аудит; Twig пише його на кожен показ, тож
+                            -- без цього фільтра 200 останніх рядків могли б бути самими переглядами.
+                            AND NOT (type = :viewed AND payload->>'action' = :view))
                        OR (type = :moved AND subject_type = :movement_type AND payload->'itemIds' @> CAST(:ids AS jsonb))
+                    )
                     ORDER BY id DESC
                     LIMIT :limit
                 ) last ORDER BY id
@@ -60,6 +64,8 @@ final class ItemFeed
                 'item_type' => SubjectType::WhItem->value,
                 'movement_type' => SubjectType::WhMovement->value,
                 'moved' => StockMoved::TYPE,
+                'viewed' => SubjectViewed::TYPE,
+                'view' => ActivityAction::View->value,
                 'id' => $item->getId(),
                 'ids' => json_encode([(int) $item->getId()]),
                 'limit' => self::LIMIT,

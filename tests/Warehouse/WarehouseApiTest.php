@@ -42,6 +42,8 @@ class WarehouseApiTest extends WebTestCase
     {
         $this->browser = self::createClient();
         $this->browser->disableReboot();
+        // Як фронт «Плану»: кожен запис несе X-Requested-With (WarehouseGate — замість CSRF).
+        $this->browser->setServerParameter('HTTP_X_REQUESTED_WITH', 'XMLHttpRequest');
         $this->em = self::getContainer()->get(EntityManagerInterface::class);
         $this->em->beginTransaction();
     }
@@ -86,6 +88,21 @@ class WarehouseApiTest extends WebTestCase
 
         $this->postJson('/api/warehouse/movements', ['type' => 'receipt', 'occurredAt' => '2026-11-15', 'toId' => $this->warehouse()->getId(), 'lines' => [['itemId' => $item->getId(), 'quantity' => 1]]]);
         self::assertSame($allowed ? 201 : 403, $this->browser->getResponse()->getStatusCode());
+    }
+
+    public function testWriteWithoutPlanHeaderIsRefused(): void
+    {
+        $item = $this->item();
+        $this->browser->loginUser($this->person());
+        $this->browser->setServerParameter('HTTP_X_REQUESTED_WITH', '');
+
+        // Звичайна HTML-форма з чужого сайту: multipart без заголовка «Плану».
+        $this->browser->request('POST', '/api/warehouse/movements', ['data' => json_encode(['type' => 'receipt', 'occurredAt' => '2026-11-15', 'toId' => $this->warehouse()->getId(), 'lines' => [['itemId' => $item->getId(), 'quantity' => 1]]])]);
+        self::assertResponseStatusCodeSame(403);
+
+        // Читати можна і без нього.
+        $this->browser->request('GET', '/api/warehouse/items');
+        self::assertResponseIsSuccessful();
     }
 
     public function testArchivedManagerIsLockedOut(): void
@@ -290,10 +307,16 @@ class WarehouseApiTest extends WebTestCase
         $tmp = tempnam(sys_get_temp_dir(), 'wh');
         file_put_contents($tmp, "\xFF\xD8\xFF фото");
 
-        $this->browser->request('POST', '/api/warehouse/items/' . $item->getId() . '/documents', ['type' => 'photo'], ['files' => [new UploadedFile($tmp, 'щит.jpg', 'image/jpeg', null, true)]]);
+        $tmp2 = tempnam(sys_get_temp_dir(), 'wh');
+        copy($tmp, $tmp2);
+        $events = $this->events();
+        $this->browser->request('POST', '/api/warehouse/items/' . $item->getId() . '/documents', ['type' => 'photo'], ['files' => [new UploadedFile($tmp, 'щит.jpg', 'image/jpeg', null, true), new UploadedFile($tmp2, 'щит-2.jpg', 'image/jpeg', null, true)]]);
         self::assertResponseIsSuccessful();
-        $document = $this->body()['documents'][0];
-        self::assertSame('щит.jpg', $document['name']);
+        self::assertCount(2, $this->body()['documents']);
+        $added = $this->events($events);
+        self::assertSame(['file_added'], array_column($added, 'type'), 'два файли одним надсиланням — одна подія');
+        self::assertSame(['Фото: щит.jpg, щит-2.jpg'], json_decode((string) $added[0]['payload'], true)['names']);
+        $document = array_values(array_filter($this->body()['documents'], static fn ($d) => $d['name'] === 'щит.jpg'))[0];
 
         $this->browser->request('GET', $document['url']);
         self::assertResponseIsSuccessful();

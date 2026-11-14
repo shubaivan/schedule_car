@@ -189,8 +189,15 @@ export interface MovementPayload {
     lines: { itemId: number; quantity: string; rate: string }[]
 }
 
+/**
+ * Кожен запис у склад несе X-Requested-With: HTML-форма з чужого сайту поставити його
+ * не може, і сервер (WarehouseGate) без нього запис не приймає — замість CSRF-токена.
+ */
+const WRITE = { 'X-Requested-With': 'XMLHttpRequest' }
+const JSON_WRITE = { 'Content-Type': 'application/json', Accept: 'application/json', ...WRITE }
+
 async function upload<T>(url: string, form: FormData): Promise<T> {
-    const response = await fetch(url, { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json' }, body: form })
+    const response = await fetch(url, { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json', ...WRITE }, body: form })
     if (response.status === 401) throw new SessionExpired()
     const payload = await response.json().catch(() => null)
     if (!response.ok) throw new Error(payload?.error ?? (response.status === 413 ? 'Файли завеликі для одного надсилання.' : `Помилка ${response.status}`))
@@ -218,21 +225,21 @@ export const whApi = {
     items: (params: { q?: string; category?: string; place?: string; state?: string; tracking?: string; off?: boolean }) =>
         call<{ items: WhItemRow[]; total: number; counts: { all: number; unit: number; bulk: number; repair: number } }>('/api/warehouse/items' + qs(params)),
     item: (id: number) => call<WhItem>(`/api/warehouse/items/${id}`),
-    viewed: (id: number) => call<{ logged: boolean }>(`/api/warehouse/items/${id}/viewed`, { method: 'POST' }),
+    viewed: (id: number) => call<{ logged: boolean }>(`/api/warehouse/items/${id}/viewed`, { method: 'POST', headers: JSON_WRITE }),
     feed: (id: number) => call<FeedSubject>(`/api/warehouse/items/${id}/feed`),
-    createItem: (p: ItemPayload) => call<WhItem>('/api/warehouse/items', { method: 'POST', body: JSON.stringify(p) }),
-    updateItem: (id: number, p: ItemPayload) => call<WhItem>(`/api/warehouse/items/${id}`, { method: 'PUT', body: JSON.stringify(p) }),
+    createItem: (p: ItemPayload) => call<WhItem>('/api/warehouse/items', { method: 'POST', headers: JSON_WRITE, body: JSON.stringify(p) }),
+    updateItem: (id: number, p: ItemPayload) => call<WhItem>(`/api/warehouse/items/${id}`, { method: 'PUT', headers: JSON_WRITE, body: JSON.stringify(p) }),
     uploadDocuments: (id: number, files: File[], type: string) => {
         const form = new FormData()
         files.forEach((f) => form.append('files[]', f, f.name))
         form.append('type', type)
         return upload<WhItem>(`/api/warehouse/items/${id}/documents`, form)
     },
-    removeDocument: (id: number) => call<{ removed: boolean }>(`/api/warehouse/documents/${id}`, { method: 'DELETE', keepalive: true }),
+    removeDocument: (id: number) => call<{ removed: boolean }>(`/api/warehouse/documents/${id}`, { method: 'DELETE', headers: JSON_WRITE, keepalive: true }),
     movements: (params: { type?: string; site?: string; item?: string; q?: string; from?: string; to?: string }) =>
         call<{ items: WhMovementRow[]; total: number; limit: number }>('/api/warehouse/movements' + qs(params)),
     movement: (id: number) => call<WhMovement>(`/api/warehouse/movements/${id}`),
-    movementViewed: (id: number) => call<{ logged: boolean }>(`/api/warehouse/movements/${id}/viewed`, { method: 'POST' }),
+    movementViewed: (id: number) => call<{ logged: boolean }>(`/api/warehouse/movements/${id}/viewed`, { method: 'POST', headers: JSON_WRITE }),
     createMovement: (p: MovementPayload, files: File[]) => {
         const form = new FormData()
         form.append('data', JSON.stringify(p))
