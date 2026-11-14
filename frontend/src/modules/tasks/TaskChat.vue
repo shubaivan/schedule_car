@@ -306,7 +306,10 @@ function remove(m: Message) {
 }
 
 // --- надсилання ---
+/** Файли можна додати лише там, де є композер і скріпка (стрічка складу — лише читання, заявка без права — теж). */
+const canAttach = computed(() => !!props.task.can.comment && props.task.can.attach !== false)
 function addFiles(list: FileList | File[]) {
+    if (!canAttach.value) return
     for (const file of Array.from(list)) {
         pending.value.push({ file, url: file.type.startsWith('image/') ? URL.createObjectURL(file) : null })
     }
@@ -328,7 +331,7 @@ function onPaste(e: ClipboardEvent) {
 }
 let dragDepth = 0
 function dragEnter(e: DragEvent) {
-    if (!e.dataTransfer?.types.includes('Files')) return
+    if (!canAttach.value || !e.dataTransfer?.types.includes('Files')) return
     dragDepth++
     dragging.value = true
 }

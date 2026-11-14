@@ -266,21 +266,7 @@ export const tasksApi = {
         call<Message>(`/api/tasks/${id}/messages/${messageId}/star`, { method: 'POST', body: json({ on }) }),
     favorite: (id: number, on: boolean) => call<{ favorite: boolean }>(`/api/tasks/${id}/favorite`, { method: 'POST', body: json({ on }) }),
     markRead: (id: number) => call<ChronicleCounts>(`/api/tasks/${id}/read`, { method: 'POST' }),
-    chronicle: (opts: { unread?: boolean; favorites?: boolean; cursor?: string | null }) => {
-        const params = new URLSearchParams()
-        if (opts.unread) params.set('unread', '1')
-        if (opts.favorites) params.set('favorites', '1')
-        if (opts.cursor) params.set('cursor', opts.cursor)
-        return call<Chronicle>('/api/tasks/chronicle?' + params)
-    },
-    chronicleCounts: () => call<ChronicleCounts>('/api/tasks/chronicle/counts'),
-    readAll: () => call<ChronicleCounts>('/api/tasks/chronicle/read-all', { method: 'POST' }),
-    search: (q: string, tab: SearchTab, starred: boolean, offset = 0) => {
-        const params = new URLSearchParams({ q, tab })
-        if (starred) params.set('starred', '1')
-        if (offset) params.set('offset', String(offset))
-        return call<SearchResult>('/api/tasks/search?' + params)
-    },
+    // Хроніка й пошук — v2 (/api/plan/chronicle, /api/plan/search) у modules/plan/api.ts.
     deleteMessage: (id: number, messageId: number) => call<Message>(`/api/tasks/${id}/messages/${messageId}`, { method: 'DELETE' }),
 
     staff: (trash = false) => call<{ items: StaffRow[] }>('/api/staff' + (trash ? '?trash=1' : '')),

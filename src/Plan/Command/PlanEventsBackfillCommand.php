@@ -331,7 +331,7 @@ final class PlanEventsBackfillCommand extends Command
     }
 
     /**
-     * Перша «жива» (не перенесена) подія кожного джерела.
+     * Перша «жива» (не перенесена й не з демо-засіву — tasks:demo-seed датує свої події минулим) подія кожного джерела.
      *
      * @return array<string, DateTimeImmutable>
      */
@@ -340,7 +340,7 @@ final class PlanEventsBackfillCommand extends Command
         $out = [];
 
         foreach ($this->db->fetchAllAssociative(
-            "SELECT subject_type, type, MIN(occurred_at) AS first_at FROM plan_event WHERE payload->>'backfill' IS NULL GROUP BY subject_type, type",
+            "SELECT subject_type, type, MIN(occurred_at) AS first_at FROM plan_event WHERE payload->>'backfill' IS NULL AND payload->>'demoSeed' IS NULL GROUP BY subject_type, type",
         ) as $r) {
             $source = self::sourceOf((string) $r['subject_type'], (string) $r['type']);
             $at = new DateTimeImmutable((string) $r['first_at'], self::zone());

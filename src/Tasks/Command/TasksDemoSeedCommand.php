@@ -175,6 +175,7 @@ class TasksDemoSeedCommand extends Command
         // Через журнал подій: сповіщення про засіяні задачі — лише після коміту.
         $requests = 0;
         $warehouse = ['items' => 0, 'movements' => 0];
+        $mark = (int) $conn->fetchOne('SELECT COALESCE(MAX(id), 0) FROM plan_event');
         $this->events->transactional(function () use ($input, $password, &$requests, &$warehouse): void {
             $this->reset($input->getOption('reset') === true);
             $this->seedDirectories($password, (string) $input->getOption('domain'));
@@ -192,10 +193,66 @@ class TasksDemoSeedCommand extends Command
         });
 
         $this->deferred->flush();
+        $this->alignEventTimes($mark);
 
         $output->writeln(sprintf('Готово: людей — %d, відділів — %d, міток — %d, угод — %d, заявок — %d, позицій складу — %d, рухів — %d.', count($this->people), count($this->departments), count($this->labels), count(DemoDeals::all()), $requests, $warehouse['items'], $warehouse['movements']));
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * Сервіси пишуть події «зараз», а засів потім відсуває задачі, повідомлення й файли
+     * в минуле. Щоб Хроніка, сповіщення й аудит демо мали правдиві дати, події засіву
+     * (id > $mark) беруть час зі своїх рядків-джерел. Далі за runbook:
+     * plan:events:backfill → plan:chronicle:rebuild → plan:search:reindex.
+     */
+    private function alignEventTimes(int $mark): void
+    {
+        $conn = $this->em->getConnection();
+        // Правки демо-повідомлень (enliven) — через 25 хв після самого повідомлення, а не «зараз».
+        $conn->executeStatement("UPDATE task_message_edit e SET edited_at = m.created_at + INTERVAL '25 minutes' FROM task_message m WHERE m.id = e.message_id AND m.task_id IN (SELECT id FROM task)");
+        $conn->executeStatement("UPDATE task_message SET edited_at = created_at + INTERVAL '25 minutes' WHERE edited_at IS NOT NULL");
+        // Події задач, прив'язані до повідомлення стрічки (створення, статус, файли).
+        $conn->executeStatement(
+            "UPDATE plan_event e SET occurred_at = m.created_at FROM task_message m
+              WHERE e.id > ? AND e.subject_type = 'task' AND e.payload->>'refId' IS NOT NULL AND m.id = (e.payload->>'refId')::int",
+            [$mark],
+        );
+        // Файли заявок — час самого файлу.
+        $conn->executeStatement(
+            "UPDATE plan_event e SET occurred_at = a.created_at FROM supply_attachment a
+              WHERE e.id > ? AND e.subject_type = 'supply' AND e.type = 'file_added' AND a.id = (e.payload->'fileIds'->>0)::int",
+            [$mark],
+        );
+        // Події засіву — це «історія» демо: plan:events:backfill не має брати їх за початок
+        // живого журналу (інакше старші повідомлення задач не перенесе).
+        $conn->executeStatement("UPDATE plan_event SET payload = payload || '{\"demoSeed\": true}'::jsonb WHERE id > ?", [$mark]);
+        // Рядки-джерела пошуку (search_document.created_at, фасет дат): файли задач — з повідомленням,
+        // склад — коли його записали в журнал складу, люди — за півтора місяця до демо.
+        $conn->executeStatement('UPDATE task_attachment a SET created_at = m.created_at FROM task_message m WHERE m.id = a.message_id');
+        $conn->executeStatement(
+            "UPDATE wh_item i SET created_at = e.at, updated_at = e.at FROM (SELECT subject_id, MIN(occurred_at) AS at FROM plan_event
+              WHERE subject_type = 'wh_item' AND id > ? GROUP BY subject_id) e WHERE e.subject_id = i.id",
+            [$mark],
+        );
+        $conn->executeStatement(
+            "UPDATE wh_movement mv SET created_at = COALESCE(e.at, mv.occurred_at + INTERVAL '10 hours'), updated_at = COALESCE(e.at, mv.occurred_at + INTERVAL '10 hours')
+               FROM wh_movement x LEFT JOIN (SELECT subject_id, MIN(occurred_at) AS at FROM plan_event WHERE subject_type = 'wh_movement' AND id > ? GROUP BY subject_id) e ON e.subject_id = x.id
+              WHERE x.id = mv.id",
+            [$mark],
+        );
+        $conn->executeStatement(
+            "UPDATE wh_document d SET created_at = COALESCE(mv.created_at, i.created_at + INTERVAL '15 minutes', d.created_at), updated_at = COALESCE(mv.created_at, i.created_at + INTERVAL '15 minutes', d.created_at)
+               FROM wh_document x LEFT JOIN wh_movement mv ON mv.id = x.movement_id LEFT JOIN wh_item i ON i.id = x.item_id WHERE x.id = d.id",
+        );
+        $start = $conn->fetchOne('SELECT MIN(created_at) FROM wh_item');
+        if ($start !== false && $start !== null) {
+            $conn->executeStatement("UPDATE wh_client SET created_at = CAST(? AS timestamp) - INTERVAL '1 day', updated_at = CAST(? AS timestamp) - INTERVAL '1 day'", [$start, $start]);
+            $conn->executeStatement("UPDATE wh_site SET created_at = CAST(? AS timestamp) - INTERVAL '1 day', updated_at = CAST(? AS timestamp) - INTERVAL '1 day'", [$start, $start]);
+        }
+        $conn->executeStatement("UPDATE telegram_user SET created_at = DATE_TRUNC('day', LOCALTIMESTAMP) - INTERVAL '45 days' + id * INTERVAL '7 minutes' WHERE telegram_id LIKE 'demo-%'");
+        // Рядок центру сповіщень — тоді ж, коли й подія.
+        $conn->executeStatement('UPDATE notification n SET created_at = e.occurred_at FROM plan_event e WHERE e.id = n.event_id AND e.id > ?', [$mark]);
     }
 
     private function reset(bool $reset): void

@@ -8,6 +8,7 @@ use App\Plan\Subject\SubjectRef;
 use App\Plan\Subject\SubjectType;
 use App\Repository\TelegramUserRepository;
 use App\Supply\Entity\SupplyRequest;
+use App\Tasks\Service\TasksSection;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
@@ -22,6 +23,7 @@ final class SupplySubjects implements SubjectProvider
         private readonly EntityManagerInterface $em,
         private readonly TelegramUserRepository $users,
         private readonly UrlGeneratorInterface $urls,
+        private readonly ?TasksSection $plan = null,
     ) {
     }
 
@@ -39,7 +41,10 @@ final class SupplySubjects implements SubjectProvider
 
     public function url(SubjectRef $ref): string
     {
-        return $this->urls->generate('crm_index', ['path' => 'requests/' . $ref->id]);
+        // «План» (CRM_HOME=tasks): заявка — у дошці заявок оболонки; стенди заявок — стара картка, як і раніше.
+        $path = $this->plan?->home() === 'tasks' ? 'supply/board/' : 'requests/';
+
+        return $this->urls->generate('crm_index', ['path' => $path . $ref->id]);
     }
 
     public function audience(SubjectRef $ref): array
