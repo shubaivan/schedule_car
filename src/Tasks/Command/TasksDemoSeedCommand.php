@@ -27,6 +27,7 @@ use App\Warehouse\Service\DocumentStore;
 use App\Warehouse\Service\RecordMovement;
 use DateTime;
 use DateTimeZone;
+use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -275,8 +276,24 @@ class TasksDemoSeedCommand extends Command
             $conn->executeStatement("UPDATE telegram_user SET archived_by_id = NULL WHERE telegram_id LIKE 'demo-%'");
             $conn->executeStatement("DELETE FROM login_token WHERE user_id IN (SELECT id FROM telegram_user WHERE telegram_id LIKE 'demo-%')");
             $conn->executeStatement("DELETE FROM telegram_user WHERE telegram_id LIKE 'demo-%'");
+            self::pruneOrphanEvents($conn);
             $this->em->clear();
         }
+    }
+
+    /**
+     * Журнал подій демо-стенду без сиріт: події задач, заявок і людей, яких уже немає
+     * (інакше після кожного --reset у журналі аудиту й історії лишаються рядки
+     * попередніх засівів — без автора, на неіснуючі задачі).
+     */
+    public static function pruneOrphanEvents(Connection $conn): int
+    {
+        return (int) $conn->executeStatement(
+            "DELETE FROM plan_event e WHERE
+                (e.subject_type = 'task' AND NOT EXISTS (SELECT 1 FROM task t WHERE t.id = e.subject_id))
+             OR (e.subject_type = 'supply' AND NOT EXISTS (SELECT 1 FROM supply_request r WHERE r.id = e.subject_id))
+             OR (e.subject_type = 'user' AND NOT EXISTS (SELECT 1 FROM telegram_user u WHERE u.id = e.subject_id))",
+        );
     }
 
     private function seedDirectories(string $password, string $domain): void
