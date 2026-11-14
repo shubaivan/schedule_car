@@ -1,0 +1,19 @@
+# /etc/cron.d/plan — «План Завод Буддеталь» (plan.zavodbuddetal.com.ua).
+# Копія того, що стоїть на сервері; міняти тут і ставити: install -m 644 deploy/plan.cron /etc/cron.d/plan
+# Від deploy, не від root (ACL на /var/www/plan/var). Час сервера — Europe/Kyiv. Лог — /var/log/plan-cron.log
+# (logrotate: deploy/plan.logrotate). Кожна задача під flock: запуски не накладаються.
+SHELL=/bin/sh
+PATH=/usr/local/bin:/usr/bin:/bin
+
+# Превʼю вкладень задач (GD / pdftoppm / LibreOffice) — щохвилини.
+* * * * * deploy cd /var/www/plan && flock -n /tmp/plan-tasks-previews.lock php8.5 bin/console tasks:previews --env=prod >> /var/log/plan-cron.log 2>&1
+
+# Копії файлів «Плану» на Google Диск (дерево План/<рік>/…) — кожні 5 хв (лише коли задані GOOGLE_DRIVE_*).
+*/5 * * * * deploy cd /var/www/plan && flock -n /tmp/plan-drive-sync.lock php8.5 bin/console plan:drive-sync --env=prod >> /var/log/plan-cron.log 2>&1
+
+# Страховка проєкцій (пошук, Хроніка, центр сповіщень): дороздати події, які вони пропустили за добу — щогодини.
+17 * * * * deploy cd /var/www/plan && flock -n /tmp/plan-reconcile.lock php8.5 bin/console plan:projections:reconcile --env=prod >> /var/log/plan-cron.log 2>&1
+
+# Ретеншн: службові події журналу аудиту старші PLAN_AUDIT_RETENTION_DAYS (180) і plan_event_consumed старші 7 днів — щоночі 03:30.
+# Доменна історія (Хроніка, склад) не видаляється.
+30 3 * * * deploy cd /var/www/plan && flock -n /tmp/plan-audit-prune.lock php8.5 bin/console plan:audit:prune --env=prod >> /var/log/plan-cron.log 2>&1

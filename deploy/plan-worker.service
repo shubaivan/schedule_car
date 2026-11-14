@@ -12,7 +12,7 @@ User=deploy
 Group=www-data
 WorkingDirectory=/var/www/plan
 Environment=APP_ENV=prod
-# Воркер сам виходить щогодини / після 1000 повідомлень / при 128 МБ — systemd піднімає новий (свіжий код після деплою).
+# Воркер сам виходить щогодини / після 1000 повідомлень / при 128 МБ — systemd піднімає новий. Після деплою — messenger:stop-workers (deploy/plan-deploy.sh), не чекати години.
 ExecStart=/usr/bin/php8.5 bin/console messenger:consume plan async --memory-limit=128M --time-limit=3600 --limit=1000 --no-interaction
 Restart=always
 RestartSec=5

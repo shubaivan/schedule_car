@@ -66,7 +66,7 @@ for h in plan zayavky demo; do curl -s -o /dev/null -w "$h %{http_code}\n" https
 #   Playwright (дві сесії): коментар A зі згадкою B → у B жовтий тост < 2 с; systemctl stop plan-mercure → у B опитування, без JS-помилок; start назад.
 ```
 
-Після кожного наступного деплою коду: `systemctl restart plan-worker` (новий код у воркері).
+Після кожного наступного деплою коду: `sudo -u deploy php8.5 bin/console messenger:stop-workers --env=prod` ПІСЛЯ `cache:clear` (воркер доробить поточне повідомлення, systemd підніме новий зі свіжим кодом; так робить `deploy/plan-deploy.sh`). Крон — `deploy/plan.cron` (копія `/etc/cron.d/plan`), logrotate — `deploy/plan.logrotate`. Черга збоїв: `messenger:failed:show` / `messenger:failed:retry`; пропущені проєкції дороздає `plan:projections:reconcile` (щогодини з крону).
 Відкат: `systemctl disable --now plan-worker plan-mercure`; прибрати фрагмент nginx (nginx -t, reload); у `.env.local` `PLAN_EVENTS_TRANSPORT=sync://`, `MERCURE_URL=` → cache:clear. Дані не губляться: notification-рядки лишаються, фронт переходить на опитування.
 
 Відхилення від PLAN_ARCHITECTURE §3.4: «push лише якщо людина не онлайн у Mercure 60 с» зроблено на боці браузера — service worker не показує системне сповіщення, коли вкладка Плану видима й у фокусі (там уже тост). Серверного трекінгу присутності немає (без зайвих записів у БД).

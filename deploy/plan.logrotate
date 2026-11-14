@@ -1,0 +1,22 @@
+# /etc/logrotate.d/plan — копія з сервера; ставити: install -m 644 deploy/plan.logrotate /etc/logrotate.d/plan
+/var/log/plan-cron.log /var/log/php8.5-fpm-plan.log {
+    weekly
+    rotate 8
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}
+# activity-*.log ротує сам monolog (як у zayavky-app) — тут лише prod.log.
+/var/www/plan/var/log/prod.log {
+    weekly
+    rotate 8
+    maxsize 50M
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+    su deploy www-data
+}
