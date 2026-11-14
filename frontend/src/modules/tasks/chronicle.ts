@@ -1,8 +1,9 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
-import { tasksApi, type ChronicleCounts } from './api'
+import type { ChronicleCounts } from './api'
+import { planApi } from '../plan/api'
 
 /**
- * Лічильник Хроніки (скільки задач з новим) — один на всю CRM.
+ * Лічильник Хроніки (скільки записів — задач, заявок, складу — з новим) — один на всю CRM.
  * Опитує раз на 15 с, поки хоч один компонент його використовує
  * (бейдж у шапці, вкладка «Хроніка»). Mercure не потрібен.
  */
@@ -14,7 +15,7 @@ let timer: number | undefined
 export async function refreshChronicleCounts(): Promise<void> {
     if (document.hidden) return
     try {
-        counts.value = await tasksApi.chronicleCounts()
+        counts.value = await planApi.counts()
     } catch {
         /* наступна спроба за 15 с */
     }

@@ -6,8 +6,8 @@ const TaskBoard = () => import('./TaskBoard.vue')
 const TaskView = () => import('./TaskView.vue')
 const StaffPage = () => import('./StaffPage.vue')
 const ProfilePage = () => import('./shell/ProfilePage.vue')
-const ChronicleFeed = () => import('./ChronicleFeed.vue')
-const SearchPage = () => import('./SearchPage.vue')
+const ChronicleFeed = () => import('../plan/ChronicleFeed.vue')
+const SearchPage = () => import('../plan/SearchPage.vue')
 
 export const tasksRoutes: RouteRecordRaw[] = [
     { path: '/tasks', name: 'tasks', component: TasksHome },
