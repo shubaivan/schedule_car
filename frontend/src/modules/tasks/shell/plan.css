@@ -438,6 +438,9 @@ body.p-noscroll { overflow: hidden; }
     .p-shell.task-open { padding-bottom: 0; }
     .p-shell.task-open .p-mtop, .p-shell.task-open .p-tabbar { display: none; }
     .p-shell.task-open .p-content { padding: 0; }
+    /* Коротка стрічка (одна-дві події): картка на весь екран, щоб поле вводу стояло внизу, а не посеред екрана. */
+    .p-shell.task-open .t-task-main { min-height: 100dvh; }
+    .p-shell.task-open .t-chat { flex: 1 0 auto; }
 
     .p-board { display: block; height: auto; min-height: 0; }
     .p-board-left { gap: 8px; }
