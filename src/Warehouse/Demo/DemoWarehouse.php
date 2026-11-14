@@ -24,6 +24,7 @@ use DateTime;
 use DateTimeZone;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
+use RuntimeException;
 
 /**
  * Демо-склад для «Плану»: залізобетонні вироби заводу (кільця, плити, ФБС, дорожні
@@ -36,30 +37,44 @@ use Doctrine\ORM\EntityManagerInterface;
  * «Плані» показує живу історію. Журнал складу — ActivityLog, як у Twig-формі.
  * Потім час подій і журналу зсуваємо назад SQL-ом до дати руху.
  *
- * Імена клієнтів, об'єктів і людей вигадані, з позначкою «(демо)» (правило двох клієнтів).
+ * Імена клієнтів, об'єктів і людей вигадані, але без «(демо)» — стенд і так демо,
+ * а дані мають виглядати як справжній завод (рішення Івана 15.11). Ті самі клієнти,
+ * що й у задачах, — щоб пошук «усе по клієнту» збирав одне ім'я, а не два.
+ * Категорії, які вже є в базі (Опалубка, Техніка, Інструмент), беремо наявні — без дублів.
  */
 final class DemoWarehouse
 {
     public const CATEGORIES = [
         // [назва, emoji, префікс, характеристики]
-        ['Залізобетонні вироби (демо)', '🧱', 'ЗБВ', ['Марка бетону', 'Вага, кг', 'Розміри']],
-        ['Матеріали (демо)', '📦', 'МАТ', ['Фасування', 'ГОСТ/ДСТУ']],
-        ['Опалубка і форми (демо)', '🔲', 'ОП', ['Розміри', 'Матеріал']],
-        ['Техніка (демо)', '🚜', 'ТХ', ['Держномер', 'Моточаси']],
-        ['Інструмент (демо)', '🛠', 'ІН', []],
+        ['Залізобетонні вироби', '🏗️', 'ЗБВ', ['Марка бетону', 'Вага, кг', 'Розміри']],
+        ['Матеріали', '🪨', 'МАТ', ['Фасування', 'ГОСТ/ДСТУ']],
+        ['Опалубка', '🔲', 'ОП', ['Розміри', 'Матеріал']],
+        ['Техніка', '🚜', 'ТХ', ['Держномер', 'Моточаси']],
+        ['Інструмент', '🛠', 'ІН', []],
     ];
 
-    public const WAREHOUSES = ['Склад готової продукції (демо)', 'Склад матеріалів (демо)'];
+    /**
+     * Назви попередніх засівів (з «(демо)») — щоб --reset прибрав і їх на стенді,
+     * засіяному старою версією.
+     */
+    public const LEGACY_CATEGORIES = ['Залізобетонні вироби (демо)', 'Матеріали (демо)', 'Опалубка і форми (демо)', 'Техніка (демо)', 'Інструмент (демо)'];
+    public const LEGACY_SITES = ['Склад готової продукції (демо)', 'Склад матеріалів (демо)', 'Цех ЗБВ (демо)', 'ЖК «Лісовий», секція 2 (демо)', 'Каналізаційна мережа, вул. Польова (демо)', 'Приватний будинок, с. Демо (демо)'];
+    public const LEGACY_CLIENTS = ['ТОВ «Будінвест» (демо)', 'КП «Водоканал» (демо)', 'ФОП Гриценко О. В. (демо)'];
+
+    /** Базові категорії позицій із міграції — засів їх використовує, але ніколи не видаляє. */
+    public const BASE_CATEGORIES = ['Опалубка', 'Техніка', 'Обладнання', 'Риштування', 'Інструмент', 'Інше'];
+
+    public const WAREHOUSES = ['Склад готової продукції', 'Склад матеріалів'];
 
     /** [клієнт, ЄДРПОУ, об'єкт, адреса] */
     public const CLIENTS = [
-        ['ТОВ «Будінвест» (демо)', '40000001', 'ЖК «Лісовий», секція 2 (демо)', 'вул. Заводська, 5'],
-        ['КП «Водоканал» (демо)', '40000002', 'Каналізаційна мережа, вул. Польова (демо)', 'вул. Польова'],
-        ['ФОП Гриценко О. В. (демо)', null, 'Приватний будинок, с. Демо (демо)', 'с. Демо, вул. Садова, 12'],
+        ['ТОВ «Будінвест»', null, 'ЖК «Лісовий», секція 2', 'вул. Заводська, 5'],
+        ['КП «Міськшляхбуд»', null, 'Реконструкція вул. Польової', 'вул. Польова'],
+        ['ФОП Мельник О. В.', null, 'Приватний будинок, с. Ракове', 'с. Ракове, вул. Садова, 12'],
     ];
 
     /** Власний об'єкт без клієнта — цех, куди матеріали йдуть у виробництво. */
-    public const WORKSHOP = 'Цех ЗБВ (демо)';
+    public const WORKSHOP = 'Цех ЗБВ';
 
     /**
      * [інв. №, назва, категорія (індекс), облік, одиниця, ціна, ставка оренди/добу, характеристики, стан, фото].
@@ -83,7 +98,7 @@ final class DemoWarehouse
         ['ОП-0002', 'Форма для блоків ФБС 24', 2, Tracking::Unit, 'шт', '54000.00', null, ['Матеріал' => 'сталь'], ItemState::Active, null],
         ['ОП-0003', 'Форма для плит ПК 60-12', 2, Tracking::Unit, 'шт', '125000.00', null, [], ItemState::Repair, null],
         ['ТХ-0001', 'Вібратор глибинний ЕВ-270', 3, Tracking::Unit, 'шт', '14500.00', '350.00', ['Моточаси' => '410'], ItemState::Active, null],
-        ['ТХ-0002', 'Навантажувач фронтальний (демо)', 3, Tracking::Unit, 'шт', '1850000.00', null, ['Держномер' => 'ДЕМО-0001', 'Моточаси' => '2870'], ItemState::Active, null],
+        ['ТХ-0002', 'Навантажувач фронтальний XCMG LW300', 3, Tracking::Unit, 'шт', '1850000.00', null, ['Моточаси' => '2870'], ItemState::Active, null],
         ['ІН-0001', 'Нівелір оптичний', 4, Tracking::Unit, 'шт', '9200.00', '120.00', [], ItemState::Active, null],
     ];
 
@@ -92,9 +107,9 @@ final class DemoWarehouse
      * Місця: 'gp' / 'mat' — склади, 'c0'…'c2' — об'єкти клієнтів, 'shop' — цех.
      */
     public const MOVEMENTS = [
-        [30, MovementType::Receipt, null, 'mat', 'olha.petrenko', 'БС-4410', 'ТОВ «Будмаркет-Схід» (демо)', null, [['МАТ-0001', 400], ['МАТ-0004', 120], ['МАТ-0005', 80]]],
+        [30, MovementType::Receipt, null, 'mat', 'olha.petrenko', 'БС-4410', 'ТОВ «Будмаркет-Схід»', null, [['МАТ-0001', 400], ['МАТ-0004', 120], ['МАТ-0005', 80]]],
         [29, MovementType::Receipt, null, 'mat', 'olha.petrenko', null, null, 'Обладнання цеху — облік із запуску складу', [['ТХ-0001', 1], ['ТХ-0002', 1], ['ІН-0001', 1], ['ОП-0001', 1], ['ОП-0002', 1], ['ОП-0003', 1]]],
-        [28, MovementType::Receipt, null, 'mat', 'olha.petrenko', 'МП-2190', 'ТОВ «Металопрокат Плюс» (демо)', null, [['МАТ-0002', 2400], ['МАТ-0003', 900], ['МАТ-0006', 150]]],
+        [28, MovementType::Receipt, null, 'mat', 'olha.petrenko', 'МП-2190', 'ТОВ «Металопрокат Плюс»', null, [['МАТ-0002', 2400], ['МАТ-0003', 900], ['МАТ-0006', 150]]],
         [27, MovementType::Receipt, null, 'gp', 'vyrobnytstvo', 'ВР-27', null, 'З виробництва, зміни 1–2', [['ЗБВ-0001', 60], ['ЗБВ-0002', 30], ['ЗБВ-0003', 48], ['ЗБВ-0004', 24], ['ЗБВ-0005', 160], ['ЗБВ-0006', 80], ['ЗБВ-0007', 40], ['ЗБВ-0008', 40]]],
         [26, MovementType::Transfer, 'mat', 'shop', 'bohdan.zakharchenko', null, null, 'Форми — у цех на зміну', [['ОП-0001', 1], ['ОП-0002', 1]]],
         [20, MovementType::Shipment, 'gp', 'c0', 'bohdan.zakharchenko', 'ВН-101', null, 'Два рейси маніпулятором', [['ЗБВ-0003', 24], ['ЗБВ-0005', 80]]],
@@ -105,7 +120,7 @@ final class DemoWarehouse
         [9, MovementType::Return, 'c1', 'gp', 'bohdan.zakharchenko', 'ПВ-12', null, 'Два кільця не підійшли за висотою', [['ЗБВ-0001', 2]]],
         [9, MovementType::Return, 'c1', 'mat', 'bohdan.zakharchenko', 'ПВ-13', null, 'Вібратор повернули після монтажу', [['ТХ-0001', 1]]],
         [7, MovementType::WriteOff, 'gp', null, 'admin', 'АС-3', null, 'Бій при розвантаженні, акт складено', [['ЗБВ-0002', 2]]],
-        [5, MovementType::Receipt, null, 'mat', 'olha.petrenko', 'БС-4477', 'ТОВ «Будмаркет-Схід» (демо)', 'Цемент М500 за заявкою виробництва', [['МАТ-0001', 200]]],
+        [5, MovementType::Receipt, null, 'mat', 'olha.petrenko', 'БС-4477', 'ТОВ «Будмаркет-Схід»', 'Цемент М500 за заявкою виробництва', [['МАТ-0001', 200]]],
         [3, MovementType::Shipment, 'gp', 'c0', 'bohdan.zakharchenko', 'ВН-117', null, null, [['ЗБВ-0003', 18], ['ЗБВ-0005', 40]]],
         [1, MovementType::Transfer, 'mat', 'shop', 'olha.petrenko', null, null, 'Арматура на каркаси плит', [['МАТ-0002', 600], ['МАТ-0006', 40]]],
         [0, MovementType::Shipment, 'gp', 'c1', 'bohdan.zakharchenko', 'ВН-121', null, null, [['ЗБВ-0002', 12]]],
@@ -142,11 +157,28 @@ final class DemoWarehouse
         // Також об'єкти, які додали демо-клієнтам під час показу/тестів (інакше FK не дасть прибрати клієнта).
         $conn->executeStatement(
             'DELETE FROM wh_site WHERE name IN (?) OR client_id IN (SELECT id FROM wh_client WHERE name IN (?))',
-            [[...self::WAREHOUSES, self::WORKSHOP, ...array_column(self::CLIENTS, 2)], array_column(self::CLIENTS, 0)],
+            [[...self::WAREHOUSES, self::WORKSHOP, ...array_column(self::CLIENTS, 2), ...self::LEGACY_SITES], [...array_column(self::CLIENTS, 0), ...self::LEGACY_CLIENTS]],
             [ArrayParameterType::STRING, ArrayParameterType::STRING],
         );
-        $conn->executeStatement('DELETE FROM wh_client WHERE name IN (?)', [array_column(self::CLIENTS, 0)], [ArrayParameterType::STRING]);
-        $conn->executeStatement('DELETE FROM wh_category WHERE name IN (?)', [array_column(self::CATEGORIES, 0)], [ArrayParameterType::STRING]);
+        $conn->executeStatement('DELETE FROM wh_client WHERE name IN (?)', [[...array_column(self::CLIENTS, 0), ...self::LEGACY_CLIENTS]], [ArrayParameterType::STRING]);
+        // Лише категорії, які засів сам створив (наявні в базі — Опалубка, Техніка… — лишаються),
+        // і лише якщо на них уже нічого не посилається.
+        $conn->executeStatement(
+            'DELETE FROM wh_category c WHERE c.name IN (?) AND NOT EXISTS (SELECT 1 FROM wh_item i WHERE i.category_id = c.id)',
+            [[...self::createdCategories(), ...self::LEGACY_CATEGORIES]],
+            [ArrayParameterType::STRING],
+        );
+    }
+
+    /**
+     * Категорії засіву, яких немає серед базових (міграція створює Опалубку, Техніку,
+     * Інструмент…): лише їх --reset має право прибрати.
+     *
+     * @return list<string>
+     */
+    private static function createdCategories(): array
+    {
+        return array_values(array_diff(array_column(self::CATEGORIES, 0), self::BASE_CATEGORIES));
     }
 
     /**
@@ -164,8 +196,19 @@ final class DemoWarehouse
         $this->em->flush();
 
         $categories = [];
+        $existing = $this->em->getRepository(WhCategory::class);
 
         foreach (self::CATEGORIES as $i => [$name, $emoji, $prefix, $attributes]) {
+            // Категорія вже є (базові з міграції) — беремо її, лише доповнюємо характеристики.
+            $category = $existing->findOneBy(['scope' => CategoryScope::Item, 'name' => $name]);
+
+            if ($category !== null) {
+                $category->setAttributes(array_values(array_unique([...$category->getAttributes(), ...$attributes])));
+                $categories[$i] = $category;
+
+                continue;
+            }
+
             $categories[$i] = (new WhCategory())->setScope(CategoryScope::Item)->setName($name)->setEmoji($emoji)->setPrefix($prefix)->setAttributes($attributes)->setPosition($i);
             $this->em->persist($categories[$i]);
         }
@@ -177,7 +220,7 @@ final class DemoWarehouse
         ];
 
         foreach (self::CLIENTS as $i => [$name, $edrpou, $site, $address]) {
-            $client = (new WhClient())->setName($name)->setEdrpou($edrpou)->setPhone(sprintf('38000000010%d', $i));
+            $client = (new WhClient())->setName($name)->setEdrpou($edrpou);
             $this->em->persist($client);
             $sites['c' . $i] = (new WhSite())->setKind(SiteKind::Site)->setName($site)->setAddress($address)->setClient($client);
         }
@@ -187,6 +230,15 @@ final class DemoWarehouse
         }
 
         $this->em->flush();
+        // Демо не має виглядати чернеткою: жодних двох категорій чи місць з однаковою назвою.
+        $dupes = $this->em->getConnection()->fetchFirstColumn(
+            "SELECT 'категорія «' || name || '»' FROM wh_category GROUP BY scope, name HAVING COUNT(*) > 1
+             UNION ALL SELECT 'місце «' || name || '»' FROM wh_site GROUP BY name HAVING COUNT(*) > 1",
+        );
+
+        if ($dupes !== []) {
+            throw new RuntimeException('Демо-склад: дублікати назв — ' . implode(', ', $dupes));
+        }
 
         $creator = $people['olha.petrenko'];
         $items = [];

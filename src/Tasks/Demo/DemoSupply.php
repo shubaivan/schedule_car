@@ -33,10 +33,10 @@ use Doctrine\ORM\EntityManagerInterface;
 final class DemoSupply
 {
     public const SUPPLIERS = [
-        ['ТОВ «Будмаркет-Схід» (демо)', '30000001', 'Олена'],
-        ['ФОП Мельник В. П. (демо)', null, 'Василь'],
-        ['ТОВ «Металопрокат Плюс» (демо)', '30000002', 'Андрій'],
-        ['ТОВ «Деревпром» (демо)', '30000003', null],
+        ['ТОВ «Будмаркет-Схід»', null, 'Олена'],
+        ['ФОП Кравчук В. П.', null, 'Василь'],
+        ['ТОВ «Металопрокат Плюс»', null, 'Андрій'],
+        ['ТОВ «Деревпром»', null, null],
     ];
 
     /**
@@ -51,21 +51,21 @@ final class DemoSupply
         ]],
         ['mykola.rudenko', '7. Виробництво', 'Арматура Ø12 А500С', '1.2', Unit::Ton, 'Арматурний цех', 5, false, 'Прутки по 11,7 м.', 3, SupplyAccent::Yellow, [
             ['status', 'olha.petrenko', SupplyStatus::InProgress, null, 2],
-            ['purchase', 'olha.petrenko', 'ТОВ «Металопрокат Плюс» (демо)', '38400.00', 'МП-2211', 20],
+            ['purchase', 'olha.petrenko', 'ТОВ «Металопрокат Плюс»', '38400.00', 'МП-2211', 20],
             ['file', 'olha.petrenko', 'Рахунок_на_оплату_118.pdf', AttachmentType::Bill, 21],
             ['status', 'olha.petrenko', SupplyStatus::Approval, null, 22],
             ['comment', 'olha.petrenko', 'Рахунок у вкладенні, ціна з доставкою. Чекаю рішення.', 22],
         ]],
         ['ihor.marchenko', '2. Відділ побудови', 'Фанера ламінована 18 мм', '24', Unit::Piece, 'Дільниця №3', 7, false, null, 4, SupplyAccent::None, [
             ['status', 'olha.petrenko', SupplyStatus::InProgress, null, 5],
-            ['purchase', 'olha.petrenko', 'ТОВ «Деревпром» (демо)', '27600.00', null, 26],
+            ['purchase', 'olha.petrenko', 'ТОВ «Деревпром»', '27600.00', null, 26],
             ['status', 'olha.petrenko', SupplyStatus::Approval, null, 27],
             ['status', 'dyrektor', SupplyStatus::Approved, 'Беремо, але наступного разу порівняйте з іншим постачальником.', 30],
             ['comment', 'olha.petrenko', 'Добре, оплачую сьогодні.', 31],
         ]],
         ['viktor.polishchuk', '6. Технічний відділ', 'Мастило для форм', '60', Unit::Liter, 'Цех ЗБВ', 10, false, 'Емульсійне, як минулого разу.', 6, SupplyAccent::Green, [
             ['status', 'olha.petrenko', SupplyStatus::InProgress, null, 3],
-            ['purchase', 'olha.petrenko', 'ФОП Мельник В. П. (демо)', '5400.00', 'М-77', 20],
+            ['purchase', 'olha.petrenko', 'ФОП Кравчук В. П.', '5400.00', 'М-77', 20],
             ['status', 'olha.petrenko', SupplyStatus::Approval, null, 21],
             ['status', 'dyrektor', SupplyStatus::Approved, null, 26],
             ['status', 'olha.petrenko', SupplyStatus::Paid, null, 30],
@@ -73,7 +73,7 @@ final class DemoSupply
         ]],
         ['yurii.kuzmenko', '7. Виробництво', 'Електроди АНО-21, 3 мм', '15', Unit::Kg, 'Арматурний цех', 3, false, null, 9, SupplyAccent::None, [
             ['status', 'olha.petrenko', SupplyStatus::InProgress, null, 1],
-            ['purchase', 'olha.petrenko', 'ТОВ «Будмаркет-Схід» (демо)', '2250.00', 'БС-5120', 6],
+            ['purchase', 'olha.petrenko', 'ТОВ «Будмаркет-Схід»', '2250.00', 'БС-5120', 6],
             ['status', 'olha.petrenko', SupplyStatus::Approval, null, 6],
             ['status', 'dyrektor', SupplyStatus::Approved, null, 8],
             ['status', 'olha.petrenko', SupplyStatus::Paid, null, 9],
@@ -83,7 +83,7 @@ final class DemoSupply
         ]],
         ['bohdan.zakharchenko', '8. Відділ логістики', 'Стрічка для пакування вантажу', '10', Unit::Piece, 'Склад №2', 6, false, null, 2, SupplyAccent::None, [
             ['status', 'olha.petrenko', SupplyStatus::InProgress, null, 4],
-            ['purchase', 'olha.petrenko', 'ТОВ «Будмаркет-Схід» (демо)', '41800.00', null, 20],
+            ['purchase', 'olha.petrenko', 'ТОВ «Будмаркет-Схід»', '41800.00', null, 20],
             ['status', 'olha.petrenko', SupplyStatus::Approval, null, 21],
             ['status', 'dyrektor', SupplyStatus::Waiting, 'Дорого. Повернемось наступного місяця.', 24],
         ]],
@@ -116,7 +116,8 @@ final class DemoSupply
     {
         $conn = $em->getConnection();
         $conn->executeStatement("DELETE FROM supply_request WHERE author_id IN (SELECT id FROM telegram_user WHERE telegram_id LIKE 'demo-%')");
-        $names = array_map(static fn (array $s) => $s[0], self::SUPPLIERS);
+        // + назви попередніх засівів із «(демо)».
+        $names = [...array_map(static fn (array $s) => $s[0], self::SUPPLIERS), 'ТОВ «Будмаркет-Схід» (демо)', 'ФОП Мельник В. П. (демо)', 'ТОВ «Металопрокат Плюс» (демо)', 'ТОВ «Деревпром» (демо)'];
         $conn->executeStatement('DELETE FROM supply_supplier WHERE name IN (?)', [$names], [\Doctrine\DBAL\ArrayParameterType::STRING]);
     }
 
@@ -132,7 +133,7 @@ final class DemoSupply
         $suppliers = [];
 
         foreach (self::SUPPLIERS as [$name, $edrpou, $contact]) {
-            // Позначка «(демо)» у назві — щоб не сплутати з живим постачальником і не перезаписати його.
+            // Засів іде лише на демо-стенді (живих людей немає) — постачальника з тією ж назвою беремо як є.
             $supplier = $this->suppliers->findOneBy(['name' => $name]) ?? (new Supplier())->setName($name)->setEdrpou($edrpou)->setContactPerson($contact);
             $this->em->persist($supplier);
             $suppliers[$name] = $supplier;

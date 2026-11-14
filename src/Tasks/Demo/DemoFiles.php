@@ -249,7 +249,7 @@ class DemoFiles
             $this->drawing($img, $page['drawing'], $x, $y + 30, self::PAGE_W - 2 * $x, self::PAGE_H - $y - 260);
         }
 
-        $this->text($img, 14, $x, self::PAGE_H - 80, 'Демо-документ для стенду «План». Реквізити вигадані.', $muted);
+        $this->text($img, 14, $x, self::PAGE_H - 80, 'Зразок документа. Реквізити умовні.', $muted);
         $this->text($img, 14, self::PAGE_W - $x - 150, self::PAGE_H - 80, sprintf('Стор. %d з %d', $number, $total), $muted);
 
         ob_start();

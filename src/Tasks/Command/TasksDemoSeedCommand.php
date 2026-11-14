@@ -290,6 +290,12 @@ class TasksDemoSeedCommand extends Command
             $conn->executeStatement("DELETE FROM crm_login WHERE user_id IN (SELECT id FROM telegram_user WHERE telegram_id LIKE 'demo-%') OR (success AND user_id IS NULL)");
             $conn->executeStatement("DELETE FROM telegram_user WHERE telegram_id LIKE 'demo-%'");
             self::pruneOrphanEvents($conn);
+            // Номери задач (№ 0001…) — це id: після очищення починаємо знову з першого,
+            // а не з №0143 після кількох пересівів. Лише коли таблиця справді порожня.
+            if ((int) $conn->fetchOne('SELECT COUNT(*) FROM task') === 0) {
+                $conn->executeStatement("SELECT setval('task_id_seq', 1, false)");
+            }
+
             $this->em->clear();
         }
     }
