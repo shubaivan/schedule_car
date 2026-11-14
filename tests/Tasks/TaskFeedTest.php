@@ -84,12 +84,18 @@ class TaskFeedTest extends WebTestCase
         $counts = $this->send('POST', '/api/tasks/chronicle/read-all', []);
         self::assertSame(0, $counts['tasks']);
 
-        // Директор бачить задачу, але в Хроніці — лише те, де він бере участь або ★.
+        // Директор бачить у Хроніці все (рішення 14.11), але «+N» і лічильник — лише
+        // там, де він бере участь або ★: чужі задачі не «кричать» непрочитаним.
         $director = $this->user(WorkRole::Director, 'dir');
         $this->login($director);
-        self::assertNull($this->row($this->get('/api/tasks/chronicle'), $task['id']));
+        $row = $this->row($this->get('/api/tasks/chronicle'), $task['id']);
+        self::assertNotNull($row, 'Директор бачить чужу задачу в Хроніці');
+        self::assertSame(0, $row['unread']);
+        self::assertNull($this->row($this->get('/api/tasks/chronicle?unread=1'), $task['id']));
+        self::assertSame(0, $this->get('/api/tasks/chronicle/counts')['tasks']);
         $this->send('POST', '/api/tasks/' . $task['id'] . '/favorite', ['on' => true]);
         self::assertNotNull($this->row($this->get('/api/tasks/chronicle'), $task['id']));
+        self::assertGreaterThan(0, $this->row($this->get('/api/tasks/chronicle'), $task['id'])['unread'], '★ — і «+N» з\'являється');
         $this->client->request('GET', '/api/tasks/chronicle?cursor=' . urlencode("x' OR 1=1"));
         self::assertResponseStatusCodeSame(400);
 
@@ -154,7 +160,7 @@ class TaskFeedTest extends WebTestCase
         self::assertSame($chronicle['unread'], $card['unread']);
         self::assertSame(1, $this->get('/api/tasks/chronicle/counts')['tasks']);
 
-        // Директор бачить задачу на дошці, але не бере в ній участі — «+N» немає, як і в його Хроніці.
+        // Директор бачить задачу на дошці й у Хроніці, але не бере в ній участі — «+N» немає ніде.
         $director = $this->user(WorkRole::Director, 'agd');
         $this->login($director);
         foreach ($this->get('/api/tasks/board') as $column) {
@@ -164,7 +170,7 @@ class TaskFeedTest extends WebTestCase
                 }
             }
         }
-        self::assertNull($this->row($this->get('/api/tasks/chronicle'), $task['id']));
+        self::assertSame(0, $this->row($this->get('/api/tasks/chronicle'), $task['id'])['unread'] ?? null);
 
         $this->login($worker);
         $this->get('/api/tasks/' . $task['id']);

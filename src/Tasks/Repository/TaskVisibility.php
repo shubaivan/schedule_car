@@ -12,9 +12,9 @@ use App\Entity\TelegramUser;
 final class TaskVisibility
 {
     /**
-     * Хроніка — як у ПланФіксі: лише задачі, де людина бере участь (автор, учасник)
-     * або які позначила ★. Навіть директорові — інакше це потік усього заводу.
-     * ★ працює тільки в межах видимості: прибрали з задачі — зникла й з Хроніки.
+     * Задачі, де людина бере участь (автор, учасник) або які позначила ★, — по них
+     * рахуються «+N» і лічильник меню (для директора теж: інакше це шум усього заводу).
+     * Рядки Хроніки — chronicle(). ★ працює тільки в межах видимості.
      *
      * @return array{0: string, 1: array<string, int>}
      */
@@ -31,6 +31,19 @@ final class TaskVisibility
             ),
             [...$params, 'involved' => (int) $viewer->getId()],
         ];
+    }
+
+    /**
+     * Які задачі є рядками Хроніки. Директор і адмін бачать УСЕ (рішення Івана
+     * 14.11: директор має бачити весь завод), решта — лише задачі, де беруть
+     * участь, або ★. «+N» і лічильник меню при цьому лишаються за involved():
+     * на чужих задачах директора нових подій «для нього» немає.
+     *
+     * @return array{0: string, 1: array<string, int>}
+     */
+    public static function chronicle(TelegramUser $viewer, string $alias = 't'): array
+    {
+        return $viewer->getWorkRole()->seesAllTasks() ? self::sql($viewer, $alias) : self::involved($viewer, $alias);
     }
 
     /**

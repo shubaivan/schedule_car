@@ -37,8 +37,12 @@ class TaskFeedRepository
      */
     public function chronicle(TelegramUser $viewer, bool $unreadOnly, bool $favoritesOnly, ?string $cursor, int $limit): array
     {
-        [$visible, $params] = TaskVisibility::involved($viewer);
-        $params['me'] = (int) $viewer->getId();
+        // Рядки — усе, що людина бачить у Хроніці (директор — увесь завод); «+N» — лише
+        // там, де вона бере участь, тож лічильник меню й «+N» на дошці не розходяться.
+        [$visible, $params] = TaskVisibility::chronicle($viewer);
+        [$involved, $involvedParams] = TaskVisibility::involved($viewer);
+        $params = [...$params, ...$involvedParams, 'me' => (int) $viewer->getId()];
+        $counted = $viewer->getWorkRole()->seesAllTasks() ? $involved : 'TRUE';
         $where = [$visible];
 
         if ($cursor !== null) {
@@ -52,6 +56,7 @@ class TaskFeedRepository
         }
 
         if ($unreadOnly) {
+            $where[] = $counted;
             $where[] = 'EXISTS (SELECT 1 FROM task_message u WHERE u.task_id = t.id AND ' . self::UNREAD . ')';
         }
 
@@ -65,7 +70,7 @@ class TaskFeedRepository
                     COALESCE(r.last_message_id, 0) AS read_upto,
                     lm.id AS msg_id, lm.kind AS msg_kind, lm.event_type AS msg_event, lm.text AS msg_text,
                     lm.author_id AS msg_author, lm.created_at AS msg_at,
-                    (SELECT COUNT(*) FROM task_message u WHERE u.task_id = t.id AND ' . self::UNREAD . ') AS unread
+                    CASE WHEN ' . $counted . ' THEN (SELECT COUNT(*) FROM task_message u WHERE u.task_id = t.id AND ' . self::UNREAD . ') ELSE 0 END AS unread
                FROM task t
                LEFT JOIN task_read r ON r.task_id = t.id AND r.user_id = :me
                LEFT JOIN task_favorite f ON f.task_id = t.id AND f.user_id = :me
