@@ -14,6 +14,8 @@ const TaskBoard = () => import('../modules/tasks/TaskBoard.vue')
 const TaskView = () => import('../modules/tasks/TaskView.vue')
 const StaffPage = () => import('../modules/tasks/StaffPage.vue')
 const ProfilePage = () => import('../modules/tasks/shell/ProfilePage.vue')
+const ChronicleFeed = () => import('../modules/tasks/ChronicleFeed.vue')
+const SearchPage = () => import('../modules/tasks/SearchPage.vue')
 
 export const router = createRouter({
     history: createWebHistory('/crm/'),
@@ -33,6 +35,8 @@ export const router = createRouter({
         { path: '/tasks/:id(\\d+)', name: 'task', redirect: (to) => ({ name: 'tasks-board', params: { id: to.params.id }, query: to.query }) },
         { path: '/tasks/:id(\\d+)/full', name: 'task-full', component: TaskView, props: true },
         { path: '/me', name: 'tasks-profile', component: ProfilePage },
+        { path: '/tasks/chronicle/:id(\\d+)?', name: 'tasks-chronicle', component: ChronicleFeed },
+        { path: '/tasks/search/:id(\\d+)?', name: 'tasks-search', component: SearchPage },
         { path: '/staff', name: 'staff', component: StaffPage },
         { path: '/:pathMatch(.*)*', redirect: '/' },
     ],

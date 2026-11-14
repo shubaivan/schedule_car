@@ -306,7 +306,7 @@ body.p-noscroll { overflow: hidden; }
 .p-back { margin-left: -6px; }
 .p-embedded .p-back { display: none; }
 .p-ttitle { margin: 0; font-size: 18px; line-height: 1.3; letter-spacing: -.01em; overflow-wrap: anywhere; }
-.p-ttitle.closed { text-decoration: line-through; color: var(--text-muted); }
+.p-ttitle .closed { text-decoration: line-through; color: var(--text-muted); }
 .p-thead-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 12.5px; color: var(--text-muted); }
 .p-status { position: relative; }
 .p-status-btn {

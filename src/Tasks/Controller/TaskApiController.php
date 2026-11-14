@@ -11,12 +11,16 @@ use App\Tasks\Enum\TaskStatus;
 use App\Tasks\Enum\WorkRole;
 use App\Tasks\Exception\TaskException;
 use App\Tasks\Repository\TaskAttachmentRepository;
+use App\Tasks\Repository\TaskFeedRepository;
 use App\Tasks\Repository\TaskLabelRepository;
 use App\Tasks\Repository\TaskMessageRepository;
 use App\Tasks\Repository\TaskRepository;
 use App\Tasks\Service\TaskPolicy;
 use App\Tasks\Service\TaskPresenter;
 use App\Tasks\Service\TaskService;
+use DateTime;
+use DateTimeInterface;
+use DateTimeZone;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -34,6 +38,7 @@ class TaskApiController extends TasksController
         private TaskPolicy $policy,
         private TaskService $service,
         private TaskAttachmentRepository $attachments,
+        private TaskFeedRepository $feed,
     ) {
     }
 
@@ -176,9 +181,9 @@ class TaskApiController extends TasksController
     public function view(Task $task): JsonResponse
     {
         $me = $this->guard($task);
-        $this->service->markRead($task, $me);
+        $readUpTo = $this->service->markRead($task, $me);
 
-        return $this->json($this->detail($task, $me));
+        return $this->json($this->presenter->detail($task, $me, $this->messages->forTask($task), $readUpTo));
     }
 
     #[Route('/{id}', name: 'api_tasks_update', methods: ['PATCH'], requirements: ['id' => '\d+'])]
@@ -220,6 +225,9 @@ class TaskApiController extends TasksController
     public function messages(Task $task, Request $request): JsonResponse
     {
         $me = $this->guard($task);
+        // «now» — ДО вибірок і з запасом у секунду (стовпці TIMESTAMP(0)): зміна,
+        // що встигла між запитами, прийде наступного разу, а не загубиться.
+        $now = Task::now()->modify('-1 second');
         $after = max(0, $request->query->getInt('after'));
         $messages = $this->messages->forTask($task, $after);
 
@@ -236,13 +244,29 @@ class TaskApiController extends TasksController
         }
 
         if ($messages !== []) {
-            $this->service->markRead($task, $me);
+            // Прочитане — лише те, що віддаємо, а не те, що могло зʼявитись після вибірки.
+            $this->service->markRead($task, $me, max(array_map(static fn (TaskMessage $m) => (int) $m->getId(), $messages)));
         }
 
+        // Правки, видалення й закріплення вже показаних повідомлень — з моменту
+        // попереднього опитування (сервер віддає свій «now», клієнт повертає його).
+        $changed = [];
+        $since = DateTime::createFromFormat(DateTimeInterface::ATOM, (string) $request->query->get('changedSince'));
+
+        if ($since !== false && $after > 0) {
+            $changed = $this->messages->changedSince($task, $since->setTimezone(new DateTimeZone('Europe/Kyiv')), $after);
+        }
+
+        $all = [...$messages, ...$changed];
+        $starred = $this->feed->starredOf($me, array_map(static fn (TaskMessage $m) => (int) $m->getId(), $all));
+
         return $this->json([
-            'messages' => array_map(fn (TaskMessage $m) => $this->presenter->message($m, $me), $messages),
+            'messages' => array_map(fn (TaskMessage $m) => $this->presenter->message($m, $me, $starred), $messages),
+            'changed' => array_map(fn (TaskMessage $m) => $this->presenter->message($m, $me, $starred), $changed),
             'attachments' => $updated,
             'status' => $task->getStatus()->value,
+            'reads' => $this->feed->reads($task),
+            'now' => $now->format(DateTimeInterface::ATOM),
         ]);
     }
 
@@ -266,6 +290,7 @@ class TaskApiController extends TasksController
                 (string) ($payload['text'] ?? ''),
                 $files,
                 array_map('intval', (array) ($payload['mentions'] ?? [])),
+                isset($payload['replyTo']) ? (int) $payload['replyTo'] : null,
             );
         } catch (TaskException $e) {
             return $this->error($e);

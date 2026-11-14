@@ -9,6 +9,7 @@ use App\Tasks\Entity\TaskAttachment;
 use App\Tasks\Entity\TaskLabel;
 use App\Tasks\Entity\TaskMessage;
 use App\Tasks\Enum\TaskStatus;
+use App\Tasks\Repository\TaskFeedRepository;
 use DateTimeInterface;
 
 /** JSON-вигляд задач для CRM. */
@@ -17,7 +18,7 @@ class TaskPresenter
     /** Палітра аватарок — колір стабільний для людини (за id). */
     private const PALETTE = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#ec4899', '#84cc16', '#f97316', '#06b6d4', '#a855f7'];
 
-    public function __construct(private TaskPolicy $policy)
+    public function __construct(private TaskPolicy $policy, private TaskFeedRepository $feed)
     {
     }
 
@@ -108,11 +109,16 @@ class TaskPresenter
 
     /**
      * @param TaskMessage[] $messages
+     * @param int|null $readUpTo до якого повідомлення людина дочитала до цього відкриття
      *
      * @return array<string, mixed>
      */
-    public function detail(Task $task, TelegramUser $viewer, array $messages): array
+    public function detail(Task $task, TelegramUser $viewer, array $messages, ?int $readUpTo = null): array
     {
+        // Мітка для першого опитування змін (правки між відкриттям і опитуванням).
+        $now = Task::now()->modify('-1 second');
+        $starred = $this->feed->starredOf($viewer, array_map(static fn (TaskMessage $m) => (int) $m->getId(), $messages));
+
         $files = [];
 
         foreach ($messages as $message) {
@@ -141,19 +147,29 @@ class TaskPresenter
                 'transitions' => array_map($this->status(...), $this->policy->transitions($viewer, $task)),
             ],
             'awaitsDecision' => $task->getStatus()->awaitsDecision(),
-            'messages' => array_map(fn (TaskMessage $m) => $this->message($m, $viewer), $messages),
+            'messages' => array_map(fn (TaskMessage $m) => $this->message($m, $viewer, $starred), $messages),
             'files' => $files,
+            'favorite' => $this->feed->isFavorite($viewer, $task),
+            'reads' => $this->feed->reads($task),
+            'readUpTo' => $readUpTo,
+            'now' => $now->format(DateTimeInterface::ATOM),
         ];
     }
 
-    /** @return array<string, mixed> */
-    public function message(TaskMessage $message, TelegramUser $viewer): array
+    /**
+     * @param int[] $starred id повідомлень, які глядач позначив ★
+     *
+     * @return array<string, mixed>
+     */
+    public function message(TaskMessage $message, TelegramUser $viewer, array $starred = []): array
     {
         $deleted = $message->getDeletedAt() !== null;
+        $reply = $message->getReplyTo();
 
         return [
             'id' => $message->getId(),
             'kind' => $message->getKind(),
+            'eventType' => self::eventType($message),
             'author' => $this->person($message->getAuthor()),
             'text' => $deleted ? '' : $message->getText(),
             'mentions' => $message->getMentions(),
@@ -161,7 +177,35 @@ class TaskPresenter
             'deleted' => $deleted,
             'mine' => $message->getAuthor()?->getId() === $viewer->getId(),
             'attachments' => $deleted ? [] : array_map($this->attachment(...), $message->getAttachments()->toArray()),
+            'replyTo' => $reply === null || $deleted ? null : [
+                'id' => $reply->getId(),
+                'author' => $reply->getAuthor()?->shortName(),
+                'authorColor' => $reply->getAuthor() === null ? null : self::PALETTE[(int) $reply->getAuthor()->getId() % count(self::PALETTE)],
+                'text' => $reply->getDeletedAt() !== null ? '' : mb_substr($reply->getText(), 0, 160),
+                'files' => $reply->getDeletedAt() !== null ? 0 : $reply->getAttachments()->count(),
+                'deleted' => $reply->getDeletedAt() !== null,
+            ],
+            'editedAt' => $deleted ? null : $this->date($message->getEditedAt()),
+            'pinned' => $message->getPinnedAt() === null ? null : [
+                'at' => $this->date($message->getPinnedAt()),
+                'by' => $message->getPinnedBy()?->shortName(),
+            ],
+            'starred' => in_array((int) $message->getId(), $starred, true),
+            'can' => [
+                'edit' => $this->policy->canEditMessage($viewer, $message),
+                'delete' => $this->policy->canDeleteMessage($viewer, $message),
+            ],
         ];
+    }
+
+    /** comment | file | created | status | closed | members | updated — для іконки в Хроніці. */
+    public static function eventType(TaskMessage $message): string
+    {
+        if (! $message->isEvent()) {
+            return $message->getAttachments()->isEmpty() || trim($message->getText()) !== '' ? 'comment' : 'file';
+        }
+
+        return $message->getEventType() ?? TaskMessage::EVENT_UPDATED;
     }
 
     /** @return array<string, mixed> */

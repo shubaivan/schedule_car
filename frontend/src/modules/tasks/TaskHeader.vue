@@ -11,7 +11,7 @@ import type { TaskDetail } from './api'
  * Рішення директора — окремою жовтою смугою (наш плюс, лишаємо).
  */
 const props = defineProps<{ task: TaskDetail; embedded?: boolean; moving?: boolean; sideOpen?: boolean }>()
-const emit = defineEmits<{ move: [to: string, note?: string]; edit: []; close: []; side: [] }>()
+const emit = defineEmits<{ move: [to: string, note?: string]; edit: []; close: []; side: []; favorite: [] }>()
 
 const menu = ref(false)
 const note = ref('')
@@ -69,7 +69,10 @@ onBeforeUnmount(() => {
             <button v-if="embedded" type="button" class="p-icon-btn p-close" title="Закрити (Esc)" aria-label="Закрити" @click="emit('close')"><Icon name="x" /></button>
         </div>
 
-        <h1 class="p-ttitle" :class="{ closed: task.closed }">{{ task.title }}</h1>
+        <h1 class="p-ttitle">
+            <span :class="{ closed: task.closed }">{{ task.title }}</span>
+            <button type="button" class="f-fav" :class="{ on: task.favorite }" :title="task.favorite ? 'Прибрати з обраного' : 'В обране'" :aria-pressed="task.favorite" @click="emit('favorite')">{{ task.favorite ? '★' : '☆' }}</button>
+        </h1>
 
         <div class="p-thead-meta">
             <div class="p-status">
