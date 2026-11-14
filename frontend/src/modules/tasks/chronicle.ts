@@ -1,8 +1,8 @@
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch, type WatchStopHandle } from 'vue'
 import type { ChronicleCounts } from './api'
 import { planApi } from '../plan/api'
 import { LIVE_FALLBACK_MS, liveConnected } from '../../plan/live'
-import { onActivity } from '../../plan/notifications/store'
+import { onActivity, useNotifications } from '../../plan/notifications/store'
 
 /**
  * Лічильник Хроніки (скільки записів — задач, заявок, складу — з новим) — один на всю CRM.
@@ -15,6 +15,7 @@ let users = 0
 let timer: number | undefined
 let pending: number | undefined
 let off: (() => void) | undefined
+let unwatch: WatchStopHandle | undefined
 
 /** Оновити лічильник зараз (відкрили задачу, прочитали) — не чекаючи таймера. */
 export async function refreshChronicleCounts(): Promise<void> {
@@ -48,6 +49,8 @@ export function useChronicleCounts(intervalMs = 15000) {
                 window.clearTimeout(pending)
                 pending = window.setTimeout(refreshChronicleCounts, 400)
             })
+            // Mercure підключився вже після першого розкладу (або впав) — новий інтервал одразу.
+            unwatch = watch(() => useNotifications().transport, () => schedule(intervalMs))
         }
     })
     onBeforeUnmount(() => {
@@ -55,6 +58,7 @@ export function useChronicleCounts(intervalMs = 15000) {
             window.clearTimeout(timer)
             window.clearTimeout(pending)
             off?.()
+            unwatch?.()
         }
     })
 
