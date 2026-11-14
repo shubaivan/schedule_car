@@ -388,7 +388,7 @@ class SearchProjector
                 'subject' => ['user'],
                 'scope' => 'u.id = :sid',
                 'sql' => "SELECT 'person', 'user', u.id, u.id, {$userName},
-                        concat_ws(' · ', NULLIF(u.position, ''), dep.name, {$roleLabel}),
+                        concat_ws(' · ', NULLIF(u.position, ''), dep.name, NULLIF({$roleLabel}, COALESCE(u.position, ''))),
                         '', concat_ws(' ', {$userName}, u.username, u.position, dep.name, u.email, {$roleLabel}),
                         NULL::int, NULL::int, '[]'::jsonb,
                         CASE WHEN u.department_id IS NULL THEN '[]'::jsonb ELSE jsonb_build_array(u.department_id) END,

@@ -255,7 +255,7 @@ final class SearchApiController extends TasksController
             'client' => (string) $row['client'] !== '' ? (string) $row['client'] : null,
             'author' => $row['author_id'] !== null ? ($people[(int) $row['author_id']] ?? null) : null,
             'departments' => array_values(array_filter(array_map(static fn ($id) => $departments[(int) $id] ?? null, is_array($deps) ? $deps : []))),
-            'thumb' => $thumbs[$refId] ?? null,
+            'thumb' => $docType === 'file' ? ($thumbs[$refId] ?? null) : null,
             'url' => $this->url($ref, $docType, $refId),
             'at' => self::atom((string) $row['updated_at']),
             'createdAt' => self::atom((string) $row['created_at']),
