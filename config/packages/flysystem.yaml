@@ -8,8 +8,20 @@ flysystem:
         supply.storage:
             local:
                 directory: '%kernel.project_dir%/var/storage/supply'
+                # FPM (www-data) і CLI/воркер (deploy, група www-data) мусять читати файли одне одного:
+                # «private» — без доступу для інших, але з групою (типово Flysystem дає 0700/0600 —
+                # каталоги, створені засівом від deploy, FPM потім не читав).
+                permissions:
+                    file: { public: 0o644, private: 0o660 }
+                    dir: { public: 0o755, private: 0o770 }
 
         # Документи складу: договори клієнтів, накладні рухів, паспорти техніки.
         warehouse.storage:
             local:
                 directory: '%kernel.project_dir%/var/storage/warehouse'
+                # FPM (www-data) і CLI/воркер (deploy, група www-data) мусять читати файли одне одного:
+                # «private» — без доступу для інших, але з групою (типово Flysystem дає 0700/0600 —
+                # каталоги, створені засівом від deploy, FPM потім не читав).
+                permissions:
+                    file: { public: 0o644, private: 0o660 }
+                    dir: { public: 0o755, private: 0o770 }
