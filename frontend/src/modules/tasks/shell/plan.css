@@ -531,3 +531,9 @@ body.p-noscroll { overflow: hidden; }
 /* Картка відкрита праворуч — у списку лишаємо імʼя, відділ і роль. */
 .p-staff.split .t-table .hide-sm, .p-staff.split .t-table th:nth-child(5), .p-staff.split .t-table th:nth-child(6) { display: none; }
 .p-staff.split .t-table { table-layout: auto; }
+
+/* Порожній / недоступний розділ (склад без прав тощо) — картка посередині. */
+.p-placeholder { margin: 24px auto; }
+.p-placeholder .p-card { text-align: center; padding: 28px 20px; }
+.p-placeholder h2 { margin: 8px 0; font-size: 18px; }
+.p-placeholder-ico { width: 56px; height: 56px; margin: 0 auto; border-radius: 16px; display: flex; align-items: center; justify-content: center; background: var(--accent-soft); color: var(--accent); }

@@ -8,7 +8,7 @@ import { useChronicleCounts } from '../chronicle'
 import NotificationBell from '../../../plan/notifications/NotificationBell.vue'
 import NotificationsHost from '../../../plan/notifications/NotificationsHost.vue'
 import { typing } from '../../../plan/layers'
-import { canSeeAdmin } from '../../admin/access'
+import { canSeeAdmin, canSeeWarehouse } from '../../admin/access'
 import { WAREHOUSE_FULLSCREEN, WAREHOUSE_SPLIT } from '../../warehouse/routes'
 
 /**
@@ -38,6 +38,7 @@ const initials = computed(() => ((me.value?.firstName ?? '').charAt(0) + (me.val
 const roleLabel = computed(() => me.value?.position || me.value?.workRoleLabel || '')
 /** Адмін-розділ (журнал аудиту) — адміністраторам; суперадміна вводить окремий потік. */
 const canAdmin = computed(() => canSeeAdmin(me.value))
+const canWarehouse = computed(() => canSeeWarehouse(me.value))
 
 const name = computed(() => String(route.name))
 /** Сторінки-вікна (форма, файл) і відкрита праворуч картка — на телефоні на весь екран. */
@@ -89,7 +90,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
             <router-link :to="chronicleTarget(router)" class="p-rail-btn" :class="{ on: onChronicle }" title="Хроніка"><Icon name="activity" /><span>Хроніка</span><b v-if="unread" class="p-badge" :aria-label="unread + ' задач з новим'">{{ badge }}</b></router-link>
             <router-link :to="{ name: 'tasks-board' }" class="p-rail-btn" :class="{ on: onTasks }" title="Задачі"><Icon name="board" /><span>Задачі</span></router-link>
             <router-link :to="{ name: 'supply-board' }" class="p-rail-btn" :class="{ on: onSupply }" title="Заявки на постачання"><Icon name="clipboard" /><span>Заявки</span></router-link>
-            <router-link :to="{ name: 'warehouse' }" class="p-rail-btn" :class="{ on: onWarehouse }" title="Склад"><Icon name="warehouse" /><span>Склад</span></router-link>
+            <router-link v-if="canWarehouse" :to="{ name: 'warehouse' }" class="p-rail-btn" :class="{ on: onWarehouse }" title="Склад"><Icon name="warehouse" /><span>Склад</span></router-link>
             <router-link v-if="me?.fleet" :to="{ name: 'schedule' }" class="p-rail-btn" title="Автопарк"><Icon name="truck" /><span>Авто</span></router-link>
             <router-link :to="searchTarget(router)" class="p-rail-btn" :class="{ on: onSearch }" title="Пошук ( / )"><Icon name="search" /><span>Пошук</span></router-link>
             <router-link :to="{ name: 'notifications' }" class="p-rail-btn" :class="{ on: onNotifications }" title="Сповіщення" data-testid="rail-bell"><NotificationBell label /></router-link>

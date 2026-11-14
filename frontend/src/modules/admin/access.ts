@@ -15,3 +15,8 @@ export function canSeeAdmin(user: ApiUser | null | undefined): boolean {
 export function canSeeDrive(user: ApiUser | null | undefined): boolean {
     return canSeeAdmin(user) || user?.workRole === 'admin'
 }
+
+/** Пункт «Склад» (рейка, «Ще») — лише з правом warehouse.view (інакше API складу відповідає 403). */
+export function canSeeWarehouse(user: ApiUser | null | undefined): boolean {
+    return user?.capabilities?.['warehouse.view'] === true
+}
