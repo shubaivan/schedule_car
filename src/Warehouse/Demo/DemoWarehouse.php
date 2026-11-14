@@ -139,7 +139,12 @@ final class DemoWarehouse
         $conn->executeStatement("DELETE FROM wh_activity WHERE user_id IN ($demo)");
         $conn->executeStatement("DELETE FROM wh_movement WHERE created_by_id IN ($demo)");
         $conn->executeStatement("DELETE FROM wh_item WHERE created_by_id IN ($demo)");
-        $conn->executeStatement('DELETE FROM wh_site WHERE name IN (?)', [[...self::WAREHOUSES, self::WORKSHOP, ...array_column(self::CLIENTS, 2)]], [ArrayParameterType::STRING]);
+        // Також об'єкти, які додали демо-клієнтам під час показу/тестів (інакше FK не дасть прибрати клієнта).
+        $conn->executeStatement(
+            'DELETE FROM wh_site WHERE name IN (?) OR client_id IN (SELECT id FROM wh_client WHERE name IN (?))',
+            [[...self::WAREHOUSES, self::WORKSHOP, ...array_column(self::CLIENTS, 2)], array_column(self::CLIENTS, 0)],
+            [ArrayParameterType::STRING, ArrayParameterType::STRING],
+        );
         $conn->executeStatement('DELETE FROM wh_client WHERE name IN (?)', [array_column(self::CLIENTS, 0)], [ArrayParameterType::STRING]);
         $conn->executeStatement('DELETE FROM wh_category WHERE name IN (?)', [array_column(self::CATEGORIES, 0)], [ArrayParameterType::STRING]);
     }
