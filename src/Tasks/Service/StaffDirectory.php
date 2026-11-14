@@ -39,8 +39,8 @@ class StaffDirectory
         ));
     }
 
-    /** @param array<string, mixed> $data */
-    public function create(array $data, TelegramUser $by): TelegramUser
+    /** @param array<string, mixed> $data $by = null — з консолі (plan:user:create) */
+    public function create(array $data, ?TelegramUser $by): TelegramUser
     {
         $user = (new TelegramUser())
             // Людина ще не в боті: службовий ідентифікатор, поки не прийде з Telegram.
@@ -69,17 +69,17 @@ class StaffDirectory
 
         $this->em->persist($user);
         $this->em->flush();
-        $this->logger->info('staff: заведено співробітника', ['id' => $user->getId(), 'by' => $by->getId()]);
+        $this->logger->info('staff: заведено співробітника', ['id' => $user->getId(), 'by' => $by?->getId() ?? 'cli']);
 
         return $user;
     }
 
-    /** @param array<string, mixed> $data */
-    public function update(TelegramUser $user, array $data, TelegramUser $by): TelegramUser
+    /** @param array<string, mixed> $data $by = null — з консолі (plan:user:create) */
+    public function update(TelegramUser $user, array $data, ?TelegramUser $by): TelegramUser
     {
         $this->apply($user, $data);
         $this->em->flush();
-        $this->logger->info('staff: змінено картку', ['id' => $user->getId(), 'by' => $by->getId()]);
+        $this->logger->info('staff: змінено картку', ['id' => $user->getId(), 'by' => $by?->getId() ?? 'cli']);
 
         return $user;
     }
