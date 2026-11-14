@@ -67,6 +67,23 @@ class RecordMovementTest extends KernelTestCase
         self::assertSame($warehouse->getId(), $item->getCurrentSite()?->getId());
     }
 
+    public function testUnitItemMovedMeanwhileByAnotherMovementIsRefused(): void
+    {
+        $manager = $this->person();
+        $warehouse = $this->warehouse();
+        $site = $this->site($this->client());
+        $item = $this->item();
+        ($this->record)(MovementType::Receipt, new DateTime('2026-09-01'), null, $warehouse, [['item' => $item, 'quantity' => 1]], $manager);
+
+        // Паралельний рух (інший запит) уже вивіз щит: у базі він на об'єкті, у пам'яті — на складі.
+        $this->em->getConnection()->executeStatement('UPDATE wh_item SET current_site_id = ? WHERE id = ?', [$site->getId(), $item->getId()]);
+
+        $this->expectException(WarehouseException::class);
+        $this->expectExceptionMessage('щойно перемістили');
+
+        ($this->record)(MovementType::Shipment, new DateTime('2026-09-10'), $warehouse, $site, [['item' => $item, 'quantity' => 1]], $manager);
+    }
+
     public function testUnitItemCannotLeaveWhereItIsNot(): void
     {
         $manager = $this->person();

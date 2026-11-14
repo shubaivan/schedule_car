@@ -288,6 +288,25 @@ class WarehouseApiTest extends WebTestCase
         self::assertSame('Блок ФБС 24-4-6-Т', $this->em->find(WhItem::class, $item['id'])?->getName());
     }
 
+    /** Позиція й ItemCreated — одна транзакція: не записалась подія — немає й позиції (а не «тихе» попередження в лозі). */
+    public function testItemIsNotCreatedWhenItsEventCannotBeWritten(): void
+    {
+        $manager = $this->person();
+        $category = $this->category('Вироби', 'ВР');
+        $this->browser->loginUser($manager);
+        $this->browser->catchExceptions(true);
+        // Журнал «Плану» відмовляє саме на цій події (DDL у транзакції тесту — відкотиться).
+        $this->em->getConnection()->executeStatement("ALTER TABLE plan_event ADD CONSTRAINT test_no_item_created CHECK (type <> 'item_created') NOT VALID");
+        $name = 'Блок без події ' . uniqid();
+
+        $this->postJson('/api/warehouse/items', ['name' => $name, 'categoryId' => $category->getId(), 'tracking' => 'bulk', 'unit' => 'шт']);
+        self::assertResponseStatusCodeSame(500);
+
+        $conn = $this->em->getConnection();
+        self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM wh_item WHERE name = ?', [$name]), 'позиції без події немає');
+        self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM wh_activity WHERE subject_label = ?', [$name]), 'рядка журналу складу теж');
+    }
+
     public function testWorkerCannotWriteEvenIfHeGuessesTheUrl(): void
     {
         $item = $this->item();

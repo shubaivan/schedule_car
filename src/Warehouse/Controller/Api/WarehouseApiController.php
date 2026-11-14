@@ -3,6 +3,7 @@
 namespace App\Warehouse\Controller\Api;
 
 use App\Entity\TelegramUser;
+use App\Plan\EventStore\PlanEventRecorder;
 use App\Warehouse\Api\WarehousePresenter;
 use App\Warehouse\Entity\WhActivity;
 use App\Warehouse\Entity\WhDocument;
@@ -38,6 +39,7 @@ class WarehouseApiController extends AbstractWarehouseApiController
         private readonly WarehousePresenter $presenter,
         private readonly DocumentStore $documents,
         private readonly ActivityLog $activity,
+        private readonly PlanEventRecorder $events,
     ) {
     }
 
@@ -123,13 +125,16 @@ class WarehouseApiController extends AbstractWarehouseApiController
         $name = $document->getOriginalName();
 
         try {
-            $this->documents->remove($document, $this->me());
+            // Видалення, рядок журналу й FileRemoved — одна транзакція.
+            $this->events->transactional(function () use ($document, $owner, $name): void {
+                $this->documents->remove($document, $this->me());
+
+                if ($owner !== null) {
+                    $this->activity->recordStrict(ActivityAction::DocumentRemove, $owner, $this->me(), WhActivity::CHANNEL_ADMIN, $name);
+                }
+            });
         } catch (WarehouseException $e) {
             return $this->error($e->getMessage(), Response::HTTP_FORBIDDEN);
-        }
-
-        if ($owner !== null) {
-            $this->activity->record(ActivityAction::DocumentRemove, $owner, $this->me(), WhActivity::CHANNEL_ADMIN, $name);
         }
 
         return $this->json(['removed' => true]);

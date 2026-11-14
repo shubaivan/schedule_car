@@ -16,6 +16,7 @@ use App\Warehouse\Enum\ItemState;
 use App\Warehouse\Enum\MovementType;
 use App\Warehouse\Exception\WarehouseException;
 use DateTime;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 
@@ -59,6 +60,27 @@ class RecordMovement
         if ($lines === []) {
             throw new WarehouseException('Додайте хоча б одну позицію.');
         }
+
+        // Перевірка залишків і запис — одна транзакція під блокуванням позицій: дві
+        // паралельні відвантаження тієї самої позиції не виведуть залишок у мінус.
+        return $this->events->transactional(fn () => $this->write($type, $occurredAt, $from, $to, $lines, $by, $documentNumber, $supplier, $note));
+    }
+
+    /**
+     * @param list<array{item: WhItem, quantity: int, rate?: ?string}> $lines
+     */
+    private function write(
+        MovementType $type,
+        DateTime $occurredAt,
+        ?WhSite $from,
+        ?WhSite $to,
+        array $lines,
+        TelegramUser $by,
+        ?string $documentNumber,
+        ?Supplier $supplier,
+        ?string $note,
+    ): WhMovement {
+        $this->lock($lines);
 
         $movement = (new WhMovement())
             ->setType($type)
@@ -106,19 +128,16 @@ class RecordMovement
         }
 
         $this->em->persist($movement);
-
-        $this->events->transactional(function () use ($movement, $type, $from, $to, $by): void {
-            $this->em->flush();
-            $this->events->record(new StockMoved(
-                SubjectRef::of(SubjectType::WhMovement, (int) $movement->getId()),
-                $by->getId(),
-                movementType: $type->value,
-                title: $movement->getTitle(),
-                fromSiteId: $from?->getId(),
-                toSiteId: $to?->getId(),
-                itemIds: array_values(array_map(static fn (WhMovementLine $l) => (int) $l->getItem()->getId(), $movement->getLines()->toArray())),
-            ));
-        });
+        $this->em->flush();
+        $this->events->record(new StockMoved(
+            SubjectRef::of(SubjectType::WhMovement, (int) $movement->getId()),
+            $by->getId(),
+            movementType: $type->value,
+            title: $movement->getTitle(),
+            fromSiteId: $from?->getId(),
+            toSiteId: $to?->getId(),
+            itemIds: array_values(array_map(static fn (WhMovementLine $l) => (int) $l->getItem()->getId(), $movement->getLines()->toArray())),
+        ));
 
         $this->logger->info('warehouse: записано рух', [
             'movement' => $movement->getId(),
@@ -130,6 +149,45 @@ class RecordMovement
         ]);
 
         return $movement;
+    }
+
+    /**
+     * Рядки wh_item руху — FOR UPDATE у порядку id (без взаємних блокувань): паралельний
+     * рух тих самих позицій чекає на коміт цього, а потім бачить уже новий залишок.
+     * Поштучна позиція, яку той рух уже перевіз (місце чи стан у базі інші, ніж у
+     * пам'яті), — відмова «оновіть», а не рух з неправильного місця.
+     *
+     * @param list<array{item: WhItem, quantity: int, rate?: ?string}> $lines
+     */
+    private function lock(array $lines): void
+    {
+        $ids = array_values(array_unique(array_map(static fn (array $l) => (int) $l['item']->getId(), $lines)));
+        sort($ids);
+
+        if ($ids === []) {
+            return;
+        }
+
+        $rows = [];
+
+        foreach ($this->em->getConnection()->fetchAllAssociative('SELECT id, current_site_id, state FROM wh_item WHERE id IN (?) ORDER BY id FOR UPDATE', [$ids], [ArrayParameterType::INTEGER]) as $row) {
+            $rows[(int) $row['id']] = $row;
+        }
+
+        foreach ($lines as $line) {
+            $item = $line['item'];
+            $row = $rows[(int) $item->getId()] ?? null;
+
+            if ($row === null || ! $item->isUnit()) {
+                continue;
+            }
+
+            $site = $row['current_site_id'] !== null ? (int) $row['current_site_id'] : null;
+
+            if ($site !== $item->getCurrentSite()?->getId() || $row['state'] !== $item->getState()->value) {
+                throw new WarehouseException(sprintf('%s щойно перемістили іншим рухом — оновіть сторінку й перевірте, де воно зараз.', $item->getLabel()));
+            }
+        }
     }
 
     private function checkPlaces(MovementType $type, ?WhSite $from, ?WhSite $to): void
