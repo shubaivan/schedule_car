@@ -1,0 +1,19 @@
+# «План», потік S0 — ядро подій. Майже все зареєстровано автовайрингом
+# (PlanEventConsumer / SubjectProvider мають #[AutoconfigureTag]); тут — лише те,
+# що атрибутами не виразити.
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    # Рекордер тримає стан транзакції (глибину й відкладені події) — один на запит/воркер.
+    App\Plan\EventStore\PlanEventRecorder:
+        public: true
+
+    # Спільний шар суб'єктів — публічний API для інших потоків (S1 сповіщення, S4 пошук).
+    App\Plan\Subject\SubjectRegistry:
+        public: true
+
+    # Воркер (messenger:consume plan) і тести режиму «Плану» викликають його напряму.
+    App\Plan\EventStore\FanOutHandler:
+        public: true

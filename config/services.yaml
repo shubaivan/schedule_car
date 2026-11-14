@@ -1,6 +1,11 @@
 # This file is the entry point to configure your own services.
 # Files in the packages/ subdirectory configure your dependencies.
 
+# Конфіг кожного потоку «Плану» — у власному config/services/plan_<потік>.yaml,
+# щоб паралельні гілки не конфліктували в цьому файлі. Їх вантажить Kernel ПІСЛЯ
+# цього файлу (не `imports:` — ті йдуть першими, і `App\:` нижче перетер би
+# визначення потоку для класів із src/).
+
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
@@ -43,6 +48,13 @@ services:
             - '../src/Warehouse/Enum/'
             - '../src/Tasks/Entity/'
             - '../src/Tasks/Enum/'
+            # «План»: події, посилання на суб'єкт і сутності — значення, не сервіси.
+            - '../src/Plan/Event/'
+            - '../src/Plan/*/Entity/'
+            - '../src/Plan/Subject/SubjectRef.php'
+            - '../src/Plan/Subject/SubjectType.php'
+            - '../src/Plan/Access/PlanCapability.php'
+            - '../src/Plan/EventStore/FanOut.php'
             - '../src/Kernel.php'
 
     # Ключі Google Drive — рядки, автовайринг їх не підставить.
