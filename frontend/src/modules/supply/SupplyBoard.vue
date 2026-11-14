@@ -80,7 +80,6 @@ async function load(more = false) {
     loading.value = true
     try {
         const want = more ? page.value + 1 : 1
-        // Тихе оновлення (раз на 30 с) перечитує всі вже показані сторінки, щоб список не «схуд».
         const r = await api.requests(params(want))
         if (mine !== seq) return
         items.value = more ? [...items.value, ...r.items.filter((i) => !items.value.some((x) => x.id === i.id))] : r.items
@@ -128,12 +127,21 @@ function changed(r: SupplyRequest) {
 }
 
 let debounce: number | undefined
+/** Що ми самі поклали в ?q= — щоб не затерти поле, поки людина друкує далі. */
+let sentQ = q.value.trim()
 watch(q, (value) => {
     window.clearTimeout(debounce)
-    debounce = window.setTimeout(() => setQuery({ q: value.trim() }), 300)
+    debounce = window.setTimeout(() => {
+        sentQ = value.trim()
+        setQuery({ q: sentQ })
+    }, 300)
 })
 watch(() => [route.query.v, route.query.st, route.query.dep, route.query.q], () => {
-    if (str(route.query.q) !== q.value.trim()) q.value = str(route.query.q)
+    // ?q= змінився не від поля (Назад, посилання) — показуємо його в полі.
+    if (str(route.query.q) !== sentQ) {
+        sentQ = str(route.query.q)
+        q.value = sentQ
+    }
     load()
 })
 watch(openId, async (now) => {
@@ -145,6 +153,7 @@ watch(openId, async (now) => {
 let timer: number | undefined
 onMounted(() => {
     load()
+    // Тихе оновлення раз на 30 с — лише поки показана перша сторінка (інакше «Показати ще» б злетіло).
     timer = window.setInterval(() => !document.hidden && page.value === 1 && load(), 30000)
     window.addEventListener('keydown', onKey)
 })

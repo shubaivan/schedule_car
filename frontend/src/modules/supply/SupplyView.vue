@@ -53,7 +53,9 @@ const subject = reactive<FeedSubject & { can: SupplyFeedResponse['can'] }>({
     can: { comment: false, attach: false, removeFiles: false },
 })
 const feedReady = ref(false)
-const files = computed(() => subject.files as SupplyFile[])
+const chatRef = ref<InstanceType<typeof TaskChat> | null>(null)
+/** Документ, видалений у стрічці чи в панелі, ховаємо тут теж, поки тост дає шанс скасувати. */
+const files = computed(() => (subject.files as SupplyFile[]).filter((f) => !chatRef.value?.removingFile(f.id)))
 
 function applyFeed(f: SupplyFeedResponse) {
     // Статус змінився деінде (інший менеджер, директор у боті) — перечитуємо картку.
@@ -68,7 +70,7 @@ function applyFeed(f: SupplyFeedResponse) {
     }
     if (moved) onChatReload()
 }
-const feedApi = supplyFeed(Number(props.id), { onFeed: applyFeed })
+const feedApi = computed(() => supplyFeed(Number(props.id), { onFeed: applyFeed }))
 
 const canManage = computed(() => session.isManager())
 const transitions = computed(() => request.value?.allowedTransitions ?? [])
@@ -199,18 +201,10 @@ async function upload(e: Event) {
     }
 }
 
+/** Прибрати з панелі «Документи» — той самий шлях, що й 🗑 у стрічці (один тост, одне видалення). */
 function removeFile(file: SupplyFile) {
-    const kept = [...subject.files]
-    const keptMessages = [...subject.messages]
-    subject.files.splice(0, subject.files.length, ...kept.filter((f) => f.id !== file.id))
-    subject.messages.splice(0, subject.messages.length, ...keptMessages.filter((m) => !m.attachments.some((a) => a.id === file.id)))
-    undoable('Документ прибрано', {
-        undo: () => {
-            subject.files.splice(0, subject.files.length, ...kept)
-            subject.messages.splice(0, subject.messages.length, ...keptMessages)
-        },
-        commit: () => run(() => call<SupplyRequest>(`/api/supply/requests/${props.id}/attachments/${file.id}`, { method: 'DELETE', keepalive: true })),
-    })
+    const m = subject.messages.find((x) => x.attachments.some((a) => a.id === file.id))
+    if (m) chatRef.value?.remove(m)
 }
 
 // --- перегляд файлу: ?f= в адресі, «Назад» закриває ---
@@ -229,9 +223,19 @@ function onChatReload() {
     }).catch(() => undefined)
 }
 
-watch(() => props.id, () => {
+// Та сама сторінка, інша заявка (/supply/:id/full): стрічка й адаптер — уже нової заявки.
+watch(() => props.id, (id) => {
     feedReady.value = false
+    subject.id = Number(id)
+    subject.status = ''
+    subject.messages.splice(0)
+    subject.files.splice(0)
     load()
+})
+
+// ?f= на файл, якого немає (видалили, чуже посилання) — прибираємо з адреси, щоб не глушив клавіші.
+watch([() => route.query.f, feedReady, () => subject.files.length], () => {
+    if (feedReady.value && route.query.f && viewer.value === null) router.replace({ query: { ...route.query, f: undefined } })
 })
 onMounted(load)
 </script>
@@ -315,7 +319,7 @@ onMounted(load)
                     <button type="button" :class="{ on: tab === 'files' }" @click="tab = 'files'">📎 Документи · {{ files.length }}</button>
                 </div>
 
-                <TaskChat :task="subject" :meta="null" :api="feedApi" :hidden="tab !== 'chat'" @open="openFile" @reload="onChatReload" />
+                <TaskChat :key="subject.id" ref="chatRef" :task="subject" :meta="null" :api="feedApi" :hidden="tab !== 'chat'" @open="openFile" @reload="onChatReload" />
             </section>
 
             <aside class="t-side" :class="{ 'hide-mobile': tab === 'chat', open: sideOpen }">

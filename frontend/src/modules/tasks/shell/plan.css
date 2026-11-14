@@ -524,3 +524,6 @@ body.p-noscroll { overflow: hidden; }
 @media (max-width: 760px) {
     .p-staff-card .p-form-page { min-height: 100dvh; }
 }
+/* Картка відкрита праворуч — у списку лишаємо імʼя, відділ і роль. */
+.p-staff.split .t-table .hide-sm, .p-staff.split .t-table th:nth-child(5), .p-staff.split .t-table th:nth-child(6) { display: none; }
+.p-staff.split .t-table { table-layout: auto; }

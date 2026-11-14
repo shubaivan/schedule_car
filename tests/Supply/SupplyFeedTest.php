@@ -159,6 +159,20 @@ class SupplyFeedTest extends WebTestCase
         self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
     }
 
+    /** Невідповідний файл відмовляє ДО запису коментаря: повтор не дасть дубля. */
+    public function testBadFileRefusesWholeSendBeforeComment(): void
+    {
+        $worker = $this->user(SupplyRole::Worker);
+        $request = $this->request($worker);
+        $this->login($worker);
+
+        $this->client->request('POST', '/api/supply/requests/' . $request->getId() . '/feed', ['text' => 'Ось архів'], ['files' => [$this->upload('a.zip', "PK\x03\x04zip")]]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        $conn = self::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM supply_comment WHERE request_id = ?', [$request->getId()]));
+    }
+
     public function testEmptySendIsRefused(): void
     {
         $worker = $this->user(SupplyRole::Worker);

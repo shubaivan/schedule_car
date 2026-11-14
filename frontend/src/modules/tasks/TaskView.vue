@@ -114,6 +114,10 @@ async function move(to: string, note?: string) {
 }
 
 watch(() => props.id, load)
+// ?f= на файл, якого немає (видалили, чуже посилання) — прибираємо з адреси, щоб не глушив клавіші.
+watch([() => route.query.f, task], () => {
+    if (task.value && route.query.f && viewer.value === null) router.replace({ query: { ...route.query, f: undefined } })
+})
 onMounted(load)
 </script>
 

@@ -76,8 +76,11 @@ export function flushUndo(): void {
     }
 }
 
+/** ✕ на тості: сховати. Якщо дія чекала таймера — виконати її зараз (скасовує лише «Скасувати»). */
 export function dismiss(id: number): void {
+    const p = pending.get(id)
     drop(id)
+    if (p?.commit) void Promise.resolve(p.commit()).catch((e) => notify(e instanceof Error ? e.message : 'Не вдалося', { tone: 'error' }))
 }
 
 if (typeof window !== 'undefined') window.addEventListener('pagehide', flushUndo)

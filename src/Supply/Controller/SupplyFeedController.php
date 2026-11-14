@@ -59,9 +59,21 @@ class SupplyFeedController extends AbstractController
             return $this->error('Прикріпити файл можуть автор заявки й менеджер із постачання.', Response::HTTP_FORBIDDEN);
         }
 
+        // Ті самі перевірки, що в AttachFile, але до запису: інакше коментар збережеться
+        // (і піде в Telegram), а файл ні — і повтор надсилання дасть дубль.
         foreach ($files as $file) {
             if (! $file instanceof UploadedFile || ! $file->isValid()) {
                 return $this->error('Файл не долетів: ' . ($file instanceof UploadedFile ? $file->getErrorMessage() : 'порожній'));
+            }
+
+            $size = (int) $file->getSize();
+
+            if ($size === 0 || $size > AttachFile::MAX_SIZE) {
+                return $this->error(sprintf('«%s»: файл порожній або більший за %d МБ.', $file->getClientOriginalName(), AttachFile::MAX_SIZE / 1024 / 1024));
+            }
+
+            if (! in_array(strtolower((string) ($file->getMimeType() ?: $file->getClientMimeType())), AttachFile::ALLOWED_MIME, true)) {
+                return $this->error(sprintf('«%s»: приймаємо PDF, фото та документи Word/Excel.', $file->getClientOriginalName()));
             }
         }
 

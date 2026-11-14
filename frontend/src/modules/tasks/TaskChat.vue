@@ -212,9 +212,9 @@ async function poll(since?: number) {
     }
 }
 
-/** За часом, у межах секунди — за id (у заявки id синтетичні, з різних таблиць). */
+/** Порядок задачі — за id, як віддає сервер і як рахується межа «Нові повідомлення». */
 function sortFeed(task: FeedSubject) {
-    task.messages.sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt) || a.id - b.id)
+    task.messages.sort((a, b) => a.id - b.id)
 }
 
 function replaceAttachment(a: Attachment) {
@@ -482,7 +482,10 @@ onBeforeUnmount(() => {
     pending.value.forEach((p) => p.url && URL.revokeObjectURL(p.url))
 })
 
-defineExpose({ scrollDown })
+/** Чи документ зараз «видалено на екрані» (чекає таймера тосту) — щоб панель документів теж його сховала. */
+const removingFile = (fileId: number) => props.task.messages.some((m) => removing.value.has(m.id) && m.attachments.some((a) => a.id === fileId))
+
+defineExpose({ scrollDown, remove, removingFile })
 </script>
 
 <template>

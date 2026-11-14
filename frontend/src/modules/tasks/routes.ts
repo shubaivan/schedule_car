@@ -12,7 +12,7 @@ const SearchPage = () => import('./SearchPage.vue')
 
 const plan = { shell: 'plan' as const }
 
-export const taskRoutes: RouteRecordRaw[] = [
+export const tasksRoutes: RouteRecordRaw[] = [
     { path: '/tasks', name: 'tasks', component: TasksHome, meta: { ...plan, title: 'Огляд' } },
     // Розділений екран: дошка зліва, відкрита задача справа (на телефоні — на весь екран).
     { path: '/tasks/board/:id(\\d+)?', name: 'tasks-board', component: TaskBoard, meta: { ...plan, title: 'Угоди й задачі' } },
