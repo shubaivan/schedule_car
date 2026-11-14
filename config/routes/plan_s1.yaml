@@ -1,0 +1,6 @@
+# «План», потік S1 — API сповіщень (окремий файл, щоб потоки не конфліктували в routes.yaml).
+plan_notification_controllers:
+    resource:
+        path: ../../src/Plan/Notification/Controller/
+        namespace: App\Plan\Notification\Controller
+    type: attribute

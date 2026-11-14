@@ -2,6 +2,8 @@
 
 namespace App\Command;
 
+use App\Plan\Telegram\PlanBot;
+use App\Plan\Telegram\PlanBotMode;
 use App\Service\FleetSection;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Types\Command\BotCommand;
@@ -26,7 +28,7 @@ class BotMenuCommand extends Command
         'crm' => 'Вхід у CRM (для менеджерів)',
     ];
 
-    public function __construct(private Nutgram $bot, private FleetSection $fleet)
+    public function __construct(private Nutgram $bot, private FleetSection $fleet, private ?PlanBotMode $plan = null)
     {
         parent::__construct();
     }
@@ -40,6 +42,11 @@ class BotMenuCommand extends Command
         $list = $this->fleet->isEnabled()
             ? self::COMMANDS
             : array_diff_key(self::COMMANDS, ['avtopark' => null]);
+
+        // Бот «Плану» лише сповіщає — у нього свої три команди.
+        if ($this->plan?->enabled()) {
+            $list = PlanBot::COMMANDS;
+        }
 
         $commands = [];
         foreach ($list as $command => $description) {

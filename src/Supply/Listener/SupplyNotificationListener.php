@@ -11,6 +11,7 @@ use App\Plan\Event\PurchaseRemoved;
 use App\Plan\Event\StatusEvent;
 use App\Plan\Event\SubjectCreated;
 use App\Plan\EventStore\PlanEventConsumer;
+use App\Plan\Notification\TelegramGate;
 use App\Plan\Subject\SubjectType;
 use App\Supply\Entity\SupplyAttachment;
 use App\Supply\Entity\SupplyComment;
@@ -37,6 +38,7 @@ final class SupplyNotificationListener implements PlanEventConsumer
         private readonly SupplyNotifier $notifier,
         private readonly EntityManagerInterface $em,
         private readonly LoggerInterface $logger,
+        private readonly TelegramGate $gate,
     ) {
     }
 
@@ -54,7 +56,8 @@ final class SupplyNotificationListener implements PlanEventConsumer
             return;
         }
 
-        match (true) {
+        // Доставка в Telegram позначиться в notification.delivered_tg_at саме цієї події.
+        $this->gate->during($event, fn () => match (true) {
             $event instanceof SubjectCreated => $this->notifier->requestCreated($request),
             $event instanceof StatusEvent => $this->status($event, $request),
             $event instanceof CommentAdded => $this->comment($event),
@@ -64,7 +67,7 @@ final class SupplyNotificationListener implements PlanEventConsumer
             $event instanceof FileRemoved => $this->notifier->fileRemoved($request, $event->names[0] ?? 'файл'),
             // Мітка заявки (SubjectUpdated) і решта — без Telegram, як і раніше.
             default => null,
-        };
+        });
     }
 
     private function status(StatusEvent $event, SupplyRequest $request): void

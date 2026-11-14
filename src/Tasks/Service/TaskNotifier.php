@@ -3,6 +3,11 @@
 namespace App\Tasks\Service;
 
 use App\Entity\TelegramUser;
+use App\Plan\Notification\EventGroup;
+use App\Plan\Notification\TelegramGate;
+use App\Plan\Subject\SubjectRef;
+use App\Plan\Subject\SubjectRegistry;
+use App\Plan\Telegram\PlanBotMode;
 use App\Repository\TelegramUserRepository;
 use App\Tasks\Entity\Task;
 use App\Tasks\Entity\TaskMessage;
@@ -10,8 +15,6 @@ use App\Tasks\Enum\TaskStatus;
 use Psr\Log\LoggerInterface;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Properties\ParseMode;
-use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
-use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardMarkup;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Throwable;
@@ -22,9 +25,13 @@ use Throwable;
  *
  * Хто що отримує:
  * - нова задача → усі учасники, крім автора («вас додали»);
- * - повідомлення в чаті → усі учасники, крім автора; згаданим — окремо «🔔 вас згадали»;
- * - зміна статусу → учасники, крім того, хто змінив;
+ * - повідомлення в чаті → усі «в темі» (автор задачі, учасники, спостерігачі ★),
+ *   крім автора повідомлення; згаданим — замість цього «🔔 вас згадали»;
+ * - зміна статусу → усі «в темі», крім того, хто змінив;
  * - «На погодженні» → ще й усі, хто приймає рішення (директор, адмін).
+ *
+ * Перед кожним повідомленням — налаштування людини (TelegramGate: вимкнено,
+ * тихі години → без звуку). «В темі» — той самий SubjectRegistry, що й у центрі сповіщень.
  *
  * Пишемо лише тим, хто справді є в боті: службові записи з CRM
  * (telegram_id «staff-…», «demo-…») пропускаємо. Помилка доставки не валить
@@ -40,6 +47,8 @@ class TaskNotifier
         /** Порожній — бота на стенді ще нема: сповіщення мовчки пропускаємо. */
         #[Autowire('%env(string:TELEGRAM_TOKEN)%')]
         private ?string $token = null,
+        private ?TelegramGate $gate = null,
+        private ?SubjectRegistry $subjects = null,
     ) {
     }
 
@@ -52,7 +61,7 @@ class TaskNotifier
         }
 
         foreach ($this->members($task, except: $task->getCreator()) as $user) {
-            $this->send($user, $text, $task);
+            $this->send($user, $text, $task, EventGroup::Assigned);
         }
     }
 
@@ -63,7 +72,7 @@ class TaskNotifier
 
         foreach ($people as $user) {
             if ($user->getId() !== $by->getId()) {
-                $this->send($user, $text, $task);
+                $this->send($user, $text, $task, EventGroup::Assigned);
             }
         }
     }
@@ -81,9 +90,10 @@ class TaskNotifier
 
         $mentioned = $message->getMentions();
 
-        foreach ($this->members($task, except: $author) as $user) {
-            $title = in_array($user->getId(), $mentioned, true) ? '🔔 <b>Вас згадали</b>' : '💬 <b>Нове повідомлення</b>';
-            $this->send($user, sprintf("%s\n%s\n\n<b>%s:</b> %s", $title, $this->head($task), $this->e($author?->shortName() ?? '—'), $body), $task);
+        foreach ($this->involved($task, except: $author) as $user) {
+            $mention = in_array($user->getId(), $mentioned, true);
+            $title = $mention ? '🔔 <b>Вас згадали</b>' : '💬 <b>Нове повідомлення</b>';
+            $this->send($user, sprintf("%s\n%s\n\n<b>%s:</b> %s", $title, $this->head($task), $this->e($author?->shortName() ?? '—'), $body), $task, $mention ? EventGroup::Mention : EventGroup::Comment);
         }
     }
 
@@ -97,13 +107,15 @@ class TaskNotifier
             $text .= "\n«" . $this->e(trim($comment)) . '»';
         }
 
-        $recipients = $this->members($task, except: $by);
+        $recipients = $this->involved($task, except: $by);
+        $deciders = [];
 
         // На погодження — тим, хто вирішує, навіть якщо їх у задачі не позначили.
         if ($to === TaskStatus::Approval) {
             foreach ($this->users->findAll() as $user) {
                 if ($user->getWorkRole()->decides() && $user->getId() !== $by->getId() && ! $user->isArchived()) {
                     $recipients[$user->getId()] = $user;
+                    $deciders[$user->getId()] = true;
                 }
             }
 
@@ -111,7 +123,7 @@ class TaskNotifier
         }
 
         foreach ($recipients as $user) {
-            $this->send($user, $text, $task);
+            $this->send($user, $text, $task, isset($deciders[$user->getId()]) ? EventGroup::Approval : EventGroup::Status);
         }
     }
 
@@ -120,6 +132,33 @@ class TaskNotifier
     {
         return ! $user->isArchived() &&
             (ctype_digit((string) $user->getChatId()) || ctype_digit(ltrim((string) $user->getTelegramId(), '-')));
+    }
+
+    /**
+     * Усі «в темі» задачі: автор, учасники, спостерігачі ★ (як центр сповіщень).
+     * Без реєстру суб'єктів (юніт-тести) — лише учасники, як раніше.
+     *
+     * @return array<int, TelegramUser>
+     */
+    private function involved(Task $task, ?TelegramUser $except): array
+    {
+        $result = $this->members($task, $except);
+
+        if ($this->subjects === null || $task->getId() === null) {
+            return $result;
+        }
+
+        $ref = SubjectRef::task((int) $task->getId());
+        $ids = array_diff($this->subjects->audience($ref), array_keys($result), [$except?->getId()]);
+
+        // ★ лишається й після того, як людину прибрали з задачі, — пишемо лише тим, кому задачу ще видно.
+        foreach ($ids === [] ? [] : $this->users->findBy(['id' => array_values($ids)]) as $user) {
+            if ($user->isApproved() && ! $user->isArchived() && $this->subjects->visibleTo($ref, $user)) {
+                $result[(int) $user->getId()] = $user;
+            }
+        }
+
+        return $result;
     }
 
     /** @return array<int, TelegramUser> */
@@ -138,24 +177,29 @@ class TaskNotifier
         return $result;
     }
 
-    private function send(TelegramUser $user, string $text, Task $task): void
+    private function send(TelegramUser $user, string $text, Task $task, EventGroup $group): void
     {
         if ($this->token === '' || ! self::reachable($user)) {
             return;
         }
 
+        $silent = $this->gate !== null ? $this->gate->decide($user, $group) : false;
+
+        if ($silent === null) {
+            return;
+        }
+
         $url = $this->urls->generate('crm_index', ['path' => 'tasks/' . $task->getId()], UrlGeneratorInterface::ABSOLUTE_URL);
-        $markup = str_starts_with($url, 'https://')
-            ? InlineKeyboardMarkup::make()->addRow(InlineKeyboardButton::make('Відкрити задачу', url: $url))
-            : null;
 
         try {
             $this->bot->sendMessage(
                 text: $text,
                 chat_id: $user->getChatId() ?: $user->getTelegramId(),
                 parse_mode: ParseMode::HTML,
-                reply_markup: $markup,
+                disable_notification: $silent ?: null,
+                reply_markup: PlanBotMode::openButton($url),
             );
+            $this->gate?->delivered($user);
         } catch (Throwable $e) {
             $this->logger->warning('tasks: не вдалось надіслати сповіщення', ['user' => $user->getId(), 'task' => $task->getId(), 'error' => $e->getMessage()]);
         }

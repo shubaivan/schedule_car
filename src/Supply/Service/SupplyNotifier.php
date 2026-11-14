@@ -3,6 +3,9 @@
 namespace App\Supply\Service;
 
 use App\Entity\TelegramUser;
+use App\Plan\Notification\EventGroup;
+use App\Plan\Notification\TelegramGate;
+use App\Plan\Telegram\PlanBotMode;
 use App\Repository\TelegramUserRepository;
 use App\Service\TeamChat;
 use App\Supply\Entity\SupplyAttachment;
@@ -46,6 +49,8 @@ class SupplyNotifier
         private LoggerInterface $logger,
         private TeamChat $team,
         private UrlGeneratorInterface $urls,
+        private ?TelegramGate $gate = null,
+        private ?PlanBotMode $planBot = null,
     ) {
     }
 
@@ -55,6 +60,7 @@ class SupplyNotifier
             $request->getAuthor(),
             "✅ <b>Заявку прийнято</b>\n\n" . $this->formatter->card($request),
             $this->authorKeyboard($request),
+            EventGroup::Assigned,
         );
 
         // Заголовок однаковий для всіх заявок: терміновість рахується з дати,
@@ -63,7 +69,7 @@ class SupplyNotifier
         $managerText = "🆕 <b>Нова заявка</b>\n\n" . $this->formatter->card($request, forManager: true);
 
         foreach ($this->userRepository->findSupplyManagers() as $manager) {
-            $this->send($manager, $managerText, $this->keyboardFor($request, $manager));
+            $this->send($manager, $managerText, $this->keyboardFor($request, $manager), EventGroup::Assigned);
         }
 
         $this->toTeam($request, $managerText);
@@ -96,7 +102,7 @@ class SupplyNotifier
 
         // Сповіщаємо заявника; менеджер сам щойно натиснув кнопку.
         if ($log->getAuthor()?->getId() !== $author->getId()) {
-            $this->send($author, $text, $this->authorKeyboard($request));
+            $this->send($author, $text, $this->authorKeyboard($request), EventGroup::Status);
         }
 
         if ($log->getStatusTo() === SupplyStatus::Approval) {
@@ -158,7 +164,7 @@ class SupplyNotifier
                 continue;
             }
 
-            $this->send($manager, $text, $this->keyboardFor($request, $manager));
+            $this->send($manager, $text, $this->keyboardFor($request, $manager), EventGroup::Status);
         }
     }
 
@@ -187,7 +193,7 @@ class SupplyNotifier
         );
 
         foreach ($directors as $director) {
-            $this->send($director, $text, $this->keyboardFor($request, $director));
+            $this->send($director, $text, $this->keyboardFor($request, $director), EventGroup::Approval);
         }
     }
 
@@ -212,13 +218,13 @@ class SupplyNotifier
         // Писав заявник — сповіщаємо менеджерів; писав менеджер — сповіщаємо заявника.
         if ($author && $author->getId() === $request->getAuthor()->getId()) {
             foreach ($this->userRepository->findSupplyManagers() as $manager) {
-                $this->send($manager, $text, $this->keyboardFor($request, $manager));
+                $this->send($manager, $text, $this->keyboardFor($request, $manager), EventGroup::Comment);
             }
 
             return;
         }
 
-        $this->send($request->getAuthor(), $text, $this->authorKeyboard($request));
+        $this->send($request->getAuthor(), $text, $this->authorKeyboard($request), EventGroup::Comment);
     }
 
     /**
@@ -238,7 +244,7 @@ class SupplyNotifier
             $this->formatter->card($request),
         );
 
-        $this->send($request->getAuthor(), $text, $this->authorKeyboard($request));
+        $this->send($request->getAuthor(), $text, $this->authorKeyboard($request), EventGroup::Purchase);
         $this->toTeam($request, $text);
     }
 
@@ -258,7 +264,7 @@ class SupplyNotifier
             $this->formatter->card($request),
         );
 
-        $this->send($request->getAuthor(), $text, $this->authorKeyboard($request));
+        $this->send($request->getAuthor(), $text, $this->authorKeyboard($request), EventGroup::Purchase);
         $this->toTeam($request, $text);
     }
 
@@ -276,7 +282,7 @@ class SupplyNotifier
             $this->formatter->card($request),
         );
 
-        $this->send($request->getAuthor(), $text, $this->authorKeyboard($request));
+        $this->send($request->getAuthor(), $text, $this->authorKeyboard($request), EventGroup::Comment);
         $this->toTeam($request, $text);
     }
 
@@ -288,7 +294,7 @@ class SupplyNotifier
             $this->formatter->escape($name),
         );
 
-        $this->send($request->getAuthor(), $text, $this->authorKeyboard($request));
+        $this->send($request->getAuthor(), $text, $this->authorKeyboard($request), EventGroup::Comment);
         $this->toTeam($request, $text);
     }
 
@@ -310,7 +316,7 @@ class SupplyNotifier
         );
 
         foreach ($this->userRepository->findBySupplyRoles(SupplyRole::Manager) as $manager) {
-            $this->send($manager, $text, $this->keyboardFor($request, $manager));
+            $this->send($manager, $text, $this->keyboardFor($request, $manager), EventGroup::Status);
         }
     }
 
@@ -335,8 +341,12 @@ class SupplyNotifier
         return $user !== null ? "\n\n✍️ " . $this->formatter->escape($user->displayName()) : '';
     }
 
-    private function authorKeyboard(SupplyRequest $request): InlineKeyboardMarkup
+    private function authorKeyboard(SupplyRequest $request): ?InlineKeyboardMarkup
     {
+        if ($this->planBot?->enabled()) {
+            return $this->openButton($request);
+        }
+
         return InlineKeyboardMarkup::make()->addRow(
             InlineKeyboardButton::make('💬 Коментар', callback_data: SupplyCallback::comment((int) $request->getId())),
             InlineKeyboardButton::make('📋 Мої заявки', callback_data: SupplyCallback::MY_REQUESTS),
@@ -350,8 +360,13 @@ class SupplyNotifier
      * тож клавіатуру не можна зліпити з чистих allowedTransitions: директор
      * отримав би кнопки менеджера й тицяв у помилку.
      */
-    private function keyboardFor(SupplyRequest $request, TelegramUser $viewer): InlineKeyboardMarkup
+    private function keyboardFor(SupplyRequest $request, TelegramUser $viewer): ?InlineKeyboardMarkup
     {
+        // Бот «Плану» меню заявок не має — під повідомленням лише «Відкрити».
+        if ($this->planBot?->enabled()) {
+            return $this->openButton($request);
+        }
+
         $id = (int) $request->getId();
         $status = $request->getStatus();
         $role = $viewer->getSupplyRole();
@@ -390,7 +405,12 @@ class SupplyNotifier
         return $markup;
     }
 
-    private function send(TelegramUser $user, string $text, ?InlineKeyboardMarkup $markup = null): void
+    private function openButton(SupplyRequest $request): ?InlineKeyboardMarkup
+    {
+        return PlanBotMode::openButton($this->urls->generate('crm_index', ['path' => 'requests/' . $request->getId()], UrlGeneratorInterface::ABSOLUTE_URL));
+    }
+
+    private function send(TelegramUser $user, string $text, ?InlineKeyboardMarkup $markup, EventGroup $group): void
     {
         $chatId = $user->getChatId() ?: $user->getTelegramId();
 
@@ -400,13 +420,22 @@ class SupplyNotifier
             return;
         }
 
+        // Налаштування людини в «Плані»: група вимкнена — не шлемо; тихі години — без звуку.
+        $silent = $this->gate !== null ? $this->gate->decide($user, $group) : false;
+
+        if ($silent === null) {
+            return;
+        }
+
         try {
             $this->bot->sendMessage(
                 text: $text,
                 chat_id: $chatId,
                 parse_mode: ParseMode::HTML,
+                disable_notification: $silent ?: null,
                 reply_markup: $markup,
             );
+            $this->gate?->delivered($user);
         } catch (Throwable $e) {
             $this->logger->warning('supply: не вдалось надіслати сповіщення', [
                 'user' => $user->getId(),

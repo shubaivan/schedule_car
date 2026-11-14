@@ -11,6 +11,8 @@ use Doctrine\ORM\Mapping as ORM;
 /**
  * Рядок центру сповіщень: подія → людина. Таблицю створює S0, веде
  * NotificationFanout (S1); доставки в Telegram / Web Push позначаються тут же.
+ * event_group — група саме для цієї людини (одна подія: учаснику «статус»,
+ * директору «потрібне рішення»; згаданому — «вас згадали»).
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'notification')]
@@ -31,6 +33,9 @@ class Notification
     #[ORM\ManyToOne(targetEntity: PlanEventRow::class)]
     #[ORM\JoinColumn(name: 'event_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
     private PlanEventRow $event;
+
+    #[ORM\Column(name: 'event_group', type: Types::STRING, length: 16, options: ['default' => ''])]
+    private string $eventGroup = '';
 
     #[ORM\Column(name: 'created_at', type: Types::DATETIME_IMMUTABLE)]
     private DateTimeImmutable $createdAt;
@@ -64,6 +69,11 @@ class Notification
     public function getEvent(): PlanEventRow
     {
         return $this->event;
+    }
+
+    public function getEventGroup(): string
+    {
+        return $this->eventGroup;
     }
 
     public function getCreatedAt(): DateTimeImmutable
