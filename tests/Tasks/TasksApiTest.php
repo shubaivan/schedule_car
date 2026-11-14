@@ -166,6 +166,13 @@ class TasksApiTest extends WebTestCase
         $message = $this->json();
 
         [$image, $pdf] = $message['attachments'];
+
+        // Upload temp files are 0600; the stored original must stay readable for the group
+        // (CLI/worker as deploy: previews, Drive copies) — «План» 14.11.
+        $stored = glob(self::getContainer()->getParameter('kernel.project_dir') . '/var/storage/tasks/test/files/*/*/' . $image['id'] . '-*');
+        self::assertCount(1, $stored);
+        self::assertSame(0o660, fileperms($stored[0]) & 0o777);
+
         self::assertSame('image', $image['kind']);
         self::assertSame('ready', $image['preview']);
         self::assertSame(1400, $image['width']);

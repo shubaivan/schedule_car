@@ -71,7 +71,12 @@ class AttachmentStorage
             $ext !== '' && preg_match('/^[a-z0-9]{1,8}$/', $ext) ? '.' . $ext : '',
         );
 
-        $this->fs->copy($sourcePath, $this->root . '/' . $relative, true);
+        $target = $this->root . '/' . $relative;
+        $this->fs->copy($sourcePath, $target, true);
+        // copy() keeps the source mode, and PHP upload temp files are 0600: FPM (www-data)
+        // would own a file the CLI/worker (deploy) cannot read — previews and Drive copies
+        // then fail with "file missing". Group www-data reads and writes, others do not.
+        $this->fs->chmod($target, 0o660);
         $attachment->setPath($relative);
     }
 
