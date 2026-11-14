@@ -32,7 +32,7 @@ class AttachFile
     /** 20 МБ — стеля Telegram на завантаження файлу ботом; тримаємо єдину для всіх каналів. */
     public const MAX_SIZE = 20 * 1024 * 1024;
 
-    private const ALLOWED_MIME = [
+    public const ALLOWED_MIME = [
         'application/pdf',
         'image/jpeg',
         'image/png',

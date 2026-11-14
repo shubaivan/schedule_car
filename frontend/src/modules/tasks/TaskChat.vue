@@ -3,20 +3,24 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import Avatar from './Avatar.vue'
 import MessageBubble from './MessageBubble.vue'
-import { tasksApi, type Attachment, type Message, type Person, type TaskDetail, type TasksMeta } from './api'
+import type { Attachment, Message, Person, TasksMeta } from './api'
 import { dayLabel, fileSize, time } from './format'
 import { extClass } from './files'
 import { useTasks } from './store'
-import { TASK_SAVED } from './shell/nav'
+import { taskFeed, type FeedApi, type FeedSubject } from './feedApi'
 import { useSession } from '../../app/store'
+import { flushUndo, undoable } from '../../plan/undo'
 import './feed.css'
 
 /**
  * Стрічка задачі й поле вводу. Опитує сервер раз на кілька секунд: нові
  * повідомлення, правки/видалення/закріплення старих, готові превʼю, хто що прочитав.
  * Об'єкт задачі — від батька (TaskView), стрічку ми доповнюємо на місці.
+ *
+ * Той самий чат малює й заявку: api — адаптер стрічки (taskFeed / supplyFeed),
+ * task — будь-що з полями FeedSubject. Видалення — з тостом «Скасувати», без вікна підтвердження.
  */
-const props = defineProps<{ task: TaskDetail; meta: TasksMeta | null; hidden?: boolean }>()
+const props = defineProps<{ task: FeedSubject; meta: TasksMeta | null; hidden?: boolean; api?: FeedApi }>()
 const emit = defineEmits<{ open: [fileId: number]; reload: [] }>()
 
 const session = useSession()
@@ -41,8 +45,13 @@ const pinIndex = ref(0)
 const unreadFrom = ref<number | null>(null)
 let changedSince: string | null = null
 
-const messages = computed(() => props.task.messages)
-const lastId = computed(() => messages.value.reduce((m, x) => Math.max(m, x.id), 0))
+const feedApi = computed<FeedApi>(() => props.api ?? taskFeed(props.task.id))
+const features = computed(() => feedApi.value.features)
+/** Повідомлення, видалені «на екрані», поки тост дає шанс скасувати. */
+const removing = ref(new Set<number>())
+
+const messages = computed(() => props.task.messages.filter((m) => !removing.value.has(m.id)))
+const lastId = computed(() => props.task.messages.reduce((m, x) => Math.max(m, x.id), 0))
 const pinned = computed(() =>
     messages.value.filter((m) => m.pinned && !m.deleted).sort((a, b) => (b.pinned!.at > a.pinned!.at ? 1 : -1)),
 )
@@ -91,7 +100,7 @@ const feed = computed(() => {
 })
 
 const mentionList = computed<Person[]>(() => {
-    if (mentionQuery.value === null || !props.meta) return []
+    if (mentionQuery.value === null || !props.meta || !features.value.mentions) return []
     const q = mentionQuery.value.toLowerCase()
     return props.meta.people.filter((p) => p.name.toLowerCase().includes(q)).slice(0, 7)
 })
@@ -173,29 +182,39 @@ async function poll(since?: number) {
     const task = props.task
     const waiting = task.files.filter((f) => f.preview === 'pending').map((f) => f.id)
     try {
-        const r = await tasksApi.poll(task.id, since ?? lastId.value, waiting, changedSince)
+        const r = await feedApi.value.poll(since ?? lastId.value, waiting, changedSince)
         if (task !== props.task) return
         changedSince = r.now
         const stick = nearBottom()
-        if (r.messages.length) {
-            const known = new Set(messages.value.map((m) => m.id))
+        const before = task.messages.length
+        if (r.full) {
+            // Уся стрічка (заявка): беремо як є — зникле на сервері зникає й тут.
+            task.messages.splice(0, task.messages.length, ...r.messages)
+            if (r.files) task.files.splice(0, task.files.length, ...r.files)
+        } else if (r.messages.length) {
+            const known = new Set(task.messages.map((m) => m.id))
             const fresh = r.messages.filter((m) => !known.has(m.id))
             task.messages.push(...fresh)
             for (const m of fresh) task.files.push(...m.attachments)
             // Колега написав між нашими опитуваннями й нашим повідомленням — ставимо на своє місце.
-            if (fresh.length) task.messages.sort((a, b) => a.id - b.id)
+            if (fresh.length) sortFeed(task)
         }
         for (const m of r.changed) replace(m)
         for (const a of r.attachments) replaceAttachment(a)
         task.reads = r.reads
         if (r.status !== task.status) emit('reload')
-        if (r.messages.length && stick) {
+        if (task.messages.length > before && stick) {
             await nextTick()
             scrollDown(true)
         }
     } catch {
         /* мережа моргнула — наступна спроба за кілька секунд */
     }
+}
+
+/** Порядок задачі — за id, як віддає сервер і як рахується межа «Нові повідомлення». */
+function sortFeed(task: FeedSubject) {
+    task.messages.sort((a, b) => a.id - b.id)
 }
 
 function replaceAttachment(a: Attachment) {
@@ -232,8 +251,9 @@ function cancelCompose() {
 }
 
 async function togglePin(m: Message) {
+    if (!feedApi.value.pin) return
     try {
-        replace(await tasksApi.pinMessage(props.task.id, m.id, !m.pinned))
+        replace(await feedApi.value.pin(m.id, !m.pinned))
         pinIndex.value = 0
     } catch (e) {
         error.value = session.handle(e)
@@ -241,20 +261,48 @@ async function togglePin(m: Message) {
 }
 
 async function toggleStar(m: Message) {
+    if (!feedApi.value.star) return
     try {
-        replace(await tasksApi.starMessage(props.task.id, m.id, !m.starred))
+        replace(await feedApi.value.star(m.id, !m.starred))
     } catch (e) {
         error.value = session.handle(e)
     }
 }
 
-async function remove(m: Message) {
-    if (!confirm('Видалити повідомлення?')) return
-    try {
-        replace(await tasksApi.deleteMessage(props.task.id, m.id))
-    } catch (e) {
-        error.value = session.handle(e)
+/**
+ * Видалення без вікна підтвердження: повідомлення одразу зникає, 8 секунд тост «Скасувати»,
+ * і лише потім запит на сервер. Пішли зі сторінки раніше — запит іде одразу.
+ */
+function remove(m: Message) {
+    const api = feedApi.value
+    if (!api.remove) return
+    const task = props.task
+    removing.value = new Set([...removing.value, m.id])
+    const unhide = () => {
+        const next = new Set(removing.value)
+        next.delete(m.id)
+        removing.value = next
     }
+    undoable(api.removedText ?? 'Видалено', {
+        undo: unhide,
+        commit: async () => {
+            try {
+                const updated = await api.remove!(m)
+                if (task !== props.task) return
+                if (updated) replace(updated)
+                else {
+                    const i = task.messages.findIndex((x) => x.id === m.id)
+                    if (i >= 0) task.messages.splice(i, 1)
+                    const ids = new Set(m.attachments.map((a) => a.id))
+                    task.files.splice(0, task.files.length, ...task.files.filter((f) => !ids.has(f.id)))
+                }
+            } catch (e) {
+                error.value = session.handle(e)
+            } finally {
+                unhide()
+            }
+        },
+    })
 }
 
 // --- надсилання ---
@@ -300,7 +348,8 @@ async function send() {
     if (editing.value) {
         sending.value = true
         try {
-            replace(await tasksApi.editMessage(task.id, editing.value.id, text.value))
+            if (!feedApi.value.edit) return
+            replace(await feedApi.value.edit(editing.value.id, text.value))
             editing.value = null
             text.value = ''
             await nextTick()
@@ -321,14 +370,23 @@ async function send() {
             return p && text.value.includes('@' + p.name)
         })
         const before = lastId.value
-        const message = await tasksApi.post(task.id, text.value, pending.value.map((p) => p.file), used, replyTo.value?.id)
-        if (!task.messages.some((m) => m.id === message.id)) {
-            task.messages.push(message)
-            task.files.push(...message.attachments)
+        const posted = await feedApi.value.post(text.value, pending.value.map((p) => p.file), used, replyTo.value?.id)
+        if (feedApi.value.fullFeed) {
+            // Сервер віддав усю стрічку у своєму порядку (заявка) — беремо як є.
+            task.messages.splice(0, task.messages.length, ...posted)
+            task.files.splice(0, task.files.length, ...posted.flatMap((m) => m.attachments))
+        } else {
+            const known = new Set(task.messages.map((m) => m.id))
+            for (const message of posted) {
+                if (known.has(message.id)) continue
+                task.messages.push(message)
+                task.files.push(...message.attachments)
+            }
+            sortFeed(task)
         }
         // Інакше чуже повідомлення, що прийшло між опитуванням і нашим, загубилося б: lastId уже наш.
-        if (message.id > before + 1) void poll(before)
-        window.dispatchEvent(new Event(TASK_SAVED))
+        if (posted.length === 1 && posted[0].id > before + 1) void poll(before)
+        feedApi.value.onSaved?.()
         text.value = ''
         mentions.value = []
         replyTo.value = null
@@ -387,7 +445,7 @@ function onKey(e: KeyboardEvent) {
         return
     }
     // ↑ у порожньому полі — змінити своє останнє повідомлення (як у Telegram).
-    if (e.key === 'ArrowUp' && !text.value && !editing.value) {
+    if (e.key === 'ArrowUp' && !text.value && !editing.value && feedApi.value.edit) {
         const mine = [...messages.value].reverse().find((m) => m.can?.edit && m.text)
         if (mine) {
             e.preventDefault()
@@ -407,6 +465,7 @@ function opened() {
     replyTo.value = null
     editing.value = null
     pinIndex.value = 0
+    removing.value = new Set()
     scrollInitial()
 }
 
@@ -414,14 +473,19 @@ watch(() => props.task.id, opened)
 
 onMounted(() => {
     opened()
-    timer = window.setInterval(poll, 4000)
+    timer = window.setInterval(poll, feedApi.value.intervalMs ?? 4000)
 })
 onBeforeUnmount(() => {
     window.clearInterval(timer)
+    // Видалене «на екрані» не повинно ожити: пішли з задачі — запит іде одразу.
+    flushUndo()
     pending.value.forEach((p) => p.url && URL.revokeObjectURL(p.url))
 })
 
-defineExpose({ scrollDown })
+/** Чи документ зараз «видалено на екрані» (чекає таймера тосту) — щоб панель документів теж його сховала. */
+const removingFile = (fileId: number) => props.task.messages.some((m) => removing.value.has(m.id) && m.attachments.some((a) => a.id === fileId))
+
+defineExpose({ scrollDown, remove, removingFile })
 </script>
 
 <template>
@@ -455,6 +519,7 @@ defineExpose({ scrollDown })
                 :cont="row.cont"
                 :readers="readersOf(row.m)"
                 :highlighted="highlighted === row.m.id"
+                :features="features"
                 @reply="startReply"
                 @edit="startEdit"
                 @pin="togglePin"
@@ -493,7 +558,7 @@ defineExpose({ scrollDown })
             </div>
         </div>
         <div class="t-composer-row">
-            <label v-if="!editing" class="t-btn ghost icon" title="Додати файли">
+            <label v-if="!editing && task.can.attach !== false" class="t-btn ghost icon" title="Додати файли">
                 📎<input type="file" multiple hidden @change="pick" />
             </label>
             <textarea
@@ -501,7 +566,7 @@ defineExpose({ scrollDown })
                 v-model="text"
                 class="t-textarea"
                 rows="1"
-                placeholder="Повідомлення…"
+                :placeholder="feedApi.placeholder ?? 'Повідомлення…'"
                 @input="onInput"
                 @keydown="onKey"
                 @paste="onPaste"

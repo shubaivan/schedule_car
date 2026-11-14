@@ -3,7 +3,7 @@ import { computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSession } from './app/store'
 import PlanShell from './modules/tasks/shell/PlanShell.vue'
-import { CHRONICLE_ROUTE, SEARCH_ROUTE } from './modules/tasks/shell/nav'
+import UndoToast from './plan/UndoToast.vue'
 import './modules/tasks/tasks.css'
 import './modules/tasks/shell/plan.css'
 
@@ -30,14 +30,18 @@ const allowed = computed(() => {
     return session.isManager() || !MANAGER_ROUTES.includes(name)
 })
 
-/** Розділ, у якому людина зараз: від нього залежить нижній ряд меню. */
+/** «План» відкривається з задач (CRM_HOME=tasks) — тоді й заявки живуть у його оболонці. */
+const planHome = computed(() => session.user?.home === 'tasks')
+
+/**
+ * Розділ, у якому людина зараз: оболонка «Плану» (meta.shell у маршрутах модулів)
+ * або стара шапка заявок / автопарку, як на стендах заявок.
+ */
 const FLEET_SECTION = ['schedule', 'fleet']
-const TASKS_SECTION = ['tasks', 'tasks-board', 'task', 'task-full', 'staff', 'tasks-profile', CHRONICLE_ROUTE, SEARCH_ROUTE]
 const section = computed(() => {
-    const name = String(route.name)
-    // meta.shell = 'plan' — сторінки «Плану» з інших модулів (аудит, сповіщення…) живуть в оболонці «Плану».
-    if (TASKS_SECTION.includes(name) || route.meta.shell === 'plan') return 'tasks'
-    return FLEET_SECTION.includes(name) ? 'fleet' : 'requests'
+    const shell = route.meta.shell
+    if (shell === 'plan' || (shell === 'auto' && planHome.value)) return 'tasks'
+    return FLEET_SECTION.includes(String(route.name)) ? 'fleet' : 'requests'
 })
 const wide = computed(() => section.value === 'tasks')
 
@@ -45,14 +49,18 @@ const wide = computed(() => section.value === 'tasks')
 // сесію, що скінчилась, store обробляє сам (expired).
 onMounted(() => session.load().catch((e) => console.warn('session.load', e)))
 
-// CRM_HOME=tasks: стенд «робочого місця» відкривається з задач, а не з заявок.
+// CRM_HOME=tasks: стенд «робочого місця» відкривається з задач, а не з заявок;
+// старе посилання на заявку (з бота, з групи) відкриває її в «Плані» праворуч від списку.
 watch(
-    () => session.ready,
-    (ready) => {
-        if (ready && session.user?.home === 'tasks' && route.name === 'requests' && route.path === '/') {
-            router.replace({ name: 'tasks' })
+    () => [session.ready, route.name] as const,
+    ([ready]) => {
+        if (!ready || !planHome.value) return
+        if (route.name === 'requests' && route.path === '/') router.replace({ name: 'tasks' })
+        else if (route.name === 'request' && /^\d+$/.test(String(route.params.id))) {
+            router.replace({ name: 'supply-board', params: { id: String(route.params.id) } })
         }
     },
+    { immediate: true },
 )
 </script>
 
@@ -70,6 +78,9 @@ watch(
         <PlanShell v-else-if="section === 'tasks'">
             <router-view />
         </PlanShell>
+
+        <!-- «План»: старе посилання на заявку зараз переадресується — стару картку не показуємо навіть на мить. -->
+        <div v-else-if="planHome && route.name === 'request'" class="center">Завантаження…</div>
 
         <template v-else>
             <!--
@@ -109,5 +120,7 @@ watch(
             <router-view v-if="allowed" />
             <div v-else class="center">Цей розділ ведуть менеджери з постачання.</div>
         </template>
+
+        <UndoToast />
     </div>
 </template>

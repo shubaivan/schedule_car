@@ -469,8 +469,8 @@ body.p-noscroll { overflow: hidden; }
     .p-thead-people { display: none; }
     .p-shell .t-page:not(.p-embedded) .t-task-main { height: auto; }
 
-    .p-form-wrap { padding: 0; align-items: stretch; }
-    .p-form { max-width: none; min-height: 100dvh; border-radius: 0; }
+    .p-formpage { margin: 0; }
+    .p-form { max-width: none; min-height: 100dvh; border-radius: 0; border: 0; box-shadow: none; }
     .p-form footer { position: sticky; bottom: 0; background: var(--surface); padding-bottom: calc(10px + env(safe-area-inset-bottom)); flex-wrap: wrap; }
     .p-form .p-hint-keys { display: none; }
     .p-form footer .p-btn.ghost { display: none; }
@@ -493,7 +493,41 @@ body.p-noscroll { overflow: hidden; }
 /* ---------- дзвіночок сповіщень (S1) ---------- */
 .p-icon-btn.p-mtop-bell { position: relative; }
 .p-icon-btn.p-mtop-bell .p-badge { top: -2px; right: -4px; }
-@media (max-width: 760px) {
-    .p-mtop .p-icon-btn.p-mtop-bell { margin-left: auto; }
-    .p-mtop .p-icon-btn.p-mtop-bell + .p-icon-btn { margin-left: 0; }
+
+/* ---------- оболонка одного продукту (S2) ---------- */
+.p-rail { overflow-y: auto; scrollbar-width: none; }
+.p-rail-btn span { font-size: 10px; }
+@media (max-height: 760px) and (min-width: 761px) {
+    .p-rail-btn span { display: none; }
 }
+@media (max-width: 760px) {
+    .p-tabbar a.p-tab-new { justify-self: center; width: 46px; height: 46px; padding: 0; border-radius: 15px; background: var(--accent); color: #fff; flex-direction: row; justify-content: center; }
+    .p-mtop .p-mtop-2 { margin-left: 0; }
+}
+
+/* Сторінки-вікна: форма задачі/заявки/співробітника — посередині, без затемнення. */
+.p-formpage { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+.p-form-page { border: 1px solid var(--border); box-shadow: var(--t-shadow); }
+.p-form-page header { justify-content: flex-start; gap: 8px; }
+.p-form-page header h2 { flex: 1; }
+.p-form-back { display: none; }
+@media (max-width: 760px) {
+    .p-form-back { display: inline-flex; margin-left: -6px; }
+    .p-form-x { display: none; }
+    .p-form-page header { position: sticky; top: 0; z-index: 5; background: var(--surface); padding-top: calc(12px + env(safe-area-inset-top)); }
+}
+.p-moves { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 4px 0 2px; }
+.p-moves .p-chip .dot { background: none; box-shadow: inset 0 0 0 8px currentColor; }
+.p-banner { margin: 6px 12px 0; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.p-staff.split > .p-split-left { flex-basis: min(560px, 48%); }
+.p-staff-card { flex: 1; min-width: 0; overflow-y: auto; }
+.p-staff-card .p-form-page { max-width: none; }
+.p-fieldset { border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .9rem; min-width: 0; }
+.p-staff-name { color: var(--text); }
+.p-staff-name.sel b { color: var(--accent); }
+@media (max-width: 760px) {
+    .p-staff-card .p-form-page { min-height: 100dvh; }
+}
+/* Картка відкрита праворуч — у списку лишаємо імʼя, відділ і роль. */
+.p-staff.split .t-table .hide-sm, .p-staff.split .t-table th:nth-child(5), .p-staff.split .t-table th:nth-child(6) { display: none; }
+.p-staff.split .t-table { table-layout: auto; }

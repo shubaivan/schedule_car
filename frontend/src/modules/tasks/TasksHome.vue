@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
-import TaskForm from './TaskForm.vue'
 import TaskRow from './TaskRow.vue'
 import { tasksApi, type Dashboard } from './api'
 import { today } from './format'
@@ -12,7 +11,6 @@ const session = useSession()
 const store = useTasks()
 const data = ref<Dashboard | null>(null)
 const error = ref('')
-const creating = ref(false)
 let timer: number | undefined
 
 async function load() {
@@ -43,7 +41,7 @@ onBeforeUnmount(() => window.clearInterval(timer))
                 <h1>{{ hello() }}, {{ store.meta?.me.name.split(' ')[0] ?? session.user?.firstName }}</h1>
                 <div class="t-sub">{{ today() }} · {{ store.meta?.me.position ?? store.meta?.me.roleLabel }}<template v-if="store.meta?.me.department"> · {{ store.meta?.me.department }}</template></div>
             </div>
-            <button type="button" class="t-btn primary" @click="creating = true">＋ Нова задача</button>
+            <router-link :to="{ name: 'tasks-new' }" class="t-btn primary">＋ Нова задача</router-link>
         </div>
 
         <div v-if="error" class="t-error">{{ error }}</div>
@@ -87,6 +85,5 @@ onBeforeUnmount(() => window.clearInterval(timer))
             </div>
         </template>
 
-        <TaskForm v-if="creating" @close="creating = false" />
     </div>
 </template>

@@ -1,0 +1,34 @@
+/* Заявки в оболонці «Плану»: ті самі картки й розділений екран, що й у задач. */
+.p-supply .p-supply-left > .p-chips { flex: none; }
+.p-supply-filters { display: flex; gap: 8px; flex-wrap: wrap; }
+.p-supply-filters select { height: 34px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); padding: 0 8px; font: inherit; font-size: 13.5px; max-width: 100%; }
+.p-supply-list { flex: 1; min-height: 0; }
+.p-supply:not(.split) .p-supply-list .p-col-body { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); align-content: start; }
+.p-supply:not(.split) .p-supply-list .p-more-btn, .p-supply:not(.split) .p-supply-list .p-empty { grid-column: 1 / -1; }
+.p-supply-row .client { white-space: nowrap; }
+.p-urgent { color: var(--rose); font-weight: 700; font-size: 11.5px; text-transform: uppercase; letter-spacing: .03em; }
+.p-more-btn { align-self: center; margin: 6px auto; }
+
+.p-supply-view .p-reject { display: flex; flex-direction: column; gap: 6px; padding: 6px 0 2px; }
+.p-purchase { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; display: flex; flex-direction: column; gap: 2px; }
+.p-purchase:last-of-type { border-bottom: 0; }
+.p-purchase .p-link { align-self: flex-start; font-size: 12.5px; }
+.p-link.danger { color: var(--danger); }
+.p-purchase-form { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; }
+.p-check { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; }
+.p-docs { display: flex; flex-direction: column; gap: 10px; }
+.p-doc { display: flex; gap: 10px; align-items: flex-start; min-width: 0; }
+.p-doc-open { flex: none; width: 56px; height: 56px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); background: var(--surface-2); padding: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.p-doc-open img { width: 100%; height: 100%; object-fit: cover; }
+.p-doc-open .ico { font-size: 11px; font-weight: 800; }
+.p-doc-info { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.p-doc-name { border: 0; background: none; padding: 0; text-align: left; font: 600 13.5px/1.3 inherit; color: var(--text); cursor: pointer; overflow-wrap: anywhere; }
+.p-doc-name:hover { color: var(--accent); }
+.p-upload { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+.p-upload .t-select { width: auto; }
+@media (max-width: 760px) {
+    .p-supply-filters select { flex: 1 1 140px; font-size: 16px; height: 38px; }
+    .p-supply:not(.split) .p-supply-list .p-col-body { display: flex; }
+    .p-supply .p-col.on { display: flex; }
+}
+.p-accent { margin-right: 6px; }

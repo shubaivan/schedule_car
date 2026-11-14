@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
+import { useHistoryLayer } from '../../plan/useHistoryLayer'
 import AvatarStack from './AvatarStack.vue'
 import Icon from './shell/Icon.vue'
 import { dueLabel, STATUS_TONE } from './format'
@@ -9,13 +11,16 @@ import type { TaskDetail } from './api'
  * Шапка задачі в два рядки (як у ПланФіксі): «№ · контрагент» → назва;
  * далі статус-кнопка зі списком переходів, термін, відділи, учасники.
  * Рішення директора — окремою жовтою смугою (наш плюс, лишаємо).
+ * Переходи статусу розкриваються рядком прямо в шапці (не спливаюче меню поверх сторінки).
  */
 const props = defineProps<{ task: TaskDetail; embedded?: boolean; moving?: boolean; sideOpen?: boolean }>()
 const emit = defineEmits<{ move: [to: string, note?: string]; edit: []; close: []; side: []; favorite: [] }>()
 
+const route = useRoute()
 const menu = ref(false)
+// Телефон: «Назад» спершу згортає рядок статусів.
+useHistoryLayer(menu)
 const note = ref('')
-const root = ref<HTMLElement | null>(null)
 
 const transitions = computed(() => props.task.can.transitions)
 const decisions = computed(() => transitions.value.filter((t) => t.decision))
@@ -32,32 +37,23 @@ function decide(to: string) {
     note.value = ''
 }
 
-function outside(e: MouseEvent) {
-    if (menu.value && root.value && !root.value.querySelector('.p-status')?.contains(e.target as Node)) menu.value = false
-}
-/** Esc спершу закриває меню статусу й бічну панель, а не всю задачу. */
+/** Esc спершу згортає рядок статусів і бічну панель, а не всю задачу. */
 function esc(e: KeyboardEvent) {
-    if (e.key !== 'Escape') return
+    if (e.key !== 'Escape' || route.query.f) return
     if (menu.value) {
         menu.value = false
         e.preventDefault()
-    } else if (props.sideOpen && !document.querySelector('.t-modal-wrap, .t-viewer')) {
+    } else if (props.sideOpen) {
         emit('side')
         e.preventDefault()
     }
 }
-onMounted(() => {
-    document.addEventListener('click', outside)
-    window.addEventListener('keydown', esc, true)
-})
-onBeforeUnmount(() => {
-    document.removeEventListener('click', outside)
-    window.removeEventListener('keydown', esc, true)
-})
+onMounted(() => window.addEventListener('keydown', esc, true))
+onBeforeUnmount(() => window.removeEventListener('keydown', esc, true))
 </script>
 
 <template>
-    <div ref="root" class="p-thead">
+    <div class="p-thead">
         <div class="p-thead-top">
             <button v-if="embedded" type="button" class="p-icon-btn p-back" title="Назад (Esc)" aria-label="Назад" @click="emit('close')"><Icon name="back" /></button>
             <router-link v-else :to="{ name: 'tasks-board' }" class="p-icon-btn p-back" title="До дошки" aria-label="До дошки"><Icon name="back" /></router-link>
@@ -87,11 +83,6 @@ onBeforeUnmount(() => {
                 >
                     {{ task.statusLabel }}<Icon v-if="moves.length" name="down" :size="14" :stroke="2.2" />
                 </button>
-                <div v-if="menu" class="p-menu" role="menu">
-                    <button v-for="t in moves" :key="t.value" type="button" role="menuitem" @click="go(t.value)">
-                        <span class="dot" :class="'tone-' + (STATUS_TONE[t.value] ?? 'slate')" />{{ t.action }}
-                    </button>
-                </div>
             </div>
             <span v-if="task.dueAt" class="p-due" :class="{ over: task.overdue && !task.closed }" :title="new Date(task.dueAt).toLocaleDateString('uk-UA')">
                 <Icon name="clock" :size="14" :stroke="2" />{{ dueLabel(task.dueAt) }}
@@ -99,6 +90,13 @@ onBeforeUnmount(() => {
             <span v-for="d in task.departments" :key="d.id" class="p-dep">[{{ d.name }}]</span>
             <span v-for="l in task.labels" :key="l.id" class="p-lbl" :title="l.name"><span class="dot" :style="{ background: l.color }" />{{ l.name }}</span>
             <AvatarStack class="p-thead-people" :people="task.members" :max="5" :size="24" />
+        </div>
+
+        <div v-if="menu" class="p-moves" role="group" aria-label="Змінити статус">
+            <button v-for="t in moves" :key="t.value" type="button" class="p-chip" @click="go(t.value)">
+                <span class="dot" :class="'tone-' + (STATUS_TONE[t.value] ?? 'slate')" />{{ t.action }}
+            </button>
+            <button type="button" class="p-link" @click="menu = false">Згорнути</button>
         </div>
 
         <div v-if="decisions.length" class="t-decision">
