@@ -278,6 +278,32 @@ class TasksApiTest extends WebTestCase
         self::assertContains($leaving->getId(), array_column($this->get('/api/staff')['items'], 'id'));
     }
 
+    public function testStaleTaskStatusIsRejectedUnderRowLock(): void
+    {
+        $manager = $this->user(WorkRole::Manager, 'mgr');
+        $director = $this->user(WorkRole::Director, 'dir');
+        $this->login($manager);
+        $id = $this->send('POST', '/api/tasks', ['title' => 'Дві кнопки одночасно'])['id'];
+        $this->send('POST', '/api/tasks/' . $id . '/status', ['to' => 'approval']);
+        self::assertResponseIsSuccessful();
+
+        $task = $this->em->find(\App\Tasks\Entity\Task::class, $id);
+        self::assertSame('approval', $task->getStatus()->value);
+        // Інший директор уже відхилив (інший запит): у базі rejected, у пам'яті — approval.
+        $this->em->getConnection()->executeStatement("UPDATE task SET status = 'rejected' WHERE id = ?", [$id]);
+        $events = (int) $this->em->getConnection()->fetchOne("SELECT COUNT(*) FROM plan_event WHERE subject_type = 'task' AND subject_id = ?", [$id]);
+
+        try {
+            self::getContainer()->get(\App\Tasks\Service\TaskService::class)->changeStatus($task, $director, \App\Tasks\Enum\TaskStatus::from('approved'));
+            self::fail('другий перехід з того самого «from» має відмовити');
+        } catch (\App\Tasks\Exception\TaskException $e) {
+            self::assertStringContainsString('щойно змінили', $e->getMessage());
+        }
+
+        self::assertSame($events, (int) $this->em->getConnection()->fetchOne("SELECT COUNT(*) FROM plan_event WHERE subject_type = 'task' AND subject_id = ?", [$id]));
+        self::assertSame('rejected', $this->em->getConnection()->fetchOne('SELECT status FROM task WHERE id = ?', [$id]));
+    }
+
     public function testAdminCannotTakeOverSuperadminOrAnotherAdmin(): void
     {
         $admin = $this->user(WorkRole::Admin, 'adm');

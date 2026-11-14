@@ -146,21 +146,30 @@ class TaskService
 
     public function changeStatus(Task $task, TelegramUser $user, TaskStatus $to, ?string $comment = null): Task
     {
-        if (! $this->policy->canMove($user, $task, $to)) {
-            throw new TaskException($task->getStatus()->awaitsDecision() || $to->isDecision()
-                ? 'Це рішення приймає директор.'
-                : sprintf('Перехід «%s» → «%s» недоступний.', $task->getStatus()->label(), $to->label()));
-        }
+        // Рядок задачі — під блокуванням, і статус у базі має збігатися з тим, з якого
+        // переходимо: два «Погодити»/«Відхилити» одночасно (чи подвійний тап) не запишуть
+        // два переходи з того самого «from» — другий отримає «статус щойно змінили».
+        $this->events->transactional(function () use ($task, $user, $to, $comment): void {
+            $current = $this->em->getConnection()->fetchOne('SELECT status FROM task WHERE id = ? FOR UPDATE', [(int) $task->getId()]);
 
-        $from = $task->getStatus();
-        $task->setStatus($to);
-        $message = $this->event($task, $user, sprintf('змінив(ла) статус: %s → %s', $from->label(), $to->label()), $to->isClosed() ? TaskMessage::EVENT_CLOSED : TaskMessage::EVENT_STATUS);
+            if ($current !== false && $current !== $task->getStatus()->value) {
+                throw new TaskException(sprintf('Статус задачі щойно змінили: «%s». Оновіть картку.', TaskStatus::tryFrom((string) $current)?->label() ?? $current));
+            }
 
-        if ($comment !== null && trim($comment) !== '') {
-            $this->em->persist(new TaskMessage($task, $user, trim($comment)));
-        }
+            if (! $this->policy->canMove($user, $task, $to)) {
+                throw new TaskException($task->getStatus()->awaitsDecision() || $to->isDecision()
+                    ? 'Це рішення приймає директор.'
+                    : sprintf('Перехід «%s» → «%s» недоступний.', $task->getStatus()->label(), $to->label()));
+            }
 
-        $this->events->transactional(function () use ($task, $user, $from, $to, $comment, $message): void {
+            $from = $task->getStatus();
+            $task->setStatus($to);
+            $message = $this->event($task, $user, sprintf('змінив(ла) статус: %s → %s', $from->label(), $to->label()), $to->isClosed() ? TaskMessage::EVENT_CLOSED : TaskMessage::EVENT_STATUS);
+
+            if ($comment !== null && trim($comment) !== '') {
+                $this->em->persist(new TaskMessage($task, $user, trim($comment)));
+            }
+
             $this->em->flush();
             $this->events->record(StatusEvent::for(
                 SubjectRef::task((int) $task->getId()),
@@ -172,8 +181,8 @@ class TaskService
                 comment: $comment,
                 refId: $message->getId(),
             ));
+            $this->logger->info('Task status', ['task' => $task->getId(), 'from' => $from->value, 'to' => $to->value, 'by' => $user->getId()]);
         });
-        $this->logger->info('Task status', ['task' => $task->getId(), 'from' => $from->value, 'to' => $to->value, 'by' => $user->getId()]);
 
         return $task;
     }
