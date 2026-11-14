@@ -189,7 +189,7 @@ class NotificationDeliveryTest extends KernelTestCase
             self::assertCount(1, $update->getTopics(), 'Один персональний топік');
             $topics[] = $update->getTopics()[0];
             $data = json_decode($update->getData(), true);
-            self::assertSame(['event', 'type', 'subject', 'unread', 'important'], array_keys($data));
+            self::assertSame(['event', 'type', 'subject', 'unread', 'important', 'bell'], array_keys($data));
             self::assertSame($event, $data['event']);
             self::assertSame(['type' => 'task', 'id' => $task->getId()], $data['subject']);
             self::assertStringNotContainsString('Пароль', $update->getData());
@@ -207,6 +207,32 @@ class NotificationDeliveryTest extends KernelTestCase
 
         self::assertTrue($byTopic['https://plan.test/u/' . $a->getId()], 'Згадка — важливе (жовтий тост)');
         self::assertFalse($byTopic['https://plan.test/u/' . $b->getId()]);
+    }
+
+    public function testCommentWithDefaultsRingsNoBellButStillRefreshesScreens(): void
+    {
+        $creator = $this->person(WorkRole::Manager, bellAll: false);
+        $a = $this->person(bellAll: false);
+        $b = $this->person(bellAll: false);
+        $task = $this->tasks->create($creator, ['title' => 'Плити', 'memberIds' => [$a->getId(), $b->getId()]]);
+        self::assertSame([$a->getId() => 'assigned', $b->getId() => 'assigned'], $this->rowsForLastEvent(), 'Нова задача на мене — у дзвіночок');
+        $this->published = [];
+
+        $this->tasks->post($task, $creator, 'Звичайний коментар', mentions: [(int) $a->getId()]);
+        self::assertSame([$a->getId() => 'mention'], $this->rowsForLastEvent(), 'Типово: згадка — у дзвіночок, звичайний коментар — ні (він у Хроніці з «+N»)');
+
+        $bell = [];
+
+        foreach ($this->updates() as $update) {
+            $data = json_decode($update->getData(), true);
+            $bell[$update->getTopics()[0]] = [$data['bell'], $data['important']];
+        }
+
+        ksort($bell);
+        self::assertSame([
+            'https://plan.test/u/' . $a->getId() => [true, true],
+            'https://plan.test/u/' . $b->getId() => [false, false],
+        ], $bell, 'Живий сигнал «оновіть екран» — усім у темі; дзвіночок і тост — лише згаданому');
     }
 
     /**

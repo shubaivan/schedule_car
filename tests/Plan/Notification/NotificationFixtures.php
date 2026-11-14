@@ -4,6 +4,8 @@ namespace App\Tests\Plan\Notification;
 
 use App\Entity\TelegramUser;
 use App\Enum\AccessStatus;
+use App\Plan\Notification\Channel;
+use App\Plan\Notification\EventGroup;
 use App\Supply\Enum\SupplyRole;
 use App\Tasks\Enum\WorkRole;
 use Doctrine\ORM\EntityManagerInterface;
@@ -14,7 +16,12 @@ trait NotificationFixtures
 {
     abstract protected function em(): EntityManagerInterface;
 
-    private function person(WorkRole $role = WorkRole::Production, SupplyRole $supply = SupplyRole::Worker, bool $approved = true, string $name = 'Тест-Сповіщ'): TelegramUser
+    /**
+     * $bellAll — людина ввімкнула в дзвіночку («У Плані») всі групи: так тести маршрутизації
+     * перевіряють, КОМУ подія йде; типові вимикачі (дзвіночок — лише «потребує мене»,
+     * склад вимкнено) перевіряє NotificationDefaultsTest з $bellAll = false.
+     */
+    private function person(WorkRole $role = WorkRole::Production, SupplyRole $supply = SupplyRole::Worker, bool $approved = true, string $name = 'Тест-Сповіщ', bool $bellAll = true): TelegramUser
     {
         $user = (new TelegramUser())
             ->setTelegramId((string) random_int(100_000_000, 999_999_999))
@@ -28,6 +35,17 @@ trait NotificationFixtures
 
         $this->em()->persist($user);
         $this->em()->flush();
+
+        if ($bellAll) {
+            foreach (EventGroup::cases() as $group) {
+                foreach ([Channel::App, Channel::Push] as $channel) {
+                    $this->em()->getConnection()->executeStatement(
+                        'INSERT INTO notification_pref (user_id, channel, event_group, enabled) VALUES (?, ?, ?, TRUE) ON CONFLICT DO NOTHING',
+                        [(int) $user->getId(), $channel->value, $group->value],
+                    );
+                }
+            }
+        }
 
         return $user;
     }

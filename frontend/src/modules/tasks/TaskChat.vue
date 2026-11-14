@@ -10,6 +10,7 @@ import { useTasks } from './store'
 import { taskFeed, type FeedApi, type FeedSubject } from './feedApi'
 import { useSession } from '../../app/store'
 import { flushUndo, undoable } from '../../plan/undo'
+import { useLiveRefresh } from '../../plan/live'
 import './feed.css'
 
 /**
@@ -175,7 +176,6 @@ function replace(updated: Message) {
 }
 
 // --- опитування ---
-let timer: number | undefined
 /** since — з якого повідомлення питати (після власного надсилання — з того, що було до нього). */
 async function poll(since?: number) {
     if (document.hidden && since === undefined) return
@@ -474,12 +474,15 @@ function opened() {
 
 watch(() => props.task.id, opened)
 
-onMounted(() => {
-    opened()
-    timer = window.setInterval(poll, feedApi.value.intervalMs ?? 4000)
+onMounted(() => opened())
+// З Mercure — за подією цієї стрічки (+ раз на хвилину); прев'ю файлу ще готується — частіше.
+useLiveRefresh(() => poll(), {
+    pollMs: feedApi.value.intervalMs ?? 4000,
+    match: (e) => feedApi.value.live?.(e) ?? false,
+    debounceMs: 150,
+    fastWhile: () => props.task.files.some((f) => f.preview === 'pending'),
 })
 onBeforeUnmount(() => {
-    window.clearInterval(timer)
     // Видалене «на екрані» не повинно ожити: пішли з задачі — запит іде одразу.
     flushUndo()
     pending.value.forEach((p) => p.url && URL.revokeObjectURL(p.url))

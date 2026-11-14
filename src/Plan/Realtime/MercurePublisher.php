@@ -47,9 +47,11 @@ final class MercurePublisher
     /**
      * Payload для людини: лише ідентифікатори й лічильник.
      *
-     * @return array{event: int, type: string, subject: array{type: string, id: int}, unread: int, important: bool}
+     * bell=false — лише «оновіть екран» (подія в темі людини, але в дзвіночок не йде).
+     *
+     * @return array{event: int, type: string, subject: array{type: string, id: int}, unread: int, important: bool, bell: bool}
      */
-    public static function payload(int $eventId, string $type, SubjectRef $subject, int $unread, bool $important): array
+    public static function payload(int $eventId, string $type, SubjectRef $subject, int $unread, bool $important, bool $bell = true): array
     {
         return [
             'event' => $eventId,
@@ -57,6 +59,7 @@ final class MercurePublisher
             'subject' => ['type' => $subject->type->value, 'id' => $subject->id],
             'unread' => $unread,
             'important' => $important,
+            'bell' => $bell,
         ];
     }
 

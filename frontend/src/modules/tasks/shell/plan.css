@@ -132,6 +132,8 @@ body.p-noscroll { overflow: hidden; }
 }
 .p-rail-btn:hover { background: var(--surface-2); color: var(--text); }
 .p-rail-btn.on { background: var(--accent-soft); color: var(--accent); }
+/* «Сповіщення» — найдовший підпис рейки: трохи менший кегль, щоб не обрізався. */
+.p-rail-btn .p-rail-long { font-size: 8.6px; letter-spacing: -.03em; white-space: nowrap; }
 .p-rail-sp { flex: 1; }
 .p-rail-new { width: 40px; height: 40px; padding: 0; justify-content: center; border-radius: 12px; background: var(--accent); color: #fff; }
 .p-rail-new:hover { background: var(--accent); color: #fff; filter: brightness(1.08); }

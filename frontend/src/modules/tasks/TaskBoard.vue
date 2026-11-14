@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useLiveRefresh } from '../../plan/live'
 import { useRoute, useRouter } from 'vue-router'
 import TaskCard from './TaskCard.vue'
 import TaskView from './TaskView.vue'
@@ -189,15 +190,14 @@ watch(openId, async (now, before) => {
     if (now) reread = window.setTimeout(load, 1500)
 }, { flush: 'pre' })
 
-let timer: number | undefined
+// З Mercure — за подією задачі (+ раз на хвилину), без нього — кожні 20 с.
+useLiveRefresh(() => load(), { pollMs: 20000, match: (e) => e.subject.type === 'task', debounceMs: 600 })
 onMounted(() => {
     load()
-    timer = window.setInterval(() => !document.hidden && load(), 20000)
     window.addEventListener('keydown', onKey)
     window.addEventListener(TASK_SAVED, load)
 })
 onBeforeUnmount(() => {
-    window.clearInterval(timer)
     window.clearTimeout(reread)
     window.clearTimeout(debounce)
     window.removeEventListener('keydown', onKey)

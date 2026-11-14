@@ -88,17 +88,23 @@ class TaskFeedRepository
     /** @return array{tasks: int, events: int} скільки задач мають нове і скільки там подій */
     public function unreadCounts(TelegramUser $viewer): array
     {
-        [$visible, $params] = TaskVisibility::involved($viewer);
-        $params['me'] = (int) $viewer->getId();
+        // Множина «мої задачі» будується від участі (індекси task_member / task_favorite),
+        // а не проходом усієї таблиці task з OR-EXISTS (DB-perf #2: 57 → ~20 мс на 50k задач).
+        // Те саме, що TaskVisibility::involved(): автор або учасник; ★ — лише для тих, хто
+        // бачить усе (для решти обране й так ⊂ видимих).
+        $favorites = $viewer->seesAllTasks() ? ' UNION SELECT task_id FROM task_favorite WHERE user_id = :me' : '';
 
         $row = $this->db->fetchAssociative(
-            'SELECT COUNT(*) AS tasks, COALESCE(SUM(n), 0) AS events FROM (
-                SELECT (SELECT COUNT(*) FROM task_message u WHERE u.task_id = t.id AND ' . self::UNREAD . ') AS n
-                  FROM task t
-                  LEFT JOIN task_read r ON r.task_id = t.id AND r.user_id = :me
-                 WHERE ' . $visible . '
+            'WITH mine AS (
+                SELECT id AS task_id FROM task WHERE creator_id = :me
+                UNION SELECT task_id FROM task_member WHERE user_id = :me' . $favorites . '
+             )
+             SELECT COUNT(*) AS tasks, COALESCE(SUM(n), 0) AS events FROM (
+                SELECT (SELECT COUNT(*) FROM task_message u WHERE u.task_id = m.task_id AND ' . self::UNREAD . ') AS n
+                  FROM mine m
+                  LEFT JOIN task_read r ON r.task_id = m.task_id AND r.user_id = :me
              ) x WHERE n > 0',
-            $params,
+            ['me' => (int) $viewer->getId()],
         ) ?: [];
 
         return ['tasks' => (int) ($row['tasks'] ?? 0), 'events' => (int) ($row['events'] ?? 0)];

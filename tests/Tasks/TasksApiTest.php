@@ -7,6 +7,7 @@ use App\Enum\AccessStatus;
 use App\Supply\Entity\Department;
 use App\Tasks\Enum\WorkRole;
 use App\Tasks\Service\PreviewGenerator;
+use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -141,6 +142,47 @@ class TasksApiTest extends WebTestCase
         $task = $this->send('POST', '/api/tasks/' . $task['id'] . '/status', ['to' => 'approved', 'comment' => 'Погоджую']);
         self::assertSame('approved', $task['status']);
         self::assertSame('Погоджую', end($task['messages'])['text']);
+    }
+
+    public function testOverviewDedupesTasksAndCountsMatchChronicle(): void
+    {
+        $manager = $this->user(WorkRole::Manager, 'ovm');
+        $director = $this->user(WorkRole::Director, 'ovd');
+
+        $this->login($manager);
+        $yesterday = (new DateTimeImmutable('yesterday'))->format('Y-m-d');
+        $a = $this->send('POST', '/api/tasks', ['title' => 'Огляд: на погодженні й прострочена', 'dueAt' => $yesterday, 'memberIds' => [$director->getId()]]);
+        $this->send('POST', '/api/tasks/' . $a['id'] . '/status', ['to' => 'in_work']);
+        $this->send('POST', '/api/tasks/' . $a['id'] . '/status', ['to' => 'approval']);
+        $this->send('POST', '/api/tasks', ['title' => 'Огляд: звичайна', 'memberIds' => [$director->getId()]]);
+
+        $mine = $this->get('/api/tasks/dashboard');
+        self::assertGreaterThanOrEqual(2, $mine['stats']['mine']);
+        self::assertSame([], $mine['decisions'], 'Менеджер не вирішує — блоку рішень немає');
+        self::assertArrayHasKey('supply', $mine);
+        self::assertNull($mine['warehouse'], 'Склад вимкнено в тестовому оточенні — блоку немає');
+
+        $this->login($director);
+        $dash = $this->get('/api/tasks/dashboard');
+        $blocks = ['decisions', 'overdue', 'mine', 'department', 'recent'];
+        $where = [];
+
+        foreach ($blocks as $block) {
+            foreach ($dash[$block] as $item) {
+                $where[$item['id']][] = $block;
+            }
+        }
+
+        self::assertSame(['decisions'], $where[$a['id']] ?? null, 'Задача на погодженні й прострочена — лише в «Рішеннях», без повторів');
+
+        foreach ($where as $id => $in) {
+            self::assertCount(1, $in, "Задача {$id} в одному блоці, а не в " . implode(', ', $in));
+        }
+
+        $chronicle = $this->get('/api/plan/chronicle/counts');
+        self::assertSame($chronicle['tasks'], $dash['stats']['unread'], '«З новим» в Огляді — те саме число, що біля «Хроніки»');
+        self::assertGreaterThan(0, $dash['stats']['overdue']);
+        self::assertGreaterThanOrEqual(1, $dash['stats']['decisions']);
     }
 
     public function testChatWithFilesAndPreviews(): void

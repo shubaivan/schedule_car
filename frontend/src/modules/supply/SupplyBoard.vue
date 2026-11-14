@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useLiveRefresh } from '../../plan/live'
 import { useRoute, useRouter } from 'vue-router'
 import { api, type SupplyRequest } from '../../app/api'
 import { useSession } from '../../app/store'
@@ -150,15 +151,13 @@ watch(openId, async (now) => {
     listEl.value?.querySelector<HTMLElement>(`[data-supply="${now}"]`)?.scrollIntoView({ block: 'nearest' })
 })
 
-let timer: number | undefined
+// Тихе оновлення (за подією заявки з Mercure, інакше раз на 30 с) — лише поки показана перша сторінка (інакше «Показати ще» б злетіло).
+useLiveRefresh(() => page.value === 1 && load(), { pollMs: 30000, match: (e) => e.subject.type === 'supply', debounceMs: 600 })
 onMounted(() => {
     load()
-    // Тихе оновлення раз на 30 с — лише поки показана перша сторінка (інакше «Показати ще» б злетіло).
-    timer = window.setInterval(() => !document.hidden && page.value === 1 && load(), 30000)
     window.addEventListener('keydown', onKey)
 })
 onBeforeUnmount(() => {
-    window.clearInterval(timer)
     window.clearTimeout(debounce)
     window.removeEventListener('keydown', onKey)
 })

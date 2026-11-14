@@ -6,10 +6,12 @@ use App\Entity\TelegramUser;
 use App\Plan\Event\DriveAuthBroken;
 use App\Plan\EventStore\PlanEventStore;
 use App\Plan\Subject\SubjectRegistry;
+use App\Plan\Subject\SubjectType;
 use App\Repository\TelegramUserRepository;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Throwable;
 
@@ -139,6 +141,7 @@ final class NotificationInbox
 
         $out = [];
         $kyiv = new DateTimeZone('Europe/Kyiv');
+        $summaries = $this->warehouseSummaries($rows);
 
         foreach ($rows as $row) {
             try {
@@ -159,7 +162,7 @@ final class NotificationInbox
 
             $group = EventGroup::tryFrom((string) $row['n_group']) ?? EventGroup::forEvent($event) ?? EventGroup::Status;
             $actor = $event->actorId !== null ? ($actors[$event->actorId] ?? null) : null;
-            $text = NotificationText::of($event, $group, $actor?->shortName());
+            $text = NotificationText::of($event, $group, $actor?->shortName(), $summaries[$ref->key()] ?? null);
 
             $out[] = [
                 'id' => (int) $row['n_id'],
@@ -176,6 +179,70 @@ final class NotificationInbox
                 'createdAt' => (new DateTimeImmutable((string) $row['n_created'], $kyiv))->format(DateTimeInterface::ATOM),
                 'readAt' => $row['n_read'] !== null ? (new DateTimeImmutable((string) $row['n_read'], $kyiv))->format(DateTimeInterface::ATOM) : null,
             ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Суть складських подій для рядка сповіщення: «ПК 60-12-8 × 12 шт (+2) → ЖК «Лісовий»»
+     * для руху, «🧱 Категорія» для нової позиції. Один запит на сторінку.
+     *
+     * @param list<array<string, mixed>> $rows
+     *
+     * @return array<string, string> ключ суб'єкта → текст
+     */
+    private function warehouseSummaries(array $rows): array
+    {
+        $movements = [];
+        $items = [];
+
+        foreach ($rows as $row) {
+            $type = (string) ($row['subject_type'] ?? '');
+            $id = (int) ($row['subject_id'] ?? 0);
+
+            if ($type === SubjectType::WhMovement->value) {
+                $movements[$id] = $id;
+            } elseif ($type === SubjectType::WhItem->value) {
+                $items[$id] = $id;
+            }
+        }
+
+        $out = [];
+
+        if ($movements !== []) {
+            foreach ($this->db->fetchAllAssociative(
+                "SELECT m.id, COALESCE(ts.name, fs.name) AS site, m.to_site_id IS NOT NULL AS towards,
+                        (SELECT i.name || ' × ' || l.quantity || ' ' || COALESCE(NULLIF(i.unit, ''), 'шт')
+                           FROM wh_movement_line l JOIN wh_item i ON i.id = l.item_id WHERE l.movement_id = m.id ORDER BY l.id LIMIT 1) AS first,
+                        (SELECT COUNT(*) FROM wh_movement_line l WHERE l.movement_id = m.id) AS lines
+                   FROM wh_movement m
+                   LEFT JOIN wh_site ts ON ts.id = m.to_site_id
+                   LEFT JOIN wh_site fs ON fs.id = m.from_site_id
+                  WHERE m.id IN (?)",
+                [array_values($movements)],
+                [ArrayParameterType::INTEGER],
+            ) as $m) {
+                $text = (string) ($m['first'] ?? '');
+                $more = (int) $m['lines'] - 1;
+                $text .= $more > 0 ? ' (+' . $more . ')' : '';
+
+                if ($m['site'] !== null) {
+                    $text .= ($m['towards'] ? ' → ' : ' ← ') . $m['site'];
+                }
+
+                $out[SubjectType::WhMovement->value . '-' . $m['id']] = trim($text);
+            }
+        }
+
+        if ($items !== []) {
+            foreach ($this->db->fetchAllAssociative(
+                'SELECT i.id, i.inventory_number, c.emoji, c.name FROM wh_item i LEFT JOIN wh_category c ON c.id = i.category_id WHERE i.id IN (?)',
+                [array_values($items)],
+                [ArrayParameterType::INTEGER],
+            ) as $i) {
+                $out[SubjectType::WhItem->value . '-' . $i['id']] = trim($i['inventory_number'] . ' · ' . trim(($i['emoji'] ?? '') . ' ' . ($i['name'] ?? '')), ' ·');
+            }
         }
 
         return $out;

@@ -37,8 +37,11 @@ export const useNotifications = defineStore('plan-notifications', () => {
     }
 
     async function onEvent(event: RealtimeEvent): Promise<void> {
-        lastEvent.value = event
         if (typeof event.unread === 'number') unread.value = event.unread
+        emitActivity(event)
+        // bell=false — подія «в темі», але не в дзвіночок: лише оновити відкриті екрани.
+        if (event.bell === false) return
+        lastEvent.value = event
         if (!event.important) return
 
         try {
@@ -111,6 +114,27 @@ export const useNotifications = defineStore('plan-notifications', () => {
 
     return { unread, toasts, transport, sound, lastEvent, start, stop, refreshCount, markRead, markAll, dismiss, pushToast }
 })
+
+/**
+ * Будь-яка жива подія (і дзвіночок, і «щось змінилось у вашій задачі») — для
+ * дошки, стрічки, Хроніки, «Огляду»: оновлюються за подією, а не за таймером.
+ */
+const activity = new Set<(event: RealtimeEvent) => void>()
+
+export function onActivity(listener: (event: RealtimeEvent) => void): () => void {
+    activity.add(listener)
+    return () => activity.delete(listener)
+}
+
+function emitActivity(event: RealtimeEvent): void {
+    activity.forEach((listener) => {
+        try {
+            listener(event)
+        } catch (e) {
+            console.error('activity listener failed', e)
+        }
+    })
+}
 
 /** Короткий сигнал без файлу (WebAudio); браузер без звуку — мовчки нічого. */
 function beep(): void {

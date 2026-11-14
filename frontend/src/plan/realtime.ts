@@ -27,6 +27,8 @@ export interface RealtimeEvent {
     unread?: number
     /** важливе: погодження, згадка, лід — жовтий тост */
     important?: boolean
+    /** false — лише «оновіть екран»: у дзвіночок не йде (коментар, статус у вашій задачі) */
+    bell?: boolean
 }
 
 export type RealtimeListener = (event: RealtimeEvent) => void

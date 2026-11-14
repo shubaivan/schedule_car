@@ -1,3 +1,4 @@
+import type { SupplyRequest } from '../../app/api'
 import { call, SessionExpired } from '../../app/api'
 
 export interface Person {
@@ -168,13 +169,25 @@ export interface TasksMeta {
 }
 
 export interface Dashboard {
-    stats: { mine: number; overdue: number; open: number; unread: number; decisions: number; byStatus: Record<string, number> }
+    /** unread — записів Хроніки з новим (те саме число, що біля «Хроніки»), unreadEvents — скільки в них подій. */
+    stats: { mine: number; overdue: number; open: number; unread: number; unreadEvents: number; decisions: number; byStatus: Record<string, number> }
     mine: TaskItem[]
     overdue: TaskItem[]
     department: TaskItem[]
     departmentName: string | null
     decisions: TaskItem[]
     recent: TaskItem[]
+    supply: {
+        counts: { open: number; new: number; overdue: number; decide: number; mine: number }
+        /** Заявки, що чекають рішення саме цієї людини (директор, адмін). */
+        decisions: SupplyRequest[]
+        /** Погоджує оплату заявок (директор, адмін). */
+        approve: boolean
+        /** Веде постачання або погоджує — бачить усі заявки. */
+        manage: boolean
+    }
+    /** null — склад вимкнено або людині не видно. */
+    warehouse: { shipmentsToday: number; receiptsToday: number; movesWeek: number; repair: number; items: number } | null
 }
 
 export type Board = Record<'chronicle' | 'messages' | 'new' | 'work' | 'done', TaskItem[]>

@@ -28,8 +28,13 @@ use App\Tasks\Enum\TaskStatus;
  */
 final class NotificationText
 {
-    /** @return array{headline: string, detail: string} */
-    public static function of(PlanEvent $event, EventGroup $group, ?string $actor): array
+    /**
+     * $summary — суть складського руху («ПК 60-12-8 × 12 шт → ЖК «Лісовий»»), якщо
+     * викликач її знає: назва документа вже є в заголовку картки, повторювати її не треба.
+     *
+     * @return array{headline: string, detail: string}
+     */
+    public static function of(PlanEvent $event, EventGroup $group, ?string $actor, ?string $summary = null): array
     {
         $who = $actor !== null && $actor !== '' ? $actor . ': ' : '';
 
@@ -58,8 +63,8 @@ final class NotificationText
             $event instanceof StatusEvent => $who . self::clip((string) $event->comment),
             $event instanceof PurchaseRecorded => $who . self::clip(trim($event->supplier . ' · ' . $event->total, ' ·')),
             $event instanceof PurchaseRemoved => $who . self::clip(trim($event->supplier . ' · ' . $event->total, ' ·')),
-            $event instanceof StockMoved => $who . self::clip($event->title),
-            $event instanceof ItemCreated => $who . self::clip($event->title),
+            $event instanceof StockMoved => $who . self::clip($summary ?? ''),
+            $event instanceof ItemCreated => $who . self::clip($summary ?? ''),
             $event instanceof LeadReceived => self::clip(trim(($event->name ?? '') . ' · ' . ($event->interest ?? ''), ' ·')),
             $event instanceof ShareCreated => $who . self::clip((string) $event->note),
             $event instanceof DriveAuthBroken => 'Копіювання на Диск зупинено — потрібен новий токен',

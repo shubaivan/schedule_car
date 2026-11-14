@@ -200,6 +200,45 @@ class TaskRepository extends ServiceEntityRepository
     }
 
     /** @return array<string, int> статус => скільки (серед видимих) */
+    /**
+     * Лічильники «Огляду» одним запитом без ORM (раніше — три вибірки по 500 задач
+     * з усіма учасниками лише заради count()).
+     *
+     * @return array{mine: int, overdue: int, open: int, byStatus: array<string, int>}
+     */
+    public function dashboardStats(TelegramUser $user): array
+    {
+        [$visible, $params] = TaskVisibility::sql($user, 't');
+        $closed = "'" . TaskStatus::Done->value . "', '" . TaskStatus::Rejected->value . "'";
+
+        $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            'SELECT t.status,
+                    COUNT(*) AS n,
+                    COUNT(*) FILTER (WHERE t.status NOT IN (' . $closed . ') AND (t.creator_id = :me
+                        OR EXISTS (SELECT 1 FROM task_member mm WHERE mm.task_id = t.id AND mm.user_id = :me))) AS mine,
+                    COUNT(*) FILTER (WHERE t.due_at IS NOT NULL AND t.due_at < CAST(:now AS timestamp) AND t.status NOT IN (' . $closed . ')) AS overdue
+               FROM task t
+              WHERE ' . $visible . '
+              GROUP BY t.status',
+            [...$params, 'me' => (int) $user->getId(), 'now' => Task::now()->format('Y-m-d H:i:s')],
+        );
+
+        $out = ['mine' => 0, 'overdue' => 0, 'open' => 0, 'byStatus' => []];
+
+        foreach ($rows as $row) {
+            $status = (string) $row['status'];
+            $out['byStatus'][$status] = (int) $row['n'];
+            $out['mine'] += (int) $row['mine'];
+            $out['overdue'] += (int) $row['overdue'];
+
+            if (! (TaskStatus::tryFrom($status)?->isClosed() ?? false)) {
+                $out['open'] += (int) $row['n'];
+            }
+        }
+
+        return $out;
+    }
+
     public function countByStatus(TelegramUser $user): array
     {
         $rows = $this->visibleTo($user)

@@ -175,15 +175,20 @@ onBeforeUnmount(() => window.removeEventListener('focus', onFocus))
 
             <section class="p-card">
                 <h3>Події</h3>
+                <p class="p-muted p-small" data-testid="pref-hint">
+                    «У Плані» — дзвіночок: типово лише те, що потребує вас (згадки, вас додали, потрібне рішення, поділились файлом).
+                    Коментарі, статуси й закупівлі завжди видно в Хроніці з «+N» — увімкніть тут, якщо хочете ще й у дзвіночку.
+                    Рухи складу типово вимкнено скрізь.
+                </p>
                 <table class="p-nset-table">
                     <thead>
                         <tr><th scope="col">Подія</th><th v-for="c in settings.channels" :key="c.id" scope="col">{{ c.label }}</th></tr>
                     </thead>
                     <tbody>
                         <tr v-for="g in settings.groups" :key="g.id">
-                            <th scope="row">{{ g.label }}<span v-if="g.important" class="p-nset-imp" title="Жовтий тост">важливе</span></th>
+                            <th scope="row">{{ g.label }} <span v-if="g.important" class="p-nset-imp" title="Жовтий тост">важливе</span></th>
                             <td v-for="c in settings.channels" :key="c.id">
-                                <input type="checkbox" :aria-label="g.label + ' — ' + c.label" :checked="prefs.groups[g.id]?.[c.id] ?? true" :data-testid="`pref-${g.id}-${c.id}`" @change="toggle(g.id, c.id, ($event.target as HTMLInputElement).checked)" />
+                                <input type="checkbox" :aria-label="g.label + ' — ' + c.label" :checked="prefs.groups[g.id]?.[c.id] ?? false" :data-testid="`pref-${g.id}-${c.id}`" @change="toggle(g.id, c.id, ($event.target as HTMLInputElement).checked)" />
                             </td>
                         </tr>
                     </tbody>

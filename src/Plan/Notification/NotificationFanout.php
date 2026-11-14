@@ -57,21 +57,23 @@ final class NotificationFanout implements PlanEventConsumer
         }
 
         $prefs = $this->prefs->ofMany(array_keys($recipients));
-        $recipients = array_filter($recipients, static fn (Recipient $r) => $prefs[$r->userId]->allows(Channel::App, $r->group));
-        $inserted = $this->insert((int) $event->id(), $event->at, $recipients);
+        $bell = array_filter($recipients, static fn (Recipient $r) => $prefs[$r->userId]->allows(Channel::App, $r->group));
+        $inserted = $this->insert((int) $event->id(), $event->at, $bell);
+        $rung = array_fill_keys($inserted, true);
 
-        if ($inserted === []) {
-            return;
+        // Живий сигнал «щось змінилось» — усім, хто в темі (не лише тим, кому дзвіночок):
+        // за ним відкриті дошка, стрічка й Хроніка оновлюються без опитування.
+        // У дзвіночок (лічильник, тост) — лише справді вставлений рядок.
+        $unread = $this->unread(array_keys($recipients));
+
+        foreach ($recipients as $userId => $recipient) {
+            $inBell = isset($rung[$userId]);
+            $this->mercure->publish($userId, MercurePublisher::payload((int) $event->id(), $event::type(), $event->subject, $unread[$userId] ?? 0, $inBell && $recipient->important(), $inBell));
         }
 
-        $unread = $this->unread($inserted);
-
-        foreach ($inserted as $userId) {
-            $recipient = $recipients[$userId];
-            $this->mercure->publish($userId, MercurePublisher::payload((int) $event->id(), $event::type(), $event->subject, $unread[$userId] ?? 0, $recipient->important()));
+        if ($inserted !== []) {
+            $this->push($event, array_map(static fn (int $id) => $recipients[$id], $inserted), $prefs);
         }
-
-        $this->push($event, array_map(static fn (int $id) => $recipients[$id], $inserted), $prefs);
     }
 
     /**

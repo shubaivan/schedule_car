@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useLiveRefresh } from '../../plan/live'
 import { useRoute, useRouter } from 'vue-router'
 import { useSession } from '../../app/store'
 import Icon from '../tasks/shell/Icon.vue'
@@ -135,7 +136,8 @@ watch(openId, async (now) => {
 /** Позицію змінили праворуч (рух, правка) — перечитуємо список: залишки змінились. */
 const changed = () => load()
 
-let timer: number | undefined
+// З Mercure — за складською подією (+ раз на хвилину), без нього — раз на хвилину.
+useLiveRefresh(() => load(), { pollMs: 60000, match: (e) => e.subject.type.startsWith('wh_'), debounceMs: 800 })
 onMounted(async () => {
     load()
     try {
@@ -143,11 +145,9 @@ onMounted(async () => {
     } catch (e) {
         denied.value = accessError(e)
     }
-    timer = window.setInterval(() => !document.hidden && load(), 60000)
     window.addEventListener('keydown', onKey)
 })
 onBeforeUnmount(() => {
-    window.clearInterval(timer)
     window.clearTimeout(debounce)
     window.removeEventListener('keydown', onKey)
 })

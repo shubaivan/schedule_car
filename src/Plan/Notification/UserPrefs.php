@@ -29,7 +29,29 @@ final readonly class UserPrefs
             return false;
         }
 
-        return $this->switches[$channel->value . ':' . $group->value] ?? true;
+        return $this->switches[$channel->value . ':' . $group->value] ?? self::byDefault($channel, $group, $this->scope);
+    }
+
+    /**
+     * Типово (людина нічого не міняла):
+     * - дзвіночок «У Плані» (і push, що йде лише за ним) — тільки те, що потребує саме вас:
+     *   згадки, вас додали / нова задача на вас, потрібне рішення, поділились файлом,
+     *   лід, службове. Коментарі, статуси й закупівлі видно в Хроніці з «+N»;
+     *   хто обрав «Усе» (директор/адмін), отримує в дзвіночок і їх;
+     * - склад (рухи, нові позиції) — вимкнено скрізь: увімкнути можна в налаштуваннях;
+     * - Telegram — як і раніше, усе, крім складу.
+     */
+    public static function byDefault(Channel $channel, EventGroup $group, string $scope = NotificationSetting::SCOPE_MINE): bool
+    {
+        if ($group === EventGroup::Warehouse) {
+            return false;
+        }
+
+        if ($channel === Channel::Telegram) {
+            return true;
+        }
+
+        return $group->needsMe() || $scope === NotificationSetting::SCOPE_ALL;
     }
 
     /**
@@ -56,7 +78,7 @@ final readonly class UserPrefs
 
         foreach (EventGroup::cases() as $group) {
             foreach (Channel::cases() as $channel) {
-                $matrix[$group->value][$channel->value] = $this->switches[$channel->value . ':' . $group->value] ?? true;
+                $matrix[$group->value][$channel->value] = $this->switches[$channel->value . ':' . $group->value] ?? self::byDefault($channel, $group, $this->scope);
             }
         }
 

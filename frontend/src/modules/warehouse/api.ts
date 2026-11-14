@@ -263,6 +263,8 @@ export function itemFeed(id: number): FeedApi {
         post: async () => [],
         features: { reply: false, pin: false, star: false, mentions: false },
         intervalMs: 20000,
+        // Рух чи правка картки — події wh_*; позиції в них не видно напряму, тож будь-яка складська.
+        live: (e) => e.subject.type.startsWith('wh_'),
         fullFeed: true,
     }
 }

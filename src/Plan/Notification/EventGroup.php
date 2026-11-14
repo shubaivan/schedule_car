@@ -72,6 +72,15 @@ enum EventGroup: string
         return $this === self::Mention || $this === self::Approval || $this === self::Lead || $this === self::System;
     }
 
+    /** Потребує саме мене — типово в дзвіночку; решта — у Хроніці з «+N». */
+    public function needsMe(): bool
+    {
+        return match ($this) {
+            self::Mention, self::Assigned, self::Approval, self::Share, self::Lead, self::System => true,
+            default => false,
+        };
+    }
+
     public function label(): string
     {
         return match ($this) {

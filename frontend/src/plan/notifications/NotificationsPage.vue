@@ -48,7 +48,7 @@ async function readAll() {
     items.value = unreadOnly.value ? [] : items.value.map((i) => ({ ...i, readAt: i.readAt ?? new Date().toISOString() }))
 }
 
-const ICONS: Record<string, string> = { mention: '@', approval: '⚖', status: '↻', comment: '💬', assigned: '＋', purchase: '₴', warehouse: '▦', lead: '★' }
+const ICONS: Record<string, string> = { mention: '@', approval: '⚖', status: '↻', comment: '💬', assigned: '＋', purchase: '₴', warehouse: '📦', lead: '★' }
 
 function when(iso: string): string {
     const d = new Date(iso)
@@ -79,6 +79,11 @@ onBeforeUnmount(() => controller?.abort())
             <router-link :to="{ name: 'notifications-settings' }" class="p-btn" data-testid="notif-settings">Налаштування</router-link>
         </header>
 
+        <p class="p-notif-hint" data-testid="notif-hint">
+            Тут — лише те, що потребує вас: згадки, нові задачі й заявки на вас, потрібне ваше рішення, файли, якими з вами поділились.
+            Коментарі, статуси й рухи складу — у <router-link :to="{ name: 'tasks-chronicle' }">Хроніці</router-link> з «+N».
+            <router-link :to="{ name: 'notifications-settings' }">Змінити</router-link>
+        </p>
         <p v-if="error" class="p-notif-error" role="alert">{{ error }}</p>
 
         <ul class="p-notif-list" data-testid="notif-list">
@@ -97,7 +102,7 @@ onBeforeUnmount(() => controller?.abort())
 
         <div v-if="!loading && !items.length && !error" class="p-notif-empty">
             <b>{{ unreadOnly ? 'Усе прочитано' : 'Сповіщень поки немає' }}</b>
-            <span>Тут з'являтимуться нові задачі й заявки, коментарі, згадки, зміни статусу й погодження — там, де ви автор, учасник чи спостерігач.</span>
+            <span>Тут з'являтимуться згадки, нові задачі й заявки на вас, погодження й файли, якими з вами поділились.</span>
         </div>
         <button v-if="next" type="button" class="p-btn p-notif-more" :disabled="loading" @click="load(true)">Показати ще</button>
         <p v-if="loading && !items.length" class="p-muted">Завантаження…</p>
@@ -131,6 +136,8 @@ onBeforeUnmount(() => controller?.abort())
 .p-notif-empty b { color: var(--text); font-size: 15px; }
 .p-notif-more { align-self: center; }
 .p-notif-error { color: var(--danger); margin: 0; }
+.p-notif-hint { margin: 0; font-size: 13px; color: var(--text-muted); line-height: 1.45; }
+.p-notif-hint a { color: var(--link, var(--accent)); }
 @media (max-width: 760px) {
     .p-notif-bar .p-seg { flex: 1 1 100%; margin-right: 0; }
     .p-notif-bar .p-seg a { flex: 1; text-align: center; }

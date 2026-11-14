@@ -3,6 +3,8 @@
 namespace App\Tasks\Controller;
 
 use App\Entity\TelegramUser;
+use App\Plan\Chronicle\PlanChronicle;
+use App\Plan\Overview\PlanOverview;
 use App\Repository\TelegramUserRepository;
 use App\Supply\Repository\DepartmentRepository;
 use App\Tasks\Entity\Task;
@@ -78,41 +80,60 @@ class TaskApiController extends TasksController
 
     /** «Мій день»: мої відкриті, прострочені, мого відділу, чекають рішення. */
     #[Route('/dashboard', name: 'api_tasks_dashboard', methods: ['GET'])]
-    public function dashboard(): JsonResponse
+    public function dashboard(PlanOverview $overview, PlanChronicle $chronicle): JsonResponse
     {
         $me = $this->me();
 
-        $mine = $this->tasks->search($me, ['member' => $me, 'open' => true], 12, 'due');
-        $overdue = $this->tasks->search($me, ['overdue' => true], 12, 'due');
-        $department = $me->getDepartment() !== null
-            ? $this->tasks->search($me, ['department' => $me->getDepartment()->getId(), 'open' => true], 12)
-            : [];
-        $decisions = $me->getWorkRole()->decides()
-            ? $this->tasks->search($me, ['status' => [TaskStatus::Approval, TaskStatus::Waiting]], 12)
-            : [];
-        $recent = $this->tasks->search($me, [], 8);
+        // Кожна задача — в одному блоці, у порядку важливості: рішення → прострочені →
+        // мої → відділ → остання активність (раніше одна задача стояла в 3–4 блоках).
+        $seen = [];
+        $take = static function (array $tasks, int $limit) use (&$seen): array {
+            $out = [];
 
-        $all = array_merge($mine, $overdue, $department, $decisions, $recent);
-        $ids = array_values(array_unique(array_map(static fn (Task $t) => (int) $t->getId(), $all)));
+            foreach ($tasks as $task) {
+                $id = (int) $task->getId();
+
+                if (isset($seen[$id]) || count($out) >= $limit) {
+                    continue;
+                }
+
+                $seen[$id] = true;
+                $out[] = $task;
+            }
+
+            return $out;
+        };
+
+        $decisions = $me->getWorkRole()->decides()
+            ? $take($this->tasks->search($me, ['status' => [TaskStatus::Approval, TaskStatus::Waiting]], 12), 12)
+            : [];
+        $overdue = $take($this->tasks->search($me, ['overdue' => true], 20, 'due'), 8);
+        $mine = $take($this->tasks->search($me, ['member' => $me, 'open' => true], 20, 'due'), 8);
+        $department = $me->getDepartment() !== null
+            ? $take($this->tasks->search($me, ['department' => $me->getDepartment()->getId(), 'open' => true], 20), 6)
+            : [];
+        $recent = $take($this->tasks->search($me, [], 16), 6);
+
+        $all = array_merge($decisions, $overdue, $mine, $department, $recent);
+        $ids = array_map(static fn (Task $t) => (int) $t->getId(), $all);
         $unread = $this->tasks->unreadCounts($me, $ids);
         $last = $this->messages->lastComments($ids);
         $files = $this->attachments->statsByTask($ids);
         $item = fn (Task $t) => $this->presenter->listItem($t, $unread, $last, $files);
 
-        $counts = $this->tasks->countByStatus($me);
-        $open = array_sum(array_map(static fn (TaskStatus $s) => $s->isClosed() ? 0 : ($counts[$s->value] ?? 0), TaskStatus::cases()));
+        // Лічильники — одним агрегатним запитом; «з новим» — те саме число, що біля «Хроніки».
+        $stats = $this->tasks->dashboardStats($me);
+        $news = $chronicle->counts($me);
 
         return $this->json([
             'stats' => [
-                'mine' => count($this->tasks->search($me, ['member' => $me, 'open' => true], 500)),
-                'overdue' => count($this->tasks->search($me, ['overdue' => true], 500)),
-                'open' => $open,
-                'unread' => array_sum($this->tasks->unreadCounts($me, array_map(
-                    static fn (Task $t) => (int) $t->getId(),
-                    $this->tasks->search($me, [], 500),
-                ))),
-                'decisions' => ($counts[TaskStatus::Approval->value] ?? 0) + ($counts[TaskStatus::Waiting->value] ?? 0),
-                'byStatus' => $counts,
+                'mine' => $stats['mine'],
+                'overdue' => $stats['overdue'],
+                'open' => $stats['open'],
+                'unread' => $news['tasks'],
+                'unreadEvents' => $news['events'],
+                'decisions' => ($stats['byStatus'][TaskStatus::Approval->value] ?? 0) + ($stats['byStatus'][TaskStatus::Waiting->value] ?? 0),
+                'byStatus' => $stats['byStatus'],
             ],
             'mine' => array_map($item, $mine),
             'overdue' => array_map($item, $overdue),
@@ -120,6 +141,8 @@ class TaskApiController extends TasksController
             'departmentName' => $me->getDepartment()?->getName(),
             'decisions' => array_map($item, $decisions),
             'recent' => array_map($item, $recent),
+            'supply' => $overview->supply($me),
+            'warehouse' => $overview->warehouse($me),
         ]);
     }
 

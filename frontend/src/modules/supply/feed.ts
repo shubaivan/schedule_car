@@ -63,6 +63,7 @@ export function supplyFeed(id: number, opts: { onFeed?: (f: SupplyFeedResponse) 
         removedText: 'Документ прибрано',
         placeholder: 'Коментар — заявник отримає його в Telegram',
         intervalMs: 8000,
+        live: (e) => e.subject.type === 'supply' && e.subject.id === id,
         fullFeed: true,
     }
 }

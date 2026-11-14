@@ -1,6 +1,7 @@
 import { call } from '../../app/api'
 import { tasksApi, type Attachment, type Message, type PollResult, type ReadMark } from './api'
 import { TASK_SAVED } from './shell/nav'
+import type { RealtimeEvent } from '../../plan/realtime'
 
 /**
  * Стрічка, яку малює TaskChat: задача або заявка (SupplyFeed на бекенді віддає
@@ -38,8 +39,10 @@ export interface FeedApi {
     /** Що сказати в тості «… · Скасувати». */
     removedText?: string
     placeholder?: string
-    /** Як часто опитувати (мс). Задача — 4 с; заявка віддає всю стрічку, тож рідше. */
+    /** Як часто опитувати (мс) без живого каналу. Задача — 4 с; заявка віддає всю стрічку, тож рідше. */
     intervalMs?: number
+    /** Чиї живі події оновлюють стрічку (з Mercure опитування — лише запасне, раз на хвилину). */
+    live?: (event: RealtimeEvent) => boolean
     /** post повертає всю стрічку в порядку сервера (заявка), а не лише нові повідомлення. */
     fullFeed?: boolean
     /** Після власного повідомлення: задача — перечитати дошку. */
@@ -57,6 +60,7 @@ export function taskFeed(id: number): FeedApi {
         remove: (m) => call<Message>(`/api/tasks/${id}/messages/${m.id}`, { method: 'DELETE', keepalive: true }),
         features: { reply: true, pin: true, star: true, mentions: true },
         removedText: 'Повідомлення видалено',
+        live: (e) => e.subject.type === 'task' && e.subject.id === id,
         onSaved: () => window.dispatchEvent(new Event(TASK_SAVED)),
     }
 }
