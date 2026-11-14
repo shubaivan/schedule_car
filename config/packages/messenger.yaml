@@ -20,9 +20,13 @@ framework:
             plan:
                 dsn: '%env(PLAN_EVENTS_TRANSPORT)%'
                 retry_strategy:
-                    # Повтор лише для збою читання події: споживачі свої винятки ковтають.
-                    max_retries: 3
-                    multiplier: 2
+                    # Повтор — для збою читання події і для ідемпотентних проєкцій (пошук,
+                    # Хроніка, центр сповіщень; FanOutHandler → ProjectionFailed). Telegram
+                    # при повторі пропускається за позначкою. 5 с, 15 с, 45 с, 2¼ хв — далі
+                    # черга failed і plan:projections:reconcile (крон).
+                    max_retries: 4
+                    delay: 5000
+                    multiplier: 3
             # sync: 'sync://'
 
         default_bus: messenger.bus.default

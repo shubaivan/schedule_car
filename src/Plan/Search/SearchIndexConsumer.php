@@ -9,7 +9,7 @@ use App\Plan\Event\LeadReceived;
 use App\Plan\Event\PlanEvent;
 use App\Plan\Event\PlanEventTypes;
 use App\Plan\Event\StockMoved;
-use App\Plan\EventStore\PlanEventConsumer;
+use App\Plan\EventStore\IdempotentConsumer;
 use App\Plan\Subject\SubjectType;
 use App\Tasks\Service\TasksSection;
 
@@ -19,7 +19,7 @@ use App\Tasks\Service\TasksSection;
  * важливо — проєкція ідемпотентна, тож пропущена чи повторна подія не ламає
  * індекс (а `plan:search:reindex` вирівнює все разом).
  */
-final class SearchIndexConsumer implements PlanEventConsumer
+final class SearchIndexConsumer implements IdempotentConsumer
 {
     public function __construct(private readonly SearchProjector $projector, private readonly TasksSection $plan)
     {
