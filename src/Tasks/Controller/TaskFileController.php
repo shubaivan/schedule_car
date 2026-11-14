@@ -2,11 +2,16 @@
 
 namespace App\Tasks\Controller;
 
+use App\Plan\Event\FileDownloaded;
+use App\Plan\EventStore\PlanEventRecorder;
+use App\Plan\Share\FileType;
+use App\Plan\Subject\SubjectRef;
 use App\Tasks\Entity\TaskAttachment;
 use App\Tasks\Service\AttachmentStorage;
 use App\Tasks\Service\PreviewGenerator;
 use App\Tasks\Service\TaskPolicy;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\Routing\Attribute\Route;
@@ -25,6 +30,7 @@ class TaskFileController extends TasksController
         private AttachmentStorage $storage,
         private PreviewGenerator $previews,
         private TaskPolicy $policy,
+        private PlanEventRecorder $events,
     ) {
     }
 
@@ -62,9 +68,20 @@ class TaskFileController extends TasksController
     }
 
     #[Route('/download', name: 'api_tasks_file_download', methods: ['GET'])]
-    public function download(TaskAttachment $attachment): Response
+    public function download(TaskAttachment $attachment, Request $request): Response
     {
-        return $this->send($this->allowed($attachment), ResponseHeaderBag::DISPOSITION_ATTACHMENT);
+        $response = $this->send($this->allowed($attachment), ResponseHeaderBag::DISPOSITION_ATTACHMENT);
+
+        // Скачування — у журнал аудиту (лише аудит, не Хроніка).
+        $this->events->record((new FileDownloaded(
+            SubjectRef::task((int) $attachment->getTask()->getId()),
+            $this->me()->getId(),
+            (int) $attachment->getId(),
+            FileType::Task->value,
+            $attachment->getOriginalName(),
+        ))->via('web', $request->getClientIp()));
+
+        return $response;
     }
 
     private function allowed(TaskAttachment $attachment): TaskAttachment

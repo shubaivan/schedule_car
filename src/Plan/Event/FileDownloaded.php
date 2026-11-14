@@ -16,6 +16,8 @@ final class FileDownloaded extends PlanEvent
         public readonly int $fileId,
         public readonly string $fileType,
         public readonly ?string $name = null,
+        /** share_link.id — файл скачали за тимчасовим посиланням (actorId тоді null). */
+        public readonly ?int $shareLinkId = null,
         ?DateTimeImmutable $at = null,
     ) {
         parent::__construct($subject, $actorId, $at);

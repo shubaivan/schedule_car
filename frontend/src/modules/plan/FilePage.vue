@@ -1,36 +1,39 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import FileViewer from '../tasks/FileViewer.vue'
-import { call } from '../../app/api'
 import type { Attachment } from '../tasks/api'
 import { useSession } from '../../app/store'
 import { goBack } from '../../plan/layers'
+import { filesApi, type FileType, type PlanFileMeta } from '../../plan/files'
 
 /**
- * Файл задачі на весь екран окремою сторінкою /files/:id — для посилань
- * (пошук, сповіщення, «поділитися»). «Назад» повертає, звідки прийшли;
- * прийшли за посиланням — «Закрити» веде до задачі цього файлу.
+ * Файл на весь екран окремою сторінкою — для посилань (пошук, сповіщення
+ * «поділились файлом», сторінка «Диск»):
+ *   /files/:id          — файл задачі (так посилання вже ходять);
+ *   /files/:type/:id    — документ заявки (supply) чи складу (wh).
+ * ?share=1 — одразу з панеллю «Поділитися». «Назад» повертає, звідки прийшли;
+ * прийшли за посиланням — «Закрити» веде до задачі / заявки цього файлу.
  */
-const props = defineProps<{ id: string }>()
+const props = defineProps<{ id: string; type?: FileType }>()
 const session = useSession()
+const route = useRoute()
 const router = useRouter()
-const file = ref<Attachment | null>(null)
-const task = ref<{ id: number; number: string; title: string } | null>(null)
+const meta = ref<PlanFileMeta | null>(null)
 const error = ref('')
+const type = computed<FileType>(() => props.type ?? 'task')
 
 onMounted(async () => {
     try {
-        const r = await call<{ file: Attachment; task: { id: number; number: string; title: string } }>(`/api/tasks/files/${props.id}`)
-        file.value = r.file
-        task.value = r.task
+        meta.value = await filesApi.meta(type.value, Number(props.id))
     } catch (e) {
-        error.value = session.handle(e) || 'Файл не знайдено.'
+        error.value = session.handle(e) || 'Файл не знайдено або він вам недоступний.'
     }
 })
 
 function close() {
-    goBack(router, task.value ? { name: 'tasks-board', params: { id: String(task.value.id) } } : { name: 'tasks' })
+    const target = meta.value?.subject.route
+    goBack(router, target ? { name: target.name, params: target.params } : { name: 'tasks' })
 }
 </script>
 
@@ -40,7 +43,7 @@ function close() {
             <p>{{ error }}</p>
             <button type="button" class="t-btn" @click="close">← Назад</button>
         </div>
-        <div v-else-if="!file" class="t-empty">Завантаження…</div>
-        <FileViewer v-else :files="[file]" :start-id="file.id" @close="close" />
+        <div v-else-if="!meta" class="t-empty">Завантаження…</div>
+        <FileViewer v-else :files="[meta.file as Attachment]" :start-id="meta.file.id" :share-open="route.query.share === '1'" @close="close" />
     </div>
 </template>

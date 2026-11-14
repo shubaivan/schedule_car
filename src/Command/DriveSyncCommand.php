@@ -14,6 +14,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;
 
 /**
@@ -33,6 +34,9 @@ class DriveSyncCommand extends Command
         private WhDocumentRepository $warehouseDocuments,
         private WarehouseDriveMirror $warehouseMirror,
         private DocumentStore $warehouseStore,
+        // «План» (GOOGLE_DRIVE_LAYOUT=plan) копіює своїм plan:drive-sync у дерево «План/…».
+        #[Autowire('%env(default::GOOGLE_DRIVE_LAYOUT)%')]
+        private ?string $layout = null,
     ) {
         parent::__construct();
     }
@@ -45,6 +49,12 @@ class DriveSyncCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
+
+        if ($this->layout === 'plan') {
+            $io->note('GOOGLE_DRIVE_LAYOUT=plan: файли копіює plan:drive-sync (дерево «План/…»), ця команда нічого не робить.');
+
+            return Command::SUCCESS;
+        }
 
         $limit = (int) $input->getOption('limit');
 

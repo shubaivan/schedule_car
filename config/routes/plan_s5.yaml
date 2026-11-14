@@ -1,0 +1,12 @@
+# «План», потік S5 — файли, «поділитися» (/api/plan/files…, /s/{token}) і стан Диска.
+plan_s5_share:
+    resource:
+        path: ../../src/Plan/Share/Controller/
+        namespace: App\Plan\Share\Controller
+    type: attribute
+
+plan_s5_drive:
+    resource:
+        path: ../../src/Plan/Drive/Controller/
+        namespace: App\Plan\Drive\Controller
+    type: attribute

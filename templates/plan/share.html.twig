@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="uk">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="referrer" content="no-referrer">
+    <title>{{ file ? file.name : 'Посилання недійсне' }}</title>
+    <style>
+        :root { color-scheme: light dark; --bg: #f4f5f7; --card: #fff; --text: #1d2330; --muted: #6b7280; --accent: #2563eb; --line: #e5e7eb; }
+        @media (prefers-color-scheme: dark) { :root { --bg: #111318; --card: #1b1e25; --text: #e7e9ee; --muted: #9aa1ad; --accent: #5b8cff; --line: #2a2e37; } }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+        main { max-width: 560px; margin: 0 auto; padding: 32px 16px; }
+        .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px; }
+        h1 { font-size: 18px; margin: 0 0 4px; word-break: break-word; }
+        .meta { color: var(--muted); font-size: 13px; }
+        .preview { margin: 16px 0 0; text-align: center; }
+        .preview img { max-width: 100%; max-height: 60vh; border-radius: 8px; }
+        .btn { display: block; margin-top: 18px; padding: 12px 16px; border-radius: 8px; background: var(--accent); color: #fff; text-align: center; text-decoration: none; font-weight: 600; }
+        .foot { margin-top: 16px; color: var(--muted); font-size: 12px; text-align: center; }
+    </style>
+</head>
+<body>
+<main>
+    <div class="card">
+        {% if file %}
+            <h1>{{ file.name }}</h1>
+            <div class="meta">{{ size }} · посилання дійсне до {{ link.expiresAt|date('d.m.Y H:i') }}</div>
+            {% if image %}
+                <div class="preview"><img src="{{ path('plan_share_view', {token: token}) }}" alt="{{ file.name }}"></div>
+            {% endif %}
+            <a class="btn" href="{{ path('plan_share_download', {token: token}) }}" download>⬇ Завантажити</a>
+        {% elseif reason == 'expired' %}
+            <h1>Термін дії посилання минув</h1>
+            <div class="meta">Попросіть надіслати файл ще раз.</div>
+        {% elseif reason == 'unknown' %}
+            <h1>Посилання не знайдено</h1>
+            <div class="meta">Перевірте, чи скопійовано адресу повністю.</div>
+        {% else %}
+            <h1>Посилання більше не діє</h1>
+            <div class="meta">Його відкликали або файл недоступний. Попросіть надіслати файл ще раз.</div>
+        {% endif %}
+    </div>
+</main>
+</body>
+</html>
