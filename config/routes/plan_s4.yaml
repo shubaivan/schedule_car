@@ -1,0 +1,13 @@
+# «План», потік S4 — пошук і Хроніка v2. Свій файл, щоб паралельні потоки не
+# конфліктували в config/routes.yaml.
+plan_s4_search:
+    resource:
+        path: ../../src/Plan/Search/
+        namespace: App\Plan\Search
+    type: attribute
+
+plan_s4_chronicle:
+    resource:
+        path: ../../src/Plan/Chronicle/
+        namespace: App\Plan\Chronicle
+    type: attribute
