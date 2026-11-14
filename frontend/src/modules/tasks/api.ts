@@ -47,9 +47,12 @@ export interface Attachment {
     urls: { thumb: string | null; view: string | null; page: string | null; inline: string; download: string }
 }
 
+export type EventType = 'comment' | 'file' | 'created' | 'status' | 'closed' | 'members' | 'updated'
+
 export interface Message {
     id: number
     kind: 'comment' | 'event'
+    eventType: EventType
     author: Person | null
     text: string
     mentions: number[]
@@ -57,6 +60,17 @@ export interface Message {
     deleted: boolean
     mine: boolean
     attachments: Attachment[]
+    replyTo: { id: number; author: string | null; authorColor: string | null; text: string; files: number; deleted: boolean } | null
+    editedAt: string | null
+    pinned: { at: string; by: string | null } | null
+    starred: boolean
+    can: { edit: boolean; delete: boolean }
+}
+
+/** Хто до якого повідомлення дочитав задачу. */
+export interface ReadMark {
+    userId: number
+    lastMessageId: number
 }
 
 export interface TaskItem {
@@ -88,6 +102,55 @@ export interface TaskDetail extends TaskItem {
     awaitsDecision: boolean
     messages: Message[]
     files: Attachment[]
+    favorite: boolean
+    reads: ReadMark[]
+    /** До якого повідомлення людина дочитала до цього відкриття (для «Нові повідомлення»). */
+    readUpTo: number | null
+}
+
+export interface ChronicleItem {
+    task: { id: number; number: string; title: string; client: string | null; status: string; statusLabel: string; closed: boolean; creator: Person | null }
+    event: { id: number; type: EventType; author: Person | null; text: string; files: { name: string; kind: string }[]; filesCount: number; at: string } | null
+    unread: number
+    favorite: boolean
+    lastActivityAt: string
+}
+
+export interface ChronicleCounts {
+    tasks: number
+    events: number
+}
+
+export interface Chronicle {
+    items: ChronicleItem[]
+    next: string | null
+    counts: ChronicleCounts
+}
+
+/** Шматок тексту з пошуку: m — збіг (малюється як <mark>). */
+export interface Hit {
+    t: string
+    m: boolean
+}
+
+export type SearchTab = 'all' | 'tasks' | 'comments' | 'files' | 'people'
+
+export interface SearchResult {
+    q: string
+    counts: Record<Exclude<SearchTab, 'all'>, number>
+    tasks?: { id: number; number: string; title: Hit[]; client: string | null; snippet: Hit[]; status: string; statusLabel: string; closed: boolean; favorite: boolean; at: string }[]
+    comments?: { id: number; taskId: number; taskNumber: string; taskTitle: string; closed: boolean; author: Person | null; snippet: Hit[]; starred: boolean; at: string }[]
+    files?: { id: number; name: Hit[]; plainName: string; kind: string; sizeLabel: string; thumb: string | null; taskId: number; taskNumber: string; taskTitle: string; closed: boolean; at: string }[]
+    people?: (Person & { nameMarked: Hit[] })[]
+}
+
+export interface PollResult {
+    messages: Message[]
+    changed: Message[]
+    attachments: Attachment[]
+    status: string
+    reads: ReadMark[]
+    now: string
 }
 
 export interface TasksMeta {
@@ -176,17 +239,42 @@ export const tasksApi = {
     update: (id: number, payload: TaskPayload) => call<TaskDetail>(`/api/tasks/${id}`, { method: 'PATCH', body: json(payload) }),
     status: (id: number, to: string, comment?: string) =>
         call<TaskDetail>(`/api/tasks/${id}/status`, { method: 'POST', body: json({ to, comment }) }),
-    poll: (id: number, after: number, pending: number[]) => {
+    poll: (id: number, after: number, pending: number[], changedSince?: string | null) => {
         const params = new URLSearchParams({ after: String(after) })
         pending.forEach((p) => params.append('pending[]', String(p)))
-        return call<{ messages: Message[]; attachments: Attachment[]; status: string }>(`/api/tasks/${id}/messages?` + params)
+        if (changedSince) params.set('changedSince', changedSince)
+        return call<PollResult>(`/api/tasks/${id}/messages?` + params)
     },
-    post: (id: number, text: string, files: File[], mentions: number[]) => {
+    post: (id: number, text: string, files: File[], mentions: number[], replyTo?: number | null) => {
         const form = new FormData()
         form.append('text', text)
         files.forEach((f) => form.append('files[]', f, f.name))
         mentions.forEach((m) => form.append('mentions[]', String(m)))
+        if (replyTo) form.append('replyTo', String(replyTo))
         return upload<Message>(`/api/tasks/${id}/messages`, form)
+    },
+    editMessage: (id: number, messageId: number, text: string) =>
+        call<Message>(`/api/tasks/${id}/messages/${messageId}`, { method: 'PATCH', body: json({ text }) }),
+    pinMessage: (id: number, messageId: number, on: boolean) =>
+        call<Message>(`/api/tasks/${id}/messages/${messageId}/pin`, { method: 'POST', body: json({ on }) }),
+    starMessage: (id: number, messageId: number, on: boolean) =>
+        call<Message>(`/api/tasks/${id}/messages/${messageId}/star`, { method: 'POST', body: json({ on }) }),
+    favorite: (id: number, on: boolean) => call<{ favorite: boolean }>(`/api/tasks/${id}/favorite`, { method: 'POST', body: json({ on }) }),
+    markRead: (id: number) => call<ChronicleCounts>(`/api/tasks/${id}/read`, { method: 'POST' }),
+    chronicle: (opts: { unread?: boolean; favorites?: boolean; cursor?: string | null }) => {
+        const params = new URLSearchParams()
+        if (opts.unread) params.set('unread', '1')
+        if (opts.favorites) params.set('favorites', '1')
+        if (opts.cursor) params.set('cursor', opts.cursor)
+        return call<Chronicle>('/api/tasks/chronicle?' + params)
+    },
+    chronicleCounts: () => call<ChronicleCounts>('/api/tasks/chronicle/counts'),
+    readAll: () => call<ChronicleCounts>('/api/tasks/chronicle/read-all', { method: 'POST' }),
+    search: (q: string, tab: SearchTab, starred: boolean, offset = 0) => {
+        const params = new URLSearchParams({ q, tab })
+        if (starred) params.set('starred', '1')
+        if (offset) params.set('offset', String(offset))
+        return call<SearchResult>('/api/tasks/search?' + params)
     },
     deleteMessage: (id: number, messageId: number) => call<Message>(`/api/tasks/${id}/messages/${messageId}`, { method: 'DELETE' }),
 
