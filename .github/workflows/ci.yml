@@ -1,116 +1,214 @@
 name: CI
 
+# Gates of every change: composer validate -> format -> static analysis -> tests
+# (PostgreSQL 14 like production) -> CRM frontend type-check and build ->
+# OSV scan of both lockfiles. All jobs are self-contained (no reusable workflows).
 on:
     push:
     pull_request:
+    workflow_dispatch:
+    schedule:
+        # Daily OSV scan: new advisories appear without any change in the repo.
+        - cron: "17 4 * * *"
 
-# Той самий набір воріт, що й на chiropractor-api: формат → статичний аналіз →
-# тести. Reusable-workflow'и того проєкту лежать у приватному репозиторії
-# організації, тож кроки описані тут напряму.
+concurrency:
+    group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+    cancel-in-progress: true
+
+permissions:
+    contents: read
+
+env:
+    PHP_VERSION: '8.5'
+    PHP_EXTENSIONS: mbstring, intl, pdo_pgsql, gd, curl, iconv, ctype
+    COMPOSER_FLAGS: --no-ansi --no-interaction --no-progress --prefer-dist --no-scripts
+
 jobs:
-    PHPCSFixer:
-        name: PHP-CS-Fixer
+    composer:
+        name: Composer validate
+        if: github.event_name != 'schedule'
         runs-on: ubuntu-latest
         timeout-minutes: 5
 
         steps:
             -   name: Checkout repository
-                uses: actions/checkout@v4
+                uses: actions/checkout@v4.2.2
 
             -   name: Setup php
-                uses: shivammathur/setup-php@v2
+                uses: shivammathur/setup-php@2.35.5
                 with:
-                    php-version: '8.5'
-                    extensions: mbstring, intl, pdo_pgsql
-                    tools: composer
+                    php-version: ${{ env.PHP_VERSION }}
+                    extensions: ${{ env.PHP_EXTENSIONS }}
+                    coverage: none
+                    tools: composer:v2
+
+            -   name: Validate composer.json and composer.lock
+                run: composer validate --no-check-publish
+
+    php-cs-fixer:
+        name: PHP-CS-Fixer
+        needs: composer
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+
+        steps:
+            -   name: Checkout repository
+                uses: actions/checkout@v4.2.2
+
+            -   name: Setup php
+                uses: shivammathur/setup-php@2.35.5
+                with:
+                    php-version: ${{ env.PHP_VERSION }}
+                    extensions: ${{ env.PHP_EXTENSIONS }}
+                    coverage: none
+                    tools: composer:v2
+
+            -   name: Composer cache directory
+                id: composer-cache
+                run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+            -   name: Cache composer downloads
+                uses: actions/cache@v4.2.3
+                with:
+                    path: ${{ steps.composer-cache.outputs.dir }}
+                    key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+                    restore-keys: composer-${{ runner.os }}-
 
             -   name: Install dependencies
-                run: composer install -q --no-ansi --no-interaction --no-progress --prefer-dist --no-scripts
+                run: composer install ${{ env.COMPOSER_FLAGS }}
 
             -   name: Check formatting
                 run: composer cs-check
 
-    PHPStan:
+    phpstan:
         name: PHPStan
-        needs: PHPCSFixer
+        needs: composer
         runs-on: ubuntu-latest
-        timeout-minutes: 5
+        timeout-minutes: 10
 
         steps:
             -   name: Checkout repository
-                uses: actions/checkout@v4
+                uses: actions/checkout@v4.2.2
 
             -   name: Setup php
-                uses: shivammathur/setup-php@v2
+                uses: shivammathur/setup-php@2.35.5
                 with:
-                    php-version: '8.5'
-                    extensions: mbstring, intl, pdo_pgsql
+                    php-version: ${{ env.PHP_VERSION }}
+                    extensions: ${{ env.PHP_EXTENSIONS }}
                     ini-values: memory_limit=1G
-                    tools: composer
+                    coverage: none
+                    tools: composer:v2
+
+            -   name: Composer cache directory
+                id: composer-cache
+                run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+            -   name: Cache composer downloads
+                uses: actions/cache@v4.2.3
+                with:
+                    path: ${{ steps.composer-cache.outputs.dir }}
+                    key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+                    restore-keys: composer-${{ runner.os }}-
 
             -   name: Install dependencies
-                run: composer install -q --no-ansi --no-interaction --no-progress --prefer-dist --no-scripts
+                run: composer install ${{ env.COMPOSER_FLAGS }}
 
-            # Розширення phpstan-symfony читає контейнер, а doctrine-розширення —
-            # реальний EntityManager, тож кеш dev треба прогріти заздалегідь.
+            # phpstan-symfony reads the compiled container and the doctrine extension
+            # a real EntityManager, so the dev cache must be warm first (no DB needed).
             -   name: Warm up container
                 env:
                     APP_ENV: dev
-                    DATABASE_URL: postgresql://app:app@127.0.0.1:5432/app?serverVersion=16&charset=utf8
+                    DATABASE_URL: postgresql://app:app@127.0.0.1:5432/app?serverVersion=14&charset=utf8
                 run: php bin/console cache:warmup --env=dev
 
             -   name: Analyse
                 env:
-                    DATABASE_URL: postgresql://app:app@127.0.0.1:5432/app?serverVersion=16&charset=utf8
+                    DATABASE_URL: postgresql://app:app@127.0.0.1:5432/app?serverVersion=14&charset=utf8
                 run: php vendor/bin/phpstan analyse -c phpstan.dist.neon --no-progress --memory-limit=1G
 
-    Tests:
-        name: Tests
-        needs: PHPCSFixer
+    tests:
+        name: Tests (PostgreSQL 14)
+        needs: composer
         runs-on: ubuntu-latest
-        timeout-minutes: 10
+        timeout-minutes: 20
 
         services:
             postgres:
-                image: postgres:16
+                # Production runs PostgreSQL 14 (plan, zayavky).
+                image: postgres:14
                 env:
-                    POSTGRES_DB: app_test
-                    POSTGRES_USER: app
-                    POSTGRES_PASSWORD: app
+                    POSTGRES_USER: postgres
+                    POSTGRES_PASSWORD: postgres
+                    POSTGRES_DB: postgres
                 ports:
                     - 5432:5432
                 options: >-
                     --health-cmd=pg_isready
-                    --health-interval=10s
+                    --health-interval=5s
                     --health-timeout=5s
-                    --health-retries=5
+                    --health-retries=10
 
         env:
-            DATABASE_URL: postgresql://app:app@127.0.0.1:5432/app_test?serverVersion=16&charset=utf8
+            # Doctrine adds dbname_suffix "_test" in the test env: app -> app_test.
+            DATABASE_URL: postgresql://app:app@127.0.0.1:5432/app?serverVersion=14&charset=utf8
 
         steps:
             -   name: Checkout repository
-                uses: actions/checkout@v4
+                uses: actions/checkout@v4.2.2
 
             -   name: Setup php
-                uses: shivammathur/setup-php@v2
+                uses: shivammathur/setup-php@2.35.5
                 with:
-                    php-version: '8.5'
-                    extensions: mbstring, intl, pdo_pgsql
+                    php-version: ${{ env.PHP_VERSION }}
+                    extensions: ${{ env.PHP_EXTENSIONS }}
                     ini-values: memory_limit=1G
-                    tools: composer
+                    coverage: pcov
+                    tools: composer:v2
+
+            # Same as production: the app role is not a superuser, pg_trgm is
+            # pre-created by postgres (the migration's IF NOT EXISTS is then a no-op).
+            -   name: Prepare database
+                env:
+                    PGPASSWORD: postgres
+                run: |
+                    psql -h 127.0.0.1 -U postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE app LOGIN PASSWORD 'app'"
+                    psql -h 127.0.0.1 -U postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE app_test OWNER app ENCODING 'UTF8' TEMPLATE template0"
+                    psql -h 127.0.0.1 -U postgres -d app_test -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS pg_trgm"
+
+            -   name: Composer cache directory
+                id: composer-cache
+                run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+            -   name: Cache composer downloads
+                uses: actions/cache@v4.2.3
+                with:
+                    path: ${{ steps.composer-cache.outputs.dir }}
+                    key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+                    restore-keys: composer-${{ runner.os }}-
 
             -   name: Install dependencies
-                run: composer install -q --no-ansi --no-interaction --no-progress --prefer-dist --no-scripts
+                run: composer install ${{ env.COMPOSER_FLAGS }}
 
             -   name: Run migrations
                 run: php bin/console doctrine:migrations:migrate --env=test --no-interaction
 
-            -   name: Run tests
-                run: php vendor/bin/phpunit
+            -   name: Run tests with coverage
+                run: php vendor/bin/phpunit --coverage-text --coverage-clover=var/coverage.xml --only-summary-for-coverage-text
 
-    Frontend:
+            -   name: Check minimum coverage
+                env:
+                    MIN_COVERAGE: '25'
+                run: |
+                    php -r '
+                        $m = simplexml_load_file("var/coverage.xml")->project->metrics;
+                        $pct = (int) $m["statements"] > 0 ? 100 * (int) $m["coveredstatements"] / (int) $m["statements"] : 0;
+                        printf("Line coverage: %.2f%% (minimum %s%%)\n", $pct, getenv("MIN_COVERAGE"));
+                        exit($pct < (float) getenv("MIN_COVERAGE") ? 1 : 0);
+                    '
+
+    frontend:
         name: CRM frontend
+        if: github.event_name != 'schedule'
         runs-on: ubuntu-latest
         timeout-minutes: 10
 
@@ -120,10 +218,10 @@ jobs:
 
         steps:
             -   name: Checkout repository
-                uses: actions/checkout@v4
+                uses: actions/checkout@v4.2.2
 
             -   name: Setup node
-                uses: actions/setup-node@v4
+                uses: actions/setup-node@v4.4.0
                 with:
                     node-version: '24'
                     cache: npm
@@ -132,7 +230,24 @@ jobs:
             -   name: Install dependencies
                 run: npm ci
 
-            # `npm run build` — це vue-tsc --noEmit та vite build: перевірка
-            # типів і збірка одним кроком.
-            -   name: Type-check and build
-                run: npm run build
+            -   name: Type-check
+                run: npx vue-tsc --noEmit
+
+            -   name: Build
+                run: npx vite build
+
+    osv:
+        name: OSV vulnerability scan
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+
+        steps:
+            -   name: Checkout repository
+                uses: actions/checkout@v4.2.2
+
+            -   name: Scan composer.lock and frontend/package-lock.json
+                uses: google/osv-scanner-action/osv-scanner-action@v2.3.0
+                with:
+                    scan-args: |-
+                        --lockfile=composer.lock
+                        --lockfile=frontend/package-lock.json
