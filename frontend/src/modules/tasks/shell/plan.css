@@ -489,3 +489,11 @@ body.p-noscroll { overflow: hidden; }
 
 .p-embedded .t-dl { grid-template-columns: 92px minmax(0, 1fr); font-size: 13.5px; }
 .p-card-task .t-stack .t-ava + .t-ava, .p-thead .t-stack .t-ava + .t-ava { margin-left: -4px; }
+
+/* ---------- дзвіночок сповіщень (S1) ---------- */
+.p-icon-btn.p-mtop-bell { position: relative; }
+.p-icon-btn.p-mtop-bell .p-badge { top: -2px; right: -4px; }
+@media (max-width: 760px) {
+    .p-mtop .p-icon-btn.p-mtop-bell { margin-left: auto; }
+    .p-mtop .p-icon-btn.p-mtop-bell + .p-icon-btn { margin-left: 0; }
+}

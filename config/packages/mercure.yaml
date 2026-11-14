@@ -1,0 +1,26 @@
+# Mercure — живі події «Плану» (потік S1). Хаб — окремий бінарник на
+# 127.0.0.1:3100 за nginx `/.well-known/mercure` (deploy/plan-mercure.*).
+# MERCURE_URL порожній (стенди заявок, тести) — нічого не публікуємо, фронт
+# працює на опитуванні. Протокол 0.x («mercure» JWT-claim, кука
+# mercureAuthorization) — його розуміє хаб v0.21.
+mercure:
+    hubs:
+        default:
+            url: '%env(default::MERCURE_URL)%'
+            public_url: '%env(MERCURE_PUBLIC_URL)%'
+            protocol_version: '0.x'
+            # Публікація з воркера не має висіти, якщо хаб завис.
+            http_client: plan.mercure_client
+            jwt:
+                secret: '%env(MERCURE_JWT_SECRET)%'
+                publish: '*'
+                claims:
+                    iss: '%env(MERCURE_JWT_ISSUER)%'
+
+framework:
+    http_client:
+        scoped_clients:
+            plan.mercure_client:
+                scope: '.*'
+                timeout: 3
+                max_duration: 5

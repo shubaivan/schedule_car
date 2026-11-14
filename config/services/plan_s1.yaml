@@ -1,0 +1,20 @@
+# «План», потік S1 — сповіщення, real-time, Web Push, бот Плану.
+# Майже все — автовайринг; тут лише те, що атрибутами не виразити.
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    # Nutgram бере middleware й обробники з контейнера — лише публічні сервіси.
+    App\Plan\Telegram\PlanBot:
+        public: true
+    App\Plan\Telegram\PlanBotFallback:
+        public: true
+
+    # Тести підміняють хаб і push (шпигуни), воркер і слухачі тягнуть їх напряму.
+    App\Plan\Realtime\MercurePublisher:
+        public: true
+    App\Plan\Push\PushSender:
+        public: true
+    App\Plan\Notification\NotificationFanout:
+        public: true

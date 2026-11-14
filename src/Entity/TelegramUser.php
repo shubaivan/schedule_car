@@ -14,6 +14,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Security\Core\User\EquatableInterface;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Validator\Constraints\NotBlank;
@@ -26,7 +27,7 @@ use Symfony\Component\Validator\Constraints\NotBlank;
 #[ORM\Entity(repositoryClass: TelegramUserRepository::class)]
 #[ORM\HasLifecycleCallbacks()]
 #[ORM\UniqueConstraint(name: 'uniq_telegram_user_email', columns: ['email'])]
-class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface
+class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface, EquatableInterface
 {
     use CreatedUpdatedAtAwareTrait;
 
@@ -453,5 +454,19 @@ class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface
     public function getPassword(): ?string
     {
         return $this->password;
+    }
+
+    /**
+     * Сесія та сама, поки та сама людина (id), той самий пароль, ролі й не в кошику.
+     * telegram_id навмисно не порівнюємо: прив'язка/відв'язка бота Плану його
+     * змінює, і без цього людину викидало б із CRM на всіх пристроях.
+     */
+    public function isEqualTo(UserInterface $user): bool
+    {
+        return $user instanceof self &&
+            $user->getId() === $this->id &&
+            $user->getPassword() === $this->password &&
+            $user->isArchived() === $this->isArchived() &&
+            $user->getRoles() === $this->getRoles();
     }
 }

@@ -3,13 +3,14 @@ import { supplyRoutes } from '../modules/supply/routes'
 import { fleetRoutes } from '../modules/fleet/routes'
 import { tasksRoutes } from '../modules/tasks/routes'
 import { adminRoutes } from '../modules/admin/routes'
+import { notificationsRoutes } from '../modules/notifications/routes'
 
 /**
  * Лише збирає маршрути модулів. Кожен модуль (і кожен потік «Плану») тримає свої
  * маршрути у власному `modules/<модуль>/routes.ts` — так паралельні гілки не
  * конфліктують у цьому файлі. Новий модуль: експортуй масив і додай його сюди.
  */
-const modules: RouteRecordRaw[][] = [supplyRoutes, fleetRoutes, tasksRoutes, adminRoutes]
+const modules: RouteRecordRaw[][] = [supplyRoutes, fleetRoutes, tasksRoutes, adminRoutes, notificationsRoutes]
 
 export const router = createRouter({
     history: createWebHistory('/crm/'),

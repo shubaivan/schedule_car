@@ -1,0 +1,31 @@
+# Mercure-хаб «Плану» → /etc/plan-mercure/Caddyfile (root:deploy 640).
+# Слухає лише 127.0.0.1:3100; ззовні доступний тільки через nginx
+# `location /.well-known/mercure` того ж домену (див. nginx-plan-mercure.conf).
+{
+	auto_https off
+	admin off
+	# Логи — у journald (systemd), без query-рядків з токенами.
+	log {
+		output stderr
+		level WARN
+	}
+}
+
+:3100 {
+	bind 127.0.0.1
+
+	mercure {
+		# Ключі HS256 — з /etc/plan-mercure/plan-mercure.env (той самий ключ, що MERCURE_JWT_SECRET у .env.local Плану).
+		publisher_jwt {env.MERCURE_PUBLISHER_JWT_KEY}
+		subscriber_jwt {env.MERCURE_SUBSCRIBER_JWT_KEY}
+		# Коротка історія на диску: перепідключений браузер дочитує пропущене (Last-Event-ID).
+		transport bolt {
+			path /var/lib/plan-mercure/updates.db
+			size 1000
+		}
+		# Анонімних підписок немає: усі топіки «Плану» приватні (/u/<id>).
+	}
+
+	respond /healthz 200
+	respond "Not Found" 404
+}

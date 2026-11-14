@@ -10,6 +10,7 @@ use App\Plan\Event\PlanEvent;
 use App\Plan\Event\StatusEvent;
 use App\Plan\Event\SubjectCreated;
 use App\Plan\EventStore\PlanEventConsumer;
+use App\Plan\Notification\TelegramGate;
 use App\Plan\Subject\SubjectType;
 use App\Tasks\Entity\Task;
 use App\Tasks\Entity\TaskMessage;
@@ -31,6 +32,7 @@ final class TaskNotificationListener implements PlanEventConsumer
         private readonly TaskNotifier $notifier,
         private readonly EntityManagerInterface $em,
         private readonly LoggerInterface $logger,
+        private readonly TelegramGate $gate,
     ) {
     }
 
@@ -48,13 +50,14 @@ final class TaskNotificationListener implements PlanEventConsumer
             return;
         }
 
-        match (true) {
+        // Доставка в Telegram позначиться в notification.delivered_tg_at саме цієї події.
+        $this->gate->during($event, fn () => match (true) {
             $event instanceof SubjectCreated => $this->notifier->created($task),
             $event instanceof MemberAdded => $this->added($event, $task),
             $event instanceof StatusEvent => $this->status($event, $task),
             $event instanceof CommentAdded, $event instanceof FileAdded => $this->message($event),
             default => null,
-        };
+        });
     }
 
     private function added(MemberAdded $event, Task $task): void

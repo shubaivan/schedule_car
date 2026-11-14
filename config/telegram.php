@@ -15,6 +15,8 @@ use App\Supply\Telegram\RequestView;
 use App\Supply\Telegram\SetAccentAction;
 use App\Supply\Telegram\SupplyCallback;
 use App\Supply\Telegram\SupplyMenu;
+use App\Plan\Telegram\PlanBot;
+use App\Plan\Telegram\PlanBotFallback;
 use App\Telegram\Access\AccessCallback;
 use App\Telegram\Access\AccessDecision;
 use App\Telegram\Access\PrivateChatsOnly;
@@ -47,7 +49,19 @@ $bot->setRunningMode(Webhook::class);
 // Глобальні middleware Nutgram виконує в порядку додавання: фільтр груп
 // стоїть першим, щоб бот не відповідав у робочій групі навіть незнайомцю.
 $bot->middleware(PrivateChatsOnly::class);
+// Бот «Плану» (PLAN_TELEGRAM_BOT=1) — лише сповіщення: відповідає на все сам і
+// далі не пускає. На стендах заявок прозорий.
+$bot->middleware(PlanBot::class);
 $bot->middleware(RequireApproval::class);
+
+// Глобальні middleware Nutgram запускає лише довкола знайденого обробника — у бота
+// Плану їм має бути що обгорнути (/mute, /help, будь-який текст). Стендам заявок
+// fallback не додаємо: там невідомий текст і далі лишається без відповіді.
+if (filter_var($_SERVER['PLAN_TELEGRAM_BOT'] ?? $_ENV['PLAN_TELEGRAM_BOT'] ?? getenv('PLAN_TELEGRAM_BOT') ?: false, FILTER_VALIDATE_BOOL)) {
+    $bot->onCommand('mute', PlanBotFallback::class);
+    $bot->onCommand('help', PlanBotFallback::class);
+    $bot->fallback(PlanBotFallback::class);
+}
 
 $bot->onContact(ShareContact::class);
 $bot->onCallbackQueryData(AccessCallback::APPROVE_PREFIX . '{id}', AccessDecision::class);
