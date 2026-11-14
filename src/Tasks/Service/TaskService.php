@@ -217,6 +217,9 @@ class TaskService
             if ($file->getSize() > AttachmentStorage::MAX_BYTES) {
                 throw new TaskException(sprintf('«%s» більший за 20 МБ.', $file->getClientOriginalName()));
             }
+
+            // Тип за вмістом, до будь-якого запису: HTML/SVG/програми в задачу не потрапляють.
+            AttachmentStorage::assertAllowed((string) ($file->getClientOriginalName() ?: $file->getFilename()), $file->getPathname());
         }
 
         $replyTo = null;
@@ -278,6 +281,8 @@ class TaskService
     /** Файл із диска (для демо-даних і тестів) — той самий шлях, що й завантаження. */
     public function attach(TaskMessage $message, ?TelegramUser $by, string $path, string $name, string $mime): TaskAttachment
     {
+        $mime = AttachmentStorage::storedMime($name, AttachmentStorage::assertAllowed($name, $path), $mime);
+
         $attachment = new TaskAttachment(
             $message,
             $by,

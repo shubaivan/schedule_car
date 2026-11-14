@@ -241,18 +241,30 @@ class TasksApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(404);
     }
 
-    public function testDangerousFilesAreNeverInline(): void
+    public function testDangerousFilesAreRefusedByContentNotByClaimedType(): void
     {
         $manager = $this->user(WorkRole::Manager, 'mgr');
         $this->login($manager);
         $task = $this->send('POST', '/api/tasks', ['title' => 'HTML у вкладенні']);
+        $messages = fn () => (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM task_message WHERE task_id = ? AND kind = ?', [$task['id'], 'comment']);
 
-        $path = tempnam(sys_get_temp_dir(), 'html');
-        file_put_contents($path, '<script>alert(1)</script>');
-        $this->client->request('POST', '/api/tasks/' . $task['id'] . '/messages', [], ['files' => [new UploadedFile($path, 'x.html', 'text/html', null, true)]]);
+        // HTML, SVG і HTML, що прикидається PDF, — відмова за вмістом, без повідомлення й файла.
+        foreach ([['x.html', 'text/html', '<html><script>alert(1)</script></html>'], ['logo.svg', 'image/svg+xml', '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"/>'], ['invoice.pdf', 'application/pdf', '<!doctype html><html><body><script>alert(1)</script></body></html>']] as [$name, $mime, $body]) {
+            $path = tempnam(sys_get_temp_dir(), 'bad');
+            file_put_contents($path, $body);
+            $this->client->request('POST', '/api/tasks/' . $task['id'] . '/messages', ['text' => 'дивіться'], ['files' => [new UploadedFile($path, $name, $mime, null, true)]]);
+            self::assertResponseStatusCodeSame(422, $name);
+            self::assertStringContainsString('такий тип файла не приймаємо', (string) ($this->json()['error'] ?? ''));
+        }
+
+        self::assertSame(0, $messages(), 'нічого не записано');
+
+        // Справжній PDF і офісний файл, який finfo бачить як контейнер, — приймаємо.
+        $docx = self::getContainer()->getParameter('kernel.project_dir') . '/demo/tasks/Комерційна_пропозиція_КП-77.docx';
+        $this->client->request('POST', '/api/tasks/' . $task['id'] . '/messages', [], ['files' => [$this->upload($docx, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')]]);
+        self::assertResponseIsSuccessful();
         $file = $this->json()['attachments'][0];
-
-        self::assertSame('other', $file['kind']);
+        self::assertSame('office', $file['kind']);
         $this->client->request('GET', $file['urls']['inline']);
         self::assertStringStartsWith('attachment', (string) $this->client->getResponse()->headers->get('Content-Disposition'));
     }

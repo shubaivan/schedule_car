@@ -4,6 +4,7 @@ namespace App\Tasks\Service;
 
 use App\Tasks\Entity\TaskAttachment;
 use App\Tasks\Exception\TaskException;
+use finfo;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Filesystem\Filesystem;
 
@@ -22,6 +23,26 @@ class AttachmentStorage
 
     private const IMAGE = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
     private const OFFICE = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp', 'rtf'];
+
+    /**
+     * Що приймаємо у вкладення задач (та сама родина, що в заявках і на складі:
+     * PDF, фото, офіс), плюс те, чим реально обмінюються на заводі: текст/CSV,
+     * креслення DWG/DXF, архіви. Тип — за вмістом (finfo), не за тим, що прислав
+     * браузер. HTML, SVG, скрипти й програми — ні.
+     */
+    private const ALLOWED_MIME = [
+        'application/pdf',
+        'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif',
+        'application/msword', 'application/vnd.ms-excel', 'application/vnd.ms-powerpoint',
+        'application/rtf', 'text/rtf', 'text/plain', 'text/csv',
+        'application/zip', 'application/x-7z-compressed', 'application/vnd.rar', 'application/x-rar',
+        'image/vnd.dwg', 'image/vnd.dxf', 'application/acad', 'application/dxf', 'application/x-dwg',
+    ];
+
+    private const ALLOWED_PREFIX = ['application/vnd.openxmlformats-officedocument.', 'application/vnd.oasis.opendocument.'];
+
+    /** Офісні файли, які finfo бачить лише як контейнер (zip / OLE) — приймаємо за розширенням. */
+    private const OFFICE_CONTAINERS = ['application/octet-stream', 'application/zip', 'application/cdfv2', 'application/x-ole-storage', 'application/vnd.ms-office'];
 
     private Filesystem $fs;
 
@@ -42,6 +63,62 @@ class AttachmentStorage
             in_array($ext, self::OFFICE, true) => TaskAttachment::KIND_OFFICE,
             default => TaskAttachment::KIND_OTHER,
         };
+    }
+
+    /** Тип файла за вмістом (finfo); null — не вдалося визначити. */
+    public static function detect(string $path): ?string
+    {
+        $mime = (new finfo(FILEINFO_MIME_TYPE))->file($path);
+
+        return is_string($mime) && $mime !== '' ? strtolower($mime) : null;
+    }
+
+    public static function allowed(string $name, ?string $detected): bool
+    {
+        if ($detected === null) {
+            return false;
+        }
+
+        if (in_array($detected, self::ALLOWED_MIME, true)) {
+            return true;
+        }
+
+        foreach (self::ALLOWED_PREFIX as $prefix) {
+            if (str_starts_with($detected, $prefix)) {
+                return true;
+            }
+        }
+
+        return in_array($detected, self::OFFICE_CONTAINERS, true) && in_array(self::extension($name), self::OFFICE, true);
+    }
+
+    /** Відмова з людським текстом, якщо такий файл у задачу не приймаємо. */
+    public static function assertAllowed(string $name, string $path): string
+    {
+        $detected = self::detect($path);
+
+        if (! self::allowed($name, $detected)) {
+            throw new TaskException(sprintf('«%s»: такий тип файла не приймаємо. Можна PDF, фото, документи Word/Excel/PowerPoint, текст, креслення DWG/DXF і архіви.', $name));
+        }
+
+        return (string) $detected;
+    }
+
+    /**
+     * Тип, що піде у вкладення: за вмістом. Лише коли finfo бачить контейнер (zip/OLE
+     * офісного файла) — заявлений браузером, і то лише офісний/архівний, інакше контейнер.
+     */
+    public static function storedMime(string $name, string $detected, string $claimed): string
+    {
+        $claimed = strtolower(trim($claimed));
+
+        if (! in_array($detected, self::OFFICE_CONTAINERS, true) || $claimed === '') {
+            return $detected;
+        }
+
+        $office = str_starts_with($claimed, 'application/vnd.') || in_array($claimed, ['application/msword', 'application/zip', 'application/x-zip-compressed'], true);
+
+        return $office ? $claimed : $detected;
     }
 
     public static function extension(string $name): string
