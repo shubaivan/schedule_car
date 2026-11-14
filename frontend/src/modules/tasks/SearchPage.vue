@@ -83,6 +83,19 @@ watch(q, () => {
 })
 watch([tab, starred], () => run())
 
+/** Порядок результатів для ↑/↓ — з даних, а не з DOM, щоб підсвітка була реактивною. */
+const order = computed<string[]>(() => {
+    const r = result.value
+    if (!r) return []
+    const out: string[] = []
+    for (const g of groups.value) {
+        if (g === 'tasks') r.tasks?.forEach((t) => out.push('task:' + t.id))
+        if (g === 'comments') r.comments?.forEach((c) => out.push('msg:' + c.taskId + ':' + c.id))
+        if (g === 'files') r.files?.forEach((f) => out.push('file:' + f.taskId + ':' + f.id))
+    }
+    return out
+})
+
 function hits(): HTMLElement[] {
     return Array.from(resultsEl.value?.querySelectorAll<HTMLElement>('.f-hit[data-go]') ?? [])
 }
@@ -111,9 +124,8 @@ function onKey(e: KeyboardEvent) {
     }
 }
 
-function isSel(el: string): boolean {
-    const list = hits()
-    return list[sel.value]?.dataset.go === el
+function isSel(key: string): boolean {
+    return order.value[sel.value] === key
 }
 
 onMounted(() => {

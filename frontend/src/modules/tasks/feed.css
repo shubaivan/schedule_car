@@ -24,8 +24,8 @@
 .f-readcount, .f-dots { display: none; border: 0; background: none; color: inherit; font: inherit; padding: 0 .1rem; cursor: pointer; }
 
 /* Панель дій при наведенні (десктоп). */
-.f-actions { position: absolute; top: 4px; right: 6px; display: flex; gap: 2px; padding: 2px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--t-shadow); opacity: 0; pointer-events: none; transition: opacity .12s; z-index: 2; }
-.t-msg.mine .f-actions { right: auto; left: 6px; }
+.f-actions { position: absolute; top: 2px; right: 4px; display: flex; gap: 2px; padding: 2px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--t-shadow); opacity: 0; pointer-events: none; transition: opacity .12s; z-index: 2; }
+.t-msg.mine .f-actions { right: auto; left: 4px; }
 .f-msg:hover .f-actions, .f-msg:focus-within .f-actions { opacity: 1; pointer-events: auto; }
 .f-actions button { width: 30px; height: 28px; border: 0; border-radius: 7px; background: none; color: var(--text-muted); font-size: .9rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 .f-actions button:hover { background: var(--bg); color: var(--text); }
@@ -36,6 +36,7 @@
 .f-readers .t-ava { margin-left: -5px; border: 2px solid var(--t-chat-bg); box-sizing: content-box; }
 .f-readers .t-ava:first-child { margin-left: 0; }
 .f-readers .more { font-size: .68rem; color: var(--text-muted); font-weight: 700; margin-left: 3px; }
+.f-backdrop { position: fixed; inset: 0; z-index: 5; }
 .f-readlist { position: absolute; z-index: 6; top: 100%; right: 0; margin-top: 4px; min-width: 190px; max-height: 240px; overflow-y: auto; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--t-shadow-lg); padding: .4rem; font-size: .84rem; }
 .t-msg.mine .f-readlist { right: auto; left: 0; }
 .f-readlist .h { font-size: .72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; padding: .1rem .3rem .3rem; }
@@ -136,11 +137,15 @@
 .f-hit.person { flex-direction: row; align-items: center; gap: .6rem; cursor: default; }
 .f-empty-hint { color: var(--text-muted); font-size: .9rem; padding: 1rem .2rem; }
 
-@media (max-width: 760px) {
+/* Сенсорні екрани (телефон, планшет): наведення немає — дії через «⋯» і довге натискання. */
+@media (hover: none), (max-width: 760px) {
     .f-actions { display: none; }
-    .f-readers { display: none; }
     .f-readcount, .f-dots { display: inline; }
     .f-dots { font-weight: 800; padding: 0 .25rem; }
+}
+
+@media (max-width: 760px) {
+    .f-readers { display: none; }
     .f-msg .t-files, .f-msg .t-files.n1 { max-width: 220px; }
     .f-msg .t-files.n1 .t-img, .f-msg .t-files.n1 .t-img img { max-height: 200px; }
     .f-msg .t-doc { width: 220px; }

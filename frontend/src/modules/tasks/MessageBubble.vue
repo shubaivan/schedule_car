@@ -72,7 +72,7 @@ function act(kind: 'reply' | 'edit' | 'pin' | 'star' | 'remove') {
 
 function onContext(e: MouseEvent) {
     // Довге натискання на телефоні = contextmenu: відкриваємо свій лист дій.
-    if (props.m.deleted || !window.matchMedia('(max-width: 760px)').matches) return
+    if (props.m.deleted || !window.matchMedia('(max-width: 760px), (hover: none)').matches) return
     e.preventDefault()
     sheet.value = true
 }
@@ -117,6 +117,7 @@ onMounted(measure)
                 <button type="button" :class="{ on: m.starred }" :title="m.starred ? 'Прибрати з обраного' : 'В обране'" @click="act('star')">{{ m.starred ? '★' : '☆' }}</button>
                 <button v-if="m.can.delete" type="button" title="Видалити" @click="act('remove')">🗑</button>
             </div>
+            <div v-if="readList" class="f-backdrop" @click="readList = false" />
             <div v-if="readList" class="f-readlist" @click="readList = false">
                 <div class="h">Прочитали</div>
                 <div v-for="p in readers" :key="p.id" class="r"><Avatar :person="p" :size="20" /> {{ p.name }}</div>

@@ -8,6 +8,7 @@ use DateTime;
 use DateTimeZone;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
+use InvalidArgumentException;
 
 /**
  * «Хроніка» — стрічка подій як вхідні в ПланФіксі: одна строка на задачу
@@ -28,11 +29,15 @@ class TaskFeedRepository
      */
     public function chronicle(TelegramUser $viewer, bool $unreadOnly, bool $favoritesOnly, ?string $cursor, int $limit): array
     {
-        [$visible, $params] = TaskVisibility::sql($viewer);
+        [$visible, $params] = TaskVisibility::involved($viewer);
         $params['me'] = (int) $viewer->getId();
         $where = [$visible];
 
-        if ($cursor !== null && preg_match('/^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)\|(\d+)$/', $cursor, $m) === 1) {
+        if ($cursor !== null) {
+            if (preg_match('/^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)\|(\d+)$/', $cursor, $m) !== 1) {
+                throw new InvalidArgumentException('Bad cursor');
+            }
+
             $where[] = '(t.last_activity_at, t.id) < (CAST(:cursorAt AS timestamp), :cursorId)';
             $params['cursorAt'] = $m[1];
             $params['cursorId'] = (int) $m[2];
@@ -72,7 +77,7 @@ class TaskFeedRepository
     /** @return array{tasks: int, events: int} скільки задач мають нове і скільки там подій */
     public function unreadCounts(TelegramUser $viewer): array
     {
-        [$visible, $params] = TaskVisibility::sql($viewer);
+        [$visible, $params] = TaskVisibility::involved($viewer);
         $params['me'] = (int) $viewer->getId();
 
         $row = $this->db->fetchAssociative(
@@ -92,7 +97,7 @@ class TaskFeedRepository
     /** «Прочитати все»: кожна видима задача — прочитана до останнього повідомлення. */
     public function readAll(TelegramUser $viewer): int
     {
-        [$visible, $params] = TaskVisibility::sql($viewer);
+        [$visible, $params] = TaskVisibility::involved($viewer);
         $params['me'] = (int) $viewer->getId();
         $params['now'] = Task::now()->format('Y-m-d H:i:s');
 

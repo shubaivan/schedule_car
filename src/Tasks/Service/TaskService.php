@@ -336,7 +336,7 @@ class TaskService
     }
 
     /** @return int до якого повідомлення людина дочитала ДО цього відкриття (для «Нові повідомлення») */
-    public function markRead(Task $task, TelegramUser $user): int
+    public function markRead(Task $task, TelegramUser $user, ?int $upTo = null): int
     {
         $read = $this->em->getRepository(TaskRead::class)->findOneBy(['task' => $task, 'user' => $user]);
         $before = $read?->getLastMessageId() ?? 0;
@@ -346,7 +346,7 @@ class TaskService
             $this->em->persist($read);
         }
 
-        $read->readUpTo($this->messages->lastId($task));
+        $read->readUpTo($upTo ?? $this->messages->lastId($task));
         $this->em->flush();
 
         return $before;

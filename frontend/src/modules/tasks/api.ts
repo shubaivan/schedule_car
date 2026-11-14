@@ -106,6 +106,8 @@ export interface TaskDetail extends TaskItem {
     reads: ReadMark[]
     /** До якого повідомлення людина дочитала до цього відкриття (для «Нові повідомлення»). */
     readUpTo: number | null
+    /** Мітка сервера для першого опитування змін. */
+    now?: string
 }
 
 export interface ChronicleItem {

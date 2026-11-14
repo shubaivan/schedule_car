@@ -84,6 +84,15 @@ class TaskFeedTest extends WebTestCase
         $counts = $this->send('POST', '/api/tasks/chronicle/read-all', []);
         self::assertSame(0, $counts['tasks']);
 
+        // Директор бачить задачу, але в Хроніці — лише те, де він бере участь або ★.
+        $director = $this->user(WorkRole::Director, 'dir');
+        $this->login($director);
+        self::assertNull($this->row($this->get('/api/tasks/chronicle'), $task['id']));
+        $this->send('POST', '/api/tasks/' . $task['id'] . '/favorite', ['on' => true]);
+        self::assertNotNull($this->row($this->get('/api/tasks/chronicle'), $task['id']));
+        $this->client->request('GET', '/api/tasks/chronicle?cursor=' . urlencode("x' OR 1=1"));
+        self::assertResponseStatusCodeSame(400);
+
         // Чужий нічого не бачить.
         $this->login($outsider);
         self::assertNull($this->row($this->get('/api/tasks/chronicle'), $task['id']));

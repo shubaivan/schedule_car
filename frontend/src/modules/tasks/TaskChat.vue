@@ -155,6 +155,12 @@ function replace(updated: Message) {
     const list = props.task.messages
     const i = list.findIndex((x) => x.id === updated.id)
     if (i >= 0) list[i] = updated
+    // Цитати цього повідомлення у відповідях — теж оновити (правка чи видалення).
+    for (const m of list) {
+        if (m.replyTo?.id === updated.id) {
+            m.replyTo = { ...m.replyTo, text: updated.deleted ? '' : updated.text.slice(0, 160), deleted: updated.deleted, files: updated.deleted ? 0 : updated.attachments.length }
+        }
+    }
     if (updated.deleted) props.task.files = props.task.files.filter((f) => f.messageId !== updated.id)
 }
 
@@ -389,7 +395,7 @@ function onKey(e: KeyboardEvent) {
 
 function opened() {
     unreadFrom.value = props.task.readUpTo ?? null
-    changedSince = null
+    changedSince = props.task.now ?? null
     replyTo.value = null
     editing.value = null
     pinIndex.value = 0

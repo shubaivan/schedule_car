@@ -112,6 +112,8 @@ class TaskPresenter
      */
     public function detail(Task $task, TelegramUser $viewer, array $messages, ?int $readUpTo = null): array
     {
+        // Мітка для першого опитування змін (правки між відкриттям і опитуванням).
+        $now = Task::now()->modify('-1 second');
         $starred = $this->feed->starredOf($viewer, array_map(static fn (TaskMessage $m) => (int) $m->getId(), $messages));
 
         $files = [];
@@ -147,6 +149,7 @@ class TaskPresenter
             'favorite' => $this->feed->isFavorite($viewer, $task),
             'reads' => $this->feed->reads($task),
             'readUpTo' => $readUpTo,
+            'now' => $now->format(DateTimeInterface::ATOM),
         ];
     }
 

@@ -18,8 +18,10 @@ use App\Tasks\Service\TaskService;
 use DateTime;
 use DateTimeInterface;
 use DateTimeZone;
+use InvalidArgumentException;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
@@ -49,13 +51,18 @@ class TaskFeedController extends TasksController
     {
         $me = $this->me();
         $limit = min(100, max(5, $request->query->getInt('limit', self::PAGE)));
-        $rows = $this->feed->chronicle(
-            $me,
-            $request->query->getBoolean('unread'),
-            $request->query->getBoolean('favorites'),
-            $request->query->get('cursor') !== null ? (string) $request->query->get('cursor') : null,
-            $limit,
-        );
+
+        try {
+            $rows = $this->feed->chronicle(
+                $me,
+                $request->query->getBoolean('unread'),
+                $request->query->getBoolean('favorites'),
+                $request->query->get('cursor') !== null ? (string) $request->query->get('cursor') : null,
+                $limit,
+            );
+        } catch (InvalidArgumentException) {
+            return $this->error('Невірний курсор сторінки.', Response::HTTP_BAD_REQUEST);
+        }
 
         $more = count($rows) > $limit;
         $rows = array_slice($rows, 0, $limit);
@@ -210,7 +217,8 @@ class TaskFeedController extends TasksController
 
         $groups = $tab === 'all' ? TaskSearch::GROUPS : [$tab];
         $limit = $tab === 'all' ? 5 : 20;
-        $out = ['q' => $q, 'counts' => $this->search->counts($me, $terms, $starred)];
+        // Лічильники — лише для першої сторінки: догортання їх не змінює.
+        $out = ['q' => $q, 'counts' => $offset === 0 ? $this->search->counts($me, $terms, $starred) : null];
 
         foreach ($groups as $group) {
             $rows = $this->search->find($me, $group, $terms, $starred, $limit, $tab === 'all' ? 0 : $offset);

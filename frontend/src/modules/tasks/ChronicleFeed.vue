@@ -67,7 +67,8 @@ function groupOf(value: string): string {
 const groups = computed(() => {
     const out: { label: string; items: ChronicleItem[] }[] = []
     for (const item of items.value) {
-        const label = groupOf(item.event?.at ?? item.lastActivityAt)
+        // Групуємо за тим самим часом, за яким сортуємо, — інакше групи повторюються.
+        const label = groupOf(item.lastActivityAt)
         const last = out[out.length - 1]
         if (last && last.label === label) last.items.push(item)
         else out.push({ label, items: [item] })
@@ -188,18 +189,17 @@ watch(favoritesOnly, (v) => {
 // Лічильник змінився (нова подія деінде) — підтягуємо верх стрічки.
 watch(() => counts.value.events, (now, before) => now !== before && refreshTop())
 
+// Окремого таймера немає: лічильник (useChronicleCounts) опитує раз на 15 с,
+// і стрічка оновлюється, лише коли там щось змінилось.
 let observer: IntersectionObserver | undefined
-let timer: number | undefined
 onMounted(() => {
     load()
-    timer = window.setInterval(refreshTop, 15000)
     if ('IntersectionObserver' in window) {
         observer = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && next.value && load(true), { rootMargin: '300px' })
         if (sentinel.value) observer.observe(sentinel.value)
     }
 })
 onBeforeUnmount(() => {
-    window.clearInterval(timer)
     observer?.disconnect()
 })
 </script>
@@ -218,7 +218,7 @@ onBeforeUnmount(() => {
         <div v-if="error" class="t-error">{{ error }}</div>
 
         <div ref="list" class="f-list" @keydown="onKey">
-            <template v-for="g in groups" :key="g.label">
+            <template v-for="(g, gi) in groups" :key="gi + g.label">
                 <div class="f-group">{{ g.label }}</div>
                 <div
                     v-for="item in g.items"

@@ -221,6 +221,9 @@ class TaskApiController extends TasksController
     public function messages(Task $task, Request $request): JsonResponse
     {
         $me = $this->guard($task);
+        // «now» — ДО вибірок і з запасом у секунду (стовпці TIMESTAMP(0)): зміна,
+        // що встигла між запитами, прийде наступного разу, а не загубиться.
+        $now = Task::now()->modify('-1 second');
         $after = max(0, $request->query->getInt('after'));
         $messages = $this->messages->forTask($task, $after);
 
@@ -237,7 +240,8 @@ class TaskApiController extends TasksController
         }
 
         if ($messages !== []) {
-            $this->service->markRead($task, $me);
+            // Прочитане — лише те, що віддаємо, а не те, що могло зʼявитись після вибірки.
+            $this->service->markRead($task, $me, max(array_map(static fn (TaskMessage $m) => (int) $m->getId(), $messages)));
         }
 
         // Правки, видалення й закріплення вже показаних повідомлень — з моменту
@@ -258,7 +262,7 @@ class TaskApiController extends TasksController
             'attachments' => $updated,
             'status' => $task->getStatus()->value,
             'reads' => $this->feed->reads($task),
-            'now' => Task::now()->format(DateTimeInterface::ATOM),
+            'now' => $now->format(DateTimeInterface::ATOM),
         ]);
     }
 
