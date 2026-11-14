@@ -6,6 +6,8 @@ use App\Entity\TelegramUser;
 use App\Enum\AccessStatus;
 use App\Supply\Entity\Department;
 use App\Supply\Repository\DepartmentRepository;
+use App\Tasks\Demo\DemoDeals;
+use App\Tasks\Demo\DemoFiles;
 use App\Tasks\Entity\Task;
 use App\Tasks\Entity\TaskLabel;
 use App\Tasks\Entity\TaskMessage;
@@ -24,11 +26,13 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
- * Демо-дані для показу розділу «Задачі»: відділи, співробітники (вигадані
- * імена), мітки, угоди з чатом, фото й документами.
+ * Демо-дані для показу «Плану»: відділи, співробітники (вигадані імена),
+ * мітки й ~23 угоди заводу (DemoDeals) з чатом, фото й документами.
+ * Частину файлів (PDF, «фото») малює DemoFiles прямо під час засіву.
  *
  *     php bin/console tasks:demo-seed --password='…'
  *
@@ -38,13 +42,13 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 #[AsCommand(name: 'tasks:demo-seed', description: 'Заповнити демо-стенд задач прикладами')]
 class TasksDemoSeedCommand extends Command
 {
-    private const DEPARTMENTS = [
+    public const DEPARTMENTS = [
         '1. Дирекція', '2. Відділ побудови', '3. Відділ продажу', '4. Фінансовий відділ', '5. Відділ закупок',
         '6. Технічний відділ', '7. Виробництво', '8. Відділ логістики', '9. Відділ економіки',
     ];
 
     /** login => [імʼя, прізвище, посада, роль, відділ] — імена вигадані. */
-    private const PEOPLE = [
+    public const PEOPLE = [
         'admin' => ['Андрій', 'Коваль', 'Адміністратор системи', WorkRole::Admin, '1. Дирекція'],
         'dyrektor' => ['Ірина', 'Бондаренко', 'Директор', WorkRole::Director, '1. Дирекція'],
         'prodazhi' => ['Максим', 'Савчук', 'Менеджер з продажу', WorkRole::Manager, '3. Відділ продажу'],
@@ -62,7 +66,7 @@ class TasksDemoSeedCommand extends Command
         'pavlo.lytvyn' => ['Павло', 'Литвин', 'Менеджер з продажу', WorkRole::Manager, '3. Відділ продажу'],
     ];
 
-    private const LABELS = [
+    public const LABELS = [
         ['Терміново', '#ef4444'], ['Звернути увагу', '#f59e0b'], ['Може почекати', '#10b981'],
         ['Чекаємо оплату', '#6366f1'], ['Доставка', '#0ea5e9'], ['Потрібне креслення', '#8b5cf6'],
     ];
@@ -140,7 +144,7 @@ class TasksDemoSeedCommand extends Command
         $this->seedTasks();
         $this->deferred->flush();
 
-        $output->writeln(sprintf('Готово: %d людей, %d відділів, %d міток, задачі з файлами.', count($this->people), count($this->departments), count($this->labels)));
+        $output->writeln(sprintf('Готово: людей — %d, відділів — %d, міток — %d, угод — %d.', count($this->people), count($this->departments), count($this->labels), count(DemoDeals::all())));
 
         return Command::SUCCESS;
     }
@@ -194,160 +198,85 @@ class TasksDemoSeedCommand extends Command
 
     private function seedTasks(): void
     {
-        $p = $this->people;
+        $files = new DemoFiles();
+        $generated = DemoDeals::generated();
+        $tmp = sys_get_temp_dir() . '/plan-demo-' . bin2hex(random_bytes(4));
+        (new Filesystem())->mkdir($tmp);
 
-        // 1. Велика угода в роботі: специфікація, фото зі складу, рахунок.
-        $t = $this->task(
-            'Плити ПК 60-12 для ЖК «Сонячний» — 48 шт',
-            'prodazhi',
-            TaskStatus::InWork,
-            -6,
-            '+5 days',
-            'ТОВ «Будінвест-Демо»',
-            ['Терміново', 'Доставка'],
-            ['3. Відділ продажу', '7. Виробництво'],
-            ['buhgalter', 'viktor.polishchuk', 'bohdan.zakharchenko'],
-            "Замовник просить 48 плит ПК 60-12-8 і 12 шт ПК 63-15-8. Відвантаження двома партіями.\nПотрібно: підтвердити строки виробництва, виставити рахунок, спланувати доставку.",
-        );
-        $this->say($t, 'prodazhi', -6 * 24 + 1, 'Колеги, специфікація від замовника в додатку. Серія 1.141-1, бетон B25.', ['Специфікація_ПК_60-12.pdf']);
-        $this->say($t, 'viktor.polishchuk', -6 * 24 + 3, 'Переглянув. Армування стандартне, по ПК 63-15 потрібне креслення петель — уточню з ПТО.');
-        $this->say($t, 'vyrobnytstvo', -5 * 24, 'На складі є 22 шт ПК 60-12 з минулої партії, решту формуємо з понеділка. Фото складу:', ['Плити_склад.jpg', 'Плити_відвантаження.jpg']);
-        $this->say($t, 'buhgalter', -4 * 24, 'Рахунок виставлено, 50% передоплата.', ['Рахунок_на_оплату_118.pdf']);
-        $this->say($t, 'prodazhi', -3 * 24, 'Замовник оплатив передоплату, гроші на рахунку. @Богдан Захарченко, плануй перший рейс на понеділок.', [], ['bohdan.zakharchenko']);
-        $this->say($t, 'bohdan.zakharchenko', -2 * 24, 'Графік на тиждень — у таблиці. Два маніпулятори 17 і 18 листопада.', ['Графік_доставки_тиждень_47.xlsx']);
-        $this->say($t, 'mykola.rudenko', -20, 'Перша партія ПК 63-15 відформована, пропарка до ранку.', ['Цех_ЗБВ.jpg']);
+        try {
+            foreach (DemoDeals::all() as $i => $deal) {
+                $task = $this->task(
+                    $deal['title'],
+                    $deal['creator'],
+                    $deal['status'],
+                    $deal['days'],
+                    $deal['due'],
+                    $deal['client'],
+                    $deal['labels'],
+                    $deal['departments'],
+                    $deal['members'],
+                    $deal['description'],
+                );
 
-        // 2. Нова заявка — бачать лише позначені в ній.
-        $t = $this->task(
-            'Перемички 2ПБ 19-3 для приватного будинку',
-            'maryna.tkachenko',
-            TaskStatus::New,
-            -1,
-            '+7 days',
-            'Приватний замовник, вул. Заводська 5',
-            ['Може почекати'],
-            [],
-            ['vyrobnytstvo', 'bohdan.zakharchenko'],
-            '40 перемичок 2ПБ 19-3, самовивіз або доставка бортовим авто.',
-        );
-        $this->say($t, 'maryna.tkachenko', -22, 'Клієнт надіслав фото маркування з минулого замовлення — потрібні такі самі.', ['Перемички_маркування.jpg']);
-        $this->say($t, 'vyrobnytstvo', -5, 'Є в наявності 26 шт, решту зробимо за 3 дні.');
+                foreach ($deal['messages'] as $row) {
+                    if ($row[0] === '@event') {
+                        $this->event($task, $row[1], $row[2], $row[3]);
 
-        // 3. Чекає рішення директора: КП і кошторис (офісні превʼю).
-        $t = $this->task(
-            'Сходові марші ЛМ для 9-поверхівки — погодження ціни',
-            'prodazhi',
-            TaskStatus::Approval,
-            -3,
-            '+2 days',
-            'ТОВ «Житлобуд-Демо»',
-            ['Звернути увагу', 'Чекаємо оплату'],
-            ['3. Відділ продажу', '9. Відділ економіки'],
-            ['dyrektor'],
-            'Замовник просить знижку 3% при оплаті до 25.11. Економіка порахувала маржу — потрібне рішення директора.',
-        );
-        $this->say($t, 'prodazhi', -70, 'Комерційна пропозиція для замовника:', ['Комерційна_пропозиція_КП-77.docx']);
-        $this->say($t, 'tetiana.kravets', -50, 'Маржа зі знижкою 3% — 18,4%. Нижче нашої планки 20%, але обсяг великий.');
-        $this->say($t, 'viktor.polishchuk', -30, 'Форми для ЛМ 30.11 вільні з 20.11, строк 12 днів реальний.', ['Сходовий_марш_монтаж.jpg']);
-        $this->event($t, 'prodazhi', -26, 'змінив(ла) статус: В роботі → На погодженні');
-        $this->say($t, 'prodazhi', -25, '@Ірина Бондаренко, прошу погодити знижку 3%.', [], ['dyrektor']);
+                        continue;
+                    }
 
-        // 4. Погоджено — металокаркас.
-        $t = $this->task(
-            'Металокаркас складу 24×60 м',
-            'olha.petrenko',
-            TaskStatus::Approved,
-            -9,
-            '+12 days',
-            'ФОП Демченко (демо)',
-            ['Потрібне креслення'],
-            ['2. Відділ побудови', '5. Відділ закупок'],
-            ['yurii.kuzmenko', 'ihor.marchenko'],
-            'Каркас легкого складу, 12 рам. Метал закуповуємо під замовлення.',
-        );
-        $this->say($t, 'ihor.marchenko', -8 * 24, 'Візуалізація каркаса від проєктувальника:', ['Металокаркас_24x60.jpg']);
-        $this->say($t, 'yurii.kuzmenko', -6 * 24, 'Пробний вузол зварили, шов рівний. Можна запускати серію.', ['Зварювання_вузла.jpg']);
-        $this->event($t, 'dyrektor', -5 * 24, 'змінив(ла) статус: На погодженні → Погоджено');
-        $this->say($t, 'dyrektor', -5 * 24 + 1, 'Погоджую. Закупівлю металу — сьогодні.');
+                    $paths = [];
 
-        // 5. Виконана — лабораторія.
-        $t = $this->task(
-            'Випробування бетону B25 — партія 11/14',
-            'viktor.polishchuk',
-            TaskStatus::Done,
-            -7,
-            '-2 days',
-            null,
-            [],
-            ['6. Технічний відділ'],
-            ['vyrobnytstvo'],
-            'Контроль міцності на 7 добу перед відвантаженням.',
-        );
-        $this->say($t, 'viktor.polishchuk', -6 * 24, 'Зразки відібрано, кубики в камері.', ['Лабораторія_проба.jpg']);
-        $this->say($t, 'viktor.polishchuk', -3 * 24, 'Протокол: середня міцність 26,4 МПа. Партію допущено.', ['Протокол_випробувань_В25.pdf']);
-        $this->event($t, 'viktor.polishchuk', -3 * 24 + 1, 'змінив(ла) статус: В роботі → Виконана');
+                    foreach ($row[3] ?? [] as $name) {
+                        $paths[$name] = $this->demoFile($name, $generated, $files, $tmp, $i);
+                    }
 
-        // 6. Очікування — розчин.
-        $t = $this->task(
-            'Розчин М100 — 12 м³ на обʼєкт',
-            'dmytro.lysenko',
-            TaskStatus::Waiting,
-            -2,
-            '+4 days',
-            'ТОВ «Майстер-Буд-Демо»',
-            ['Може почекати'],
-            [],
-            ['vyrobnytstvo', 'dyrektor'],
-            'Клієнт ще не визначився з датою, просить тримати ціну.',
-        );
-        $this->say($t, 'dmytro.lysenko', -40, 'Фото з обʼєкта від клієнта:', ['Розчин_М100.jpg']);
-        $this->event($t, 'dyrektor', -30, 'змінив(ла) статус: На погодженні → Очікування');
-        $this->say($t, 'dyrektor', -29, 'Тримаємо ціну до кінця місяця, далі — новий прайс.');
+                    $this->say($task, $row[0], $row[1], $row[2], $paths, $row[4] ?? []);
+                }
 
-        // 7. Прострочена рекламація.
-        $t = $this->task(
-            'Рекламація: скол на плиті ПК 63-15',
-            'maryna.tkachenko',
-            TaskStatus::InWork,
-            -5,
-            '-1 day',
-            'ТОВ «Будінвест-Демо»',
-            ['Терміново', 'Звернути увагу'],
-            ['7. Виробництво'],
-            ['viktor.polishchuk'],
-            'Замовник надіслав фото пошкодження після розвантаження. Треба розібратись і відповісти.',
-        );
-        $this->say($t, 'maryna.tkachenko', -4 * 24, 'Фото від замовника:', ['Бетонний_вузол.jpg']);
-        $this->say($t, 'viktor.polishchuk', -3 * 24, 'Скол на торці, схоже на удар під час строповки. Потрібні фото з машини.');
-        $this->say($t, 'pavlo.lytvyn', -3 * 24 + 2, 'Водій каже, що вантажили без прокладок. Фото з машини не робили.');
+                $this->em->flush();
 
-        // 8. Відхилено — тендер.
-        $t = $this->task(
-            'Тендер: ЗБВ для школи (Prozorro)',
-            'dmytro.lysenko',
-            TaskStatus::Rejected,
-            -12,
-            null,
-            'Відділ освіти (демо)',
-            [],
-            ['3. Відділ продажу'],
-            ['dyrektor', 'tetiana.kravets'],
-            'Пакет документів на участь у тендері.',
-        );
-        $this->say($t, 'tetiana.kravets', -11 * 24, 'Ціна тендера нижча за собівартість на 6%.');
-        $this->event($t, 'dyrektor', -10 * 24, 'змінив(ла) статус: На погодженні → Відхилено');
-        $this->say($t, 'dyrektor', -10 * 24 + 1, 'Не беремо. Повернемось, якщо переоголосять.');
+                // Закриті угоди всі прочитали; у відкритих лишаємо «+N», щоб Хроніка жила.
+                $readers = $deal['read'] ?? [];
 
-        $this->em->flush();
+                if ($task->getStatus()->isClosed()) {
+                    $readers = [...$readers, 'dyrektor', 'prodazhi', 'admin'];
+                }
 
-        // Директор частину вже читав — щоб лічильники непрочитаного виглядали живо.
-        foreach ($this->em->getRepository(Task::class)->findAll() as $task) {
-            if ($task->getStatus() === TaskStatus::Done || $task->getStatus() === TaskStatus::Rejected) {
-                foreach (['dyrektor', 'prodazhi', 'admin'] as $who) {
-                    $this->tasks->markRead($task, $p[$who]);
+                foreach (array_unique($readers) as $who) {
+                    if ($task->hasMember($this->people[$who]) || $this->people[$who]->getWorkRole()->seesAllTasks()) {
+                        $this->tasks->markRead($task, $this->people[$who]);
+                    }
                 }
             }
+
+            $this->em->flush();
+        } finally {
+            (new Filesystem())->remove($tmp);
         }
+    }
+
+    /** @param array<string, mixed> $generated */
+    private function demoFile(string $name, array $generated, DemoFiles $files, string $tmp, int $seed): string
+    {
+        $path = $this->files . '/' . $name;
+
+        if (is_file($path)) {
+            return $path;
+        }
+
+        $spec = $generated[$name] ?? throw new RuntimeException('Немає демо-файлу ' . $name);
+        $path = $tmp . '/' . $name;
+
+        if (! is_file($path)) {
+            if ($spec[0] === 'pdf') {
+                $files->pdf($path, $spec[1]);
+            } else {
+                $files->photo($path, $spec[1], $spec[2], $seed + 1);
+            }
+        }
+
+        return $path;
     }
 
     /**
@@ -380,7 +309,7 @@ class TasksDemoSeedCommand extends Command
     }
 
     /**
-     * @param string[] $files
+     * @param array<string, string> $files імʼя у чаті => шлях до файлу
      * @param string[] $mentions
      */
     private function say(Task $task, string $who, int $hoursAgo, string $text, array $files = [], array $mentions = []): void
@@ -396,14 +325,8 @@ class TasksDemoSeedCommand extends Command
         $this->em->persist($message);
         $this->em->flush();
 
-        foreach ($files as $file) {
-            $path = $this->files . '/' . $file;
-
-            if (! is_file($path)) {
-                throw new RuntimeException('Немає демо-файлу ' . $path);
-            }
-
-            $this->tasks->attach($message, $author, $path, $file, (string) mime_content_type($path));
+        foreach ($files as $name => $path) {
+            $this->tasks->attach($message, $author, $path, $name, (string) mime_content_type($path));
         }
 
         $task->touch($this->at($hoursAgo));
