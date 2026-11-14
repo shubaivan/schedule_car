@@ -227,8 +227,10 @@ class ShareApiTest extends WebTestCase
     {
         $author = $this->person(WorkRole::Manager, 'author');
         $task = $this->task($author, 'HTML');
-        $html = $this->taskFile($task, $author, 'x.html', '<script>alert(1)</script>');
-        $svg = $this->taskFile($task, $author, 'y.svg', '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>');
+        // Нові такі файли в задачу вже не приймаються (AttachmentStorage::assertAllowed), але
+        // старі рядки, завантажені до allowlist, мають і далі віддаватися безпечно — імітуємо їх.
+        $html = $this->legacy($this->taskFile($task, $author, 'x.txt', 'alert(1)'), 'x.html', 'text/html');
+        $svg = $this->legacy($this->taskFile($task, $author, 'y.txt', 'svg'), 'y.svg', 'image/svg+xml');
 
         $this->client->loginUser($author);
         foreach ([$html, $svg] as $file) {
@@ -243,6 +245,15 @@ class ShareApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(410, 'SVG прев\'ю картинкою не віддається');
         $this->client->request('GET', '/s/' . $token . '/download');
         self::assertStringStartsWith('attachment', (string) $this->client->getResponse()->headers->get('Content-Disposition'));
+    }
+
+    private function legacy(\App\Tasks\Entity\TaskAttachment $file, string $name, string $mime): \App\Tasks\Entity\TaskAttachment
+    {
+        $this->db->executeStatement('UPDATE task_attachment SET original_name = ?, mime = ? WHERE id = ?', [$name, $mime, $file->getId()]);
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        $em->refresh($file);
+
+        return $file;
     }
 
     public function testLinkDiesWhenAuthorLosesAccessOrFileDeleted(): void

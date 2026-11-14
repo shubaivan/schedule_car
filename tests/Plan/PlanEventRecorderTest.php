@@ -2,18 +2,23 @@
 
 namespace App\Tests\Plan;
 
+use App\Plan\Chronicle\ChronicleProjection;
 use App\Plan\Event\CommentAdded;
 use App\Plan\Event\PlanEvent;
 use App\Plan\EventStore\FanOut;
 use App\Plan\EventStore\FanOutHandler;
+use App\Plan\EventStore\IdempotentConsumer;
 use App\Plan\EventStore\PlanEventConsumer;
 use App\Plan\EventStore\PlanEventRecorder;
 use App\Plan\EventStore\PlanEventStore;
+use App\Plan\EventStore\ProjectionFailed;
 use App\Plan\Subject\SubjectRef;
 use Doctrine\DBAL\Connection;
 use Psr\Log\NullLogger;
 use RuntimeException;
+use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Messenger\Bridge\Doctrine\Transport\Connection as DoctrineQueue;
@@ -191,6 +196,90 @@ class PlanEventRecorderTest extends KernelTestCase
         $handler(new FanOut($id));
         self::assertCount(1, $healthy->seen, 'Повтор не дійшов до споживача');
         self::assertSame(2, (int) $this->db->fetchOne('SELECT COUNT(*) FROM plan_event_consumed WHERE event_id = ?', [$id]));
+    }
+
+    public function testIdempotentProjectionIsRetriedButSideEffectsAreNot(): void
+    {
+        $projection = new class implements IdempotentConsumer {
+            public int $calls = 0;
+            public bool $fail = true;
+
+            public function consume(PlanEvent $event): void
+            {
+                ++$this->calls;
+
+                if ($this->fail) {
+                    throw new RuntimeException('lock timeout');
+                }
+            }
+        };
+        $telegram = new class implements PlanEventConsumer {
+            public int $calls = 0;
+
+            public function consume(PlanEvent $event): void
+            {
+                ++$this->calls;
+            }
+        };
+        $search = new class implements IdempotentConsumer {
+            public int $calls = 0;
+
+            public function consume(PlanEvent $event): void
+            {
+                ++$this->calls;
+            }
+        };
+
+        $id = $this->recorder(new SpyBus(), 'sync://')->record($this->event());
+        $handler = new FanOutHandler(self::getContainer()->get(PlanEventStore::class), [$projection, $telegram, $search], new NullLogger(), $this->db);
+
+        try {
+            $handler(new FanOut($id));
+            self::fail('збій проєкції має віддати FanOut на повтор');
+        } catch (ProjectionFailed $e) {
+            self::assertSame($id, $e->eventId);
+            self::assertSame([$projection::class], $e->consumers);
+        }
+
+        // Ті, хто впорався, позначені; проєкція, що впала, — ні.
+        $claimed = fn () => $this->db->fetchOne('SELECT COUNT(*) FROM plan_event_consumed WHERE event_id = ?', [$id]);
+        self::assertSame(2, (int) $claimed());
+
+        // Повтор Messenger: проєкція — ще раз (тепер успішно), Telegram і пошук — ні.
+        $projection->fail = false;
+        $handler(new FanOut($id));
+        self::assertSame([2, 1, 1], [$projection->calls, $telegram->calls, $search->calls]);
+        self::assertSame(3, (int) $claimed());
+
+        // Третя доставка — нікому нічого.
+        $handler(new FanOut($id));
+        self::assertSame([2, 1, 1], [$projection->calls, $telegram->calls, $search->calls]);
+    }
+
+    public function testReconcileReplaysMissedProjectionsOnly(): void
+    {
+        $id = self::getContainer()->get(PlanEventRecorder::class)->record(new CommentAdded(SubjectRef::task(900000020), null, refId: 1, excerpt: 'reconcile'));
+        $chronicle = FanOutHandler::consumerKey(ChronicleProjection::class);
+        $activity = fn () => $this->db->fetchOne("SELECT last_event_id FROM plan_subject_activity WHERE subject_type = 'task' AND subject_id = 900000020");
+        self::assertSame($id, (int) $activity(), 'Хроніка отримала подію одразу (sync)');
+
+        // Імітуємо втрачену проєкцію: ні рядка Хроніки, ні позначки.
+        $this->db->executeStatement("DELETE FROM plan_subject_activity WHERE subject_type = 'task' AND subject_id = 900000020");
+        $this->db->executeStatement('DELETE FROM plan_event_consumed WHERE event_id = ? AND consumer = ?', [$id, $chronicle]);
+        $others = (int) $this->db->fetchOne('SELECT COUNT(*) FROM plan_event_consumed WHERE event_id = ?', [$id]);
+
+        $tester = new CommandTester((new Application(self::$kernel))->find('plan:projections:reconcile'));
+        self::assertSame(0, $tester->execute(['--min-age' => '0', '--dry-run' => true]));
+        self::assertFalse($activity(), 'dry-run нічого не пише');
+
+        self::assertSame(0, $tester->execute(['--min-age' => '0']));
+        self::assertSame($id, (int) $activity());
+        self::assertSame($others + 1, (int) $this->db->fetchOne('SELECT COUNT(*) FROM plan_event_consumed WHERE event_id = ?', [$id]));
+
+        // Повторний запуск — цю подію вже не чіпає (позначка є).
+        self::assertSame(0, $tester->execute(['--min-age' => '0']));
+        self::assertSame($others + 1, (int) $this->db->fetchOne('SELECT COUNT(*) FROM plan_event_consumed WHERE event_id = ?', [$id]));
+        self::assertSame(2, $tester->execute(['--hours' => '200']), 'вікно ≤ 144 год (plan_event_consumed живе 7 днів)');
     }
 
     public function testChannelAndIpComeFromTheRequest(): void

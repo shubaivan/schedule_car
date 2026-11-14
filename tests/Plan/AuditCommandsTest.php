@@ -9,6 +9,10 @@ use App\Plan\Audit\AuditCatalog;
 use App\Plan\Event\CommentAdded;
 use App\Plan\Event\FileDownloaded;
 use App\Plan\Event\PlanEventTypes;
+use App\Plan\Event\StaffChanged;
+use App\Plan\Event\StatusChanged;
+use App\Plan\Event\StockMoved;
+use App\Plan\Event\SubjectCreated;
 use App\Plan\Event\SubjectViewed;
 use App\Plan\Event\UserLoggedIn;
 use App\Plan\EventStore\PlanEventRecorder;
@@ -125,7 +129,9 @@ class AuditCommandsTest extends KernelTestCase
         $ref = SubjectRef::task(900000010);
         $me = SubjectRef::user((int) $user->getId());
 
-        // Строк — 180 днів для всіх типів (PLAN_AUDIT_RETENTION_DAYS, .env = 180).
+        // Строк 180 днів (PLAN_AUDIT_RETENTION_DAYS, .env = 180) — лише для службових типів
+        // (PlanEventTypes::AUDIT_ONLY); доменна історія живе, скільки б їй не було.
+        $item = SubjectRef::of(SubjectType::WhItem, 900000011);
         $ids = [
             'login181' => $recorder->import(new UserLoggedIn($me, $user->getId(), at: $ago('-181 days'))),
             'login179' => $recorder->import(new UserLoggedIn($me, $user->getId(), at: $ago('-179 days'))),
@@ -134,7 +140,19 @@ class AuditCommandsTest extends KernelTestCase
             'comment181' => $recorder->import(new CommentAdded($ref, $user->getId(), refId: 1, at: $ago('-181 days'))),
             'comment179' => $recorder->import(new CommentAdded($ref, $user->getId(), refId: 2, at: $ago('-179 days'))),
             'comment40' => $recorder->import(new CommentAdded($ref, $user->getId(), refId: 3, at: $ago('-40 days'))),
+            'created400' => $recorder->import(new SubjectCreated($ref, $user->getId(), title: 'Стара задача', at: $ago('-400 days'))),
+            'status400' => $recorder->import(new StatusChanged($ref, $user->getId(), from: 'new', to: 'done', at: $ago('-400 days'))),
+            'stock400' => $recorder->import(new StockMoved($item, $user->getId(), movementType: 'in', itemIds: [900000011], at: $ago('-400 days'))),
+            'staff400' => $recorder->import(new StaffChanged($me, $user->getId(), action: 'update', fields: ['role'], at: $ago('-400 days'))),
         ];
+        $conn = $this->em->getConnection();
+        // Хроніка тримається на останній доменній події суб'єкта — вона має пережити ретеншн.
+        $conn->executeStatement('INSERT INTO plan_subject_activity (subject_type, subject_id, last_event_id, last_at) VALUES (?, ?, ?, ?)', ['task', 900000010, $ids['comment181'], $ago('-181 days')->format('Y-m-d H:i:s')]);
+        // plan_event_consumed: старші 7 днів — геть, свіжі — лишаються.
+        $conn->executeStatement('INSERT INTO plan_event_consumed (event_id, consumer, consumed_at) VALUES (?, ?, ?), (?, ?, ?)', [
+            $ids['comment181'], 'test-old', $ago('-8 days')->format('Y-m-d H:i:s'),
+            $ids['comment40'], 'test-fresh', $ago('-1 day')->format('Y-m-d H:i:s'),
+        ]);
         $oldLogin = new CrmLogin($user, true, null, '10.0.0.1', 'old-agent', '/crm');
         $freshLogin = new CrmLogin($user, true, null, '10.0.0.2', 'fresh-agent', '/crm');
         $this->em->persist($oldLogin);
@@ -154,7 +172,13 @@ class AuditCommandsTest extends KernelTestCase
         self::assertSame(array_values($ids), $this->existing($ids));
 
         self::assertSame(Command::SUCCESS, $tester->execute(['--batch' => '2']));
-        self::assertSame([$ids['login179'], $ids['comment179'], $ids['comment40']], $this->existing($ids));
+        // Пішли лише вхід, скачування, перегляд і зміна картки, старші 180 днів; уся доменна історія ціла.
+        self::assertSame([
+            $ids['login179'], $ids['comment181'], $ids['comment179'], $ids['comment40'],
+            $ids['created400'], $ids['status400'], $ids['stock400'],
+        ], $this->existing($ids));
+        self::assertSame($ids['comment181'], (int) $conn->fetchOne("SELECT a.last_event_id FROM plan_subject_activity a JOIN plan_event e ON e.id = a.last_event_id WHERE a.subject_type = 'task' AND a.subject_id = 900000010"), 'рядок Хроніки на місці');
+        self::assertSame(['test-fresh'], $conn->fetchFirstColumn("SELECT consumer FROM plan_event_consumed WHERE consumer LIKE 'test-%'"));
         self::assertSame(1, $this->em->getConnection()->fetchOne('SELECT 1 FROM crm_login WHERE id = ?', [$oldLogin->getId()]), 'crm_login — лише з --with-crm-login');
 
         self::assertSame(Command::SUCCESS, $tester->execute(['--with-crm-login' => true]));

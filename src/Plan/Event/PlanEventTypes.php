@@ -37,10 +37,11 @@ final class PlanEventTypes
         ShareRevoked::class,
         DriveAuthBroken::class,
         LeadReceived::class,
+        StaffChanged::class,
     ];
 
     /**
-     * Події лише для журналу аудиту (доступ і службове): у Хроніку й пошук не
+     * Події лише для журналу аудиту (доступ, службове, зміни карток людей): у Хроніку й пошук не
      * потрапляють. Сповіщення з них — лише там, де є група (EventGroup::forEvent:
      * «поділились з людьми», «Диск відкликав доступ»). Новий «службовий» тип — сюди.
      *
@@ -54,6 +55,7 @@ final class PlanEventTypes
         ShareCreated::class,
         ShareRevoked::class,
         DriveAuthBroken::class,
+        StaffChanged::class,
     ];
 
     public static function isAuditOnly(PlanEvent $event): bool

@@ -127,6 +127,21 @@ class StandModeTest extends WebTestCase
         self::assertGreaterThanOrEqual(400, $this->client->getResponse()->getStatusCode(), 'TASKS_ENABLED=0 — API задач закрите');
     }
 
+    /** Аудит і статус Диска — лише «План»: на стенді 404 навіть суперадміну й адміну заявок. */
+    public function testPlanOnlyAuditAndDriveAre404OnTheStand(): void
+    {
+        $admin = $this->person(SupplyRole::Admin);
+        $admin->setSuperadmin(true);
+        $this->em->flush();
+        $this->client->loginUser($admin);
+
+        foreach (['GET /api/plan/audit', 'GET /api/plan/audit/meta', 'GET /api/plan/audit.csv', 'GET /api/plan/drive', 'POST /api/plan/drive/retry', 'POST /api/plan/drive/resume', 'GET /api/plan/notifications'] as $call) {
+            [$method, $url] = explode(' ', $call);
+            $this->client->request($method, $url);
+            self::assertResponseStatusCodeSame(404, $call);
+        }
+    }
+
     /** @param array<string, mixed> $body @return array<string, mixed> */
     private function json(string $method, string $url, array $body = []): array
     {

@@ -7,6 +7,7 @@ use App\Plan\Subject\SubjectRegistry;
 use App\Plan\Subject\SubjectType;
 use App\Supply\Enum\SupplyStatus;
 use App\Tasks\Enum\TaskStatus;
+use App\Tasks\Enum\WorkRole;
 use App\Warehouse\Enum\ActivityAction;
 use App\Warehouse\Enum\MovementType;
 use Throwable;
@@ -247,6 +248,7 @@ final class AuditPresenter
                 default => '',
             },
             'login_failed' => trim($str('name') . ($str('reason') !== '' ? ' · ' . self::reason($str('reason')) : ''), ' ·'),
+            'staff_changed' => self::staff($str('action'), $list('fields'), $str('roleFrom'), $str('roleTo')),
             'lead_received' => trim($str('name') . ' · ' . $str('interest'), ' ·'),
             default => '',
         };
@@ -262,6 +264,29 @@ final class AuditPresenter
         $comment = isset($p['comment']) && is_string($p['comment']) ? trim($p['comment']) : '';
 
         return $comment !== '' ? $comment : null;
+    }
+
+    /** @param list<string> $fields */
+    private static function staff(string $action, array $fields, string $roleFrom, string $roleTo): string
+    {
+        $labels = ['firstName' => "ім'я", 'lastName' => 'прізвище', 'position' => 'посада', 'email' => 'email', 'phone' => 'телефон', 'role' => 'роль', 'departmentId' => 'відділ', 'password' => 'пароль'];
+        $role = static fn (string $value): string => WorkRole::tryFrom($value)?->label() ?? $value;
+        $parts = [match ($action) {
+            'create' => 'заведено',
+            'trash' => 'у кошик',
+            'restore' => 'з кошика',
+            default => 'змінено',
+        }];
+
+        if ($fields !== [] && $action !== 'trash' && $action !== 'restore') {
+            $parts[] = implode(', ', array_map(static fn (string $f) => $labels[$f] ?? $f, $fields));
+        }
+
+        if ($roleTo !== '') {
+            $parts[] = ($roleFrom !== '' ? $role($roleFrom) . ' → ' : '') . $role($roleTo);
+        }
+
+        return implode(' · ', $parts);
     }
 
     private static function status(string $subjectType, string $value): string

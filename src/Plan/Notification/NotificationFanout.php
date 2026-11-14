@@ -3,7 +3,7 @@
 namespace App\Plan\Notification;
 
 use App\Plan\Event\PlanEvent;
-use App\Plan\EventStore\PlanEventConsumer;
+use App\Plan\EventStore\IdempotentConsumer;
 use App\Plan\Push\PushSender;
 use App\Plan\Realtime\MercurePublisher;
 use App\Plan\Subject\SubjectRegistry;
@@ -29,7 +29,7 @@ use Throwable;
  * Стенд заявок (розділ «Задачі» вимкнено) — нічого не робить: ні рядків, ні хаба.
  */
 #[AsTaggedItem(priority: 100)]
-final class NotificationFanout implements PlanEventConsumer
+final class NotificationFanout implements IdempotentConsumer
 {
     public function __construct(
         private readonly AudienceResolver $audience,

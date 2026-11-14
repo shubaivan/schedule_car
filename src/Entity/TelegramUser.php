@@ -443,6 +443,12 @@ class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface,
         return $this->getWorkRole()->seesAllTasks() || $this->superadmin;
     }
 
+    /** Веде співробітників: адміністратор або суперадмін (лише суперадмін змінює суперадмінів і колег-адмінів — StaffDirectory). */
+    public function managesStaff(): bool
+    {
+        return $this->getWorkRole()->managesStaff() || $this->superadmin;
+    }
+
     public function setSuperadmin(bool $superadmin): static
     {
         $this->superadmin = $superadmin;

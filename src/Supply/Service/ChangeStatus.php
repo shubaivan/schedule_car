@@ -35,7 +35,22 @@ class ChangeStatus
         ?TelegramUser $by = null,
         ?string $comment = null,
     ): SupplyRequest {
+        // Рядок заявки — під блокуванням, статус перечитано: подвійний тап у боті чи
+        // «Погодити» і «Відхилити» двох директорів не запишуть два переходи з одного «from».
+        return $this->events->transactional(fn () => $this->change($request, $to, $by, $comment));
+    }
+
+    private function change(SupplyRequest $request, SupplyStatus $to, ?TelegramUser $by, ?string $comment): SupplyRequest
+    {
         $from = $request->getStatus();
+
+        if ($request->getId() !== null) {
+            $current = $this->em->getConnection()->fetchOne('SELECT status FROM supply_request WHERE id = ? FOR UPDATE', [(int) $request->getId()]);
+
+            if ($current !== false && $current !== $from->value) {
+                throw new SupplyException(sprintf('Статус заявки щойно змінили: «%s». Оновіть картку.', SupplyStatus::tryFrom((string) $current)?->label() ?? $current));
+            }
+        }
 
         if ($from === $to) {
             throw new SupplyException(sprintf('Заявка вже має статус «%s».', $to->label()));

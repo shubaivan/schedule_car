@@ -72,6 +72,27 @@ class StatusRoleSplitTest extends KernelTestCase
         self::assertSame([], $this->transitions($request, $director), 'оплату проводить не директор');
     }
 
+    /** Два директори одночасно: «Погодити» і «Відхилити» на тій самій заявці — проходить лише перше. */
+    public function testStaleStatusIsRejectedUnderRowLock(): void
+    {
+        [$worker, $manager, $director] = $this->users();
+        $request = $this->awaitingApproval($worker, $manager);
+
+        // Інший директор уже погодив (інший запит/процес): у базі approved, у пам'яті цього — approval.
+        $this->em->getConnection()->executeStatement("UPDATE supply_request SET status = 'approved' WHERE id = ?", [$request->getId()]);
+        $before = (int) $this->em->getConnection()->fetchOne("SELECT COUNT(*) FROM plan_event WHERE subject_type = 'supply' AND subject_id = ?", [$request->getId()]);
+
+        try {
+            ($this->changeStatus)($request, SupplyStatus::Rejected, $director, 'дорого');
+            self::fail('другий перехід з того самого «from» має відмовити');
+        } catch (SupplyException $e) {
+            self::assertStringContainsString('щойно змінили', $e->getMessage());
+        }
+
+        self::assertSame($before, (int) $this->em->getConnection()->fetchOne("SELECT COUNT(*) FROM plan_event WHERE subject_type = 'supply' AND subject_id = ?", [$request->getId()]), 'жодної другої події');
+        self::assertSame('approved', $this->em->getConnection()->fetchOne('SELECT status FROM supply_request WHERE id = ?', [$request->getId()]));
+    }
+
     /** Директор не тисне кнопки менеджера навіть із правильним статусом. */
     public function testDirectorCannotPayInsteadOfManager(): void
     {

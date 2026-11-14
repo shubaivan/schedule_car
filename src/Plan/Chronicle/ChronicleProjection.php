@@ -4,7 +4,7 @@ namespace App\Plan\Chronicle;
 
 use App\Plan\Event\PlanEvent;
 use App\Plan\Event\PlanEventTypes;
-use App\Plan\EventStore\PlanEventConsumer;
+use App\Plan\EventStore\IdempotentConsumer;
 use App\Tasks\Service\TasksSection;
 use Doctrine\DBAL\Connection;
 
@@ -15,7 +15,7 @@ use Doctrine\DBAL\Connection;
  * проходом, не сканаючи весь журнал. Перегляди, входи, правки й видалення
  * коментарів новиною не є і рядок угору не піднімають.
  */
-final class ChronicleProjection implements PlanEventConsumer
+final class ChronicleProjection implements IdempotentConsumer
 {
     public function __construct(private readonly Connection $db, private readonly TasksSection $plan)
     {

@@ -28,8 +28,12 @@ use Throwable;
 /**
  * Запис у журнал складу.
  *
- * Ніколи не фатальний: журнал — це вимірювання, а людина прийшла по картку.
- * Зламаний запис у журнал не має коштувати їй ні скану, ні збереження.
+ * Два режими:
+ * - record() — для переглядів, сканів, переходів із бота: ніколи не фатальний
+ *   (журнал — вимірювання, а людина прийшла по картку);
+ * - recordStrict() — для ЗМІН (нова позиція, правка, документи, рух): викликається
+ *   всередині тієї самої PlanEventRecorder::transactional(), що й зміна, і помилку
+ *   не ковтає — зміна, рядок журналу й подія «Плану» або всі є, або нічого немає.
  *
  * Пише в обидва журнали: wh_activity (Twig-журнал складу) і plan_event (аудит,
  * Хроніка «Плану»). Рух (Move) у plan_event не дублюється — подію StockMoved
@@ -61,39 +65,57 @@ class ActivityLog
         ?string $details = null,
     ): void {
         try {
-            $activity = new WhActivity(
-                $action,
-                self::typeOf($subject),
-                (int) $subject->getId(),
-                self::labelOf($subject),
-                $user,
-                $channel,
-                $details,
-            );
-            $this->em->persist($activity);
-
             // Savepoint: збій журналу не отруює зовнішню транзакцію (PostgreSQL).
-            $this->events->transactional(function () use ($activity, $action, $subject, $user, $channel, $details): void {
-                $this->em->flush();
-                $event = self::event($action, $subject, $user, $details, (int) $activity->getId());
-
-                // Відкриття картки в адмінці — не частіше одного рядка аудиту на людину й картку
-                // за 10 хв (AuditThrottle); скан, перехід із бота й друк наклейок — кожен.
-                if ($event instanceof SubjectViewed && $action === ActivityAction::View &&
-                    $this->throttle->seenRecently(SubjectViewed::TYPE, $event->actorId, $event->subject, ['action' => ActivityAction::View->value])) {
-                    return;
-                }
-
-                if ($event !== null) {
-                    $this->events->record($event->via($channel === WhActivity::CHANNEL_BOT ? 'bot' : 'web'));
-                }
-            });
+            $this->events->transactional(fn () => $this->write($action, $subject, $user, $channel, $details));
         } catch (Throwable $e) {
             $this->logger->warning('warehouse: запис у журнал не вдався', [
                 'action' => $action->value,
                 'subject' => self::typeOf($subject) . '#' . $subject->getId(),
                 'error' => $e->getMessage(),
             ]);
+        }
+    }
+
+    /** Те саме, але помилка летить далі: кличе сервіс зміни всередині своєї транзакції. */
+    public function recordStrict(
+        ActivityAction $action,
+        WhItem|WhClient|WhSite|WhMovement|WhCategory $subject,
+        ?TelegramUser $user,
+        string $channel,
+        ?string $details = null,
+    ): void {
+        $this->events->transactional(fn () => $this->write($action, $subject, $user, $channel, $details));
+    }
+
+    private function write(
+        ActivityAction $action,
+        WhItem|WhClient|WhSite|WhMovement|WhCategory $subject,
+        ?TelegramUser $user,
+        string $channel,
+        ?string $details,
+    ): void {
+        $activity = new WhActivity(
+            $action,
+            self::typeOf($subject),
+            (int) $subject->getId(),
+            self::labelOf($subject),
+            $user,
+            $channel,
+            $details,
+        );
+        $this->em->persist($activity);
+        $this->em->flush();
+        $event = self::event($action, $subject, $user, $details, (int) $activity->getId());
+
+        // Відкриття картки в адмінці — не частіше одного рядка аудиту на людину й картку
+        // за 10 хв (AuditThrottle); скан, перехід із бота й друк наклейок — кожен.
+        if ($event instanceof SubjectViewed && $action === ActivityAction::View &&
+            $this->throttle->seenRecently(SubjectViewed::TYPE, $event->actorId, $event->subject, ['action' => ActivityAction::View->value])) {
+            return;
+        }
+
+        if ($event !== null) {
+            $this->events->record($event->via($channel === WhActivity::CHANNEL_BOT ? 'bot' : 'web'));
         }
     }
 

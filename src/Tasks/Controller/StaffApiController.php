@@ -13,6 +13,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 /**
  * «Співробітники»: усі, відділи, структура компанії, кошик.
@@ -34,7 +35,7 @@ class StaffApiController extends TasksController
         $me = $this->me();
         $trash = $request->query->getBoolean('trash');
 
-        if ($trash && ! $me->getWorkRole()->managesStaff()) {
+        if ($trash && ! $me->managesStaff()) {
             throw $this->createAccessDeniedException();
         }
 
@@ -66,6 +67,8 @@ class StaffApiController extends TasksController
             $this->staff->update($user, $this->payload($request), $me);
         } catch (TaskException $e) {
             return $this->error($e);
+        } catch (AccessDeniedException $e) {
+            return $this->error($e->getMessage(), Response::HTTP_FORBIDDEN);
         }
 
         return $this->json($this->row($user, $me));
@@ -80,6 +83,8 @@ class StaffApiController extends TasksController
             $this->staff->trash($user, $me);
         } catch (TaskException $e) {
             return $this->error($e);
+        } catch (AccessDeniedException $e) {
+            return $this->error($e->getMessage(), Response::HTTP_FORBIDDEN);
         }
 
         return $this->json($this->row($user, $me));
@@ -89,7 +94,12 @@ class StaffApiController extends TasksController
     public function restore(TelegramUser $user): JsonResponse
     {
         $me = $this->admin();
-        $this->staff->restore($user, $me);
+
+        try {
+            $this->staff->restore($user, $me);
+        } catch (AccessDeniedException $e) {
+            return $this->error($e->getMessage(), Response::HTTP_FORBIDDEN);
+        }
 
         return $this->json($this->row($user, $me));
     }
@@ -111,7 +121,7 @@ class StaffApiController extends TasksController
         ], $this->departments->findActive()), 'unassigned' => array_values(array_map(
             fn (TelegramUser $u) => $this->presenter->person($u),
             array_filter($people, static fn (TelegramUser $u) => $u->getDepartment() === null),
-        )), 'canEdit' => $me->getWorkRole()->managesStaff()]);
+        )), 'canEdit' => $me->managesStaff()]);
     }
 
     #[Route('/departments', name: 'api_staff_department_create', methods: ['POST'])]
@@ -132,7 +142,7 @@ class StaffApiController extends TasksController
     {
         $me = $this->me();
 
-        if (! $me->getWorkRole()->managesStaff()) {
+        if (! $me->managesStaff()) {
             throw $this->createAccessDeniedException('Співробітників веде адміністратор.');
         }
 
@@ -157,6 +167,8 @@ class StaffApiController extends TasksController
             'archivedAt' => $date($user->getArchivedAt()),
             'archivedBy' => $user->getArchivedBy()?->shortName(),
             'me' => $user->getId() === $me->getId(),
+            // Пароль, контакти й роль цієї людини поточний адмін змінити не може (суперадмін / колега-адмін).
+            'protected' => ! StaffDirectory::canChange($me, $user, ['password']),
         ];
     }
 }

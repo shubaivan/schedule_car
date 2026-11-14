@@ -9,6 +9,7 @@ use App\Plan\Event\UserLoggedIn;
 use App\Plan\EventStore\PlanEventRecorder;
 use App\Plan\Subject\SubjectRef;
 use App\Repository\TelegramUserRepository;
+use App\Security\LoginIdentity;
 use App\Security\PasswordLoginAuthenticator;
 use App\Service\CrmLoginLink;
 use Doctrine\ORM\EntityManagerInterface;
@@ -129,17 +130,17 @@ class CrmLoginSubscriber implements EventSubscriberInterface
             preg_match('/^\+?[\d\s()-]{9,20}$/', $typed) === 1;
     }
 
-    /** Та сама логіка пошуку, що в PasswordLoginAuthenticator: email або хвіст телефону. */
+    /** Та сама логіка пошуку, що в PasswordLoginAuthenticator: email або хвіст телефону (LoginIdentity). */
     private function knownLogin(string $typed): ?TelegramUser
     {
-        $typed = mb_strtolower($typed);
+        $identity = LoginIdentity::normalize($typed);
 
-        if (str_contains($typed, '@')) {
-            return $this->users->findOneBy(['email' => $typed]);
+        if (str_contains($identity, '@')) {
+            return $this->users->findOneBy(['email' => $identity]);
         }
 
-        $digits = preg_replace('/\D+/', '', $typed) ?? '';
+        $tail = LoginIdentity::phoneTail($identity);
 
-        return strlen($digits) >= 9 ? $this->users->findOneByPhoneTail(substr($digits, -9)) : null;
+        return $tail !== null ? $this->users->findOneByPhoneTail($tail) : null;
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Warehouse\Controller\Api;
 
+use App\Plan\EventStore\PlanEventRecorder;
 use App\Warehouse\Api\ItemCatalog;
 use App\Warehouse\Api\ItemFeed;
 use App\Warehouse\Api\ItemMentions;
@@ -48,6 +49,7 @@ class ItemApiController extends AbstractWarehouseApiController
         private readonly WarehouseFeed $feed,
         private readonly WarehouseLinks $links,
         private readonly EntityManagerInterface $em,
+        private readonly PlanEventRecorder $events,
         #[Autowire('%env(TELEGRAM_BOT_USERNAME)%')]
         private readonly string $botUsername = '',
     ) {
@@ -105,13 +107,18 @@ class ItemApiController extends AbstractWarehouseApiController
     {
         $item = new WhItem();
 
+        $data = $this->payload($request);
+
         try {
-            $this->directory->saveItem($item, $this->payload($request), $this->me());
+            // Позиція, рядок журналу й ItemCreated — одна транзакція: або все, або нічого.
+            $this->events->transactional(function () use ($item, $data): void {
+                $this->directory->saveItem($item, $data, $this->me());
+                $this->activity->recordStrict(ActivityAction::Create, $item, $this->me(), WhActivity::CHANNEL_ADMIN);
+            });
         } catch (WarehouseException $e) {
             return $this->error($e->getMessage());
         }
 
-        $this->activity->record(ActivityAction::Create, $item, $this->me(), WhActivity::CHANNEL_ADMIN);
         $this->feed->itemCreated($item, $this->me());
 
         return $this->json($this->card($item), Response::HTTP_CREATED);
@@ -122,20 +129,22 @@ class ItemApiController extends AbstractWarehouseApiController
     public function update(WhItem $item, Request $request): JsonResponse
     {
         $before = $this->snapshot($item);
+        $data = $this->payload($request);
 
         try {
-            $this->directory->saveItem($item, $this->payload($request), $this->me());
+            $this->events->transactional(function () use ($item, $data, $before): void {
+                $this->directory->saveItem($item, $data, $this->me());
+                $changed = array_keys(array_diff_assoc($this->snapshot($item), $before));
+
+                if ($changed !== []) {
+                    $this->activity->recordStrict(ActivityAction::Update, $item, $this->me(), WhActivity::CHANNEL_ADMIN, implode(', ', $changed));
+                }
+            });
         } catch (WarehouseException $e) {
             // Поля могли змінитись у пам'яті до перевірки, що впала, — повертаємо як у базі.
             $this->em->refresh($item);
 
             return $this->error($e->getMessage());
-        }
-
-        $changed = array_keys(array_diff_assoc($this->snapshot($item), $before));
-
-        if ($changed !== []) {
-            $this->activity->record(ActivityAction::Update, $item, $this->me(), WhActivity::CHANNEL_ADMIN, implode(', ', $changed));
         }
 
         return $this->json($this->card($item));
@@ -154,31 +163,37 @@ class ItemApiController extends AbstractWarehouseApiController
         }
 
         $saved = [];
+        $error = null;
 
-        try {
-            foreach ($files as $file) {
-                if (! $file instanceof UploadedFile || ! $file->isValid()) {
-                    throw new WarehouseException('Файл не долетів: ' . ($file instanceof UploadedFile ? $file->getErrorMessage() : 'порожній'));
+        // Документи, що лягли, рядок журналу й FileAdded — одна транзакція. Файл, на якому
+        // зупинились (не той тип, завеликий), — помилкою у відповіді; попередні лишаються (як у Twig).
+        $this->events->transactional(function () use ($item, $type, $files, &$saved, &$error): void {
+            try {
+                foreach ($files as $file) {
+                    if (! $file instanceof UploadedFile || ! $file->isValid()) {
+                        throw new WarehouseException('Файл не долетів: ' . ($file instanceof UploadedFile ? $file->getErrorMessage() : 'порожній'));
+                    }
+
+                    $document = $this->documents->attach(
+                        $item,
+                        $this->me(),
+                        (string) file_get_contents($file->getPathname()),
+                        (string) ($file->getClientOriginalName() ?: $file->getFilename()),
+                        (string) ($file->getMimeType() ?: $file->getClientMimeType()),
+                        $type,
+                    );
+                    $saved[] = $document->getOriginalName();
                 }
-
-                $document = $this->documents->attach(
-                    $item,
-                    $this->me(),
-                    (string) file_get_contents($file->getPathname()),
-                    (string) ($file->getClientOriginalName() ?: $file->getFilename()),
-                    (string) ($file->getMimeType() ?: $file->getClientMimeType()),
-                    $type,
-                );
-                $saved[] = $document->getOriginalName();
+            } catch (WarehouseException $e) {
+                $error = $e->getMessage();
             }
-        } catch (WarehouseException $e) {
-            // Те, що вже лягло, лишається (як у Twig) — кажемо, на якому файлі зупинились.
+
             $this->journalUpload($item, $type, $saved);
+        });
 
-            return $this->json(['error' => $e->getMessage(), 'saved' => count($saved), ...$this->card($item)], Response::HTTP_UNPROCESSABLE_ENTITY);
+        if ($error !== null) {
+            return $this->json(['error' => $error, 'saved' => count($saved), ...$this->card($item)], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
-
-        $this->journalUpload($item, $type, $saved);
 
         return $this->json($this->card($item));
     }
@@ -191,7 +206,7 @@ class ItemApiController extends AbstractWarehouseApiController
     private function journalUpload(WhItem $item, DocumentType $type, array $names): void
     {
         if ($names !== []) {
-            $this->activity->record(ActivityAction::DocumentAdd, $item, $this->me(), WhActivity::CHANNEL_ADMIN, sprintf('%s: %s', $type->label(), implode(', ', $names)));
+            $this->activity->recordStrict(ActivityAction::DocumentAdd, $item, $this->me(), WhActivity::CHANNEL_ADMIN, sprintf('%s: %s', $type->label(), implode(', ', $names)));
         }
     }
 

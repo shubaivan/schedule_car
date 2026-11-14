@@ -27,10 +27,10 @@ security:
             custom_authenticators:
                 - App\Security\TelegramLinkAuthenticator
                 - App\Security\PasswordLoginAuthenticator
-            # 5 хибних паролів на логін+IP за 15 хвилин — далі пауза.
+            # 5 хибних паролів на людину+IP за 15 хв, 25 на IP, 20 на людину за годину
+            # (людина = нормалізований логін, див. PlanLoginRateLimiter / LoginIdentity).
             login_throttling:
-                max_attempts: 5
-                interval: '15 minutes'
+                limiter: App\Security\PlanLoginRateLimiter
             entry_point: App\Security\LoginEntryPoint
             logout:
                 path: crm_logout

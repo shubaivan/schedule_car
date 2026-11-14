@@ -4,6 +4,9 @@ namespace App\Tasks\Service;
 
 use App\Entity\TelegramUser;
 use App\Enum\AccessStatus;
+use App\Plan\Event\StaffChanged;
+use App\Plan\EventStore\PlanEventRecorder;
+use App\Plan\Subject\SubjectRef;
 use App\Repository\TelegramUserRepository;
 use App\Supply\Entity\Department;
 use App\Supply\Repository\DepartmentRepository;
@@ -12,12 +15,19 @@ use App\Tasks\Exception\TaskException;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 /**
  * Співробітники «робочого місця»: заведення, ролі, відділи, кошик.
  *
  * Людей не видаляємо назавжди (вимога клієнта 13.11.2026, як «Корзина» в
  * ПланФіксі): через роки має бути видно, хто що писав і які файли додавав.
+ *
+ * Захист від захоплення облікових записів: картку суперадміна змінює лише
+ * суперадмін; пароль, email, телефон і роль ІНШОГО адміністратора — теж лише
+ * суперадмін (адмін не може увійти під колегою чи суперадміном, задавши йому
+ * пароль). Кожна зміна картки йде в журнал аудиту подією StaffChanged (без значень
+ * пароля, email і телефону — лише назви полів). $by = null — консоль, довірена.
  */
 class StaffDirectory
 {
@@ -27,8 +37,12 @@ class StaffDirectory
         private DepartmentRepository $departments,
         private UserPasswordHasherInterface $hasher,
         private LoggerInterface $logger,
+        private PlanEventRecorder $events,
     ) {
     }
+
+    /** Поля, що дають вхід у чужий обліковий запис або права: їх у колеги-адміна змінює лише суперадмін. */
+    private const array CREDENTIALS = ['email', 'phone', 'role', 'password'];
 
     /** @return TelegramUser[] */
     public function list(bool $trash): array
@@ -67,8 +81,11 @@ class StaffDirectory
             ));
         }
 
-        $this->em->persist($user);
-        $this->em->flush();
+        $this->events->transactional(function () use ($user, $by, $data): void {
+            $this->em->persist($user);
+            $this->em->flush();
+            $this->audit($user, $by, 'create', self::fields($data), roleTo: $user->getWorkRole()->value);
+        });
         $this->logger->info('staff: заведено співробітника', ['id' => $user->getId(), 'by' => $by?->getId() ?? 'cli']);
 
         return $user;
@@ -77,8 +94,30 @@ class StaffDirectory
     /** @param array<string, mixed> $data $by = null — з консолі (plan:user:create) */
     public function update(TelegramUser $user, array $data, ?TelegramUser $by): TelegramUser
     {
+        $before = self::snapshot($user);
         $this->apply($user, $data);
-        $this->em->flush();
+        $after = self::snapshot($user);
+        // Лише справді змінені поля: форма шле картку цілком, і незмінний email колеги-адміна — не зміна.
+        $fields = array_keys(array_diff_assoc($after, $before));
+
+        if (($data['password'] ?? '') !== '') {
+            $fields[] = 'password';
+        }
+
+        // Роль — та, що була ДО зміни: «зробити колегу-адміна директором» — теж зміна адміна.
+        if (! self::canChange($by, $user, $fields, WorkRole::from($before['role']))) {
+            $this->em->refresh($user);
+            $this->deny($user, $by, $fields);
+        }
+
+        $this->events->transactional(function () use ($user, $by, $fields, $before, $after): void {
+            $this->em->flush();
+
+            if ($fields !== []) {
+                $role = in_array('role', $fields, true);
+                $this->audit($user, $by, 'update', $fields, $role ? $before['role'] : null, $role ? $after['role'] : null);
+            }
+        });
         $this->logger->info('staff: змінено картку', ['id' => $user->getId(), 'by' => $by?->getId() ?? 'cli']);
 
         return $user;
@@ -90,15 +129,23 @@ class StaffDirectory
             throw new TaskException('Себе в кошик не перенести.');
         }
 
+        $this->guard($user, $by, ['archive']);
         $user->archive($by);
-        $this->em->flush();
+        $this->events->transactional(function () use ($user, $by): void {
+            $this->em->flush();
+            $this->audit($user, $by, 'trash');
+        });
         $this->logger->info('staff: у кошик', ['id' => $user->getId(), 'by' => $by->getId()]);
     }
 
     public function restore(TelegramUser $user, TelegramUser $by): void
     {
+        $this->guard($user, $by, ['archive']);
         $user->restore();
-        $this->em->flush();
+        $this->events->transactional(function () use ($user, $by): void {
+            $this->em->flush();
+            $this->audit($user, $by, 'restore');
+        });
         $this->logger->info('staff: відновлено з кошика', ['id' => $user->getId(), 'by' => $by->getId()]);
     }
 
@@ -119,6 +166,84 @@ class StaffDirectory
         $this->em->flush();
 
         return $department;
+    }
+
+    /**
+     * Хто кому що може змінити (див. докблок класу). Консоль ($by = null) — без обмежень.
+     * $targetRole — роль цілі до зміни (за замовчуванням поточна).
+     *
+     * @param list<string> $fields
+     */
+    public static function canChange(?TelegramUser $by, TelegramUser $target, array $fields, ?WorkRole $targetRole = null): bool
+    {
+        if ($by === null || $by->isSuperadmin()) {
+            return true;
+        }
+
+        if ($target->isSuperadmin()) {
+            return false;
+        }
+
+        $colleague = ($targetRole ?? $target->getWorkRole()) === WorkRole::Admin && $target->getId() !== $by->getId();
+
+        return ! $colleague || array_intersect($fields, [...self::CREDENTIALS, 'archive']) === [];
+    }
+
+    /** @param list<string> $fields */
+    private function guard(TelegramUser $target, ?TelegramUser $by, array $fields): void
+    {
+        if (! self::canChange($by, $target, $fields)) {
+            $this->deny($target, $by, $fields);
+        }
+    }
+
+    /** @param list<string> $fields */
+    private function deny(TelegramUser $target, ?TelegramUser $by, array $fields): never
+    {
+        $this->logger->warning('staff: спроба змінити захищену картку', ['id' => $target->getId(), 'by' => $by?->getId(), 'fields' => $fields]);
+
+        throw new AccessDeniedException($target->isSuperadmin()
+            ? 'Картку суперадміністратора змінює лише суперадміністратор.'
+            : 'Пароль, контакти, роль і кошик іншого адміністратора — лише суперадміністратор.');
+    }
+
+    /** @return array<string, string> поля картки, за якими видно, що саме змінилось */
+    private static function snapshot(TelegramUser $user): array
+    {
+        return [
+            'firstName' => (string) $user->getFirstName(),
+            'lastName' => (string) $user->getLastName(),
+            'position' => (string) $user->getPosition(),
+            'email' => (string) $user->getEmail(),
+            'phone' => (string) $user->getPhoneNumber(),
+            'role' => $user->getWorkRole()->value,
+            'departmentId' => (string) $user->getDepartment()?->getId(),
+        ];
+    }
+
+    /** @param list<string> $fields */
+    private function audit(TelegramUser $user, ?TelegramUser $by, string $action, array $fields = [], ?string $roleFrom = null, ?string $roleTo = null): void
+    {
+        $this->events->record(new StaffChanged(SubjectRef::user((int) $user->getId()), $by?->getId(), action: $action, fields: $fields, roleFrom: $roleFrom, roleTo: $roleTo));
+    }
+
+    /**
+     * Які поля картки зачіпає запит (пароль — лише непорожній).
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return list<string>
+     */
+    private static function fields(array $data): array
+    {
+        $known = ['firstName', 'lastName', 'position', 'email', 'phone', 'role', 'departmentId'];
+        $fields = array_values(array_filter($known, static fn (string $key) => array_key_exists($key, $data)));
+
+        if (($data['password'] ?? '') !== '') {
+            $fields[] = 'password';
+        }
+
+        return $fields;
     }
 
     /** @param array<string, mixed> $data */

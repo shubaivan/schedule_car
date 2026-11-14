@@ -93,6 +93,20 @@ final class MovementWriter
                     );
                 }
 
+                // Як у Twig: рух — у журнал самого руху і кожної позиції, у тій самій транзакції.
+                $route = WarehousePresenter::route($movement);
+                $this->activity->recordStrict(ActivityAction::Move, $movement, $by, WhActivity::CHANNEL_ADMIN, $route);
+
+                foreach ($movement->getLines() as $line) {
+                    $this->activity->recordStrict(
+                        ActivityAction::Move,
+                        $line->getItem(),
+                        $by,
+                        WhActivity::CHANNEL_ADMIN,
+                        sprintf('%s: %s, %d %s', $movement->getTitle(), $route, $line->getQuantity(), $line->getItem()->getUnit()),
+                    );
+                }
+
                 return $movement;
             });
         } catch (Throwable $e) {
@@ -100,20 +114,6 @@ final class MovementWriter
             $this->em->clear();
 
             throw $e;
-        }
-
-        // Як у Twig: рух — у журнал самого руху і кожної позиції.
-        $route = WarehousePresenter::route($movement);
-        $this->activity->record(ActivityAction::Move, $movement, $by, WhActivity::CHANNEL_ADMIN, $route);
-
-        foreach ($movement->getLines() as $line) {
-            $this->activity->record(
-                ActivityAction::Move,
-                $line->getItem(),
-                $by,
-                WhActivity::CHANNEL_ADMIN,
-                sprintf('%s: %s, %d %s', $movement->getTitle(), $route, $line->getQuantity(), $line->getItem()->getUnit()),
-            );
         }
 
         $this->feed->movementRecorded($movement, $by);

@@ -16,8 +16,10 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  * - doctrine://…queue_name=plan (План) — у воркері messenger:consume plan.
  *
  * Виняток споживача ловиться й пишеться в лог: інші споживачі все одно
- * отримують подію, а сама дія вже збережена. Повторів немає — отже, споживач
- * із зовнішнім ефектом (Telegram) не задублює повідомлення.
+ * отримують подію, а сама дія вже збережена. Повторів для таких споживачів немає —
+ * отже, споживач із зовнішнім ефектом (Telegram) не задублює повідомлення.
+ * Ідемпотентні (проєкції, центр сповіщень) реалізують IdempotentConsumer — їм
+ * збій повторюється (див. FanOutHandler).
  */
 #[AutoconfigureTag('plan.event_consumer')]
 interface PlanEventConsumer

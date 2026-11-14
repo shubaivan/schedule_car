@@ -20,6 +20,7 @@ use App\Plan\Event\PurchaseRecorded;
 use App\Plan\Event\PurchaseRemoved;
 use App\Plan\Event\ShareCreated;
 use App\Plan\Event\ShareRevoked;
+use App\Plan\Event\StaffChanged;
 use App\Plan\Event\StatusChanged;
 use App\Plan\Event\StockMoved;
 use App\Plan\Event\SubjectClosed;
@@ -49,6 +50,7 @@ final class AuditCatalog
         'access' => ['label' => 'Скачування й поширення', 'types' => [FileDownloaded::TYPE, ShareCreated::TYPE, ShareRevoked::TYPE]],
         'view' => ['label' => 'Перегляди й скани', 'types' => [SubjectViewed::TYPE]],
         'login' => ['label' => 'Входи', 'types' => [UserLoggedIn::TYPE, LoginFailed::TYPE]],
+        'staff' => ['label' => 'Співробітники й ролі', 'types' => [StaffChanged::TYPE]],
         'system' => ['label' => 'Службові', 'types' => [DriveAuthBroken::TYPE]],
     ];
 
@@ -79,6 +81,7 @@ final class AuditCatalog
         SubjectViewed::TYPE => 'Перегляд',
         UserLoggedIn::TYPE => 'Вхід',
         LoginFailed::TYPE => 'Невдалий вхід',
+        StaffChanged::TYPE => 'Картку співробітника змінено',
     ];
 
     public const array SUBJECTS = [
@@ -94,9 +97,11 @@ final class AuditCatalog
     ];
 
     /**
-     * Скільки днів живе журнал аудиту (усі події plan_event — і дії, і входи,
-     * скачування, перегляди; на них же тримається Хроніка). Рішення Івана 15.11:
-     * пів року, поки інструмент обкатується. Перевизначається PLAN_AUDIT_RETENTION_DAYS.
+     * Скільки днів живуть службові події журналу (PlanEventTypes::AUDIT_ONLY: входи,
+     * перегляди, скачування, поширення, службові, зміни карток людей). Доменна історія —
+     * дії із задачами, заявками й складом, на ній Хроніка — не видаляється.
+     * Рішення Івана 15.11: пів року, поки інструмент обкатується. Перевизначається
+     * PLAN_AUDIT_RETENTION_DAYS.
      */
     public const int DEFAULT_RETENTION_DAYS = 180;
 
