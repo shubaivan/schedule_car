@@ -63,7 +63,7 @@ class MovementController extends AbstractWarehouseController
     #[Route('/new', name: 'wh_movement_new', methods: ['GET', 'POST'])]
     public function new(Request $request): Response
     {
-        $type = MovementType::tryFrom((string) $request->get('type', '')) ?? MovementType::Shipment;
+        $type = MovementType::tryFrom((string) ($request->query->get('type') ?? $request->request->get('type', ''))) ?? MovementType::Shipment;
         $error = null;
         $values = $request->isMethod('POST') ? $this->fields($request) : null;
 

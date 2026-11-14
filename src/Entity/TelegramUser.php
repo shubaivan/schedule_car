@@ -420,8 +420,4 @@ class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface
     {
         return $this->password;
     }
-
-    public function eraseCredentials(): void
-    {
-    }
 }

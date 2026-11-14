@@ -12,6 +12,7 @@ use DateTimeZone;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\FilesystemOperator;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 use Throwable;
 
 /**
@@ -41,6 +42,7 @@ class AttachFile
 
     public function __construct(
         private EntityManagerInterface $em,
+        #[Target('supply.storage')]
         private FilesystemOperator $supplyStorage,
         private SupplyNotifier $notifier,
         private LoggerInterface $logger,

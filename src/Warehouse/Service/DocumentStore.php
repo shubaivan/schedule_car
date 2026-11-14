@@ -15,6 +15,7 @@ use DateTimeZone;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\FilesystemOperator;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 use Throwable;
 
 /**
@@ -41,6 +42,7 @@ class DocumentStore
 
     public function __construct(
         private EntityManagerInterface $em,
+        #[Target('warehouse.storage')]
         private FilesystemOperator $warehouseStorage,
         private LoggerInterface $logger,
     ) {
