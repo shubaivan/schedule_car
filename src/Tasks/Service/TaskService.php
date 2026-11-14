@@ -8,10 +8,8 @@ use App\Supply\Entity\Department;
 use App\Supply\Repository\DepartmentRepository;
 use App\Tasks\Entity\Task;
 use App\Tasks\Entity\TaskAttachment;
-use App\Tasks\Entity\TaskFavorite;
 use App\Tasks\Entity\TaskMessage;
 use App\Tasks\Entity\TaskMessageEdit;
-use App\Tasks\Entity\TaskMessageStar;
 use App\Tasks\Entity\TaskRead;
 use App\Tasks\Enum\TaskStatus;
 use App\Tasks\Exception\TaskException;
@@ -304,16 +302,18 @@ class TaskService
             throw new TaskException('Ви не учасник цієї задачі.');
         }
 
-        $repo = $this->em->getRepository(TaskMessageStar::class);
-        $star = $repo->findOneBy(['message' => $message, 'user' => $user]);
+        // Подвійний клік — два запити одночасно: вставка без «find-then-insert», щоб не впасти на унікальному індексі.
+        $conn = $this->em->getConnection();
 
-        if ($on && $star === null && $message->getDeletedAt() === null) {
-            $this->em->persist(new TaskMessageStar($message, $user));
-        } elseif (! $on && $star !== null) {
-            $this->em->remove($star);
+        if ($on && $message->getDeletedAt() === null) {
+            $conn->executeStatement(
+                "INSERT INTO task_message_star (id, message_id, user_id, created_at)
+                 VALUES (nextval('task_message_star_id_seq'), ?, ?, ?) ON CONFLICT (user_id, message_id) DO NOTHING",
+                [$message->getId(), $user->getId(), Task::now()->format('Y-m-d H:i:s')],
+            );
+        } elseif (! $on) {
+            $conn->executeStatement('DELETE FROM task_message_star WHERE message_id = ? AND user_id = ?', [$message->getId(), $user->getId()]);
         }
-
-        $this->em->flush();
     }
 
     /** ★ задачі — особисте «Обране». */
@@ -323,16 +323,17 @@ class TaskService
             throw new TaskException('Ви не учасник цієї задачі.');
         }
 
-        $repo = $this->em->getRepository(TaskFavorite::class);
-        $favorite = $repo->findOneBy(['task' => $task, 'user' => $user]);
+        $conn = $this->em->getConnection();
 
-        if ($on && $favorite === null) {
-            $this->em->persist(new TaskFavorite($task, $user));
-        } elseif (! $on && $favorite !== null) {
-            $this->em->remove($favorite);
+        if ($on) {
+            $conn->executeStatement(
+                "INSERT INTO task_favorite (id, task_id, user_id, created_at)
+                 VALUES (nextval('task_favorite_id_seq'), ?, ?, ?) ON CONFLICT (user_id, task_id) DO NOTHING",
+                [$task->getId(), $user->getId(), Task::now()->format('Y-m-d H:i:s')],
+            );
+        } else {
+            $conn->executeStatement('DELETE FROM task_favorite WHERE task_id = ? AND user_id = ?', [$task->getId(), $user->getId()]);
         }
-
-        $this->em->flush();
     }
 
     /** @return int до якого повідомлення людина дочитала ДО цього відкриття (для «Нові повідомлення») */

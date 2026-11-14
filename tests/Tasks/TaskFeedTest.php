@@ -129,6 +129,19 @@ class TaskFeedTest extends WebTestCase
         self::assertSame($chronicle['unread'], $card['unread']);
         self::assertSame(1, $this->get('/api/tasks/chronicle/counts')['tasks']);
 
+        // Директор бачить задачу на дошці, але не бере в ній участі — «+N» немає, як і в його Хроніці.
+        $director = $this->user(WorkRole::Director, 'agd');
+        $this->login($director);
+        foreach ($this->get('/api/tasks/board') as $column) {
+            foreach ($column as $item) {
+                if ($item['id'] === $task['id']) {
+                    self::assertSame(0, $item['unread']);
+                }
+            }
+        }
+        self::assertNull($this->row($this->get('/api/tasks/chronicle'), $task['id']));
+
+        $this->login($worker);
         $this->get('/api/tasks/' . $task['id']);
         self::assertSame(0, $this->row($this->get('/api/tasks/chronicle'), $task['id'])['unread']);
         self::assertSame(0, $this->get('/api/tasks/chronicle/counts')['tasks']);

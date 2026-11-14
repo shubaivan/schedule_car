@@ -139,7 +139,8 @@ class TaskRepository extends ServiceEntityRepository
 
     /**
      * Нові події від інших людей по кожній задачі — те саме правило, що й «+N» у Хроніці
-     * (TaskFeedRepository::UNREAD).
+     * (TaskFeedRepository::UNREAD, TaskVisibility::involved): на задачах, де людина
+     * не бере участі (директор, адмін бачать усе), «+N» немає.
      *
      * @param int[] $taskIds
      *
@@ -151,12 +152,17 @@ class TaskRepository extends ServiceEntityRepository
             return [];
         }
 
+        // Лише задачі, де людина бере участь (як у Хроніці): директор бачить увесь завод,
+        // але «+N» на чужих задачах, яких він ніколи не відкривав, — шум, і з Хронікою не зійдеться.
+        [$involved, $params] = TaskVisibility::involved($user);
+
         $rows = $this->getEntityManager()->getConnection()->fetchAllKeyValue(
             'SELECT u.task_id, COUNT(*) FROM task_message u
+               JOIN task t ON t.id = u.task_id
                LEFT JOIN task_read r ON r.task_id = u.task_id AND r.user_id = :me
-              WHERE u.task_id IN (:ids) AND ' . TaskFeedRepository::UNREAD . '
+              WHERE u.task_id IN (:ids) AND ' . $involved . ' AND ' . TaskFeedRepository::UNREAD . '
               GROUP BY u.task_id',
-            ['me' => $user->getId(), 'ids' => $taskIds],
+            [...$params, 'me' => $user->getId(), 'ids' => $taskIds],
             ['ids' => ArrayParameterType::INTEGER],
         );
 

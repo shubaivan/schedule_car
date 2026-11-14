@@ -195,7 +195,7 @@ watch(favoritesOnly, (v) => {
     load()
 })
 // Лічильник змінився (нова подія деінде) — підтягуємо верх стрічки.
-watch(() => counts.value.events, (now, before) => now !== before && refreshTop())
+watch(() => counts.value.tasks + ':' + counts.value.events, (now, before) => now !== before && refreshTop())
 
 // Окремого таймера немає: лічильник (useChronicleCounts) опитує раз на 15 с,
 // і стрічка оновлюється, лише коли там щось змінилось.

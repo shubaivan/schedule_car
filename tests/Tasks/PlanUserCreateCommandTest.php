@@ -180,6 +180,19 @@ class PlanUserCreateCommandTest extends KernelTestCase
         self::assertNull($this->find($second));
     }
 
+    public function testRefusesDemoUser(): void
+    {
+        $email = $this->email();
+        $demo = (new TelegramUser())->setTelegramId('demo-cli-' . bin2hex(random_bytes(3)))->setFirstName('Демо')->setEmail($email);
+        $this->em->persist($demo);
+        $this->em->flush();
+
+        $code = $this->command->execute(['--email' => $email, '--role' => 'admin', '--keep-password' => true], ['interactive' => false]);
+
+        self::assertSame(Command::FAILURE, $code);
+        self::assertStringContainsString('демо-користувачу', $this->command->getDisplay());
+    }
+
     private function email(): string
     {
         $email = 'plan-user-' . bin2hex(random_bytes(4)) . '@example.test';

@@ -90,6 +90,10 @@ watch(q, () => {
     debounce = window.setTimeout(() => run(), 250)
 })
 watch([tab, starred], () => run())
+// Пошук із верхньої смуги, коли ми вже на цій сторінці: ?q= змінився — шукаємо нове.
+watch(() => route.query.q, (v) => {
+    if (typeof v === 'string' && v !== q.value) q.value = v
+})
 
 /** Порядок результатів для ↑/↓ — з даних, а не з DOM, щоб підсвітка була реактивною. */
 const order = computed<string[]>(() => {
@@ -128,7 +132,9 @@ function onKey(e: KeyboardEvent) {
             go(list[sel.value])
         }
     } else if (e.key === 'Escape') {
-        q.value = ''
+        // Відкрита задача праворуч — Esc закриває її, а не стирає пошук.
+        if (openId.value !== null) close()
+        else q.value = ''
     }
 }
 

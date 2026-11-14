@@ -478,6 +478,8 @@ body.p-noscroll { overflow: hidden; }
     .p-profile .p-small { display: none; }
     .p-frow { grid-template-columns: 1fr; gap: 4px; }
     .p-date, .p-inline-input { font-size: 16px; height: 36px; }
+    /* 16px — інакше iPhone збільшує сторінку при вводі. */
+    .p-note { font-size: 16px; }
     .p-themes { grid-template-columns: 1fr; }
 }
 

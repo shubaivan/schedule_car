@@ -7,6 +7,7 @@ import { tasksApi, type Attachment, type Message, type Person, type TaskDetail, 
 import { dayLabel, fileSize, time } from './format'
 import { extClass } from './files'
 import { useTasks } from './store'
+import { TASK_SAVED } from './shell/nav'
 import { useSession } from '../../app/store'
 import './feed.css'
 
@@ -166,12 +167,13 @@ function replace(updated: Message) {
 
 // --- опитування ---
 let timer: number | undefined
-async function poll() {
-    if (document.hidden) return
+/** since — з якого повідомлення питати (після власного надсилання — з того, що було до нього). */
+async function poll(since?: number) {
+    if (document.hidden && since === undefined) return
     const task = props.task
     const waiting = task.files.filter((f) => f.preview === 'pending').map((f) => f.id)
     try {
-        const r = await tasksApi.poll(task.id, lastId.value, waiting, changedSince)
+        const r = await tasksApi.poll(task.id, since ?? lastId.value, waiting, changedSince)
         if (task !== props.task) return
         changedSince = r.now
         const stick = nearBottom()
@@ -180,6 +182,8 @@ async function poll() {
             const fresh = r.messages.filter((m) => !known.has(m.id))
             task.messages.push(...fresh)
             for (const m of fresh) task.files.push(...m.attachments)
+            // Колега написав між нашими опитуваннями й нашим повідомленням — ставимо на своє місце.
+            if (fresh.length) task.messages.sort((a, b) => a.id - b.id)
         }
         for (const m of r.changed) replace(m)
         for (const a of r.attachments) replaceAttachment(a)
@@ -316,11 +320,15 @@ async function send() {
             const p = store.person(id)
             return p && text.value.includes('@' + p.name)
         })
+        const before = lastId.value
         const message = await tasksApi.post(task.id, text.value, pending.value.map((p) => p.file), used, replyTo.value?.id)
         if (!task.messages.some((m) => m.id === message.id)) {
             task.messages.push(message)
             task.files.push(...message.attachments)
         }
+        // Інакше чуже повідомлення, що прийшло між опитуванням і нашим, загубилося б: lastId уже наш.
+        if (message.id > before + 1) void poll(before)
+        window.dispatchEvent(new Event(TASK_SAVED))
         text.value = ''
         mentions.value = []
         replyTo.value = null

@@ -59,7 +59,7 @@ onBeforeUnmount(() => {
 <template>
     <div ref="root" class="p-thead">
         <div class="p-thead-top">
-            <button v-if="embedded" type="button" class="p-icon-btn p-back" title="Назад до дошки (Esc)" aria-label="Назад до дошки" @click="emit('close')"><Icon name="back" /></button>
+            <button v-if="embedded" type="button" class="p-icon-btn p-back" title="Назад (Esc)" aria-label="Назад" @click="emit('close')"><Icon name="back" /></button>
             <router-link v-else :to="{ name: 'tasks-board' }" class="p-icon-btn p-back" title="До дошки" aria-label="До дошки"><Icon name="back" /></router-link>
             <span class="num">№ {{ task.number }}</span>
             <span v-if="task.client" class="client" :title="task.client">· {{ task.client }}</span>

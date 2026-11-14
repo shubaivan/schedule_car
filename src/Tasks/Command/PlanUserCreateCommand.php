@@ -75,6 +75,14 @@ class PlanUserCreateCommand extends Command
         }
 
         $existing = $this->users->findOneBy(['email' => $email]);
+
+        // Демо-людину tasks:demo-seed --reset видалить разом з усім — живу картку на ній не будуємо.
+        if ($existing !== null && str_starts_with((string) $existing->getTelegramId(), 'demo-')) {
+            $io->error('Цей email належить демо-користувачу (його прибирає tasks:demo-seed --reset). Візьміть інший email.');
+
+            return Command::FAILURE;
+        }
+
         $data = ['email' => $email];
 
         $name = trim((string) $input->getOption('name'));
@@ -161,6 +169,10 @@ class PlanUserCreateCommand extends Command
             $user = $existing === null
                 ? $this->staff->create($data, null)
                 : $this->staff->update($existing, $data, null);
+
+            if (! $user->isApproved()) {
+                $io->warning('Доступ людини не підтверджено — увійти не зможе, поки її не підтвердять.');
+            }
 
             if ($user->isArchived()) {
                 $io->warning('Людина в кошику — увійти не зможе, поки її не відновлять у «Співробітниках».');

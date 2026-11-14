@@ -1,4 +1,4 @@
-import { computed, onBeforeUnmount, onMounted } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRoute, useRouter, type LocationQuery } from 'vue-router'
 import { useMobile } from './nav'
 
@@ -38,6 +38,18 @@ export function useSplitTask(name: string) {
         if (back && back.split('?')[0] === base) router.back()
         else router.replace({ name, query: listQuery(route.query) })
     }
+
+    // Телефон: список під задачею лише схований — «назад» повертає туди, де людина була.
+    let savedY = 0
+    watch(openId, async (now, before) => {
+        if (!mobile.value) return
+        if (now && !before) savedY = window.scrollY
+        if (now) window.scrollTo(0, 0)
+        if (!now && before) {
+            await nextTick()
+            window.scrollTo(0, savedY)
+        }
+    }, { flush: 'pre' })
 
     function onKey(e: KeyboardEvent) {
         if (e.key !== 'Escape' || e.defaultPrevented || openId.value === null) return

@@ -65,7 +65,7 @@ function onKey(e: KeyboardEvent) {
     if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return
     if (document.querySelector('.t-modal-wrap, .t-viewer')) return
     if (e.key === '/') {
-        const boardFilter = document.querySelector<HTMLInputElement>('[data-board-filter]')
+        const boardFilter = document.querySelector<HTMLInputElement>('[data-board-filter], .f-search-box input')
         ;(boardFilter && boardFilter.offsetParent !== null ? boardFilter : searchBox.value)?.focus()
         e.preventDefault()
     } else if (e.key === 'n' || e.key === 'т') {
