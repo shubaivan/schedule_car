@@ -2,11 +2,13 @@
 
 namespace App;
 
+use App\Telegram\NutgramRoutesConfigurator;
 use SergiX44\Nutgram\Nutgram;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Component\Config\Loader\LoaderInterface;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\HttpKernel\Kernel as BaseKernel;
 
 class Kernel extends BaseKernel implements CompilerPassInterface
@@ -49,7 +51,13 @@ class Kernel extends BaseKernel implements CompilerPassInterface
     public function process(ContainerBuilder $container): void
     {
         if ($container->hasDefinition(Nutgram::class)) {
-            $container->getDefinition(Nutgram::class)->setLazy(true);
+            // The bundle's configurator would get the lazy proxy itself and load the
+            // route file into it mid-initialisation — ours receives the real instance.
+            // In the test env the bundle returns FakeNutgram, which a Nutgram lazy proxy
+            // cannot wrap — and the fake never throws on an empty token anyway.
+            $container->getDefinition(Nutgram::class)
+                ->setLazy($this->environment !== 'test')
+                ->setConfigurator([new Reference(NutgramRoutesConfigurator::class), 'configure']);
         }
     }
 
