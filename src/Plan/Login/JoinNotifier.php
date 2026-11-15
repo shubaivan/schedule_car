@@ -4,6 +4,7 @@ namespace App\Plan\Login;
 
 use App\Entity\TelegramUser;
 use App\Plan\Login\Entity\JoinRequest;
+use App\Plan\People\PhoneFormat;
 use App\Plan\Telegram\PlanBotMode;
 use App\Plan\Telegram\TelegramLink;
 use App\Repository\TelegramUserRepository;
@@ -77,7 +78,7 @@ final class JoinNotifier
 
         foreach ($this->superadmins() as $admin) {
             if ($admin->getId() !== $by->getId()) {
-                $this->send($admin, sprintf('ℹ️ Заявку №%d (%s) %s — %s.', (int) $request->getId(), htmlspecialchars($request->name()), $approved ? 'затверджено' : 'відхилено', htmlspecialchars($by->shortName())));
+                $this->send($admin, sprintf('ℹ️ Заявку №%d (%s) %s — %s.', (int) $request->getId(), htmlspecialchars($request->name()), $approved ? 'затверджено' : 'відхилено', htmlspecialchars(PhoneFormat::named($by->shortName(), $by->getPhoneNumber()))));
             }
         }
     }
@@ -88,10 +89,9 @@ final class JoinNotifier
         foreach ($this->superadmins() as $admin) {
             if ($admin->getId() !== $user->getId()) {
                 $this->send($admin, sprintf(
-                    "🔗 %s підключив(ла) Telegram%s до Плану за номером %s.\nЯкщо це не та людина — відкрийте картку й зверніться до неї.",
-                    htmlspecialchars($user->shortName()),
+                    "🔗 %s підключив(ла) Telegram%s до Плану за своїм номером.\nЯкщо це не та людина — відкрийте картку й зверніться до неї.",
+                    htmlspecialchars(PhoneFormat::named($user->shortName(), $user->getPhoneNumber())),
                     $username !== null ? ' (@' . htmlspecialchars($username) . ')' : '',
-                    JoinRequests::maskPhone((string) $user->getPhoneNumber()),
                 ), str_starts_with($this->url('/'), 'https://') ? InlineKeyboardMarkup::make()->addRow(InlineKeyboardButton::make('Картка в Плані', url: $this->url('/crm/staff/' . $user->getId()))) : null);
             }
         }

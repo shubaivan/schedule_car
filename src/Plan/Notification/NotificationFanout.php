@@ -4,6 +4,7 @@ namespace App\Plan\Notification;
 
 use App\Plan\Event\PlanEvent;
 use App\Plan\EventStore\IdempotentConsumer;
+use App\Plan\People\PhoneFormat;
 use App\Plan\Push\PushSender;
 use App\Plan\Realtime\MercurePublisher;
 use App\Plan\Subject\SubjectRegistry;
@@ -140,7 +141,8 @@ final class NotificationFanout implements IdempotentConsumer
 
         try {
             ['title' => $title, 'url' => $url] = NotificationLink::of($event, $this->subjects);
-            $actor = $event->actorId !== null ? $this->users->find($event->actorId)?->shortName() : null;
+            $who = $event->actorId !== null ? $this->users->find($event->actorId) : null;
+            $actor = $who !== null ? PhoneFormat::named($who->shortName(), $who->getPhoneNumber()) : null;
         } catch (Throwable $e) {
             $this->logger->warning('plan: push — суб\'єкт не прочитано', ['event' => $event->id(), 'error' => $e->getMessage()]);
 

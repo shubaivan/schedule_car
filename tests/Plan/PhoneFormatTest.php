@@ -29,6 +29,14 @@ class PhoneFormatTest extends KernelTestCase
         self::assertSame($tel, PhoneFormat::tel($raw));
     }
 
+    public function testBotTextsUseATelegramTappableFormat(): void
+    {
+        self::assertSame('+380 93 350 44 42', PhoneFormat::international('0933504442'));
+        self::assertSame('Олександр Чигрин (+380 93 350 44 42)', PhoneFormat::named('Олександр Чигрин', '0933504442'));
+        self::assertSame('Без номера', PhoneFormat::named('Без номера', null));
+        self::assertSame('Гість (+48512345678)', PhoneFormat::named('Гість', '+48 512 345 678'));
+    }
+
     public function testPersonPayloadCarriesThePhone(): void
     {
         self::bootKernel();

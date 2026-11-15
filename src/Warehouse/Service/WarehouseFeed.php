@@ -3,6 +3,7 @@
 namespace App\Warehouse\Service;
 
 use App\Entity\TelegramUser;
+use App\Plan\People\PhoneFormat;
 use App\Service\TeamChat;
 use App\Warehouse\Entity\WhItem;
 use App\Warehouse\Entity\WhMovement;
@@ -43,6 +44,6 @@ class WarehouseFeed
 
     private function by(TelegramUser $user): string
     {
-        return "\n\n✍️ " . htmlspecialchars($user->displayName(), ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        return "\n\n✍️ " . htmlspecialchars(PhoneFormat::named($user->displayName(), $user->getPhoneNumber()), ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
 }

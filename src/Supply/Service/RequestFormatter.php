@@ -2,6 +2,7 @@
 
 namespace App\Supply\Service;
 
+use App\Plan\People\PhoneFormat;
 use App\Supply\Entity\SupplyRequest;
 use DateTimeInterface;
 
@@ -46,7 +47,7 @@ class RequestFormatter
         }
 
         if ($forManager) {
-            $lines[] = '👤 Заявник: ' . $this->escape($request->getAuthor()->displayName());
+            $lines[] = '👤 Заявник: ' . $this->escape(PhoneFormat::named($request->getAuthor()->displayName(), $request->getAuthor()->getPhoneNumber()));
             if ($request->getAuthor()->getPhoneNumber()) {
                 $lines[] = '📞 ' . $this->escape($request->getAuthor()->getPhoneNumber());
             }
@@ -113,13 +114,13 @@ class RequestFormatter
                 $text .= ': <i>' . $this->escape($log->getComment()) . '</i>';
             }
 
-            $events[] = ['at' => $log->getCreatedAt(), 'who' => $log->getAuthor()?->displayName(), 'text' => $text];
+            $events[] = ['at' => $log->getCreatedAt(), 'who' => $log->getAuthor() !== null ? PhoneFormat::named($log->getAuthor()->displayName(), $log->getAuthor()->getPhoneNumber()) : null, 'text' => $text];
         }
 
         foreach ($request->getComments() as $comment) {
             $events[] = [
                 'at' => $comment->getCreatedAt(),
-                'who' => $comment->getAuthor()?->displayName(),
+                'who' => $comment->getAuthor() !== null ? PhoneFormat::named($comment->getAuthor()->displayName(), $comment->getAuthor()->getPhoneNumber()) : null,
                 'text' => '💬 ' . $this->escape($comment->getText()),
             ];
         }

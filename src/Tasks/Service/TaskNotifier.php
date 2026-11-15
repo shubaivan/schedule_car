@@ -5,6 +5,7 @@ namespace App\Tasks\Service;
 use App\Entity\TelegramUser;
 use App\Plan\Notification\EventGroup;
 use App\Plan\Notification\TelegramGate;
+use App\Plan\People\PhoneFormat;
 use App\Plan\Subject\SubjectRef;
 use App\Plan\Subject\SubjectRegistry;
 use App\Plan\Telegram\PlanBotMode;
@@ -54,7 +55,7 @@ class TaskNotifier
 
     public function created(Task $task): void
     {
-        $text = sprintf("📌 <b>Вас додали до задачі</b>\n%s\n\nПостановник: %s", $this->head($task), $this->e($task->getCreator()->shortName()));
+        $text = sprintf("📌 <b>Вас додали до задачі</b>\n%s\n\nПостановник: %s", $this->head($task), $this->e(PhoneFormat::named($task->getCreator()->shortName(), $task->getCreator()->getPhoneNumber())));
 
         if ($task->getDueAt() !== null) {
             $text .= "\nТермін: " . $task->getDueAt()->format('d.m.Y');
@@ -68,7 +69,7 @@ class TaskNotifier
     /** @param TelegramUser[] $people кого щойно додали до задачі */
     public function added(Task $task, array $people, TelegramUser $by): void
     {
-        $text = sprintf("📌 <b>Вас додали до задачі</b>\n%s\n\nВід: %s", $this->head($task), $this->e($by->shortName()));
+        $text = sprintf("📌 <b>Вас додали до задачі</b>\n%s\n\nВід: %s", $this->head($task), $this->e(PhoneFormat::named($by->shortName(), $by->getPhoneNumber())));
 
         foreach ($people as $user) {
             if ($user->getId() !== $by->getId()) {
@@ -93,7 +94,7 @@ class TaskNotifier
         foreach ($this->involved($task, except: $author) as $user) {
             $mention = in_array($user->getId(), $mentioned, true);
             $title = $mention ? '🔔 <b>Вас згадали</b>' : '💬 <b>Нове повідомлення</b>';
-            $this->send($user, sprintf("%s\n%s\n\n<b>%s:</b> %s", $title, $this->head($task), $this->e($author?->shortName() ?? '—'), $body), $task, $mention ? EventGroup::Mention : EventGroup::Comment);
+            $this->send($user, sprintf("%s\n%s\n\n<b>%s:</b> %s", $title, $this->head($task), $this->e($author !== null ? PhoneFormat::named($author->shortName(), $author->getPhoneNumber()) : '—'), $body), $task, $mention ? EventGroup::Mention : EventGroup::Comment);
         }
     }
 
@@ -101,7 +102,7 @@ class TaskNotifier
     public function statusChanged(Task $task, TaskStatus $from, TelegramUser $by, ?string $comment = null, ?TaskStatus $to = null): void
     {
         $to ??= $task->getStatus();
-        $text = sprintf("🔄 <b>%s → %s</b>\n%s\n\nВід: %s", $this->e($from->label()), $this->e($to->label()), $this->head($task), $this->e($by->shortName()));
+        $text = sprintf("🔄 <b>%s → %s</b>\n%s\n\nВід: %s", $this->e($from->label()), $this->e($to->label()), $this->head($task), $this->e(PhoneFormat::named($by->shortName(), $by->getPhoneNumber())));
 
         if ($comment !== null && trim($comment) !== '') {
             $text .= "\n«" . $this->e(trim($comment)) . '»';

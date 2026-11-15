@@ -39,6 +39,31 @@ final class PhoneFormat
         return '+' . $full;
     }
 
+    /**
+     * Для повідомлень бота: «+380 93 350 44 42» — Telegram сам робить такий номер
+     * клікабельним (у локальному «093 …» він його не впізнає). Інші країни — «+48512345678».
+     */
+    public static function international(?string $phone): ?string
+    {
+        $full = self::e164($phone);
+
+        if ($full === null) {
+            return null;
+        }
+
+        return strlen($full) === 12 && str_starts_with($full, '380')
+            ? sprintf('+%s %s %s %s %s', substr($full, 0, 3), substr($full, 3, 2), substr($full, 5, 3), substr($full, 8, 2), substr($full, 10, 2))
+            : '+' . $full;
+    }
+
+    /** «Олександр Чигрин (+380 93 350 44 42)» — ім'я людини в текстах бота й push; без номера — лише ім'я. */
+    public static function named(string $name, ?string $phone): string
+    {
+        $intl = self::international($phone);
+
+        return $intl !== null ? sprintf('%s (%s)', $name, $intl) : $name;
+    }
+
     /** Для посилання tel: — «+380933504442». */
     public static function tel(?string $phone): ?string
     {

@@ -5,6 +5,7 @@ namespace App\Supply\Service;
 use App\Entity\TelegramUser;
 use App\Plan\Notification\EventGroup;
 use App\Plan\Notification\TelegramGate;
+use App\Plan\People\PhoneFormat;
 use App\Plan\Telegram\PlanBotMode;
 use App\Repository\TelegramUserRepository;
 use App\Service\TeamChat;
@@ -210,7 +211,7 @@ class SupplyNotifier
             $this->formatter->escape($comment->getText()),
         );
 
-        $from = $author ? $this->formatter->escape($author->displayName()) : 'Система';
+        $from = $author ? $this->formatter->escape(PhoneFormat::named($author->displayName(), $author->getPhoneNumber())) : 'Система';
         $text .= "\n\n👤 " . $from;
 
         $this->toTeam($request, $text);
@@ -338,7 +339,7 @@ class SupplyNotifier
 
     private function by(?TelegramUser $user): string
     {
-        return $user !== null ? "\n\n✍️ " . $this->formatter->escape($user->displayName()) : '';
+        return $user !== null ? "\n\n✍️ " . $this->formatter->escape(PhoneFormat::named($user->displayName(), $user->getPhoneNumber())) : '';
     }
 
     private function authorKeyboard(SupplyRequest $request): ?InlineKeyboardMarkup
