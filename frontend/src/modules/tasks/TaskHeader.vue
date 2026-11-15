@@ -118,7 +118,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', esc, true))
 
         <div v-if="decisions.length" class="t-decision">
             <span>Рішення директора</span>
-            <input v-model="note" class="t-input p-note" placeholder="Коментар до рішення (необовʼязково)" />
+            <input v-model="note" class="t-input p-note" placeholder="Коментар (необовʼязково)" />
             <div class="t-actions">
                 <button
                     v-for="d in decisions"

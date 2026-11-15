@@ -1622,6 +1622,32 @@ body.p-noscroll {
     .p-note {
         font-size: 16px;
     }
+    /* Жовта смуга рішення на телефоні: поле зверху на всю ширину, кнопки під ним —
+       обидві видно, торкання ≥ 44 px (раніше «Погодити» виїжджало за край екрана). */
+    .t-decision {
+        flex-direction: column;
+        align-items: stretch;
+        min-width: 0;
+    }
+    .t-decision .p-note {
+        flex: 0 0 auto;
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+        min-height: 44px;
+    }
+    .t-decision .t-actions {
+        margin-left: 0;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+        grid-auto-flow: column;
+        gap: 8px;
+    }
+    .t-decision .t-actions .t-btn {
+        min-height: 44px;
+        justify-content: center;
+        white-space: normal;
+    }
     .p-themes {
         grid-template-columns: 1fr;
     }
