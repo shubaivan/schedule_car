@@ -89,7 +89,7 @@ onMounted(() => {
                         <dt>Звідки</dt><dd>{{ movement.from?.label ?? 'ззовні' }}</dd>
                         <dt>Куди</dt><dd>{{ movement.to?.label ?? 'списано' }}</dd>
                         <template v-if="movement.documentNumber"><dt>Документ</dt><dd>№ {{ movement.documentNumber }}</dd></template>
-                        <template v-if="movement.createdBy"><dt>Записав</dt><dd>{{ movement.createdBy.name }}</dd></template>
+                        <template v-if="movement.createdBy"><dt>Записав</dt><dd><PersonName :person="movement.createdBy" /></dd></template>
                     </dl>
                     <div v-if="movement.note" class="t-desc" style="margin-top: 8px">{{ movement.note }}</div>
                 </section>

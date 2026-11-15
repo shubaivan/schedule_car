@@ -5,6 +5,7 @@ namespace App\Tasks\Controller;
 use App\Entity\TelegramUser;
 use App\Plan\Chronicle\PlanChronicle;
 use App\Plan\Overview\PlanOverview;
+use App\Plan\Telegram\PlanBotMode;
 use App\Repository\TelegramUserRepository;
 use App\Supply\Repository\DepartmentRepository;
 use App\Tasks\Entity\Task;
@@ -46,7 +47,7 @@ class TaskApiController extends TasksController
 
     /** Довідники для форм: статуси, мітки, люди, відділи, ролі. */
     #[Route('/meta', name: 'api_tasks_meta', methods: ['GET'])]
-    public function meta(TaskLabelRepository $labels, TelegramUserRepository $users, DepartmentRepository $departments): JsonResponse
+    public function meta(TaskLabelRepository $labels, TelegramUserRepository $users, DepartmentRepository $departments, PlanBotMode $planBot): JsonResponse
     {
         $me = $this->me();
         $people = array_values(array_filter(
@@ -62,6 +63,8 @@ class TaskApiController extends TasksController
                     'seeAll' => $me->seesAllTasks(),
                     'decide' => $me->getWorkRole()->decides(),
                 ],
+                // «План»: вхід лише через Telegram — поля пароля в картці співробітника немає.
+                'passwordLogin' => ! $planBot->enabled(),
             ],
             'statuses' => array_map($this->presenter->status(...), TaskStatus::cases()),
             'labels' => array_map($this->presenter->label(...), $labels->ordered()),

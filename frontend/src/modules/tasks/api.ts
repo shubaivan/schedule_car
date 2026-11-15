@@ -164,7 +164,7 @@ export interface PollResult {
 }
 
 export interface TasksMeta {
-    me: Person & { can: { staff: boolean; seeAll: boolean; decide: boolean } }
+    me: Person & { passwordLogin?: boolean; can: { staff: boolean; seeAll: boolean; decide: boolean } }
     statuses: StatusInfo[]
     labels: Label[]
     people: Person[]

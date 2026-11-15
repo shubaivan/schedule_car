@@ -12,14 +12,24 @@ export interface PhoneEntry {
     tel: string
 }
 
-export function usePhoneBook() {
+type PhoneBook = { lookup: (id?: number | null, name?: string | null) => PhoneEntry | null }
+let book: PhoneBook | null = null
+let loadTried = false
+
+/** Один довідник на весь застосунок (а не на кожне ім'я в довгому списку). */
+export function usePhoneBook(): PhoneBook {
     const store = useTasks()
-    // Довідник людей вантажить і решта сторінок Плану; тут — на випадок, коли ще ні (кешується).
-    if (!store.meta) store.load().catch(() => undefined)
+    // Довідник людей вантажить і решта сторінок Плану; тут — один раз на випадок, коли ще ні.
+    // Без розділу задач (стенди заявок, /api/tasks/meta → 404) не смикаємо його повторно.
+    if (!store.meta && !loadTried) {
+        loadTried = true
+        store.load().catch(() => undefined)
+    }
+    if (book) return book
 
     const byId = computed(() => {
-        const map = new Map<number, PhoneEntry>()
-        for (const p of store.meta?.people ?? []) if (p.phone && p.tel) map.set(p.id, { phone: p.phone, tel: p.tel })
+        const map = new Map<number, PhoneEntry | null>()
+        for (const p of store.meta?.people ?? []) map.set(p.id, formatPhone(p.phone ?? p.tel))
         return map
     })
 
@@ -28,21 +38,18 @@ export function usePhoneBook() {
         for (const p of store.meta?.people ?? []) {
             const key = normalizeName(p.name)
             // Двоє з однаковим іменем — не вгадуємо.
-            map.set(key, map.has(key) ? null : p.phone && p.tel ? { phone: p.phone, tel: p.tel } : null)
+            map.set(key, map.has(key) ? null : formatPhone(p.phone ?? p.tel))
         }
         return map
     })
 
-    function lookup(id?: number | null, name?: string | null): PhoneEntry | null {
-        if (id) {
-            const hit = byId.value.get(id)
-            if (hit) return hit
-            if (store.meta?.people.some((p) => p.id === id)) return null
-        }
-        return name ? (byName.value.get(normalizeName(name)) ?? null) : null
+    book = {
+        lookup(id, name) {
+            if (id && byId.value.has(id)) return byId.value.get(id) ?? null
+            return name ? (byName.value.get(normalizeName(name)) ?? null) : null
+        },
     }
-
-    return { lookup }
+    return book
 }
 
 /** «Іван Шуба (@ivan)» → «іван шуба». */

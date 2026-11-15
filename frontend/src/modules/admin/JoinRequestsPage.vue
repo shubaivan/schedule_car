@@ -164,7 +164,7 @@ onMounted(() => {
                         <template v-if="open.status !== 'pending'">
                             <dt>Рішення</dt>
                             <dd>
-                                {{ open.statusLabel }}<template v-if="open.decidedBy"> — {{ open.decidedBy }}</template><template v-if="open.decidedAt">, {{ auditStamp(open.decidedAt) }}</template>
+                                {{ open.statusLabel }}<template v-if="open.decidedBy"> — <PersonName :name="open.decidedBy" /></template><template v-if="open.decidedAt">, {{ auditStamp(open.decidedAt) }}</template>
                                 <template v-if="open.userRole"> · {{ open.userRole }}</template>
                                 <template v-if="open.reason"> · {{ open.reason }}</template>
                             </dd>

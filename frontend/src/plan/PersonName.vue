@@ -45,4 +45,9 @@ const phone = computed(() => {
 .p-person-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .p-person-phone { flex: none; white-space: nowrap; color: var(--text-muted, #6b7280); font-weight: 400; font-size: .92em; text-decoration: none; font-variant-numeric: tabular-nums; }
 a.p-person-phone:hover { text-decoration: underline; }
+/* Телефон: вузька клітинка таблиці не має розпирати сторінку — номер переходить на свій рядок. */
+@media (max-width: 560px) {
+    .p-person { flex-wrap: wrap; row-gap: 0; }
+    td .p-person, .t-table .p-person { max-width: 46vw; }
+}
 </style>

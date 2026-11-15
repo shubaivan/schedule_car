@@ -331,7 +331,7 @@ onBeforeUnmount(() => {
                         </div>
                         <div class="ev"><span class="c-ico" aria-hidden="true">{{ ICON[item.event.group] ?? '•' }}</span> {{ item.event.text }}</div>
                         <div class="meta">
-                            {{ item.statusLabel }}<template v-if="item.client"> · {{ item.client }}</template><template v-if="item.owner"> · {{ item.owner.name }}</template>
+                            {{ item.statusLabel }}<template v-if="item.client"> · {{ item.client }}</template><template v-if="item.owner"> · <PersonName :person="item.owner" :link="false" /></template>
                         </div>
                         <button v-if="item.unread" type="button" class="mark" title="Позначити прочитаним" @click.stop.prevent="markRead(item)">✓ прочитано</button>
                     </a>

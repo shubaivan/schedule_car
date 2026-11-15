@@ -4,7 +4,7 @@ namespace App\Security;
 
 use App\Controller\LoginController;
 use App\Entity\TelegramUser;
-use App\Plan\Login\TelegramLogin;
+use App\Plan\Telegram\PlanBotMode;
 use App\Repository\TelegramUserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -41,7 +41,7 @@ class PasswordLoginAuthenticator extends AbstractAuthenticator
         #[Autowire('%password_login_enabled%')]
         private bool $enabled,
         private PasswordHasherFactoryInterface $hashers,
-        private ?TelegramLogin $telegramLogin = null,
+        private ?PlanBotMode $planBot = null,
     ) {
     }
 
@@ -50,7 +50,7 @@ class PasswordLoginAuthenticator extends AbstractAuthenticator
         // «План» (вхід через Telegram увімкнено): єдиний вхід — Telegram, пароль недоступний
         // з вебу взагалі, навіть якщо PASSWORD_LOGIN_ENABLED лишився в .env.
         return $this->enabled &&
-            ! ($this->telegramLogin?->enabled() ?? false) &&
+            ! ($this->planBot?->enabled() ?? false) &&
             $request->isMethod('POST') &&
             $request->attributes->get('_route') === 'app_login_password';
     }

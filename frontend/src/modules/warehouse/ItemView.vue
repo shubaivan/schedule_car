@@ -241,7 +241,7 @@ watch(tab, (t) => {
                         <template v-if="item.purchasePrice"><dt>Ціна</dt><dd>{{ money(item.purchasePrice) }}</dd></template>
                         <template v-if="item.purchasedAt"><dt>Куплено</dt><dd>{{ formatDate(item.purchasedAt) }}</dd></template>
                         <template v-if="item.rentalRate"><dt>Оренда</dt><dd>{{ money(item.rentalRate) }}/доба</dd></template>
-                        <template v-if="item.createdBy"><dt>Завів</dt><dd>{{ item.createdBy.name }}</dd></template>
+                        <template v-if="item.createdBy"><dt>Завів</dt><dd><PersonName :person="item.createdBy" /></dd></template>
                     </dl>
                     <div v-if="item.description" class="t-desc" style="margin-top: 8px">{{ item.description }}</div>
                 </div>

@@ -35,6 +35,7 @@ class LoginController extends AbstractController
         #[Autowire('%tasks_enabled%')]
         private bool $tasks = false,
         private ?TelegramLogin $telegramLogin = null,
+        private ?\App\Plan\Telegram\PlanBotMode $planBot = null,
     ) {
     }
 
@@ -67,8 +68,9 @@ class LoginController extends AbstractController
             'loggedOut' => $loggedOut && $user === null,
             'warehouse' => $user instanceof TelegramUser && $this->warehouse->inMenuFor($user),
             // «План»: один вхід — «Увійти через Telegram»; форми пароля там немає зовсім.
-            'telegram_login' => $telegram = $this->telegramLogin?->enabled() ?? false,
-            'password_login' => $this->passwordLogin && ! $telegram,
+            'telegram_login' => $this->telegramLogin?->enabled() ?? false,
+            // Пароль вимикає вже сам режим бота «Плану» (навіть якщо ім'я бота забули вказати).
+            'password_login' => $this->passwordLogin && ! ($this->planBot?->enabled() ?? false),
             'tasks' => $this->tasks,
             'last_login' => $this->lastLogin(),
         ], new Response(status: $status));

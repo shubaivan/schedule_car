@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import PersonName from '../../plan/PersonName.vue'
+import { formatPhone } from '../../plan/people'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import Avatar from './Avatar.vue'
 import AttachmentPreview from './AttachmentPreview.vue'
@@ -50,14 +51,18 @@ function escape(s: string): string {
 
 /** Текст: екрановано, @згадки підсвічено. */
 const html = computed(() => {
-    let out = escape(props.m.text)
-    for (const id of props.m.mentions) {
-        const p = store.person(id)
-        // Згадка з телефоном (як скрізь у Плані): «@Ім'я (093 …)», номер — посилання tel:.
-        const phone = p?.phone && p.tel ? ` <a class="p-person-phone" href="tel:${escape(p.tel)}">(${escape(p.phone)})</a>` : ''
-        if (p) out = out.split('@' + escape(p.name)).join(`<span class="mention">@${escape(p.name)}</span>${phone}`)
-    }
-    return out
+    const out = escape(props.m.text)
+    // Один прохід, довші імена першими: «@Іван» не вклиниться в «@Іван Шуба». Згадка — з телефоном
+    // (як скрізь у Плані): «@Ім'я (093 …)», номер — посилання tel:.
+    const people = props.m.mentions.map((id) => store.person(id)).filter((p): p is NonNullable<typeof p> => !!p).sort((a, b) => b.name.length - a.name.length)
+    if (!people.length) return out
+    const byName = new Map(people.map((p) => ['@' + escape(p.name), p]))
+    const pattern = new RegExp([...byName.keys()].map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g')
+    return out.replace(pattern, (hit) => {
+        const p = byName.get(hit)!
+        const ph = formatPhone(p.phone ?? p.tel)
+        return `<span class="mention">${hit}</span>` + (ph ? ` <a class="p-person-phone" href="tel:${escape(ph.tel)}">(${escape(ph.phone)})</a>` : '')
+    })
 })
 
 const readerNames = computed(() => props.readers.map((p) => p.name).join(', '))
@@ -103,7 +108,7 @@ onMounted(measure)
             </div>
             <div v-if="m.pinned && !m.deleted" class="f-pinmark">📌 Закріплено<template v-if="m.pinned.by"> · <PersonName :name="m.pinned.by" /></template></div>
             <button v-if="m.replyTo && !m.deleted" type="button" class="f-quote" :style="{ borderColor: m.replyTo.authorColor ?? undefined }" @click="emit('jump', m.replyTo.id)">
-                <b :style="{ color: m.replyTo.authorColor ?? undefined }">{{ m.replyTo.author ?? 'Система' }}</b>
+                <b :style="{ color: m.replyTo.authorColor ?? undefined }"><PersonName v-if="m.replyTo.author" :name="m.replyTo.author" :link="false" /><template v-else>Система</template></b>
                 <span v-if="m.replyTo.deleted" class="muted">Повідомлення видалено</span>
                 <span v-else>{{ m.replyTo.text || (m.replyTo.files ? '📎 файл' : '') }}</span>
             </button>

@@ -299,7 +299,7 @@ onMounted(load)
                         <label class="t-field"><span>Телефон (для входу через Telegram)</span><input v-model="form.phone" class="t-input" inputmode="tel" autocomplete="off" placeholder="050 123 45 67" /></label>
                     </div>
                     <div class="t-hint" style="padding: 0">Людина входить у План кнопкою «Увійти через Telegram»: уперше бот попросить поділитися номером і впізнає її за цим телефоном. Пароль не потрібен.</div>
-                    <label v-if="isAdmin" class="t-field"><span>{{ editing === 'new' ? 'Пароль (необовʼязково, запасний вхід)' : 'Новий пароль (необовʼязково; порожнє — без змін)' }}</span><input v-model="form.password" type="password" class="t-input" autocomplete="new-password" minlength="8" /></label>
+                    <label v-if="isAdmin && store.meta?.me.passwordLogin !== false" class="t-field"><span>{{ editing === 'new' ? 'Пароль (необовʼязково, запасний вхід)' : 'Новий пароль (необовʼязково; порожнє — без змін)' }}</span><input v-model="form.password" type="password" class="t-input" autocomplete="new-password" minlength="8" /></label>
                 </fieldset>
             </div>
             <footer>

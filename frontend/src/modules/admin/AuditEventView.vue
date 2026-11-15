@@ -52,7 +52,7 @@ onMounted(async () => {
                 <dt>Хто</dt>
                 <dd>
                     <template v-if="event.actor">
-                        {{ event.actor.name }}
+                        <PersonName :person="event.actor" />
                         <button type="button" class="p-link" @click="emit('filter', { actor: String(event.actor.id) })">усі дії</button>
                     </template>
                     <template v-else>{{ event.channel === 'cli' ? 'Система (консоль)' : 'невідомо' }}</template>
