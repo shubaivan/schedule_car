@@ -688,7 +688,7 @@ onBeforeUnmount(() => {
                                     <td>
                                         <span v-if="h.statusLabel" class="s-status" :class="{ closed: h.closed }">{{ h.statusLabel }}</span>
                                     </td>
-                                    <td><PersonName v-if="h.author" :person="h.author" :link="false" /></td>
+                                    <td><PersonName v-if="h.author" :person="h.author" :link="false" tel /></td>
                                     <td class="d">{{ fmt(h.at) }}</td>
                                 </tr>
                             </tbody>
@@ -730,7 +730,7 @@ onBeforeUnmount(() => {
                                 <span v-if="h.author || h.client || (h.departments.length && h.group !== 'person')" class="s-meta">
                                     <template v-if="h.author">
                                         <Avatar :person="h.author" :size="16" />
-                                        <PersonName :person="h.author" :link="false" />
+                                        <PersonName :person="h.author" :link="false" tel />
                                     </template>
                                     <template v-if="h.client">
                                         <span v-if="h.author" class="dot">·</span>

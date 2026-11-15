@@ -7,6 +7,8 @@ import { formatPhone, usePhoneBook } from './people'
  *
  * - person — об'єкт із API ({ id, name, phone?, tel? }), або окремо id / name (тоді телефон — з довідника людей);
  * - link=false — коли ім'я вже всередині посилання чи кнопки (вкладене <a> неприпустиме): номер текстом;
+ * - link=false + tel — усередині посилання-картки (Хроніка, Пошук, Огляд): номер дзвонить, картку не відкриває
+ *   (span role=link, бо <a> в <a> не можна);
  * - на вузькому місці ім'я обрізається «…», номер не переноситься (CSS .p-person).
  */
 const props = withDefaults(
@@ -16,8 +18,9 @@ const props = withDefaults(
         name?: string | null
         link?: boolean
         bold?: boolean
+        tel?: boolean
     }>(),
-    { person: null, id: null, name: null, link: true, bold: false },
+    { person: null, id: null, name: null, link: true, bold: false, tel: false },
 )
 
 const book = usePhoneBook()
@@ -28,6 +31,11 @@ const phone = computed(() => {
     if (own) return own
     return book.lookup(props.person?.id ?? props.id, shownName.value)
 })
+
+/** Дзвінок з картки-посилання: сама картка не відкривається. */
+function call(tel: string) {
+    window.location.href = 'tel:' + tel
+}
 </script>
 
 <template>
@@ -35,6 +43,17 @@ const phone = computed(() => {
         <component :is="bold ? 'b' : 'span'" class="p-person-name">{{ shownName }}</component>
         <template v-if="phone">
             <a v-if="link" class="p-person-phone" :href="'tel:' + phone.tel" @click.stop>({{ phone.phone }})</a>
+            <span
+                v-else-if="tel"
+                class="p-person-phone p-person-tel"
+                role="link"
+                tabindex="0"
+                :aria-label="'Подзвонити ' + phone.phone"
+                @click.stop.prevent="call(phone.tel)"
+                @keydown.enter.stop.prevent="call(phone.tel)"
+            >
+                ({{ phone.phone }})
+            </span>
             <span v-else class="p-person-phone">({{ phone.phone }})</span>
         </template>
     </span>
@@ -55,6 +74,10 @@ const phone = computed(() => {
     white-space: nowrap;
     min-width: 0;
 }
+.p-person-tel {
+    cursor: pointer;
+    color: var(--link, #1d4ed8);
+}
 .p-person-phone {
     flex: none;
     white-space: nowrap;
@@ -64,7 +87,8 @@ const phone = computed(() => {
     text-decoration: none;
     font-variant-numeric: tabular-nums;
 }
-a.p-person-phone:hover {
+a.p-person-phone:hover,
+.p-person-tel:hover {
     text-decoration: underline;
 }
 /* Телефон: вузька клітинка таблиці не має розпирати сторінку — номер переходить на свій рядок. */

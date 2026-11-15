@@ -332,7 +332,7 @@ onBeforeUnmount(() => {
                         <Avatar :person="item.event.author ?? item.owner" :size="36" />
                         <div>
                             <div class="who">
-                                <PersonName v-if="item.event.author" :person="item.event.author" :link="false" />
+                                <PersonName v-if="item.event.author" :person="item.event.author" :link="false" tel />
                                 <template v-else>Система</template>
                             </div>
                             <div class="at">{{ stamp(item.event.at) }}</div>
@@ -364,7 +364,7 @@ onBeforeUnmount(() => {
                             <template v-if="item.client">· {{ item.client }}</template>
                             <template v-if="item.owner">
                                 ·
-                                <PersonName :person="item.owner" :link="false" />
+                                <PersonName :person="item.owner" :link="false" tel />
                             </template>
                         </div>
                         <button v-if="item.unread" type="button" class="mark" title="Позначити прочитаним" @click.stop.prevent="markRead(item)">✓ прочитано</button>
