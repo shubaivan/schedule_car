@@ -246,7 +246,10 @@ function onKey(e: KeyboardEvent) {
 const filterKey = computed(() => JSON.stringify(filters.value))
 watch(filterKey, () => load())
 // Лічильник змінився (нова подія деінде) — підтягуємо верх стрічки.
-watch(() => counts.value.tasks + ':' + counts.value.events, (now, before) => now !== before && refreshTop())
+watch(
+    () => counts.value.tasks + ':' + counts.value.events,
+    (now, before) => now !== before && refreshTop(),
+)
 
 const byModule = computed(() => (counts.value as { byModule?: Partial<Record<ChronicleModule, number>> }).byModule ?? {})
 
@@ -273,8 +276,16 @@ onBeforeUnmount(() => {
                 <h1>Хроніка</h1>
                 <span v-if="counts.tasks" class="t-sub">{{ counts.tasks }} {{ plural(counts.tasks, 'запис', 'записи', 'записів') }} з новим</span>
                 <span class="sp" />
-                <label class="f-toggle"><input type="checkbox" :checked="filters.unread" @change="setFilter({ unread: !filters.unread })" /><span class="sw" />Непрочитані</label>
-                <label class="f-toggle"><input type="checkbox" :checked="filters.favorites" @change="setFilter({ favorites: !filters.favorites })" /><span class="sw" />★ Обране</label>
+                <label class="f-toggle">
+                    <input type="checkbox" :checked="filters.unread" @change="setFilter({ unread: !filters.unread })" />
+                    <span class="sw" />
+                    Непрочитані
+                </label>
+                <label class="f-toggle">
+                    <input type="checkbox" :checked="filters.favorites" @change="setFilter({ favorites: !filters.favorites })" />
+                    <span class="sw" />
+                    ★ Обране
+                </label>
                 <button v-if="counts.tasks" type="button" class="t-btn small ghost" @click="readAll">✓ Прочитати все</button>
             </div>
 
@@ -288,7 +299,8 @@ onBeforeUnmount(() => {
                     :aria-pressed="filters.modules.includes(m.key)"
                     @click="setFilter({ modules: toggle(filters.modules, m.key) })"
                 >
-                    {{ m.label }}<span v-if="byModule[m.key]" class="n plus">+{{ byModule[m.key] }}</span>
+                    {{ m.label }}
+                    <span v-if="byModule[m.key]" class="n plus">+{{ byModule[m.key] }}</span>
                 </button>
                 <span class="c-sep" aria-hidden="true" />
                 <button
@@ -319,19 +331,41 @@ onBeforeUnmount(() => {
                     >
                         <Avatar :person="item.event.author ?? item.owner" :size="36" />
                         <div>
-                            <div class="who"><PersonName v-if="item.event.author" :person="item.event.author" :link="false" /><template v-else>Система</template></div>
+                            <div class="who">
+                                <PersonName v-if="item.event.author" :person="item.event.author" :link="false" />
+                                <template v-else>Система</template>
+                            </div>
                             <div class="at">{{ stamp(item.event.at) }}</div>
                         </div>
-                        <span class="plus" :title="item.unread ? item.unread + ' ' + plural(item.unread, 'нова подія', 'нові події', 'нових подій') : ''">{{ item.unread ? '+' + item.unread : '' }}</span>
+                        <span class="plus" :title="item.unread ? item.unread + ' ' + plural(item.unread, 'нова подія', 'нові події', 'нових подій') : ''">
+                            {{ item.unread ? '+' + item.unread : '' }}
+                        </span>
                         <div class="task">
                             <span class="c-mod">{{ item.moduleLabel }}</span>
                             <span v-if="item.number" class="num">№ {{ item.number }}</span>
                             <span class="title" :class="{ closed: item.closed }">{{ item.title }}</span>
-                            <button v-if="item.subject.type === 'task'" type="button" class="star" :class="{ on: item.favorite }" :title="item.favorite ? 'Прибрати з обраного' : 'В обране'" @click.stop.prevent="toggleFavorite(item)">{{ item.favorite ? '★' : '☆' }}</button>
+                            <button
+                                v-if="item.subject.type === 'task'"
+                                type="button"
+                                class="star"
+                                :class="{ on: item.favorite }"
+                                :title="item.favorite ? 'Прибрати з обраного' : 'В обране'"
+                                @click.stop.prevent="toggleFavorite(item)"
+                            >
+                                {{ item.favorite ? '★' : '☆' }}
+                            </button>
                         </div>
-                        <div class="ev"><span class="c-ico" aria-hidden="true">{{ ICON[item.event.group] ?? '•' }}</span> {{ item.event.text }}</div>
+                        <div class="ev">
+                            <span class="c-ico" aria-hidden="true">{{ ICON[item.event.group] ?? '•' }}</span>
+                            {{ item.event.text }}
+                        </div>
                         <div class="meta">
-                            {{ item.statusLabel }}<template v-if="item.client"> · {{ item.client }}</template><template v-if="item.owner"> · <PersonName :person="item.owner" :link="false" /></template>
+                            {{ item.statusLabel }}
+                            <template v-if="item.client">· {{ item.client }}</template>
+                            <template v-if="item.owner">
+                                ·
+                                <PersonName :person="item.owner" :link="false" />
+                            </template>
                         </div>
                         <button v-if="item.unread" type="button" class="mark" title="Позначити прочитаним" @click.stop.prevent="markRead(item)">✓ прочитано</button>
                     </a>
@@ -350,13 +384,50 @@ onBeforeUnmount(() => {
 </template>
 
 <style>
-.c-filters { margin: -.2rem 0 .7rem; }
-.c-filters .c-sep { width: 1px; height: 22px; background: var(--border); margin: 0 .2rem; flex: none; }
-.c-filters .ev { font-weight: 500; }
-.c-filters .plus { color: #ea580c; opacity: 1; font-weight: 800; }
-.f-item .c-mod { font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; padding: .05rem .35rem; border-radius: 5px; background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border); flex: none; }
-.f-item.m-supply .c-mod { color: #c2410c; border-color: #fdba74; }
-.f-item.m-warehouse .c-mod { color: #0f766e; border-color: #5eead4; }
-.f-item .c-ico { display: inline-block; min-width: 1.1em; opacity: .75; }
-a.f-item { text-decoration: none; }
+.c-filters {
+    margin: -0.2rem 0 0.7rem;
+}
+.c-filters .c-sep {
+    width: 1px;
+    height: 22px;
+    background: var(--border);
+    margin: 0 0.2rem;
+    flex: none;
+}
+.c-filters .ev {
+    font-weight: 500;
+}
+.c-filters .plus {
+    color: #ea580c;
+    opacity: 1;
+    font-weight: 800;
+}
+.f-item .c-mod {
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.05rem 0.35rem;
+    border-radius: 5px;
+    background: var(--surface-2);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    flex: none;
+}
+.f-item.m-supply .c-mod {
+    color: #c2410c;
+    border-color: #fdba74;
+}
+.f-item.m-warehouse .c-mod {
+    color: #0f766e;
+    border-color: #5eead4;
+}
+.f-item .c-ico {
+    display: inline-block;
+    min-width: 1.1em;
+    opacity: 0.75;
+}
+a.f-item {
+    text-decoration: none;
+}
 </style>

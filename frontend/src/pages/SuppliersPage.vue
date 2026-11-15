@@ -72,13 +72,7 @@ onMounted(load)
 
     <div class="card">
         <div class="filters">
-            <input
-                v-model="query"
-                type="search"
-                placeholder="Пошук: назва, ЄДРПОУ, контакт"
-                @keyup.enter="load"
-                @search="load"
-            />
+            <input v-model="query" type="search" placeholder="Пошук: назва, ЄДРПОУ, контакт" @keyup.enter="load" @search="load" />
             <label class="flag">
                 <input v-model="onlyActive" type="checkbox" @change="load" />
                 лише активні
@@ -91,62 +85,49 @@ onMounted(load)
             <input v-model="draft.edrpou" type="text" placeholder="ЄДРПОУ / ІПН" />
             <input v-model="draft.phone" type="text" placeholder="Телефон" />
             <input v-model="draft.contactPerson" type="text" placeholder="Контактна особа" />
-            <button class="primary" type="submit" :disabled="saving || !draft.name?.trim()">
-                Додати постачальника
-            </button>
+            <button class="primary" type="submit" :disabled="saving || !draft.name?.trim()">Додати постачальника</button>
         </form>
     </div>
 
     <div class="card">
         <div v-if="loading" class="center">Завантаження…</div>
-        <div v-else-if="!suppliers.length" class="center muted">
-            Постачальників ще немає — додайте першого у формі вище.
-        </div>
+        <div v-else-if="!suppliers.length" class="center muted">Постачальників ще немає — додайте першого у формі вище.</div>
 
         <div v-else class="table-wrap">
             <table>
                 <thead>
-                <tr>
-                    <th>Постачальник</th>
-                    <th>ЄДРПОУ / ІПН</th>
-                    <th>Телефон</th>
-                    <th>Контактна особа</th>
-                    <th>Стан</th>
-                </tr>
+                    <tr>
+                        <th>Постачальник</th>
+                        <th>ЄДРПОУ / ІПН</th>
+                        <th>Телефон</th>
+                        <th>Контактна особа</th>
+                        <th>Стан</th>
+                    </tr>
                 </thead>
                 <tbody>
-                <tr v-for="supplier in suppliers" :key="supplier.id">
-                    <td class="wrap">
-                        <input type="text" :value="supplier.name" @change="edited(supplier, 'name', $event)" />
-                    </td>
-                    <td>
-                        <input type="text" :value="supplier.edrpou ?? ''" @change="edited(supplier, 'edrpou', $event)" />
-                    </td>
-                    <td>
-                        <input type="text" :value="supplier.phone ?? ''" @change="edited(supplier, 'phone', $event)" />
-                    </td>
-                    <td class="wrap">
-                        <input
-                            type="text"
-                            :value="supplier.contactPerson ?? ''"
-                            @change="edited(supplier, 'contactPerson', $event)"
-                        />
-                    </td>
-                    <td>
-                        <button
-                            :class="supplier.active ? 'danger' : ''"
-                            @click="update(supplier, { active: !supplier.active })"
-                        >
-                            {{ supplier.active ? 'Прибрати' : 'Повернути' }}
-                        </button>
-                    </td>
-                </tr>
+                    <tr v-for="supplier in suppliers" :key="supplier.id">
+                        <td class="wrap">
+                            <input type="text" :value="supplier.name" @change="edited(supplier, 'name', $event)" />
+                        </td>
+                        <td>
+                            <input type="text" :value="supplier.edrpou ?? ''" @change="edited(supplier, 'edrpou', $event)" />
+                        </td>
+                        <td>
+                            <input type="text" :value="supplier.phone ?? ''" @change="edited(supplier, 'phone', $event)" />
+                        </td>
+                        <td class="wrap">
+                            <input type="text" :value="supplier.contactPerson ?? ''" @change="edited(supplier, 'contactPerson', $event)" />
+                        </td>
+                        <td>
+                            <button :class="supplier.active ? 'danger' : ''" @click="update(supplier, { active: !supplier.active })">
+                                {{ supplier.active ? 'Прибрати' : 'Повернути' }}
+                            </button>
+                        </td>
+                    </tr>
                 </tbody>
             </table>
         </div>
     </div>
 
-    <p class="muted">
-        Постачальників не видаляємо — прибраний зникає зі списку вибору, але лишається в історії закупівель.
-    </p>
+    <p class="muted">Постачальників не видаляємо — прибраний зникає зі списку вибору, але лишається в історії закупівель.</p>
 </template>

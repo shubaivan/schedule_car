@@ -43,23 +43,67 @@ const THEMES: { value: Theme; label: string; icon: string }[] = [
                     :aria-checked="theme === t.value"
                     :class="{ on: theme === t.value }"
                     @click="applyTheme(t.value)"
-                ><Icon :name="t.icon" :size="18" />{{ t.label }}</button>
+                >
+                    <Icon :name="t.icon" :size="18" />
+                    {{ t.label }}
+                </button>
             </div>
         </section>
 
         <!-- На телефоні «Ще» веде сюди: усі розділи, яким не вистачило місця в нижній панелі. -->
         <section class="p-card p-links" aria-label="Розділи">
-            <router-link :to="{ name: 'tasks' }"><Icon name="home" />Огляд</router-link>
-            <router-link :to="{ name: 'tasks-search' }"><Icon name="search" />Пошук</router-link>
-            <router-link :to="{ name: 'supply-board' }"><Icon name="clipboard" />Заявки на постачання</router-link>
-            <router-link v-if="canSeeWarehouse(session.user)" :to="{ name: 'warehouse' }"><Icon name="warehouse" />Склад</router-link>
-            <router-link v-if="session.user?.fleet" :to="{ name: 'schedule' }"><Icon name="truck" />Автопарк</router-link>
-            <router-link :to="{ name: 'notifications' }"><Icon name="bell" />Сповіщення</router-link>
-            <router-link :to="{ name: 'staff' }"><Icon name="users" />Співробітники й відділи</router-link>
-            <router-link v-if="canSeeAdmin(session.user)" :to="{ name: 'admin' }"><Icon name="shield" />Адмін</router-link>
-            <router-link v-if="canSeeDrive(session.user)" :to="{ name: 'drive-status' }"><Icon name="file" />Google Диск</router-link>
-            <a href="/crm/logout" class="danger"><Icon name="logout" />Вийти</a>
+            <router-link :to="{ name: 'tasks' }">
+                <Icon name="home" />
+                Огляд
+            </router-link>
+            <router-link :to="{ name: 'tasks-search' }">
+                <Icon name="search" />
+                Пошук
+            </router-link>
+            <router-link :to="{ name: 'supply-board' }">
+                <Icon name="clipboard" />
+                Заявки на постачання
+            </router-link>
+            <router-link v-if="canSeeWarehouse(session.user)" :to="{ name: 'warehouse' }">
+                <Icon name="warehouse" />
+                Склад
+            </router-link>
+            <router-link v-if="session.user?.fleet" :to="{ name: 'schedule' }">
+                <Icon name="truck" />
+                Автопарк
+            </router-link>
+            <router-link :to="{ name: 'notifications' }">
+                <Icon name="bell" />
+                Сповіщення
+            </router-link>
+            <router-link :to="{ name: 'staff' }">
+                <Icon name="users" />
+                Співробітники й відділи
+            </router-link>
+            <router-link v-if="canSeeAdmin(session.user)" :to="{ name: 'admin' }">
+                <Icon name="shield" />
+                Адмін
+            </router-link>
+            <router-link v-if="canSeeDrive(session.user)" :to="{ name: 'drive-status' }">
+                <Icon name="file" />
+                Google Диск
+            </router-link>
+            <a href="/crm/logout" class="danger">
+                <Icon name="logout" />
+                Вийти
+            </a>
         </section>
-        <p class="p-muted p-small">Гарячі клавіші: <kbd>/</kbd> пошук · <kbd>N</kbd> нова задача · <kbd>↑</kbd><kbd>↓</kbd> сусідня задача · <kbd>Esc</kbd> закрити.</p>
+        <p class="p-muted p-small">
+            Гарячі клавіші:
+            <kbd>/</kbd>
+            пошук ·
+            <kbd>N</kbd>
+            нова задача ·
+            <kbd>↑</kbd>
+            <kbd>↓</kbd>
+            сусідня задача ·
+            <kbd>Esc</kbd>
+            закрити.
+        </p>
     </div>
 </template>

@@ -77,8 +77,7 @@ export function filterQuery(filters: AuditFilters, extra: Record<string, string 
 
 export const auditApi = {
     meta: () => call<AuditMeta>('/api/plan/audit/meta'),
-    page: (filters: AuditFilters, cursor: { before?: string; after?: string }) =>
-        call<AuditPage>('/api/plan/audit?' + filterQuery(filters, cursor)),
+    page: (filters: AuditFilters, cursor: { before?: string; after?: string }) => call<AuditPage>('/api/plan/audit?' + filterQuery(filters, cursor)),
     event: (id: number) => call<AuditDetail>(`/api/plan/audit/${id}`),
     csvUrl: (filters: AuditFilters) => '/api/plan/audit.csv?' + filterQuery(filters),
 }
@@ -118,8 +117,6 @@ export interface JoinApproval {
 
 export const joinApi = {
     list: () => call<JoinRequestList>('/api/plan/join-requests'),
-    approve: (id: number, data: JoinApproval) =>
-        call<JoinRequestRow>(`/api/plan/join-requests/${id}/approve`, { method: 'POST', body: JSON.stringify(data) }),
-    reject: (id: number, reason: string) =>
-        call<JoinRequestRow>(`/api/plan/join-requests/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
+    approve: (id: number, data: JoinApproval) => call<JoinRequestRow>(`/api/plan/join-requests/${id}/approve`, { method: 'POST', body: JSON.stringify(data) }),
+    reject: (id: number, reason: string) => call<JoinRequestRow>(`/api/plan/join-requests/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
 }

@@ -16,6 +16,11 @@ const emit = defineEmits<{
 
 const query = ref('')
 const open = ref(false)
+
+function openPicker() {
+    open.value = true
+    query.value = ''
+}
 const creating = ref(false)
 
 const norm = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '')
@@ -24,9 +29,7 @@ const selected = computed(() => props.suppliers.find((s) => s.id === props.model
 
 const matches = computed(() => {
     const q = norm(query.value)
-    const list = q === ''
-        ? props.suppliers
-        : props.suppliers.filter((s) => norm(s.name).includes(q) || (s.edrpou ?? '').includes(query.value.trim()))
+    const list = q === '' ? props.suppliers : props.suppliers.filter((s) => norm(s.name).includes(q) || (s.edrpou ?? '').includes(query.value.trim()))
 
     return list.slice(0, 30)
 })
@@ -71,13 +74,14 @@ function blur() {
             type="text"
             placeholder="Постачальник — почніть вводити назву"
             autocomplete="off"
-            @focus="open = true; query = ''"
+            @focus="openPicker"
             @input="query = ($event.target as HTMLInputElement).value"
             @blur="blur"
         />
         <ul v-if="open" class="options">
             <li v-for="item in matches" :key="item.id" :class="{ on: item.id === modelValue }" @mousedown.prevent="pick(item)">
-                {{ item.name }}<span v-if="item.edrpou" class="muted"> · {{ item.edrpou }}</span>
+                {{ item.name }}
+                <span v-if="item.edrpou" class="muted">· {{ item.edrpou }}</span>
             </li>
             <li v-if="canCreate" class="create" @mousedown.prevent="create">
                 {{ creating ? 'Додаю…' : `➕ Додати «${query.trim()}» у довідник` }}
@@ -88,16 +92,43 @@ function blur() {
 </template>
 
 <style scoped>
-.picker { position: relative; min-width: 240px; flex: 1; }
-.picker input { width: 100%; }
-.options {
-    position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 2px);
-    margin: 0; padding: 4px 0; list-style: none; max-height: 260px; overflow-y: auto;
-    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-    box-shadow: 0 6px 18px rgba(0, 0, 0, .12);
+.picker {
+    position: relative;
+    min-width: 240px;
+    flex: 1;
 }
-.options li { padding: 7px 10px; cursor: pointer; }
-.options li:hover, .options li.on { background: var(--accent-soft); }
-.options li.create { color: var(--accent); font-weight: 600; }
-.options li.muted { cursor: default; }
+.picker input {
+    width: 100%;
+}
+.options {
+    position: absolute;
+    z-index: 20;
+    left: 0;
+    right: 0;
+    top: calc(100% + 2px);
+    margin: 0;
+    padding: 4px 0;
+    list-style: none;
+    max-height: 260px;
+    overflow-y: auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+.options li {
+    padding: 7px 10px;
+    cursor: pointer;
+}
+.options li:hover,
+.options li.on {
+    background: var(--accent-soft);
+}
+.options li.create {
+    color: var(--accent);
+    font-weight: 600;
+}
+.options li.muted {
+    cursor: default;
+}
 </style>

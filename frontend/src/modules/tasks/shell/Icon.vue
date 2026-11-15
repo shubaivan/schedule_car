@@ -53,5 +53,7 @@ withDefaults(defineProps<{ name: string; size?: number; stroke?: number }>(), { 
         stroke-linecap="round"
         stroke-linejoin="round"
         aria-hidden="true"
-    ><path :d="PATHS[name] ?? ''" /></svg>
+    >
+        <path :d="PATHS[name] ?? ''" />
+    </svg>
 </template>

@@ -49,7 +49,12 @@ body {
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font: 15px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font:
+        15px/1.5 -apple-system,
+        BlinkMacSystemFont,
+        'Segoe UI',
+        Roboto,
+        sans-serif;
 }
 
 a {
@@ -69,7 +74,7 @@ a {
     gap: 1rem;
     align-items: center;
     justify-content: space-between;
-    padding: .75rem 0 1rem;
+    padding: 0.75rem 0 1rem;
     border-bottom: 1px solid var(--border);
     margin-bottom: 1rem;
 }
@@ -84,12 +89,12 @@ a {
  */
 .sections {
     display: flex;
-    gap: .25rem;
+    gap: 0.25rem;
     flex-wrap: wrap;
 }
 
 .sections a {
-    padding: .45rem .9rem;
+    padding: 0.45rem 0.9rem;
     border-radius: 999px;
     color: var(--text-muted);
     font-weight: 600;
@@ -108,13 +113,13 @@ a {
 
 .subnav {
     display: flex;
-    gap: .25rem;
+    gap: 0.25rem;
     flex-wrap: wrap;
-    margin: -.5rem 0 1rem;
+    margin: -0.5rem 0 1rem;
 }
 
 .subnav a {
-    padding: .35rem .75rem;
+    padding: 0.35rem 0.75rem;
     border-radius: var(--radius);
     color: var(--text-muted);
     white-space: nowrap;
@@ -126,14 +131,16 @@ a {
 }
 
 @media (max-width: 640px) {
-    .sections, .subnav {
+    .sections,
+    .subnav {
         flex-wrap: nowrap;
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
     }
 
-    .sections a, .subnav a {
-        padding: .6rem .9rem;
+    .sections a,
+    .subnav a {
+        padding: 0.6rem 0.9rem;
     }
 }
 
@@ -153,7 +160,7 @@ a {
 .filters {
     display: flex;
     flex-wrap: wrap;
-    gap: .5rem;
+    gap: 0.5rem;
     align-items: center;
     margin-bottom: 1rem;
 }
@@ -161,14 +168,14 @@ a {
 .tabs {
     display: flex;
     flex-wrap: wrap;
-    gap: .35rem;
+    gap: 0.35rem;
 }
 
 .tab {
     border: 1px solid var(--border);
     background: var(--surface);
     color: var(--text);
-    padding: .35rem .7rem;
+    padding: 0.35rem 0.7rem;
     border-radius: 999px;
     cursor: pointer;
     font-size: 13px;
@@ -182,19 +189,25 @@ a {
 
 .tab .count {
     color: var(--text-muted);
-    margin-left: .35rem;
+    margin-left: 0.35rem;
 }
 
-input, select, textarea, button {
+input,
+select,
+textarea,
+button {
     font: inherit;
     color: var(--text);
 }
 
-input[type='search'], input[type='text'], select, textarea {
+input[type='search'],
+input[type='text'],
+select,
+textarea {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: .4rem .6rem;
+    padding: 0.4rem 0.6rem;
 }
 
 textarea {
@@ -208,7 +221,7 @@ button {
     border-radius: var(--radius);
     border: 1px solid var(--border);
     background: var(--surface);
-    padding: .4rem .8rem;
+    padding: 0.4rem 0.8rem;
 }
 
 button.primary {
@@ -223,7 +236,7 @@ button.danger {
 }
 
 button:disabled {
-    opacity: .55;
+    opacity: 0.55;
     cursor: default;
 }
 
@@ -237,9 +250,10 @@ table {
     font-size: 14px;
 }
 
-th, td {
+th,
+td {
     text-align: left;
-    padding: .55rem .6rem;
+    padding: 0.55rem 0.6rem;
     border-bottom: 1px solid var(--border);
     white-space: nowrap;
 }
@@ -260,28 +274,68 @@ td.wrap {
 
 .badge {
     display: inline-block;
-    padding: .15rem .5rem;
+    padding: 0.15rem 0.5rem;
     border-radius: 999px;
     font-size: 12px;
     white-space: nowrap;
 }
 
-.badge-new { background: var(--accent-soft); color: var(--accent); }
-.badge-in_progress { background: var(--warning-soft); color: var(--warning); }
-.badge-approval { background: var(--warning-soft); color: var(--warning); }
+.badge-new {
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+.badge-in_progress {
+    background: var(--warning-soft);
+    color: var(--warning);
+}
+.badge-approval {
+    background: var(--warning-soft);
+    color: var(--warning);
+}
 /* Рішення директора: «Підтверджено» — зелений сигнал далі, «В списку очікування» — пауза. */
-.badge-approved { background: var(--accent-soft); color: var(--accent); }
-.badge-waiting { background: var(--surface); color: var(--text-muted); box-shadow: inset 0 0 0 1px var(--border); }
-.badge-paid { background: var(--violet-soft); color: var(--violet); }
-.badge-delivery { background: var(--info-soft); color: var(--info); }
-.badge-in_stock { background: var(--success-soft); color: var(--success); }
+.badge-approved {
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+.badge-waiting {
+    background: var(--surface);
+    color: var(--text-muted);
+    box-shadow: inset 0 0 0 1px var(--border);
+}
+.badge-paid {
+    background: var(--violet-soft);
+    color: var(--violet);
+}
+.badge-delivery {
+    background: var(--info-soft);
+    color: var(--info);
+}
+.badge-in_stock {
+    background: var(--success-soft);
+    color: var(--success);
+}
 /* «Готова» — та сама закрита заявка, тільки повз склад. */
-.badge-ready { background: var(--success-soft); color: var(--success); }
-.badge-rejected { background: var(--danger-soft); color: var(--danger); }
+.badge-ready {
+    background: var(--success-soft);
+    color: var(--success);
+}
+.badge-rejected {
+    background: var(--danger-soft);
+    color: var(--danger);
+}
 
-.badge-access-pending { background: var(--warning-soft); color: var(--warning); }
-.badge-access-approved { background: var(--success-soft); color: var(--success); }
-.badge-access-rejected { background: var(--danger-soft); color: var(--danger); }
+.badge-access-pending {
+    background: var(--warning-soft);
+    color: var(--warning);
+}
+.badge-access-approved {
+    background: var(--success-soft);
+    color: var(--success);
+}
+.badge-access-rejected {
+    background: var(--danger-soft);
+    color: var(--danger);
+}
 
 .flag {
     font-size: 12px;
@@ -305,7 +359,7 @@ td.wrap {
 }
 
 .timeline li {
-    padding: .6rem 0;
+    padding: 0.6rem 0;
     border-bottom: 1px solid var(--border);
 }
 
@@ -321,7 +375,7 @@ td.wrap {
 .error {
     background: var(--danger-soft);
     color: var(--danger);
-    padding: .6rem .8rem;
+    padding: 0.6rem 0.8rem;
     border-radius: var(--radius);
     margin-bottom: 1rem;
 }
@@ -329,14 +383,14 @@ td.wrap {
 .row {
     display: flex;
     flex-wrap: wrap;
-    gap: .5rem;
+    gap: 0.5rem;
     align-items: center;
 }
 
 .grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: .75rem 1.5rem;
+    gap: 0.75rem 1.5rem;
 }
 
 .grid dt {
@@ -345,7 +399,7 @@ td.wrap {
 }
 
 .grid dd {
-    margin: .15rem 0 0;
+    margin: 0.15rem 0 0;
 }
 
 .center {

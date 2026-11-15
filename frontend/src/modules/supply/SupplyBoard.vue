@@ -139,14 +139,17 @@ watch(q, (value) => {
         setQuery({ q: sentQ })
     }, 300)
 })
-watch(() => [route.query.v, route.query.st, route.query.dep, route.query.q], () => {
-    // ?q= змінився не від поля (Назад, посилання) — показуємо його в полі.
-    if (str(route.query.q) !== sentQ) {
-        sentQ = str(route.query.q)
-        q.value = sentQ
-    }
-    load()
-})
+watch(
+    () => [route.query.v, route.query.st, route.query.dep, route.query.q],
+    () => {
+        // ?q= змінився не від поля (Назад, посилання) — показуємо його в полі.
+        if (str(route.query.q) !== sentQ) {
+            sentQ = str(route.query.q)
+            q.value = sentQ
+        }
+        load()
+    },
+)
 watch(openId, async (now) => {
     if (!now) return
     await nextTick()
@@ -173,7 +176,10 @@ onBeforeUnmount(() => {
                     <Icon name="search" :size="16" />
                     <input v-model="q" data-board-filter type="search" placeholder="Номер, матеріал, обʼєкт" aria-label="Пошук заявок" />
                 </label>
-                <router-link :to="{ name: 'supply-new' }" class="p-btn primary p-new"><Icon name="plus" :size="18" :stroke="2.2" /><span>Нова заявка</span></router-link>
+                <router-link :to="{ name: 'supply-new' }" class="p-btn primary p-new">
+                    <Icon name="plus" :size="18" :stroke="2.2" />
+                    <span>Нова заявка</span>
+                </router-link>
             </div>
 
             <div class="p-chips wrap" role="tablist" aria-label="Які заявки">
@@ -187,7 +193,8 @@ onBeforeUnmount(() => {
                     :aria-selected="view === v.key && !status"
                     @click="setQuery({ v: v.key === 'open' ? '' : v.key, st: '' })"
                 >
-                    {{ v.label }}<template v-if="v.key === 'decide'"> · {{ (counts.approval ?? 0) + (counts.waiting ?? 0) }}</template>
+                    {{ v.label }}
+                    <template v-if="v.key === 'decide'">· {{ (counts.approval ?? 0) + (counts.waiting ?? 0) }}</template>
                 </button>
             </div>
             <div class="p-supply-filters">
@@ -222,11 +229,16 @@ onBeforeUnmount(() => {
                             <span class="when" :title="'Подано: ' + new Date(r.createdAt).toLocaleString('uk-UA')">{{ ago(r.createdAt) }}</span>
                         </span>
                         <span class="title">{{ r.item }} — {{ quantity(r) }}</span>
-                        <span class="client"><PersonName :person="r.author" :link="false" /><template v-if="r.department"> · [{{ r.department }}]</template><template v-if="r.site"> · {{ r.site }}</template></span>
+                        <span class="client">
+                            <PersonName :person="r.author" :link="false" />
+                            <template v-if="r.department">· [{{ r.department }}]</template>
+                            <template v-if="r.site">· {{ r.site }}</template>
+                        </span>
                         <span class="row foot">
                             <span class="st" :class="tone(r.status)">{{ r.statusLabel }}</span>
                             <span v-if="r.needBy" class="due" :class="{ over: r.overdue }" :title="'Потрібно до ' + formatDate(r.needBy)">
-                                <Icon name="clock" :size="13" :stroke="2" />{{ r.overdue ? 'прострочено · ' : 'до ' }}{{ formatDate(r.needBy) }}
+                                <Icon name="clock" :size="13" :stroke="2" />
+                                {{ r.overdue ? 'прострочено · ' : 'до ' }}{{ formatDate(r.needBy) }}
                             </span>
                         </span>
                     </a>
@@ -236,7 +248,9 @@ onBeforeUnmount(() => {
                     <template v-if="loading && !items.length">
                         <div v-for="i in 4" :key="i" class="p-skel" />
                     </template>
-                    <button v-if="page < pages" type="button" class="p-btn ghost p-more-btn" :disabled="loading" @click="load(true)">Показати ще · {{ total - items.length }}</button>
+                    <button v-if="page < pages" type="button" class="p-btn ghost p-more-btn" :disabled="loading" @click="load(true)">
+                        Показати ще · {{ total - items.length }}
+                    </button>
                 </div>
             </div>
         </div>

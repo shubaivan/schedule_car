@@ -120,13 +120,16 @@ watch(q, (value) => {
         setQuery({ q: sentQ })
     }, 300)
 })
-watch(() => [route.query.v, route.query.cat, route.query.place, route.query.q], () => {
-    if (str(route.query.q) !== sentQ) {
-        sentQ = str(route.query.q)
-        q.value = sentQ
-    }
-    load()
-})
+watch(
+    () => [route.query.v, route.query.cat, route.query.place, route.query.q],
+    () => {
+        if (str(route.query.q) !== sentQ) {
+            sentQ = str(route.query.q)
+            q.value = sentQ
+        }
+        load()
+    },
+)
 watch(openId, async (now) => {
     if (!now) return
     await nextTick()
@@ -169,8 +172,14 @@ onBeforeUnmount(() => {
                     <Icon name="search" :size="16" />
                     <input v-model="q" data-board-filter type="search" placeholder="Назва, інв. №, марка, постачальник" aria-label="Пошук позицій" />
                 </label>
-                <router-link :to="{ name: 'warehouse-movement-new' }" class="p-btn primary p-new" title="Новий рух"><Icon name="plus" :size="18" :stroke="2.2" /><span>Рух</span></router-link>
-                <router-link v-if="meta?.can.edit" :to="{ name: 'warehouse-item-new' }" class="p-btn p-new" title="Нова позиція"><Icon name="plus" :size="18" /><span>Позиція</span></router-link>
+                <router-link :to="{ name: 'warehouse-movement-new' }" class="p-btn primary p-new" title="Новий рух">
+                    <Icon name="plus" :size="18" :stroke="2.2" />
+                    <span>Рух</span>
+                </router-link>
+                <router-link v-if="meta?.can.edit" :to="{ name: 'warehouse-item-new' }" class="p-btn p-new" title="Нова позиція">
+                    <Icon name="plus" :size="18" />
+                    <span>Позиція</span>
+                </router-link>
             </div>
 
             <div class="p-chips wrap" role="tablist" aria-label="Які позиції">
@@ -184,7 +193,11 @@ onBeforeUnmount(() => {
                     :aria-selected="view === v.key"
                     @click="setQuery({ v: v.key === 'all' ? '' : v.key })"
                 >
-                    {{ v.label }}<template v-if="v.key === 'all'"> · {{ counts.all }}</template><template v-else-if="v.key === 'bulk'"> · {{ counts.bulk }}</template><template v-else-if="v.key === 'unit'"> · {{ counts.unit }}</template><template v-else-if="v.key === 'repair' && counts.repair"> · {{ counts.repair }}</template>
+                    {{ v.label }}
+                    <template v-if="v.key === 'all'">· {{ counts.all }}</template>
+                    <template v-else-if="v.key === 'bulk'">· {{ counts.bulk }}</template>
+                    <template v-else-if="v.key === 'unit'">· {{ counts.unit }}</template>
+                    <template v-else-if="v.key === 'repair' && counts.repair">· {{ counts.repair }}</template>
                 </button>
             </div>
             <div class="p-supply-filters">

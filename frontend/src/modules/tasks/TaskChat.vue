@@ -43,6 +43,12 @@ const replyTo = ref<Message | null>(null)
 const editing = ref<Message | null>(null)
 const highlighted = ref<number | null>(null)
 const pinIndex = ref(0)
+
+/** Смуга закріплених: перейти до повідомлення й показати наступне закріплене. */
+function jumpToPinned(id: number) {
+    jump(id)
+    pinIndex.value++
+}
 /** Межа «Нові повідомлення» — фіксуємо при відкритті, щоб не стрибала. */
 const unreadFrom = ref<number | null>(null)
 let changedSince: string | null = null
@@ -54,9 +60,7 @@ const removing = ref(new Set<number>())
 
 const messages = computed(() => props.task.messages.filter((m) => !removing.value.has(m.id)))
 const lastId = computed(() => props.task.messages.reduce((m, x) => Math.max(m, x.id), 0))
-const pinned = computed(() =>
-    messages.value.filter((m) => m.pinned && !m.deleted).sort((a, b) => (b.pinned!.at > a.pinned!.at ? 1 : -1)),
-)
+const pinned = computed(() => messages.value.filter((m) => m.pinned && !m.deleted).sort((a, b) => (b.pinned!.at > a.pinned!.at ? 1 : -1)))
 const pinnedNow = computed(() => pinned.value[pinIndex.value % Math.max(1, pinned.value.length)] ?? null)
 
 function readersOf(m: Message): Person[] {
@@ -70,10 +74,7 @@ function readersOf(m: Message): Person[] {
     return out
 }
 
-type Row =
-    | { type: 'day'; key: string; label: string }
-    | { type: 'unread'; key: string }
-    | { type: 'msg'; key: string; m: Message; cont: boolean }
+type Row = { type: 'day'; key: string; label: string } | { type: 'unread'; key: string } | { type: 'msg'; key: string; m: Message; cont: boolean }
 
 /** Повідомлення з розділювачами днів, «Нові повідомлення» і злиттям підряд від однієї людини. */
 const feed = computed(() => {
@@ -93,8 +94,13 @@ const feed = computed(() => {
             out.push({ type: 'unread', key: 'unread' })
             prev = null
         }
-        const cont = !!prev && prev.kind === 'comment' && m.kind === 'comment' && prev.author?.id === m.author?.id
-            && !m.replyTo && new Date(m.createdAt).getTime() - new Date(prev.createdAt).getTime() < 5 * 60000
+        const cont =
+            !!prev &&
+            prev.kind === 'comment' &&
+            m.kind === 'comment' &&
+            prev.author?.id === m.author?.id &&
+            !m.replyTo &&
+            new Date(m.createdAt).getTime() - new Date(prev.createdAt).getTime() < 5 * 60000
         out.push({ type: 'msg', key: 'm' + m.id, m, cont })
         prev = m
     }
@@ -376,7 +382,12 @@ async function send() {
             return p && text.value.includes('@' + p.name)
         })
         const before = lastId.value
-        const posted = await feedApi.value.post(text.value, pending.value.map((p) => p.file), used, replyTo.value?.id)
+        const posted = await feedApi.value.post(
+            text.value,
+            pending.value.map((p) => p.file),
+            used,
+            replyTo.value?.id,
+        )
         if (feedApi.value.fullFeed) {
             // Сервер віддав усю стрічку у своєму порядку (заявка) — беремо як є.
             task.messages.splice(0, task.messages.length, ...posted)
@@ -441,10 +452,25 @@ function chooseMention(p: Person) {
 
 function onKey(e: KeyboardEvent) {
     if (mentionList.value.length) {
-        if (e.key === 'ArrowDown') { mentionIndex.value = (mentionIndex.value + 1) % mentionList.value.length; e.preventDefault(); return }
-        if (e.key === 'ArrowUp') { mentionIndex.value = (mentionIndex.value + mentionList.value.length - 1) % mentionList.value.length; e.preventDefault(); return }
-        if (e.key === 'Enter' || e.key === 'Tab') { chooseMention(mentionList.value[mentionIndex.value]); e.preventDefault(); return }
-        if (e.key === 'Escape') { mentionQuery.value = null; return }
+        if (e.key === 'ArrowDown') {
+            mentionIndex.value = (mentionIndex.value + 1) % mentionList.value.length
+            e.preventDefault()
+            return
+        }
+        if (e.key === 'ArrowUp') {
+            mentionIndex.value = (mentionIndex.value + mentionList.value.length - 1) % mentionList.value.length
+            e.preventDefault()
+            return
+        }
+        if (e.key === 'Enter' || e.key === 'Tab') {
+            chooseMention(mentionList.value[mentionIndex.value])
+            e.preventDefault()
+            return
+        }
+        if (e.key === 'Escape') {
+            mentionQuery.value = null
+            return
+        }
     }
     if (e.key === 'Escape' && (replyTo.value || editing.value)) {
         cancelCompose()
@@ -498,29 +524,29 @@ defineExpose({ scrollDown, remove, removingFile })
 </script>
 
 <template>
-    <button v-if="pinnedNow" type="button" class="f-pinbar" :class="{ 't-main-hide-mobile': hidden }" @click="jump(pinnedNow.id); pinIndex++">
+    <button v-if="pinnedNow" type="button" class="f-pinbar" :class="{ 't-main-hide-mobile': hidden }" @click="jumpToPinned(pinnedNow.id)">
         <span class="ic">📌</span>
         <span class="body">
-            <b>Закріплено<template v-if="pinned.length > 1"> · {{ (pinIndex % pinned.length) + 1 }} з {{ pinned.length }}</template></b>
-            <span><PersonName v-if="pinnedNow.author" :person="pinnedNow.author" :link="false" />: {{ pinnedNow.text || (pinnedNow.attachments.length ? '📎 ' + pinnedNow.attachments[0].name : '') }}</span>
+            <b>
+                Закріплено
+                <template v-if="pinned.length > 1">· {{ (pinIndex % pinned.length) + 1 }} з {{ pinned.length }}</template>
+            </b>
+            <span>
+                <PersonName v-if="pinnedNow.author" :person="pinnedNow.author" :link="false" />
+                : {{ pinnedNow.text || (pinnedNow.attachments.length ? '📎 ' + pinnedNow.attachments[0].name : '') }}
+            </span>
         </span>
     </button>
 
-    <div
-        ref="chat"
-        class="t-chat"
-        :class="{ 't-main-hide-mobile': hidden }"
-        @dragenter.prevent="dragEnter"
-        @dragover.prevent
-        @dragleave="dragLeave"
-        @drop.prevent="drop"
-    >
+    <div ref="chat" class="t-chat" :class="{ 't-main-hide-mobile': hidden }" @dragenter.prevent="dragEnter" @dragover.prevent @dragleave="dragLeave" @drop.prevent="drop">
         <div v-if="dragging" class="t-drop">Відпустіть, щоб додати файли</div>
         <template v-for="row in feed" :key="row.key">
             <div v-if="row.type === 'day'" class="t-day">{{ row.label }}</div>
             <div v-else-if="row.type === 'unread'" class="f-unread"><span>Нові повідомлення</span></div>
             <div v-else-if="row.m.kind === 'event'" :id="'msg-' + row.m.id" class="t-event">
-                <PersonName v-if="row.m.author" :person="row.m.author" bold :link="false" /><b v-else>Система</b>: {{ row.m.text }} · {{ time(row.m.createdAt) }}
+                <PersonName v-if="row.m.author" :person="row.m.author" bold :link="false" />
+                <b v-else>Система</b>
+                : {{ row.m.text }} · {{ time(row.m.createdAt) }}
             </div>
             <MessageBubble
                 v-else
@@ -543,7 +569,11 @@ defineExpose({ scrollDown, remove, removingFile })
     <form v-if="task.can.comment" class="t-composer" :class="{ 't-main-hide-mobile': hidden }" @submit.prevent="send">
         <div v-if="mentionList.length" class="t-mentions">
             <button v-for="(p, i) in mentionList" :key="p.id" type="button" :class="{ on: i === mentionIndex }" @mousedown.prevent="chooseMention(p)">
-                <Avatar :person="p" :size="26" /> <span><PersonName :person="p" :link="false" /> <small>· {{ p.position ?? p.roleLabel }}</small></span>
+                <Avatar :person="p" :size="26" />
+                <span>
+                    <PersonName :person="p" :link="false" />
+                    <small>· {{ p.position ?? p.roleLabel }}</small>
+                </span>
             </button>
         </div>
         <div v-if="error" class="t-error">{{ error }}</div>
@@ -560,7 +590,9 @@ defineExpose({ scrollDown, remove, removingFile })
                 <button type="button" class="x" aria-label="Прибрати" @click="removePending(i)">✕</button>
                 <img v-if="p.url" :src="p.url" alt="" />
                 <template v-else>
-                    <span class="eb" :class="extClass({ ext: p.file.name.split('.').pop() ?? '', kind: 'other' })">{{ (p.file.name.split('.').pop() ?? '').toUpperCase().slice(0, 4) }}</span>
+                    <span class="eb" :class="extClass({ ext: p.file.name.split('.').pop() ?? '', kind: 'other' })">
+                        {{ (p.file.name.split('.').pop() ?? '').toUpperCase().slice(0, 4) }}
+                    </span>
                     <span class="n">{{ p.file.name }}</span>
                     <span>{{ fileSize(p.file.size) }}</span>
                 </template>
@@ -568,7 +600,8 @@ defineExpose({ scrollDown, remove, removingFile })
         </div>
         <div class="t-composer-row">
             <label v-if="!editing && task.can.attach !== false" class="t-btn ghost icon" title="Додати файли">
-                📎<input type="file" multiple hidden @change="pick" />
+                📎
+                <input type="file" multiple hidden @change="pick" />
             </label>
             <textarea
                 ref="box"
@@ -580,7 +613,12 @@ defineExpose({ scrollDown, remove, removingFile })
                 @keydown="onKey"
                 @paste="onPaste"
             />
-            <button type="submit" class="t-btn primary icon" :disabled="sending || (!editing && !text.trim() && !pending.length)" :title="editing ? 'Зберегти (Ctrl+Enter)' : 'Надіслати (Ctrl+Enter)'">
+            <button
+                type="submit"
+                class="t-btn primary icon"
+                :disabled="sending || (!editing && !text.trim() && !pending.length)"
+                :title="editing ? 'Зберегти (Ctrl+Enter)' : 'Надіслати (Ctrl+Enter)'"
+            >
                 {{ sending ? '…' : editing ? '✓' : '➤' }}
             </button>
         </div>

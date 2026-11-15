@@ -113,20 +113,27 @@ onMounted(() => {
                 </div>
             </div>
             <p class="t-hint" style="padding: 0">
-                Людина натиснула «Увійти через Telegram» і поділилась номером, якого ще немає серед співробітників.
-                Затвердіть — і вона одразу зможе входити через Telegram. Знайомих людей простіше додати заздалегідь: «Додати за телефоном».
+                Людина натиснула «Увійти через Telegram» і поділилась номером, якого ще немає серед співробітників. Затвердіть — і вона одразу зможе входити через Telegram.
+                Знайомих людей простіше додати заздалегідь: «Додати за телефоном».
             </p>
 
             <div v-if="error && !open" class="t-error">{{ error }}</div>
 
             <table class="t-table responsive">
                 <thead>
-                    <tr><th>Хто</th><th>Телефон</th><th>Коли</th><th>Стан</th></tr>
+                    <tr>
+                        <th>Хто</th>
+                        <th>Телефон</th>
+                        <th>Коли</th>
+                        <th>Стан</th>
+                    </tr>
                 </thead>
                 <tbody>
                     <tr v-for="r in rows" :key="r.id" :class="{ sel: r.id === openId }">
                         <td>
-                            <a :href="'/crm/admin/join/' + r.id" @click.prevent="select(r)"><b>{{ r.name }}</b></a>
+                            <a :href="'/crm/admin/join/' + r.id" @click.prevent="select(r)">
+                                <b>{{ r.name }}</b>
+                            </a>
                             <div v-if="r.username" class="t-hint" style="padding: 0">@{{ r.username }}</div>
                         </td>
                         <td style="white-space: nowrap">{{ r.phone }}</td>
@@ -158,34 +165,67 @@ onMounted(() => {
                 <div class="body">
                     <div v-if="error" class="t-error">{{ error }}</div>
                     <dl class="p-join-facts">
-                        <dt>Telegram</dt><dd>{{ open.name }}<template v-if="open.username"> · @{{ open.username }}</template></dd>
-                        <dt>Телефон</dt><dd>{{ open.phone }} <span class="t-hint" style="padding: 0">(підтвердив Telegram)</span></dd>
-                        <dt>Подано</dt><dd>{{ auditStamp(open.createdAt) }}</dd>
+                        <dt>Telegram</dt>
+                        <dd>
+                            {{ open.name }}
+                            <template v-if="open.username">· @{{ open.username }}</template>
+                        </dd>
+                        <dt>Телефон</dt>
+                        <dd>
+                            {{ open.phone }}
+                            <span class="t-hint" style="padding: 0">(підтвердив Telegram)</span>
+                        </dd>
+                        <dt>Подано</dt>
+                        <dd>{{ auditStamp(open.createdAt) }}</dd>
                         <template v-if="open.status !== 'pending'">
                             <dt>Рішення</dt>
                             <dd>
-                                {{ open.statusLabel }}<template v-if="open.decidedBy"> — <PersonName :name="open.decidedBy" /></template><template v-if="open.decidedAt">, {{ auditStamp(open.decidedAt) }}</template>
-                                <template v-if="open.userRole"> · {{ open.userRole }}</template>
-                                <template v-if="open.reason"> · {{ open.reason }}</template>
+                                {{ open.statusLabel }}
+                                <template v-if="open.decidedBy">
+                                    —
+                                    <PersonName :name="open.decidedBy" />
+                                </template>
+                                <template v-if="open.decidedAt">, {{ auditStamp(open.decidedAt) }}</template>
+                                <template v-if="open.userRole">· {{ open.userRole }}</template>
+                                <template v-if="open.reason">· {{ open.reason }}</template>
                             </dd>
                         </template>
                     </dl>
 
                     <fieldset v-if="open.status === 'pending'" class="p-fieldset" :disabled="busy">
                         <div class="t-two">
-                            <label class="t-field"><span>Імʼя *</span><input v-model="form.firstName" class="t-input" required /></label>
-                            <label class="t-field"><span>Прізвище</span><input v-model="form.lastName" class="t-input" /></label>
+                            <label class="t-field">
+                                <span>Імʼя *</span>
+                                <input v-model="form.firstName" class="t-input" required />
+                            </label>
+                            <label class="t-field">
+                                <span>Прізвище</span>
+                                <input v-model="form.lastName" class="t-input" />
+                            </label>
                         </div>
                         <div class="t-two">
-                            <label class="t-field"><span>Роль</span>
-                                <select v-model="form.role" class="t-select"><option v-for="r in data?.roles" :key="r.value" :value="r.value">{{ r.label }}</option></select>
+                            <label class="t-field">
+                                <span>Роль</span>
+                                <select v-model="form.role" class="t-select">
+                                    <option v-for="r in data?.roles" :key="r.value" :value="r.value">{{ r.label }}</option>
+                                </select>
                             </label>
-                            <label class="t-field"><span>Відділ</span>
-                                <select v-model.number="form.departmentId" class="t-select"><option :value="0">— без відділу —</option><option v-for="d in data?.departments" :key="d.id" :value="d.id">{{ d.name }}</option></select>
+                            <label class="t-field">
+                                <span>Відділ</span>
+                                <select v-model.number="form.departmentId" class="t-select">
+                                    <option :value="0">— без відділу —</option>
+                                    <option v-for="d in data?.departments" :key="d.id" :value="d.id">{{ d.name }}</option>
+                                </select>
                             </label>
                         </div>
-                        <label class="t-field"><span>Посада</span><input v-model="form.position" class="t-input" placeholder="Технолог, майстер дільниці…" /></label>
-                        <label class="t-field"><span>Причина відмови (необовʼязково, людина її побачить)</span><input v-model="form.reason" class="t-input" maxlength="200" /></label>
+                        <label class="t-field">
+                            <span>Посада</span>
+                            <input v-model="form.position" class="t-input" placeholder="Технолог, майстер дільниці…" />
+                        </label>
+                        <label class="t-field">
+                            <span>Причина відмови (необовʼязково, людина її побачить)</span>
+                            <input v-model="form.reason" class="t-input" maxlength="200" />
+                        </label>
                     </fieldset>
                     <p v-else-if="open.userId" class="t-hint" style="padding: 0">
                         <router-link :to="{ name: 'staff-card', params: { id: String(open.userId) } }">Відкрити картку співробітника →</router-link>
@@ -205,8 +245,20 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.p-join-facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0 0 14px; font-size: .92rem; }
-.p-join-facts dt { color: var(--text-muted); }
-.p-join-facts dd { margin: 0; }
-tr.sel td { background: var(--surface-2, rgba(0, 0, 0, .04)); }
+.p-join-facts {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 6px 14px;
+    margin: 0 0 14px;
+    font-size: 0.92rem;
+}
+.p-join-facts dt {
+    color: var(--text-muted);
+}
+.p-join-facts dd {
+    margin: 0;
+}
+tr.sel td {
+    background: var(--surface-2, rgba(0, 0, 0, 0.04));
+}
 </style>

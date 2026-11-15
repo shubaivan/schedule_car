@@ -38,7 +38,9 @@ onMounted(async () => {
                 <i class="a-badge" :class="'tone-' + (GROUP_TONE[event.group ?? ''] ?? 'slate')">{{ event.typeLabel }}</i>
                 <h2>{{ event.subject.title ?? event.subject.key }}</h2>
             </div>
-            <div v-else class="a-event-title"><h2>Подія #{{ id }}</h2></div>
+            <div v-else class="a-event-title">
+                <h2>Подія #{{ id }}</h2>
+            </div>
         </header>
 
         <div v-if="error" class="t-error">{{ error }}</div>
@@ -47,7 +49,10 @@ onMounted(async () => {
         <template v-else>
             <dl class="a-facts">
                 <dt>Коли</dt>
-                <dd>{{ auditStamp(event.at, true) }} <small class="muted">Київ</small></dd>
+                <dd>
+                    {{ auditStamp(event.at, true) }}
+                    <small class="muted">Київ</small>
+                </dd>
 
                 <dt>Хто</dt>
                 <dd>
@@ -60,7 +65,8 @@ onMounted(async () => {
 
                 <dt>Що</dt>
                 <dd>
-                    <small class="muted">{{ event.subject.kindLabel }} · {{ event.subject.key }}</small><br />
+                    <small class="muted">{{ event.subject.kindLabel }} · {{ event.subject.key }}</small>
+                    <br />
                     <router-link v-if="subjectPath" :to="subjectPath">{{ event.subject.title ?? 'відкрити' }}</router-link>
                     <a v-else-if="event.subject.url" :href="event.subject.url">{{ event.subject.title ?? 'відкрити' }}</a>
                     <span v-else>{{ event.subject.title ?? '—' }}</span>
@@ -74,19 +80,27 @@ onMounted(async () => {
 
                 <template v-if="isComment || event.comment">
                     <dt>Коментар</dt>
-                    <dd><blockquote class="a-quote">{{ isComment ? event.summary : event.comment }}</blockquote></dd>
+                    <dd>
+                        <blockquote class="a-quote">{{ isComment ? event.summary : event.comment }}</blockquote>
+                    </dd>
                 </template>
 
                 <template v-if="event.people.length">
                     <dt>Люди</dt>
-                    <dd><template v-for="(p, i) in event.people" :key="p.id"><template v-if="i">, </template><PersonName :person="p" /></template></dd>
+                    <dd>
+                        <template v-for="(p, i) in event.people" :key="p.id">
+                            <template v-if="i">,</template>
+                            <PersonName :person="p" />
+                        </template>
+                    </dd>
                 </template>
 
                 <dt>Звідки</dt>
                 <dd>
                     {{ CHANNELS[event.channel] ?? event.channel }}
                     <template v-if="event.ip">
-                        · <button type="button" class="p-link" :title="'Усі події з ' + event.ip" @click="emit('filter', { ip: event.ip })">{{ event.ip }}</button>
+                        ·
+                        <button type="button" class="p-link" :title="'Усі події з ' + event.ip" @click="emit('filter', { ip: event.ip })">{{ event.ip }}</button>
                     </template>
                 </dd>
 
@@ -114,8 +128,10 @@ onMounted(async () => {
                     <span class="a-at">{{ auditStamp(a.at) }}</span>
                     <i class="a-badge" :class="'tone-' + (GROUP_TONE[a.group ?? ''] ?? 'slate')">{{ a.typeLabel }}</i>
                     <span class="a-around-text">
-                        <PersonName v-if="a.actor" :person="a.actor" :link="false" /><template v-else>—</template><template v-if="a.summary"> · {{ a.summary }}</template>
-                        <template v-if="a.comment"> · 💬 {{ a.comment }}</template>
+                        <PersonName v-if="a.actor" :person="a.actor" :link="false" />
+                        <template v-else>—</template>
+                        <template v-if="a.summary">· {{ a.summary }}</template>
+                        <template v-if="a.comment">· 💬 {{ a.comment }}</template>
                     </span>
                 </router-link>
             </section>

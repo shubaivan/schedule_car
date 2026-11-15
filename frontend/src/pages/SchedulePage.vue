@@ -60,7 +60,7 @@ const days = computed(() => board.value?.days ?? [])
 
 /** Поїздки однієї машини в один день — по годинах, як їх і читають. */
 function tripsOf(row: FleetScheduleRow, day: string): FleetTrip[] {
-    return row.trips.filter(trip => trip.date === day).sort((a, b) => a.hour - b.hour)
+    return row.trips.filter((trip) => trip.date === day).sort((a, b) => a.hour - b.hour)
 }
 
 function hour(trip: FleetTrip): string {
@@ -104,54 +104,42 @@ onMounted(load)
         </div>
 
         <div v-if="loading" class="center">Завантаження…</div>
-        <div v-else-if="!board?.items.length" class="center muted">
-            Машин ще немає — додайте їх у розділі «Автопарк».
-        </div>
+        <div v-else-if="!board?.items.length" class="center muted">Машин ще немає — додайте їх у розділі «Автопарк».</div>
 
         <div v-else class="table-wrap">
             <table class="board">
                 <thead>
-                <tr>
-                    <th class="car-col">Машина й водій</th>
-                    <th v-for="day in days" :key="day" :class="{ today: day === today }">{{ dayLabel(day) }}</th>
-                </tr>
+                    <tr>
+                        <th class="car-col">Машина й водій</th>
+                        <th v-for="day in days" :key="day" :class="{ today: day === today }">{{ dayLabel(day) }}</th>
+                    </tr>
                 </thead>
                 <tbody>
-                <tr v-for="row in board.items" :key="row.id">
-                    <td class="car-col">
-                        <div class="car">{{ row.label }}</div>
-                        <div class="muted small">
-                            {{ row.drivers.length
-                                ? row.drivers.map(d => d.name + (d.phone ? ` · ${d.phone}` : '')).join(', ')
-                                : 'водій не закріплений' }}
-                        </div>
-                        <div class="muted small">{{ loadOf(row) }}</div>
-                    </td>
+                    <tr v-for="row in board.items" :key="row.id">
+                        <td class="car-col">
+                            <div class="car">{{ row.label }}</div>
+                            <div class="muted small">
+                                {{ row.drivers.length ? row.drivers.map((d) => d.name + (d.phone ? ` · ${d.phone}` : '')).join(', ') : 'водій не закріплений' }}
+                            </div>
+                            <div class="muted small">{{ loadOf(row) }}</div>
+                        </td>
 
-                    <td v-for="day in days" :key="day" :class="{ today: day === today }">
-                        <div
-                            v-for="trip in tripsOf(row, day)"
-                            :key="trip.id"
-                            class="trip"
-                            :title="tooltip(trip)"
-                        >
-                            <span class="time">{{ hour(trip) }}</span>
-                            <span class="where">{{ where(trip) }}</span>
-                            <span class="muted small who">{{ trip.bookedBy }}</span>
-                        </div>
+                        <td v-for="day in days" :key="day" :class="{ today: day === today }">
+                            <div v-for="trip in tripsOf(row, day)" :key="trip.id" class="trip" :title="tooltip(trip)">
+                                <span class="time">{{ hour(trip) }}</span>
+                                <span class="where">{{ where(trip) }}</span>
+                                <span class="muted small who">{{ trip.bookedBy }}</span>
+                            </div>
 
-                        <span v-if="!tripsOf(row, day).length" class="free">вільна</span>
-                    </td>
-                </tr>
+                            <span v-if="!tripsOf(row, day).length" class="free">вільна</span>
+                        </td>
+                    </tr>
                 </tbody>
             </table>
         </div>
     </div>
 
-    <p class="muted">
-        Той самий розклад люди бачать у боті — «🚗 Автопарк» → «📅 Розклад машин». Бронюють теж у боті: машина,
-        день, година, куди їде й що потрібно зробити.
-    </p>
+    <p class="muted">Той самий розклад люди бачать у боті — «🚗 Автопарк» → «📅 Розклад машин». Бронюють теж у боті: машина, день, година, куди їде й що потрібно зробити.</p>
 </template>
 
 <style scoped>

@@ -305,8 +305,7 @@ export const api = {
     request: (id: number) => call<SupplyRequest>(`/api/supply/requests/${id}`),
 
     /** Нова заявка з CRM — та сама, що з бота. */
-    createRequest: (payload: NewRequestPayload) =>
-        call<SupplyRequest>('/api/supply/requests', { method: 'POST', body: JSON.stringify(payload) }),
+    createRequest: (payload: NewRequestPayload) => call<SupplyRequest>('/api/supply/requests', { method: 'POST', body: JSON.stringify(payload) }),
 
     changeStatus: (id: number, to: string, comment?: string) =>
         call<SupplyRequest>(`/api/supply/requests/${id}/status`, {
@@ -352,8 +351,7 @@ export const api = {
             method: 'DELETE',
         }),
 
-    attachmentUrl: (requestId: number, attachmentId: number) =>
-        `/api/supply/requests/${requestId}/attachments/${attachmentId}`,
+    attachmentUrl: (requestId: number, attachmentId: number) => `/api/supply/requests/${requestId}/attachments/${attachmentId}`,
 
     addPurchase: (requestId: number, payload: PurchasePayload) =>
         call<SupplyRequest>(`/api/supply/requests/${requestId}/purchases`, {
@@ -392,16 +390,11 @@ export const api = {
             body: JSON.stringify(payload),
         }),
 
-    reports: (from: string, to: string) =>
-        call<Report>(`/api/supply/reports?from=${from}&to=${to}`),
+    reports: (from: string, to: string) => call<Report>(`/api/supply/reports?from=${from}&to=${to}`),
 
-    users: (archived = false) =>
-        call<{ items: ApiUser[] }>(`/api/supply/users${archived ? '?archived=1' : ''}`),
+    users: (archived = false) => call<{ items: ApiUser[] }>(`/api/supply/users${archived ? '?archived=1' : ''}`),
 
-    updateUser: (
-        id: number,
-        payload: { firstName?: string | null; lastName?: string | null; role?: string; departmentId?: number | null },
-    ) =>
+    updateUser: (id: number, payload: { firstName?: string | null; lastName?: string | null; role?: string; departmentId?: number | null }) =>
         call<ApiUser>(`/api/supply/users/${id}`, {
             method: 'PATCH',
             body: JSON.stringify(payload),
@@ -414,17 +407,14 @@ export const api = {
             body: JSON.stringify({ status }),
         }),
 
-    restoreUser: (id: number) =>
-        call<ApiUser>(`/api/supply/users/${id}/restore`, { method: 'POST' }),
+    restoreUser: (id: number) => call<ApiUser>(`/api/supply/users/${id}/restore`, { method: 'POST' }),
 
     /** deleted: false — людина пішла в архів, бо на ній історія заявок. */
-    deleteUser: (id: number) =>
-        call<{ ok: boolean; deleted: boolean; message: string }>(`/api/supply/users/${id}`, { method: 'DELETE' }),
+    deleteUser: (id: number) => call<{ ok: boolean; deleted: boolean; message: string }>(`/api/supply/users/${id}`, { method: 'DELETE' }),
 
     departments: () => call<{ items: ApiDepartment[] }>('/api/supply/departments'),
 
-    createDepartment: (name: string) =>
-        call<ApiDepartment>('/api/supply/departments', { method: 'POST', body: JSON.stringify({ name }) }),
+    createDepartment: (name: string) => call<ApiDepartment>('/api/supply/departments', { method: 'POST', body: JSON.stringify({ name }) }),
 
     updateDepartment: (id: number, payload: { name?: string; active?: boolean }) =>
         call<ApiDepartment>(`/api/supply/departments/${id}`, {
@@ -445,28 +435,21 @@ export const api = {
             body: JSON.stringify(payload),
         }),
 
-    deleteStaff: (id: number) =>
-        call<{ ok: boolean }>(`/api/supply/staff/${id}`, { method: 'DELETE' }),
+    deleteStaff: (id: number) => call<{ ok: boolean }>(`/api/supply/staff/${id}`, { method: 'DELETE' }),
 
-    schedule: (from: string, days: number) =>
-        call<FleetSchedule>(`/api/fleet/schedule?from=${from}&days=${days}`),
+    schedule: (from: string, days: number) => call<FleetSchedule>(`/api/fleet/schedule?from=${from}&days=${days}`),
 
     cars: () => call<{ items: FleetCar[] }>('/api/fleet/cars'),
 
-    createCar: (payload: CarPayload) =>
-        call<FleetCar>('/api/fleet/cars', { method: 'POST', body: JSON.stringify(payload) }),
+    createCar: (payload: CarPayload) => call<FleetCar>('/api/fleet/cars', { method: 'POST', body: JSON.stringify(payload) }),
 
-    updateCar: (id: number, payload: CarPayload) =>
-        call<FleetCar>(`/api/fleet/cars/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+    updateCar: (id: number, payload: CarPayload) => call<FleetCar>(`/api/fleet/cars/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
 
     drivers: () => call<{ items: FleetDriver[] }>('/api/fleet/drivers'),
 
-    createDriver: (payload: DriverPayload) =>
-        call<FleetDriver>('/api/fleet/drivers', { method: 'POST', body: JSON.stringify(payload) }),
+    createDriver: (payload: DriverPayload) => call<FleetDriver>('/api/fleet/drivers', { method: 'POST', body: JSON.stringify(payload) }),
 
-    updateDriver: (id: number, payload: DriverPayload) =>
-        call<FleetDriver>(`/api/fleet/drivers/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+    updateDriver: (id: number, payload: DriverPayload) => call<FleetDriver>(`/api/fleet/drivers/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
 
-    deleteDriver: (id: number) =>
-        call<{ ok: boolean }>(`/api/fleet/drivers/${id}`, { method: 'DELETE' }),
+    deleteDriver: (id: number) => call<{ ok: boolean }>(`/api/fleet/drivers/${id}`, { method: 'DELETE' }),
 }

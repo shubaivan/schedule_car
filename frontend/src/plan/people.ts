@@ -54,7 +54,10 @@ export function usePhoneBook(): PhoneBook {
 
 /** «Іван Шуба (@ivan)» → «іван шуба». */
 export function normalizeName(name: string): string {
-    return name.replace(/\s*\(@[^)]*\)\s*$/, '').trim().toLowerCase()
+    return name
+        .replace(/\s*\(@[^)]*\)\s*$/, '')
+        .trim()
+        .toLowerCase()
 }
 
 /** Ім'я з телефоном одним рядком — для title, select, тексту без розмітки. */

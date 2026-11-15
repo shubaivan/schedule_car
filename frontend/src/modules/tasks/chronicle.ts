@@ -34,10 +34,13 @@ export function setChronicleCounts(value: ChronicleCounts): void {
 function schedule(intervalMs: number): void {
     window.clearTimeout(timer)
     if (users === 0) return
-    timer = window.setTimeout(async () => {
-        await refreshChronicleCounts()
-        schedule(intervalMs)
-    }, liveConnected() ? Math.max(LIVE_FALLBACK_MS, intervalMs) : intervalMs)
+    timer = window.setTimeout(
+        async () => {
+            await refreshChronicleCounts()
+            schedule(intervalMs)
+        },
+        liveConnected() ? Math.max(LIVE_FALLBACK_MS, intervalMs) : intervalMs,
+    )
 }
 
 export function useChronicleCounts(intervalMs = 15000) {
@@ -50,7 +53,10 @@ export function useChronicleCounts(intervalMs = 15000) {
                 pending = window.setTimeout(refreshChronicleCounts, 400)
             })
             // Mercure підключився вже після першого розкладу (або впав) — новий інтервал одразу.
-            unwatch = watch(() => useNotifications().transport, () => schedule(intervalMs))
+            unwatch = watch(
+                () => useNotifications().transport,
+                () => schedule(intervalMs),
+            )
         }
     })
     onBeforeUnmount(() => {

@@ -93,10 +93,8 @@ onMounted(load)
     <p v-if="notice" class="muted">{{ notice }}</p>
 
     <div class="card">
-        <h3 style="margin-top:0">Підрозділи</h3>
-        <p class="muted">
-            Це той самий список, з якого працівник обирає підрозділ, подаючи заявку в боті.
-        </p>
+        <h3 style="margin-top: 0">Підрозділи</h3>
+        <p class="muted">Це той самий список, з якого працівник обирає підрозділ, подаючи заявку в боті.</p>
 
         <form class="filters" @submit.prevent="create">
             <input v-model="name" type="text" placeholder="Назва підрозділу, напр. Цех №1" required />
@@ -106,47 +104,42 @@ onMounted(load)
 
     <div class="card">
         <div v-if="loading" class="center">Завантаження…</div>
-        <div v-else-if="!departments.length" class="center muted">
-            Підрозділів ще немає — додайте перший у формі вище.
-        </div>
+        <div v-else-if="!departments.length" class="center muted">Підрозділів ще немає — додайте перший у формі вище.</div>
 
         <div v-else class="table-wrap">
             <table>
                 <thead>
-                <tr>
-                    <th>Підрозділ</th>
-                    <th>Заявок</th>
-                    <th>Людей</th>
-                    <th>Стан</th>
-                    <th></th>
-                </tr>
+                    <tr>
+                        <th>Підрозділ</th>
+                        <th>Заявок</th>
+                        <th>Людей</th>
+                        <th>Стан</th>
+                        <th></th>
+                    </tr>
                 </thead>
                 <tbody>
-                <tr v-for="department in departments" :key="department.id">
-                    <td class="wrap">
-                        <input type="text" :value="department.name" @change="rename(department, $event)" />
-                    </td>
-                    <td>{{ department.requests }}</td>
-                    <td>{{ department.people }}</td>
-                    <td>
-                        <span class="badge" :class="department.active ? 'badge-in_stock' : 'badge-waiting'">
-                            {{ department.active ? 'у списку' : 'прихований' }}
-                        </span>
-                    </td>
-                    <td class="row">
-                        <button @click="toggle(department)">
-                            {{ department.active ? 'Сховати' : 'Повернути' }}
-                        </button>
-                        <button class="danger" @click="remove(department)">Видалити</button>
-                    </td>
-                </tr>
+                    <tr v-for="department in departments" :key="department.id">
+                        <td class="wrap">
+                            <input type="text" :value="department.name" @change="rename(department, $event)" />
+                        </td>
+                        <td>{{ department.requests }}</td>
+                        <td>{{ department.people }}</td>
+                        <td>
+                            <span class="badge" :class="department.active ? 'badge-in_stock' : 'badge-waiting'">
+                                {{ department.active ? 'у списку' : 'прихований' }}
+                            </span>
+                        </td>
+                        <td class="row">
+                            <button @click="toggle(department)">
+                                {{ department.active ? 'Сховати' : 'Повернути' }}
+                            </button>
+                            <button class="danger" @click="remove(department)">Видалити</button>
+                        </td>
+                    </tr>
                 </tbody>
             </table>
         </div>
     </div>
 
-    <p class="muted">
-        Підрозділ, на якому вже висять заявки чи люди, не зникає назовсім: «Видалити» прибере його зі
-        списку вибору, а історія лишиться цілою.
-    </p>
+    <p class="muted">Підрозділ, на якому вже висять заявки чи люди, не зникає назовсім: «Видалити» прибере його зі списку вибору, а історія лишиться цілою.</p>
 </template>

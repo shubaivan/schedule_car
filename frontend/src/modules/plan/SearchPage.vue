@@ -47,6 +47,16 @@ const list = ref<HTMLElement | null>(null)
 const sentinel = ref<HTMLElement | null>(null)
 const saving = ref(false)
 const saveName = ref('')
+
+function clearQuery() {
+    qInput.value = ''
+    input.value?.focus()
+}
+
+function startSaving() {
+    saving.value = true
+    saveName.value = describe(toString(state.value)).slice(0, 80)
+}
 const panelOpen = computed(() => route.query.panel === '1')
 
 const DATE = new Intl.DateTimeFormat('uk-UA', { day: '2-digit', month: '2-digit', year: '2-digit' })
@@ -142,12 +152,18 @@ const searchKey = computed(() => toString({ ...state.value, view: 'auto' }))
 // Телефон — завжди список (таблиця на 390 px не читається), на десктопі прецеденти — таблицею.
 const asTable = computed(() => !mobile.value && tableView(state.value))
 watch(searchKey, () => run())
-watch(() => state.value.q, (v) => {
-    if (v !== qInput.value.trim()) qInput.value = v
-})
-watch(() => state.value.client, (v) => {
-    if (v !== clientInput.value.trim()) clientInput.value = v
-})
+watch(
+    () => state.value.q,
+    (v) => {
+        if (v !== qInput.value.trim()) qInput.value = v
+    },
+)
+watch(
+    () => state.value.client,
+    (v) => {
+        if (v !== clientInput.value.trim()) clientInput.value = v
+    },
+)
 
 let debounce: number | undefined
 watch(qInput, (v) => {
@@ -372,9 +388,12 @@ onMounted(async () => {
         error.value = session.handle(e)
     }
     if ('IntersectionObserver' in window) {
-        observer = new IntersectionObserver((entries) => {
-            if (entries.some((x) => x.isIntersecting) && result.value?.more && !loading.value) run(true)
-        }, { rootMargin: '400px' })
+        observer = new IntersectionObserver(
+            (entries) => {
+                if (entries.some((x) => x.isIntersecting) && result.value?.more && !loading.value) run(true)
+            },
+            { rootMargin: '400px' },
+        )
         if (sentinel.value) observer.observe(sentinel.value)
     }
 })
@@ -403,12 +422,13 @@ onBeforeUnmount(() => {
                     autocomplete="off"
                     @keydown="onKey"
                 />
-                <button v-if="qInput" type="button" class="clear" aria-label="Очистити" @click="qInput = ''; input?.focus()">✕</button>
+                <button v-if="qInput" type="button" class="clear" aria-label="Очистити" @click="clearQuery">✕</button>
             </div>
 
             <div class="s-types" role="group" aria-label="Тип">
                 <button type="button" :class="{ on: !state.types.length }" :aria-pressed="!state.types.length" @click="apply({ types: [] })">
-                    Усе<span v-if="result" class="n">{{ result.facets.type.reduce((a, t) => a + t.count, 0) }}</span>
+                    Усе
+                    <span v-if="result" class="n">{{ result.facets.type.reduce((a, t) => a + t.count, 0) }}</span>
                 </button>
                 <button
                     v-for="t in meta?.types ?? []"
@@ -418,18 +438,29 @@ onBeforeUnmount(() => {
                     :aria-pressed="state.types.includes(t.key)"
                     @click="apply({ types: toggle(state.types, t.key) })"
                 >
-                    {{ t.label }}<span v-if="result" class="n">{{ result.facets.type.find((f) => f.key === t.key)?.count ?? 0 }}</span>
+                    {{ t.label }}
+                    <span v-if="result" class="n">{{ result.facets.type.find((f) => f.key === t.key)?.count ?? 0 }}</span>
                 </button>
             </div>
 
             <div v-if="chips.length || !isEmpty(state)" class="s-active">
-                <button v-for="c in chips" :key="c.key" type="button" class="s-chip" :title="'Прибрати: ' + c.label" @click="apply(c.drop)">{{ c.label }} <span aria-hidden="true">✕</span></button>
+                <button v-for="c in chips" :key="c.key" type="button" class="s-chip" :title="'Прибрати: ' + c.label" @click="apply(c.drop)">
+                    {{ c.label }}
+                    <span aria-hidden="true">✕</span>
+                </button>
                 <button v-if="chips.length > 1" type="button" class="s-link" @click="reset">Скинути все</button>
                 <span class="sp" />
-                <button v-if="!saving && !isEmpty(state)" type="button" class="s-link" @click="saving = true; saveName = describe(toString(state)).slice(0, 80)">☆ Зберегти пошук</button>
+                <button v-if="!saving && !isEmpty(state)" type="button" class="s-link" @click="startSaving">☆ Зберегти пошук</button>
             </div>
             <form v-if="saving" class="s-save" @submit.prevent="save">
-                <input v-model="saveName" class="t-input" maxlength="80" placeholder="Назва, напр. «Заявки Ольги за листопад»" aria-label="Назва збереженого пошуку" @keydown.esc="saving = false" />
+                <input
+                    v-model="saveName"
+                    class="t-input"
+                    maxlength="80"
+                    placeholder="Назва, напр. «Заявки Ольги за листопад»"
+                    aria-label="Назва збереженого пошуку"
+                    @keydown.esc="saving = false"
+                />
                 <button type="submit" class="t-btn small primary" :disabled="!saveName.trim()">Зберегти</button>
                 <button type="button" class="t-btn small ghost" @click="saving = false">Скасувати</button>
             </form>
@@ -459,14 +490,32 @@ onBeforeUnmount(() => {
                         </div>
                         <template v-if="result?.facets.author.length">
                             <h4>Автори</h4>
-                            <button v-for="a in result.facets.author.slice(0, 6)" :key="'a' + a.id" type="button" class="s-row" :class="{ on: state.person?.role === 'author' && state.person.id === a.id }" @click="setPerson(state.person?.role === 'author' && state.person.id === a.id ? null : a.id, 'author')">
-                                <Avatar :person="a.person" :size="18" /><span class="l"><PersonName :person="a.person ?? { id: a.id, name: a.name }" :link="false" /></span><span class="n">{{ a.count }}</span>
+                            <button
+                                v-for="a in result.facets.author.slice(0, 6)"
+                                :key="'a' + a.id"
+                                type="button"
+                                class="s-row"
+                                :class="{ on: state.person?.role === 'author' && state.person.id === a.id }"
+                                @click="setPerson(state.person?.role === 'author' && state.person.id === a.id ? null : a.id, 'author')"
+                            >
+                                <Avatar :person="a.person" :size="18" />
+                                <span class="l"><PersonName :person="a.person ?? { id: a.id, name: a.name }" :link="false" /></span>
+                                <span class="n">{{ a.count }}</span>
                             </button>
                         </template>
                         <template v-if="result?.facets.executor.length">
                             <h4>Виконавці</h4>
-                            <button v-for="a in result.facets.executor.slice(0, 6)" :key="'e' + a.id" type="button" class="s-row" :class="{ on: state.person?.role === 'executor' && state.person.id === a.id }" @click="setPerson(state.person?.role === 'executor' && state.person.id === a.id ? null : a.id, 'executor')">
-                                <Avatar :person="a.person" :size="18" /><span class="l"><PersonName :person="a.person ?? { id: a.id, name: a.name }" :link="false" /></span><span class="n">{{ a.count }}</span>
+                            <button
+                                v-for="a in result.facets.executor.slice(0, 6)"
+                                :key="'e' + a.id"
+                                type="button"
+                                class="s-row"
+                                :class="{ on: state.person?.role === 'executor' && state.person.id === a.id }"
+                                @click="setPerson(state.person?.role === 'executor' && state.person.id === a.id ? null : a.id, 'executor')"
+                            >
+                                <Avatar :person="a.person" :size="18" />
+                                <span class="l"><PersonName :person="a.person ?? { id: a.id, name: a.name }" :link="false" /></span>
+                                <span class="n">{{ a.count }}</span>
                             </button>
                         </template>
                     </section>
@@ -477,7 +526,8 @@ onBeforeUnmount(() => {
                             <h4>{{ kind }}</h4>
                             <label v-for="s in rows" :key="s.key" class="s-row check">
                                 <input type="checkbox" :checked="state.statuses.includes(s.key)" @change="apply({ statuses: toggle(state.statuses, s.key) })" />
-                                <span class="l">{{ s.label }}</span><span class="n">{{ s.count }}</span>
+                                <span class="l">{{ s.label }}</span>
+                                <span class="n">{{ s.count }}</span>
                             </label>
                         </template>
                     </section>
@@ -486,7 +536,8 @@ onBeforeUnmount(() => {
                         <h3>Відділ</h3>
                         <label v-for="d in departmentRows" :key="d.id" class="s-row check">
                             <input type="checkbox" :checked="state.departments.includes(d.id)" @change="apply({ departments: toggle(state.departments, d.id) })" />
-                            <span class="l">{{ d.name }}</span><span class="n">{{ d.count }}</span>
+                            <span class="l">{{ d.name }}</span>
+                            <span class="n">{{ d.count }}</span>
                         </label>
                         <select class="t-select" aria-label="Додати відділ" @change="onDepartmentSelect">
                             <option value="">+ інший відділ…</option>
@@ -497,16 +548,30 @@ onBeforeUnmount(() => {
                     <section class="s-sec">
                         <h3>Контрагент</h3>
                         <input v-model="clientInput" class="t-input" type="search" placeholder="Клієнт, постачальник, об'єкт" aria-label="Контрагент" />
-                        <button v-for="c in (result?.facets.client ?? []).slice(0, 6)" :key="c.name" type="button" class="s-row" :class="{ on: state.client === c.name }" @click="apply({ client: state.client === c.name ? '' : c.name })">
-                            <span class="l">{{ c.name }}</span><span class="n">{{ c.count }}</span>
+                        <button
+                            v-for="c in (result?.facets.client ?? []).slice(0, 6)"
+                            :key="c.name"
+                            type="button"
+                            class="s-row"
+                            :class="{ on: state.client === c.name }"
+                            @click="apply({ client: state.client === c.name ? '' : c.name })"
+                        >
+                            <span class="l">{{ c.name }}</span>
+                            <span class="n">{{ c.count }}</span>
                         </button>
                     </section>
 
                     <section class="s-sec">
                         <h3>Період</h3>
                         <div class="s-dates">
-                            <label>з <input class="t-input" type="date" :value="state.from" :max="state.to || undefined" @change="onDate('from', $event)" /></label>
-                            <label>по <input class="t-input" type="date" :value="state.to" :min="state.from || undefined" @change="onDate('to', $event)" /></label>
+                            <label>
+                                з
+                                <input class="t-input" type="date" :value="state.from" :max="state.to || undefined" @change="onDate('from', $event)" />
+                            </label>
+                            <label>
+                                по
+                                <input class="t-input" type="date" :value="state.to" :min="state.from || undefined" @change="onDate('to', $event)" />
+                            </label>
                         </div>
                         <div class="s-presets">
                             <button type="button" class="s-link" @click="preset(7)">7 днів</button>
@@ -516,23 +581,59 @@ onBeforeUnmount(() => {
                     </section>
 
                     <section class="s-sec">
-                        <label class="f-toggle"><input type="checkbox" :checked="state.starred" @change="apply({ starred: !state.starred })" /><span class="sw" />★ Лише обране</label>
+                        <label class="f-toggle">
+                            <input type="checkbox" :checked="state.starred" @change="apply({ starred: !state.starred })" />
+                            <span class="sw" />
+                            ★ Лише обране
+                        </label>
                     </section>
                 </aside>
 
                 <section id="s-results" class="s-results" aria-live="polite">
                     <div class="s-summary">
-                        <span v-if="result"><b>{{ summary }}</b> <span class="t-sub s-took">· {{ result.tookMs }} мс<template v-if="result.approximate"> · лічильники фільтрів — приблизні, уточніть запит</template></span></span>
+                        <span v-if="result">
+                            <b>{{ summary }}</b>
+                            <span class="t-sub s-took">
+                                · {{ result.tookMs }} мс
+                                <template v-if="result.approximate">· лічильники фільтрів — приблизні, уточніть запит</template>
+                            </span>
+                        </span>
                         <span v-if="loading" class="t-sub">…</span>
                         <span class="sp" />
-                        <button type="button" class="t-btn small s-panel-btn" :aria-expanded="panelOpen" @click="togglePanel">Фільтри<template v-if="chips.length"> · {{ chips.length }}</template></button>
-                        <select class="t-select s-sort" aria-label="Сортування" :value="state.sort" @change="apply({ sort: ($event.target as HTMLSelectElement).value as SearchState['sort'] })">
+                        <button type="button" class="t-btn small s-panel-btn" :aria-expanded="panelOpen" @click="togglePanel">
+                            Фільтри
+                            <template v-if="chips.length">· {{ chips.length }}</template>
+                        </button>
+                        <select
+                            class="t-select s-sort"
+                            aria-label="Сортування"
+                            :value="state.sort"
+                            @change="apply({ sort: ($event.target as HTMLSelectElement).value as SearchState['sort'] })"
+                        >
                             <option value="recent">Новіші</option>
                             <option value="relevance">За збігом</option>
                         </select>
                         <div class="s-view" role="group" aria-label="Вигляд">
-                            <button type="button" :class="{ on: !asTable }" :aria-pressed="!asTable" title="Список" data-testid="view-list" @click="apply({ view: 'list' }, 'replace')">☰</button>
-                            <button type="button" :class="{ on: asTable }" :aria-pressed="asTable" title="Таблиця" data-testid="view-table" @click="apply({ view: 'table' }, 'replace')">▦</button>
+                            <button
+                                type="button"
+                                :class="{ on: !asTable }"
+                                :aria-pressed="!asTable"
+                                title="Список"
+                                data-testid="view-list"
+                                @click="apply({ view: 'list' }, 'replace')"
+                            >
+                                ☰
+                            </button>
+                            <button
+                                type="button"
+                                :class="{ on: asTable }"
+                                :aria-pressed="asTable"
+                                title="Таблиця"
+                                data-testid="view-table"
+                                @click="apply({ view: 'table' }, 'replace')"
+                            >
+                                ▦
+                            </button>
                         </div>
                     </div>
 
@@ -544,22 +645,49 @@ onBeforeUnmount(() => {
                         </div>
                     </div>
                     <div v-if="isEmpty(state)" class="f-empty-hint">
-                        Шукайте за частиною слова: назви, описи, коментарі, файли, номери заявок і позицій складу. Без слова, лише з фільтром — усі прецеденти людини, відділу чи контрагента.
+                        Шукайте за частиною слова: назви, описи, коментарі, файли, номери заявок і позицій складу. Без слова, лише з фільтром — усі прецеденти людини, відділу чи
+                        контрагента.
                     </div>
                     <h3 v-if="isEmpty(state) && hits.length" class="s-latest">Останні зміни</h3>
-                    <div v-else-if="result && !result.total && !loading" class="f-empty-hint">Нічого не знайдено<template v-if="state.q"> за «{{ state.q }}»</template>. <button v-if="hasFilters(state)" type="button" class="s-link" @click="reset">Скинути фільтри</button></div>
+                    <div v-else-if="result && !result.total && !loading" class="f-empty-hint">
+                        Нічого не знайдено
+                        <template v-if="state.q">за «{{ state.q }}»</template>
+                        .
+                        <button v-if="hasFilters(state)" type="button" class="s-link" @click="reset">Скинути фільтри</button>
+                    </div>
 
                     <div v-if="asTable && hits.length" class="s-table-wrap">
                         <table class="s-table" data-testid="search-table">
                             <thead>
-                                <tr><th>Тип</th><th>Назва</th><th>Контрагент</th><th>Статус</th><th>Автор</th><th>Дата</th></tr>
+                                <tr>
+                                    <th>Тип</th>
+                                    <th>Назва</th>
+                                    <th>Контрагент</th>
+                                    <th>Статус</th>
+                                    <th>Автор</th>
+                                    <th>Дата</th>
+                                </tr>
                             </thead>
                             <tbody>
-                                <tr v-for="(h, i) in hits" :key="h.id" :class="{ sel: i === sel, open: h.subject.type === 'task' && h.subject.id === openId }" @click="onClick($event, h, i)">
+                                <tr
+                                    v-for="(h, i) in hits"
+                                    :key="h.id"
+                                    :class="{ sel: i === sel, open: h.subject.type === 'task' && h.subject.id === openId }"
+                                    @click="onClick($event, h, i)"
+                                >
                                     <td class="k">{{ GROUP_ICON[h.group] }} {{ h.docLabel }}</td>
-                                    <td class="t"><a :href="hitHref(h)" @click.stop="onClick($event, h, i)"><template v-for="(p, k) in h.title" :key="k"><mark v-if="p.m">{{ p.t }}</mark><template v-else>{{ p.t }}</template></template></a></td>
+                                    <td class="t">
+                                        <a :href="hitHref(h)" @click.stop="onClick($event, h, i)">
+                                            <template v-for="(p, k) in h.title" :key="k">
+                                                <mark v-if="p.m">{{ p.t }}</mark>
+                                                <template v-else>{{ p.t }}</template>
+                                            </template>
+                                        </a>
+                                    </td>
                                     <td>{{ h.client ?? '' }}</td>
-                                    <td><span v-if="h.statusLabel" class="s-status" :class="{ closed: h.closed }">{{ h.statusLabel }}</span></td>
+                                    <td>
+                                        <span v-if="h.statusLabel" class="s-status" :class="{ closed: h.closed }">{{ h.statusLabel }}</span>
+                                    </td>
                                     <td><PersonName v-if="h.author" :person="h.author" :link="false" /></td>
                                     <td class="d">{{ fmt(h.at) }}</td>
                                 </tr>
@@ -577,21 +705,49 @@ onBeforeUnmount(() => {
                             :href="hitHref(h)"
                             @click="onClick($event, h, i)"
                         >
-                            <span class="s-ico" :title="h.docLabel" aria-hidden="true"><img v-if="h.thumb" :src="h.thumb" alt="" loading="lazy" /><template v-else>{{ GROUP_ICON[h.group] }}</template></span>
+                            <span class="s-ico" :title="h.docLabel" aria-hidden="true">
+                                <img v-if="h.thumb" :src="h.thumb" alt="" loading="lazy" />
+                                <template v-else>{{ GROUP_ICON[h.group] }}</template>
+                            </span>
                             <span class="s-main">
-                                <span class="s-top"><span class="s-kind">{{ h.docLabel }}</span><span v-if="h.statusLabel" class="s-status" :class="{ closed: h.closed }">{{ h.statusLabel }}</span><span class="date">{{ fmt(h.at) }}</span></span>
-                                <span class="s-ttl" :class="{ closed: h.closed && h.group !== 'comment' && h.group !== 'file' }"><template v-for="(p, k) in h.title" :key="k"><mark v-if="p.m">{{ p.t }}</mark><template v-else>{{ p.t }}</template></template></span>
-                                <span v-if="h.snippet.length" class="s-snip"><template v-for="(p, k) in h.snippet" :key="k"><mark v-if="p.m">{{ p.t }}</mark><template v-else>{{ p.t }}</template></template></span>
+                                <span class="s-top">
+                                    <span class="s-kind">{{ h.docLabel }}</span>
+                                    <span v-if="h.statusLabel" class="s-status" :class="{ closed: h.closed }">{{ h.statusLabel }}</span>
+                                    <span class="date">{{ fmt(h.at) }}</span>
+                                </span>
+                                <span class="s-ttl" :class="{ closed: h.closed && h.group !== 'comment' && h.group !== 'file' }">
+                                    <template v-for="(p, k) in h.title" :key="k">
+                                        <mark v-if="p.m">{{ p.t }}</mark>
+                                        <template v-else>{{ p.t }}</template>
+                                    </template>
+                                </span>
+                                <span v-if="h.snippet.length" class="s-snip">
+                                    <template v-for="(p, k) in h.snippet" :key="k">
+                                        <mark v-if="p.m">{{ p.t }}</mark>
+                                        <template v-else>{{ p.t }}</template>
+                                    </template>
+                                </span>
                                 <span v-if="h.author || h.client || (h.departments.length && h.group !== 'person')" class="s-meta">
-                                    <template v-if="h.author"><Avatar :person="h.author" :size="16" /><PersonName :person="h.author" :link="false" /></template>
-                                    <template v-if="h.client"><span v-if="h.author" class="dot">·</span>{{ h.client }}</template>
-                                    <span v-if="h.departments.length && h.group !== 'person'" class="s-deps"><span v-if="h.author || h.client" class="dot">·</span>{{ h.departments.join(', ') }}</span>
+                                    <template v-if="h.author">
+                                        <Avatar :person="h.author" :size="16" />
+                                        <PersonName :person="h.author" :link="false" />
+                                    </template>
+                                    <template v-if="h.client">
+                                        <span v-if="h.author" class="dot">·</span>
+                                        {{ h.client }}
+                                    </template>
+                                    <span v-if="h.departments.length && h.group !== 'person'" class="s-deps">
+                                        <span v-if="h.author || h.client" class="dot">·</span>
+                                        {{ h.departments.join(', ') }}
+                                    </span>
                                 </span>
                             </span>
                         </a>
                     </div>
                     <div ref="sentinel" />
-                    <button v-if="result?.more" type="button" class="t-btn small f-more-btn" :disabled="loading" @click="run(true)">{{ loading ? 'Завантаження…' : 'Показати ще' }}</button>
+                    <button v-if="result?.more" type="button" class="t-btn small f-more-btn" :disabled="loading" @click="run(true)">
+                        {{ loading ? 'Завантаження…' : 'Показати ще' }}
+                    </button>
                 </section>
             </div>
         </div>

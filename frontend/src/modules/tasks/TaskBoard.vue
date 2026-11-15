@@ -151,44 +151,58 @@ watch(q, () => {
     debounce = window.setTimeout(load, 300)
 })
 watch(label, load)
-watch(() => [route.query.col, route.query.view], () => {
-    const col = fromQuery()
-    if (col) {
-        active.value = col
-        picked = true
-    }
-})
-watch(() => route.query.find, async (find) => {
-    if (find !== '1') return
-    await nextTick()
-    filter.value?.focus()
-}, { immediate: true })
-watch(() => route.query.q, (value) => {
-    if (typeof value === 'string' && value !== q.value) q.value = value
-})
+watch(
+    () => [route.query.col, route.query.view],
+    () => {
+        const col = fromQuery()
+        if (col) {
+            active.value = col
+            picked = true
+        }
+    },
+)
+watch(
+    () => route.query.find,
+    async (find) => {
+        if (find !== '1') return
+        await nextTick()
+        filter.value?.focus()
+    },
+    { immediate: true },
+)
+watch(
+    () => route.query.q,
+    (value) => {
+        if (typeof value === 'string' && value !== q.value) q.value = value
+    },
+)
 
 // Телефон: дошка під задачею лише схована — повертаємо прокрутку, де була.
 let savedY = 0
 let reread: number | undefined
-watch(openId, async (now, before) => {
-    if (mobile.value) {
-        if (now && !before) savedY = window.scrollY
-        if (!now && before) {
+watch(
+    openId,
+    async (now, before) => {
+        if (mobile.value) {
+            if (now && !before) savedY = window.scrollY
+            if (!now && before) {
+                await nextTick()
+                window.scrollTo(0, savedY)
+            }
+            if (now) window.scrollTo(0, 0)
+        } else if (now) {
             await nextTick()
-            window.scrollTo(0, savedY)
+            const card = document.querySelector<HTMLElement>(`.p-board-left .p-col.on [data-task="${now}"]`)
+            card?.scrollIntoView({ block: 'nearest' })
+            // Фокус іде за виділенням, щоб не світились дві картки (клікнута й поточна).
+            if (card && document.activeElement instanceof HTMLElement && document.activeElement.closest('.p-board-left')) card.focus({ preventScroll: true })
         }
-        if (now) window.scrollTo(0, 0)
-    } else if (now) {
-        await nextTick()
-        const card = document.querySelector<HTMLElement>(`.p-board-left .p-col.on [data-task="${now}"]`)
-        card?.scrollIntoView({ block: 'nearest' })
-        // Фокус іде за виділенням, щоб не світились дві картки (клікнута й поточна).
-        if (card && document.activeElement instanceof HTMLElement && document.activeElement.closest('.p-board-left')) card.focus({ preventScroll: true })
-    }
-    // Відкрита задача стає прочитаною — оновимо «+N» на картках.
-    window.clearTimeout(reread)
-    if (now) reread = window.setTimeout(load, 1500)
-}, { flush: 'pre' })
+        // Відкрита задача стає прочитаною — оновимо «+N» на картках.
+        window.clearTimeout(reread)
+        if (now) reread = window.setTimeout(load, 1500)
+    },
+    { flush: 'pre' },
+)
 
 // З Mercure — за подією задачі (+ раз на хвилину), без нього — кожні 20 с.
 useLiveRefresh(() => load(), { pollMs: 20000, match: (e) => e.subject.type === 'task', debounceMs: 600 })
@@ -224,10 +238,14 @@ onBeforeUnmount(() => {
                         :aria-pressed="label === l.id"
                         @click="label = label === l.id ? null : l.id"
                     >
-                        <span class="dot" :style="{ background: label === l.id ? '#fff' : l.color }" />{{ l.name }}
+                        <span class="dot" :style="{ background: label === l.id ? '#fff' : l.color }" />
+                        {{ l.name }}
                     </button>
                 </div>
-                <router-link :to="{ name: 'tasks-new' }" class="p-btn primary p-new"><Icon name="plus" :size="18" :stroke="2.2" /><span>Нова задача</span></router-link>
+                <router-link :to="{ name: 'tasks-new' }" class="p-btn primary p-new">
+                    <Icon name="plus" :size="18" :stroke="2.2" />
+                    <span>Нова задача</span>
+                </router-link>
             </div>
 
             <div v-if="error" class="t-error">{{ error }}</div>
@@ -243,7 +261,9 @@ onBeforeUnmount(() => {
                     :style="{ '--col': c.color }"
                     @click="pick(c.key)"
                 >
-                    {{ c.title }}<span class="n">{{ board ? board[c.key].length : '·' }}</span><span v-if="unreadIn(c.key)" class="u" :title="unreadIn(c.key) + ' непрочитаних'" />
+                    {{ c.title }}
+                    <span class="n">{{ board ? board[c.key].length : '·' }}</span>
+                    <span v-if="unreadIn(c.key)" class="u" :title="unreadIn(c.key) + ' непрочитаних'" />
                 </button>
             </div>
 
@@ -256,14 +276,7 @@ onBeforeUnmount(() => {
                     </header>
                     <div class="p-col-body">
                         <template v-if="board">
-                            <TaskCard
-                                v-for="t in board[c.key]"
-                                :key="t.id"
-                                :task="t"
-                                :show-status="c.status"
-                                :selected="t.id === openId"
-                                @open="open($event, c.key)"
-                            />
+                            <TaskCard v-for="t in board[c.key]" :key="t.id" :task="t" :show-status="c.status" :selected="t.id === openId" @open="open($event, c.key)" />
                             <div v-if="!board[c.key].length" class="p-empty">{{ c.empty }}</div>
                         </template>
                         <template v-else>
@@ -278,6 +291,5 @@ onBeforeUnmount(() => {
             <!-- key: при переході на іншу задачу — чистий стан (поле вводу, опитування, нотатка рішення). -->
             <TaskView :id="String(openId)" :key="openId" embedded @close="close" />
         </div>
-
     </div>
 </template>

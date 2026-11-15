@@ -100,7 +100,10 @@ onMounted(async () => {
                     @keydown.enter.exact.prevent
                 />
                 <div class="p-frow">
-                    <span class="k"><Icon name="package" :size="16" />Кількість</span>
+                    <span class="k">
+                        <Icon name="package" :size="16" />
+                        Кількість
+                    </span>
                     <div class="v">
                         <input v-model="draft.quantity" class="p-inline-input p-qty" type="text" inputmode="decimal" required placeholder="10" aria-label="Кількість" />
                         <select v-model="draft.unit" class="p-inline-input p-unit" aria-label="Одиниця">
@@ -109,18 +112,27 @@ onMounted(async () => {
                     </div>
                 </div>
                 <div class="p-frow">
-                    <span class="k"><Icon name="calendar" :size="16" />Потрібно до</span>
+                    <span class="k">
+                        <Icon name="calendar" :size="16" />
+                        Потрібно до
+                    </span>
                     <div class="v">
                         <DateChips :model-value="draft.needBy ?? ''" label="Потрібно до" @update:model-value="draft.needBy = $event" />
                         <button type="button" class="p-chip" :class="{ on: draft.urgent }" :aria-pressed="draft.urgent" @click="draft.urgent = !draft.urgent">терміново</button>
                     </div>
                 </div>
                 <div class="p-frow">
-                    <span class="k"><Icon name="building" :size="16" />Обʼєкт</span>
+                    <span class="k">
+                        <Icon name="building" :size="16" />
+                        Обʼєкт
+                    </span>
                     <div class="v"><input v-model="draft.site" class="p-inline-input" type="text" placeholder="ЖК, цех, адреса" aria-label="Для якого обʼєкта" /></div>
                 </div>
                 <div class="p-frow">
-                    <span class="k"><Icon name="users" :size="16" />Підрозділ</span>
+                    <span class="k">
+                        <Icon name="users" :size="16" />
+                        Підрозділ
+                    </span>
                     <div class="v">
                         <select v-model="draft.departmentId" class="p-inline-input" aria-label="Підрозділ">
                             <option :value="null">—</option>
@@ -155,31 +167,41 @@ onMounted(async () => {
             <div :class="{ body: plan }">
                 <div v-if="error" class="error">{{ error }}</div>
                 <div class="form-grid">
-                    <label class="wide">Що потрібно *
-                        <input ref="itemBox" v-model="draft.item" type="text" required placeholder="Цемент М500, арматура Ø12, фанера 18 мм…">
+                    <label class="wide">
+                        Що потрібно *
+                        <input ref="itemBox" v-model="draft.item" type="text" required placeholder="Цемент М500, арматура Ø12, фанера 18 мм…" />
                     </label>
-                    <label>Кількість *
-                        <input v-model="draft.quantity" type="text" inputmode="decimal" required placeholder="10">
+                    <label>
+                        Кількість *
+                        <input v-model="draft.quantity" type="text" inputmode="decimal" required placeholder="10" />
                     </label>
-                    <label>Одиниця
+                    <label>
+                        Одиниця
                         <select v-model="draft.unit">
                             <option v-for="u in units" :key="u.value" :value="u.value">{{ u.label }}</option>
                         </select>
                     </label>
-                    <label>Для якого об'єкта / куди
-                        <input v-model="draft.site" type="text" placeholder="ЖК, цех, адреса">
+                    <label>
+                        Для якого об'єкта / куди
+                        <input v-model="draft.site" type="text" placeholder="ЖК, цех, адреса" />
                     </label>
-                    <label>Підрозділ
+                    <label>
+                        Підрозділ
                         <select v-model="draft.departmentId">
                             <option :value="null">—</option>
                             <option v-for="d in departments" :key="d.id" :value="d.id">{{ d.name }}</option>
                         </select>
                     </label>
-                    <label>Потрібно до
-                        <input v-model="draft.needBy" type="date">
+                    <label>
+                        Потрібно до
+                        <input v-model="draft.needBy" type="date" />
                     </label>
-                    <label class="row urgent"><input v-model="draft.urgent" type="checkbox"> терміново</label>
-                    <label class="wide">Примітка
+                    <label class="row urgent">
+                        <input v-model="draft.urgent" type="checkbox" />
+                        терміново
+                    </label>
+                    <label class="wide">
+                        Примітка
                         <textarea v-model="draft.note" rows="2" placeholder="Марка, розміри, постачальник, якщо відомий…"></textarea>
                     </label>
                 </div>
@@ -202,7 +224,7 @@ onMounted(async () => {
 
 <style scoped>
 .new-request h2 {
-    margin: 0 0 .75rem;
+    margin: 0 0 0.75rem;
     font-size: 18px;
 }
 
@@ -214,13 +236,13 @@ onMounted(async () => {
 .form-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: .75rem 1rem;
+    gap: 0.75rem 1rem;
 }
 
 .form-grid label {
     display: flex;
     flex-direction: column;
-    gap: .25rem;
+    gap: 0.25rem;
     font-size: 13px;
     color: var(--text-muted);
 }
@@ -239,7 +261,7 @@ onMounted(async () => {
 
 .actions {
     margin-top: 1rem;
-    gap: .5rem;
+    gap: 0.5rem;
 }
 
 .small {
@@ -251,7 +273,9 @@ onMounted(async () => {
         min-height: 44px;
     }
 
-    .form-grid input, .form-grid select, .form-grid textarea {
+    .form-grid input,
+    .form-grid select,
+    .form-grid textarea {
         font-size: 16px;
     }
 }

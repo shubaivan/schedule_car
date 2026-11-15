@@ -41,7 +41,10 @@ function one(v: LocationQuery[string]): string {
 }
 
 function list(v: LocationQuery[string]): string[] {
-    return one(v).split(',').map((s) => s.trim()).filter(Boolean)
+    return one(v)
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
 }
 
 const DATE = /^\d{4}-\d\d-\d\d$/
@@ -60,7 +63,9 @@ export function parse(query: LocationQuery): SearchState {
         q: one(query.q),
         types: list(query.type).filter((t): t is SearchGroup => (GROUPS as string[]).includes(t)),
         person,
-        departments: list(query.department).map(Number).filter((n) => Number.isInteger(n) && n > 0),
+        departments: list(query.department)
+            .map(Number)
+            .filter((n) => Number.isInteger(n) && n > 0),
         statuses: list(query.status).filter((s) => /^[a-z_]+:[a-z_]+$/.test(s)),
         client: one(query.client),
         from: DATE.test(one(query.from)) ? one(query.from) : '',

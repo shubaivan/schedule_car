@@ -47,7 +47,9 @@ function click(e: MouseEvent) {
         <span class="row top">
             <span class="num">№ {{ task.number }}</span>
             <span v-if="task.fileStats.count" class="files" :title="task.fileStats.count + ' файлів' + (task.fileStats.pdf ? ', PDF: ' + task.fileStats.pdf : '')">
-                <Icon :name="task.fileStats.pdf ? 'file' : task.fileStats.images ? 'image' : 'clip'" :size="12" :stroke="2" />{{ task.fileStats.count }}<span v-if="task.fileStats.pdf" class="pdf">PDF</span>
+                <Icon :name="task.fileStats.pdf ? 'file' : task.fileStats.images ? 'image' : 'clip'" :size="12" :stroke="2" />
+                {{ task.fileStats.count }}
+                <span v-if="task.fileStats.pdf" class="pdf">PDF</span>
             </span>
             <span class="when" :title="'Активність: ' + new Date(task.lastActivityAt).toLocaleString('uk-UA')">{{ ago(task.lastActivityAt) }}</span>
             <span v-if="task.unread" class="badge" :title="task.unread + ' непрочитаних'">+{{ task.unread }}</span>
@@ -61,7 +63,8 @@ function click(e: MouseEvent) {
         <span class="row foot">
             <span v-if="showStatus" class="st" :class="'tone-' + (STATUS_TONE[task.status] ?? 'slate')">{{ task.statusLabel }}</span>
             <span v-if="task.dueAt" class="due" :class="{ over: task.overdue && !task.closed }" :title="'Термін: ' + new Date(task.dueAt).toLocaleDateString('uk-UA')">
-                <Icon name="clock" :size="13" :stroke="2" />{{ dueLabel(task.dueAt) }}
+                <Icon name="clock" :size="13" :stroke="2" />
+                {{ dueLabel(task.dueAt) }}
             </span>
             <AvatarStack class="people" :people="task.members" :total="task.membersCount" :max="2" :size="22" />
         </span>

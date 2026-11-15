@@ -123,31 +123,41 @@ onMounted(load)
         <h2>➕ Нова заявка</h2>
         <div v-if="formError" class="error">{{ formError }}</div>
         <div class="form-grid">
-            <label class="wide">Що потрібно *
-                <input v-model="draft.item" type="text" required placeholder="Цемент М500, арматура Ø12, фанера 18 мм…" autofocus>
+            <label class="wide">
+                Що потрібно *
+                <input v-model="draft.item" type="text" required placeholder="Цемент М500, арматура Ø12, фанера 18 мм…" autofocus />
             </label>
-            <label>Кількість *
-                <input v-model="draft.quantity" type="text" inputmode="decimal" required placeholder="10">
+            <label>
+                Кількість *
+                <input v-model="draft.quantity" type="text" inputmode="decimal" required placeholder="10" />
             </label>
-            <label>Одиниця
+            <label>
+                Одиниця
                 <select v-model="draft.unit">
                     <option v-for="u in units" :key="u.value" :value="u.value">{{ u.label }}</option>
                 </select>
             </label>
-            <label>Для якого об'єкта / куди
-                <input v-model="draft.site" type="text" placeholder="ЖК, цех, адреса">
+            <label>
+                Для якого об'єкта / куди
+                <input v-model="draft.site" type="text" placeholder="ЖК, цех, адреса" />
             </label>
-            <label>Підрозділ
+            <label>
+                Підрозділ
                 <select v-model="draft.departmentId">
                     <option :value="null">—</option>
                     <option v-for="d in departments" :key="d.id" :value="d.id">{{ d.name }}</option>
                 </select>
             </label>
-            <label>Потрібно до
-                <input v-model="draft.needBy" type="date">
+            <label>
+                Потрібно до
+                <input v-model="draft.needBy" type="date" />
             </label>
-            <label class="row urgent"><input v-model="draft.urgent" type="checkbox"> терміново</label>
-            <label class="wide">Примітка
+            <label class="row urgent">
+                <input v-model="draft.urgent" type="checkbox" />
+                терміново
+            </label>
+            <label class="wide">
+                Примітка
                 <textarea v-model="draft.note" rows="2" placeholder="Марка, розміри, постачальник, якщо відомий…"></textarea>
             </label>
         </div>
@@ -163,15 +173,10 @@ onMounted(load)
     <div class="filters">
         <div class="tabs">
             <button class="tab" :class="{ 'is-active': status === '' }" @click="status = ''">
-                Усі<span class="count">{{ data?.total ?? '' }}</span>
+                Усі
+                <span class="count">{{ data?.total ?? '' }}</span>
             </button>
-            <button
-                v-for="item in statuses"
-                :key="item.value"
-                class="tab"
-                :class="{ 'is-active': status === item.value }"
-                @click="status = item.value"
-            >
+            <button v-for="item in statuses" :key="item.value" class="tab" :class="{ 'is-active': status === item.value }" @click="status = item.value">
                 {{ item.emoji }} {{ item.label }}
                 <span class="count">{{ data?.counts?.[item.value] ?? 0 }}</span>
             </button>
@@ -179,19 +184,23 @@ onMounted(load)
     </div>
 
     <div class="filters">
-        <input v-model="search" type="search" placeholder="Пошук: номер, матеріал, об'єкт">
+        <input v-model="search" type="search" placeholder="Пошук: номер, матеріал, об'єкт" />
         <select v-model="department">
             <option value="">Усі підрозділи</option>
             <option v-for="item in departments" :key="item.id" :value="item.id">{{ item.name }}</option>
         </select>
         <select v-model="accent">
             <option value="">Будь-яка мітка</option>
-            <option v-for="item in accents" :key="item.value" :value="item.value">
-                {{ item.emoji }} {{ item.label }}
-            </option>
+            <option v-for="item in accents" :key="item.value" :value="item.value">{{ item.emoji }} {{ item.label }}</option>
         </select>
-        <label class="row"><input v-model="urgent" type="checkbox"> терміново</label>
-        <label class="row"><input v-model="overdue" type="checkbox"> прострочені</label>
+        <label class="row">
+            <input v-model="urgent" type="checkbox" />
+            терміново
+        </label>
+        <label class="row">
+            <input v-model="overdue" type="checkbox" />
+            прострочені
+        </label>
     </div>
 
     <div class="card">
@@ -200,46 +209,43 @@ onMounted(load)
             <template v-if="status || department || accent || search || urgent || overdue">Заявок за цим фільтром немає.</template>
             <template v-else>
                 <p>Заявок ще немає.</p>
-                <p class="muted">
-                    Натисніть «➕ Нова заявка» вгорі — або в боті «📦 Постачання» → «➕ Нова заявка»,
-                    якщо ви на об'єкті з телефоном.
-                </p>
+                <p class="muted">Натисніть «➕ Нова заявка» вгорі — або в боті «📦 Постачання» → «➕ Нова заявка», якщо ви на об'єкті з телефоном.</p>
             </template>
         </div>
 
         <div v-else class="table-wrap">
             <table>
                 <thead>
-                <tr>
-                    <th>Мітка</th>
-                    <th>№</th>
-                    <th>Матеріал</th>
-                    <th>Кількість</th>
-                    <th>Потрібно до</th>
-                    <th>Заявник</th>
-                    <th>Підрозділ</th>
-                    <th>Статус</th>
-                </tr>
+                    <tr>
+                        <th>Мітка</th>
+                        <th>№</th>
+                        <th>Матеріал</th>
+                        <th>Кількість</th>
+                        <th>Потрібно до</th>
+                        <th>Заявник</th>
+                        <th>Підрозділ</th>
+                        <th>Статус</th>
+                    </tr>
                 </thead>
                 <tbody>
-                <tr v-for="item in data.items" :key="item.id">
-                    <td :title="item.accent === 'none' ? '' : item.accentLabel">{{ item.accentEmoji || '·' }}</td>
-                    <td>
-                        <router-link :to="{ name: 'request', params: { id: item.id } }">{{ item.number }}</router-link>
-                    </td>
-                    <td class="wrap">
-                        {{ item.item }}
-                        <span v-if="item.urgent" class="muted quiet">терміново</span>
-                    </td>
-                    <td>{{ item.quantityLabel }}</td>
-                    <td>
-                        {{ item.needBy ? formatDate(item.needBy) : '—' }}
-                        <span v-if="item.overdue" class="flag">прострочено</span>
-                    </td>
-                    <td><PersonName :person="item.author" /></td>
-                    <td>{{ item.department ?? '—' }}</td>
-                    <td><StatusBadge :status="item.status" :label="item.statusLabel" /></td>
-                </tr>
+                    <tr v-for="item in data.items" :key="item.id">
+                        <td :title="item.accent === 'none' ? '' : item.accentLabel">{{ item.accentEmoji || '·' }}</td>
+                        <td>
+                            <router-link :to="{ name: 'request', params: { id: item.id } }">{{ item.number }}</router-link>
+                        </td>
+                        <td class="wrap">
+                            {{ item.item }}
+                            <span v-if="item.urgent" class="muted quiet">терміново</span>
+                        </td>
+                        <td>{{ item.quantityLabel }}</td>
+                        <td>
+                            {{ item.needBy ? formatDate(item.needBy) : '—' }}
+                            <span v-if="item.overdue" class="flag">прострочено</span>
+                        </td>
+                        <td><PersonName :person="item.author" /></td>
+                        <td>{{ item.department ?? '—' }}</td>
+                        <td><StatusBadge :status="item.status" :label="item.statusLabel" /></td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -256,24 +262,24 @@ onMounted(load)
 .new-request-bar {
     display: flex;
     justify-content: flex-end;
-    margin-bottom: .75rem;
+    margin-bottom: 0.75rem;
 }
 
 .new-request h2 {
-    margin: 0 0 .75rem;
+    margin: 0 0 0.75rem;
     font-size: 18px;
 }
 
 .form-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: .75rem 1rem;
+    gap: 0.75rem 1rem;
 }
 
 .form-grid label {
     display: flex;
     flex-direction: column;
-    gap: .25rem;
+    gap: 0.25rem;
     font-size: 13px;
     color: var(--text-muted);
 }
@@ -292,7 +298,7 @@ onMounted(load)
 
 .actions {
     margin-top: 1rem;
-    gap: .5rem;
+    gap: 0.5rem;
 }
 
 .small {
@@ -305,7 +311,9 @@ onMounted(load)
         min-height: 44px;
     }
 
-    .form-grid input, .form-grid select, .form-grid textarea {
+    .form-grid input,
+    .form-grid select,
+    .form-grid textarea {
         font-size: 16px;
     }
 }

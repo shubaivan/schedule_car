@@ -95,13 +95,16 @@ watch(q, (value) => {
         setQuery({ q: sentQ })
     }, 300)
 })
-watch(() => [route.query.t, route.query.site, route.query.item, route.query.q], () => {
-    if (str(route.query.q) !== sentQ) {
-        sentQ = str(route.query.q)
-        q.value = sentQ
-    }
-    load()
-})
+watch(
+    () => [route.query.t, route.query.site, route.query.item, route.query.q],
+    () => {
+        if (str(route.query.q) !== sentQ) {
+            sentQ = str(route.query.q)
+            q.value = sentQ
+        }
+        load()
+    },
+)
 watch(openId, async (now) => {
     if (!now) return
     await nextTick()
@@ -139,11 +142,25 @@ onBeforeUnmount(() => {
                     <Icon name="search" :size="16" />
                     <input v-model="q" data-board-filter type="search" placeholder="№ накладної, місце, постачальник" aria-label="Пошук рухів" />
                 </label>
-                <router-link :to="{ name: 'warehouse-movement-new', query: type ? { type } : {} }" class="p-btn primary p-new"><Icon name="plus" :size="18" :stroke="2.2" /><span>Новий рух</span></router-link>
+                <router-link :to="{ name: 'warehouse-movement-new', query: type ? { type } : {} }" class="p-btn primary p-new">
+                    <Icon name="plus" :size="18" :stroke="2.2" />
+                    <span>Новий рух</span>
+                </router-link>
             </div>
             <div class="p-chips wrap" role="tablist" aria-label="Тип руху">
                 <button type="button" role="tab" class="p-chip" :class="{ on: !type }" :aria-selected="!type" @click="setQuery({ t: '' })">Усі</button>
-                <button v-for="t in meta?.movementTypes ?? []" :key="t.value" type="button" role="tab" class="p-chip" :class="{ on: type === t.value }" :aria-selected="type === t.value" @click="setQuery({ t: t.value })">{{ t.emoji }} {{ t.label }}</button>
+                <button
+                    v-for="t in meta?.movementTypes ?? []"
+                    :key="t.value"
+                    type="button"
+                    role="tab"
+                    class="p-chip"
+                    :class="{ on: type === t.value }"
+                    :aria-selected="type === t.value"
+                    @click="setQuery({ t: t.value })"
+                >
+                    {{ t.emoji }} {{ t.label }}
+                </button>
             </div>
             <div class="p-supply-filters">
                 <select :value="site" aria-label="Місце" @change="setQuery({ site: ($event.target as HTMLSelectElement).value })">
@@ -169,12 +186,23 @@ onBeforeUnmount(() => {
                     >
                         <span class="w-row-main">
                             <span class="row top">
-                                <span class="num">{{ m.emoji }} {{ m.typeLabel }}<template v-if="m.documentNumber"> № {{ m.documentNumber }}</template></span>
+                                <span class="num">
+                                    {{ m.emoji }} {{ m.typeLabel }}
+                                    <template v-if="m.documentNumber">№ {{ m.documentNumber }}</template>
+                                </span>
                                 <span class="when">{{ formatDate(m.occurredAt) }}</span>
                             </span>
                             <span class="title">{{ m.route }}</span>
-                            <span class="client">{{ m.client ?? m.supplier ?? '' }}<template v-if="m.createdBy"> · <PersonName :person="m.createdBy" :link="false" /></template></span>
-                            <span class="row foot"><span class="w-total">{{ m.lines }} поз. · {{ m.units.toLocaleString('uk-UA') }} од.</span></span>
+                            <span class="client">
+                                {{ m.client ?? m.supplier ?? '' }}
+                                <template v-if="m.createdBy">
+                                    ·
+                                    <PersonName :person="m.createdBy" :link="false" />
+                                </template>
+                            </span>
+                            <span class="row foot">
+                                <span class="w-total">{{ m.lines }} поз. · {{ m.units.toLocaleString('uk-UA') }} од.</span>
+                            </span>
                         </span>
                     </a>
                     <div v-if="!loading && !items.length" class="p-empty">За цим фільтром рухів немає.</div>

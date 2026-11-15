@@ -70,7 +70,10 @@ const actions = computed(() => {
     if (i.places.length) out.push({ type: 'writeoff', label: 'Списати', from: only() })
     return out
 })
-const moveTo = (a: { type: string; from?: number }) => ({ name: 'warehouse-movement-new', query: { type: a.type, item: String(props.id), ...(a.from ? { from: String(a.from) } : {}) } })
+const moveTo = (a: { type: string; from?: number }) => ({
+    name: 'warehouse-movement-new',
+    query: { type: a.type, item: String(props.id), ...(a.from ? { from: String(a.from) } : {}) },
+})
 
 // Кожне завантаження має номер: відповідь про попередню позицію (/full, гортання) не перезапише нову.
 let seq = 0
@@ -108,7 +111,10 @@ async function upload(e: Event) {
     } catch (err) {
         error.value = session.handle(err)
         // Частина файлів могла лягти — показуємо картку як є.
-        whApi.item(Number(props.id)).then((i) => (item.value = i)).catch(() => undefined)
+        whApi
+            .item(Number(props.id))
+            .then((i) => (item.value = i))
+            .catch(() => undefined)
     } finally {
         uploading.value = false
     }
@@ -154,14 +160,17 @@ async function share() {
 
 const statusTone = (s: string) => (s === 'closed' || s === 'done' || s === 'rejected' ? 'closed' : '')
 
-watch(() => props.id, (id) => {
-    feedReady.value = false
-    subject.id = Number(id)
-    subject.messages.splice(0)
-    item.value = null
-    load()
-    whApi.viewed(Number(id)).catch(() => undefined)
-})
+watch(
+    () => props.id,
+    (id) => {
+        feedReady.value = false
+        subject.id = Number(id)
+        subject.messages.splice(0)
+        item.value = null
+        load()
+        whApi.viewed(Number(id)).catch(() => undefined)
+    },
+)
 
 onMounted(() => {
     load()
@@ -188,16 +197,47 @@ watch(tab, (t) => {
                 <div class="p-thead">
                     <div class="p-thead-top">
                         <button v-if="embedded" type="button" class="p-icon-btn p-back" title="Назад (Esc)" aria-label="Назад" @click="emit('close')"><Icon name="back" /></button>
-                        <router-link v-else :to="{ name: 'warehouse-items', query: route.query }" class="p-icon-btn p-back" title="До складу" aria-label="До складу"><Icon name="back" /></router-link>
+                        <router-link v-else :to="{ name: 'warehouse-items', query: route.query }" class="p-icon-btn p-back" title="До складу" aria-label="До складу">
+                            <Icon name="back" />
+                        </router-link>
                         <span class="num">{{ item.inventoryNumber }}</span>
                         <span class="client">· {{ item.category.emoji }} {{ item.category.name }}</span>
                         <span class="sp" />
-                        <router-link v-if="canEdit" :to="{ name: 'warehouse-item-edit', params: { id: item.id } }" class="p-icon-btn" title="Змінити картку" aria-label="Змінити картку"><Icon name="edit" :size="18" /></router-link>
-                        <router-link v-if="embedded" :to="{ name: 'warehouse-item-full', params: { id: item.id } }" class="p-icon-btn" title="Відкрити окремо" aria-label="Відкрити окремо"><Icon name="monitor" :size="18" /></router-link>
-                        <button type="button" class="p-icon-btn p-side-toggle" :class="{ on: sideOpen }" title="Залишки, деталі, документи" aria-label="Деталі" @click="sideOpen = !sideOpen"><Icon name="info" :size="18" /></button>
-                        <button v-if="embedded" type="button" class="p-icon-btn p-close" title="Закрити (Esc)" aria-label="Закрити" @click="emit('close')"><Icon name="x" /></button>
+                        <router-link
+                            v-if="canEdit"
+                            :to="{ name: 'warehouse-item-edit', params: { id: item.id } }"
+                            class="p-icon-btn"
+                            title="Змінити картку"
+                            aria-label="Змінити картку"
+                        >
+                            <Icon name="edit" :size="18" />
+                        </router-link>
+                        <router-link
+                            v-if="embedded"
+                            :to="{ name: 'warehouse-item-full', params: { id: item.id } }"
+                            class="p-icon-btn"
+                            title="Відкрити окремо"
+                            aria-label="Відкрити окремо"
+                        >
+                            <Icon name="monitor" :size="18" />
+                        </router-link>
+                        <button
+                            type="button"
+                            class="p-icon-btn p-side-toggle"
+                            :class="{ on: sideOpen }"
+                            title="Залишки, деталі, документи"
+                            aria-label="Деталі"
+                            @click="sideOpen = !sideOpen"
+                        >
+                            <Icon name="info" :size="18" />
+                        </button>
+                        <button v-if="embedded" type="button" class="p-icon-btn p-close" title="Закрити (Esc)" aria-label="Закрити" @click="emit('close')">
+                            <Icon name="x" />
+                        </button>
                     </div>
-                    <h1 class="p-ttitle"><span :class="{ closed: off }">{{ item.name }}</span></h1>
+                    <h1 class="p-ttitle">
+                        <span :class="{ closed: off }">{{ item.name }}</span>
+                    </h1>
                     <div class="p-thead-meta">
                         <span class="st w-pill" :class="'w-st-' + item.state">{{ item.stateLabel }}</span>
                         <b class="w-big">{{ item.tracking === 'unit' ? (here ? here.label : 'не на складі') : 'Усього: ' + qty(item.total, item.unit) }}</b>
@@ -221,10 +261,16 @@ watch(tab, (t) => {
 
             <aside class="t-side" :class="{ 'hide-mobile': tab === 'feed', open: sideOpen }">
                 <div v-if="tab !== 'files'" class="t-panel">
-                    <h2>Де зараз <span class="count">{{ item.tracking === 'unit' ? '' : qty(item.total, item.unit) }}</span></h2>
+                    <h2>
+                        Де зараз
+                        <span class="count">{{ item.tracking === 'unit' ? '' : qty(item.total, item.unit) }}</span>
+                    </h2>
                     <div v-if="item.places.length" class="w-places">
                         <div v-for="p in item.places" :key="p.site.id" class="w-place">
-                            <span>{{ p.site.label }}<small v-if="p.since" class="p-muted"> · з {{ formatDate(p.since) }}</small></span>
+                            <span>
+                                {{ p.site.label }}
+                                <small v-if="p.since" class="p-muted">· з {{ formatDate(p.since) }}</small>
+                            </span>
                             <b v-if="item.tracking === 'bulk'">{{ qty(p.quantity, item.unit) }}</b>
                         </div>
                     </div>
@@ -234,26 +280,53 @@ watch(tab, (t) => {
                 <div v-if="tab !== 'files'" class="t-panel">
                     <h2>Деталі</h2>
                     <dl class="t-dl">
-                        <dt>Облік</dt><dd>{{ item.trackingLabel }}, {{ item.unit }}</dd>
-                        <template v-for="(v, k) in item.attributes" :key="k"><dt>{{ k }}</dt><dd>{{ v }}</dd></template>
-                        <template v-if="item.serialNumber"><dt>Серійний №</dt><dd>{{ item.serialNumber }}</dd></template>
-                        <template v-if="item.supplier"><dt>Постачальник</dt><dd>{{ item.supplier.name }}</dd></template>
-                        <template v-if="item.purchasePrice"><dt>Ціна</dt><dd>{{ money(item.purchasePrice) }}</dd></template>
-                        <template v-if="item.purchasedAt"><dt>Куплено</dt><dd>{{ formatDate(item.purchasedAt) }}</dd></template>
-                        <template v-if="item.rentalRate"><dt>Оренда</dt><dd>{{ money(item.rentalRate) }}/доба</dd></template>
-                        <template v-if="item.createdBy"><dt>Завів</dt><dd><PersonName :person="item.createdBy" /></dd></template>
+                        <dt>Облік</dt>
+                        <dd>{{ item.trackingLabel }}, {{ item.unit }}</dd>
+                        <template v-for="(v, k) in item.attributes" :key="k">
+                            <dt>{{ k }}</dt>
+                            <dd>{{ v }}</dd>
+                        </template>
+                        <template v-if="item.serialNumber">
+                            <dt>Серійний №</dt>
+                            <dd>{{ item.serialNumber }}</dd>
+                        </template>
+                        <template v-if="item.supplier">
+                            <dt>Постачальник</dt>
+                            <dd>{{ item.supplier.name }}</dd>
+                        </template>
+                        <template v-if="item.purchasePrice">
+                            <dt>Ціна</dt>
+                            <dd>{{ money(item.purchasePrice) }}</dd>
+                        </template>
+                        <template v-if="item.purchasedAt">
+                            <dt>Куплено</dt>
+                            <dd>{{ formatDate(item.purchasedAt) }}</dd>
+                        </template>
+                        <template v-if="item.rentalRate">
+                            <dt>Оренда</dt>
+                            <dd>{{ money(item.rentalRate) }}/доба</dd>
+                        </template>
+                        <template v-if="item.createdBy">
+                            <dt>Завів</dt>
+                            <dd><PersonName :person="item.createdBy" /></dd>
+                        </template>
                     </dl>
                     <div v-if="item.description" class="t-desc" style="margin-top: 8px">{{ item.description }}</div>
                 </div>
 
                 <div v-if="tab !== 'files'" class="t-panel">
-                    <h2>Рухи <span class="count">{{ item.history.length }}</span></h2>
+                    <h2>
+                        Рухи
+                        <span class="count">{{ item.history.length }}</span>
+                    </h2>
                     <div v-if="item.history.length" class="w-history">
                         <router-link v-for="m in item.history.slice(0, 12)" :key="m.id" :to="{ name: 'warehouse-movements', params: { id: m.id } }" class="w-hist">
                             <span>{{ m.emoji }} {{ formatDate(m.occurredAt) }} · {{ m.route }}</span>
                             <b v-if="m.quantity !== null">{{ item.tracking === 'bulk' ? qty(m.quantity, item.unit) : '' }}</b>
                         </router-link>
-                        <router-link v-if="item.history.length > 12" :to="{ name: 'warehouse-movements', query: { item: String(item.id) } }" class="p-link">Усі рухи позиції</router-link>
+                        <router-link v-if="item.history.length > 12" :to="{ name: 'warehouse-movements', query: { item: String(item.id) } }" class="p-link">
+                            Усі рухи позиції
+                        </router-link>
                     </div>
                     <p v-else class="t-hint" style="padding: 0">Рухів ще не було.</p>
                 </div>
@@ -275,27 +348,47 @@ watch(tab, (t) => {
                     <p class="t-hint" style="padding: 0">Скан відкриває картку в боті — і потрапляє в історію.</p>
                     <div class="p-small">
                         <a :href="item.labels" target="_blank" rel="noopener">Друк наклейки</a>
-                        <template v-if="item.shareUrl"> · <button type="button" class="p-link" @click="share">Поділитися</button></template>
+                        <template v-if="item.shareUrl">
+                            ·
+                            <button type="button" class="p-link" @click="share">Поділитися</button>
+                        </template>
                     </div>
                 </div>
 
                 <div v-if="tab !== 'details'" class="t-panel">
-                    <h2>Фото й документи <span class="count">{{ docs.length }}</span></h2>
+                    <h2>
+                        Фото й документи
+                        <span class="count">{{ docs.length }}</span>
+                    </h2>
                     <div v-if="photos.length" class="w-photos">
                         <a v-for="d in photos" :key="d.id" :href="d.url" target="_blank" rel="noopener" class="w-photo" :title="d.name">
                             <img :src="d.url" :alt="d.name" loading="lazy" />
-                            <button v-if="canEdit" type="button" class="w-photo-x" title="Прибрати" aria-label="Прибрати фото" @click.prevent="removeDoc(d)"><Icon name="x" :size="14" /></button>
+                            <button v-if="canEdit" type="button" class="w-photo-x" title="Прибрати" aria-label="Прибрати фото" @click.prevent="removeDoc(d)">
+                                <Icon name="x" :size="14" />
+                            </button>
                         </a>
                     </div>
                     <div v-if="files.length" class="p-docs">
                         <div v-for="d in files" :key="d.id" class="p-doc">
                             <div class="p-doc-info">
                                 <a :href="d.url" target="_blank" rel="noopener" class="p-doc-name">{{ d.name }}</a>
-                                <div class="p-muted p-small">{{ d.typeLabel }} · {{ d.sizeLabel }}<template v-if="d.uploadedBy"> · <PersonName :name="d.uploadedBy" /></template></div>
+                                <div class="p-muted p-small">
+                                    {{ d.typeLabel }} · {{ d.sizeLabel }}
+                                    <template v-if="d.uploadedBy">
+                                        ·
+                                        <PersonName :name="d.uploadedBy" />
+                                    </template>
+                                </div>
                                 <div class="p-small">
                                     <a :href="d.download">Скачати</a>
-                                    <template v-if="d.driveUrl"> · <a :href="d.driveUrl" target="_blank" rel="noopener">Google Drive</a></template>
-                                    <template v-if="canEdit"> · <button type="button" class="p-link danger" @click="removeDoc(d)">Прибрати</button></template>
+                                    <template v-if="d.driveUrl">
+                                        ·
+                                        <a :href="d.driveUrl" target="_blank" rel="noopener">Google Drive</a>
+                                    </template>
+                                    <template v-if="canEdit">
+                                        ·
+                                        <button type="button" class="p-link danger" @click="removeDoc(d)">Прибрати</button>
+                                    </template>
                                 </div>
                             </div>
                         </div>
@@ -306,7 +399,8 @@ watch(tab, (t) => {
                             <option v-for="t in meta?.documentTypes ?? []" :key="t.value" :value="t.value">{{ t.label }}</option>
                         </select>
                         <label class="p-btn">
-                            <Icon name="clip" :size="16" />{{ uploading ? 'Завантаження…' : 'Додати' }}
+                            <Icon name="clip" :size="16" />
+                            {{ uploading ? 'Завантаження…' : 'Додати' }}
                             <input type="file" multiple hidden accept=".pdf,.jpg,.jpeg,.png,.heic,.webp,.doc,.docx,.xls,.xlsx" :disabled="uploading" @change="upload" />
                         </label>
                     </div>

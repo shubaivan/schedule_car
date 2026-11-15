@@ -26,8 +26,19 @@ const error = ref('')
 const saving = ref(false)
 const ready = ref(false)
 const draft = ref<ItemPayload>({
-    name: '', categoryId: null, tracking: 'bulk', unit: 'шт', inventoryNumber: '', description: '', serialNumber: '',
-    supplierId: '', purchasePrice: '', purchasedAt: '', rentalRate: '', state: 'active', attributes: [],
+    name: '',
+    categoryId: null,
+    tracking: 'bulk',
+    unit: 'шт',
+    inventoryNumber: '',
+    description: '',
+    serialNumber: '',
+    supplierId: '',
+    purchasePrice: '',
+    purchasedAt: '',
+    rentalRate: '',
+    state: 'active',
+    attributes: [],
 })
 const editing = computed(() => !!props.id)
 const category = computed(() => meta.value?.categories.find((c) => c.id === draft.value.categoryId) ?? null)
@@ -64,9 +75,18 @@ onMounted(async () => {
         if (props.id) {
             const i = await whApi.item(Number(props.id))
             draft.value = {
-                name: i.name, categoryId: i.category.id, tracking: i.tracking, unit: i.unit, inventoryNumber: i.inventoryNumber,
-                description: i.description ?? '', serialNumber: i.serialNumber ?? '', supplierId: '', purchasePrice: i.purchasePrice ?? '',
-                purchasedAt: i.purchasedAt ?? '', rentalRate: i.rentalRate ?? '', state: i.state,
+                name: i.name,
+                categoryId: i.category.id,
+                tracking: i.tracking,
+                unit: i.unit,
+                inventoryNumber: i.inventoryNumber,
+                description: i.description ?? '',
+                serialNumber: i.serialNumber ?? '',
+                supplierId: '',
+                purchasePrice: i.purchasePrice ?? '',
+                purchasedAt: i.purchasedAt ?? '',
+                rentalRate: i.rentalRate ?? '',
+                state: i.state,
                 attributes: Object.entries(i.attributes).map(([name, value]) => ({ name, value })),
             }
             supplierId.value = i.supplier?.id ?? 0
@@ -75,7 +95,9 @@ onMounted(async () => {
     } catch (e) {
         error.value = accessError(e) || session.handle(e)
     }
-    api.suppliers({ active: true }).then((r) => (suppliers.value = r.items)).catch(() => undefined)
+    api.suppliers({ active: true })
+        .then((r) => (suppliers.value = r.items))
+        .catch(() => undefined)
 })
 
 function onKey(e: KeyboardEvent) {
@@ -99,7 +121,10 @@ function onKey(e: KeyboardEvent) {
             </header>
             <div v-if="!ready" class="body t-empty">{{ error || 'Завантаження…' }}</div>
             <div v-else-if="meta" class="body">
-                <label class="w-field"><span>Назва *</span><input v-model="draft.name" class="t-input" type="text" required placeholder="напр. Кільце колодязне КС 10-9" /></label>
+                <label class="w-field">
+                    <span>Назва *</span>
+                    <input v-model="draft.name" class="t-input" type="text" required placeholder="напр. Кільце колодязне КС 10-9" />
+                </label>
                 <div class="t-two">
                     <label class="w-field">
                         <span>Категорія *</span>
@@ -108,7 +133,10 @@ function onKey(e: KeyboardEvent) {
                             <option v-for="c in meta.categories.filter((c) => c.active || c.id === draft.categoryId)" :key="c.id" :value="c.id">{{ c.emoji }} {{ c.name }}</option>
                         </select>
                     </label>
-                    <label class="w-field"><span>Інв. номер</span><input v-model="draft.inventoryNumber" class="t-input" type="text" :placeholder="category?.next ?? 'з категорії'" /></label>
+                    <label class="w-field">
+                        <span>Інв. номер</span>
+                        <input v-model="draft.inventoryNumber" class="t-input" type="text" :placeholder="category?.next ?? 'з категорії'" />
+                    </label>
                 </div>
                 <div class="t-two">
                     <label class="w-field">
@@ -132,14 +160,29 @@ function onKey(e: KeyboardEvent) {
                     </div>
                     <button type="button" class="p-link" @click="draft.attributes.push({ name: '', value: '' })">+ Характеристика</button>
                 </div>
-                <div class="w-field"><span>Постачальник / виробник</span><SupplierPicker v-model="supplierId" :suppliers="suppliers" @created="suppliers.push($event)" @error="error = $event" /></div>
-                <div class="t-two">
-                    <label class="w-field"><span>Ціна за од., ₴</span><input v-model="draft.purchasePrice" class="t-input" type="text" inputmode="decimal" /></label>
-                    <label class="w-field"><span>Оренда, ₴/доба</span><input v-model="draft.rentalRate" class="t-input" type="text" inputmode="decimal" /></label>
+                <div class="w-field">
+                    <span>Постачальник / виробник</span>
+                    <SupplierPicker v-model="supplierId" :suppliers="suppliers" @created="suppliers.push($event)" @error="error = $event" />
                 </div>
                 <div class="t-two">
-                    <label class="w-field"><span>Куплено</span><input v-model="draft.purchasedAt" class="t-input" type="date" /></label>
-                    <label class="w-field"><span>Серійний №</span><input v-model="draft.serialNumber" class="t-input" type="text" /></label>
+                    <label class="w-field">
+                        <span>Ціна за од., ₴</span>
+                        <input v-model="draft.purchasePrice" class="t-input" type="text" inputmode="decimal" />
+                    </label>
+                    <label class="w-field">
+                        <span>Оренда, ₴/доба</span>
+                        <input v-model="draft.rentalRate" class="t-input" type="text" inputmode="decimal" />
+                    </label>
+                </div>
+                <div class="t-two">
+                    <label class="w-field">
+                        <span>Куплено</span>
+                        <input v-model="draft.purchasedAt" class="t-input" type="date" />
+                    </label>
+                    <label class="w-field">
+                        <span>Серійний №</span>
+                        <input v-model="draft.serialNumber" class="t-input" type="text" />
+                    </label>
                 </div>
                 <label v-if="draft.state !== 'written_off'" class="w-field">
                     <span>Стан</span>
@@ -147,7 +190,10 @@ function onKey(e: KeyboardEvent) {
                         <option v-for="s in meta.states.filter((s) => s.value !== 'written_off')" :key="s.value" :value="s.value">{{ s.label }}</option>
                     </select>
                 </label>
-                <label class="w-field"><span>Опис</span><textarea v-model="draft.description" class="t-textarea" rows="3" /></label>
+                <label class="w-field">
+                    <span>Опис</span>
+                    <textarea v-model="draft.description" class="t-textarea" rows="3" />
+                </label>
 
                 <div v-if="error" class="t-error" role="alert">{{ error }}</div>
             </div>

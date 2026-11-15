@@ -38,7 +38,10 @@ const gridClass = computed(() => {
             <span class="badge" :class="extClass(f)">{{ f.ext }}</span>
             <img v-if="f.urls.thumb" :src="f.urls.thumb" :alt="f.name" loading="lazy" />
             <div v-else class="t-skel">
-                <i style="width: 70%" /><i style="width: 90%" /><i style="width: 55%" /><i style="width: 80%" />
+                <i style="width: 70%" />
+                <i style="width: 90%" />
+                <i style="width: 55%" />
+                <i style="width: 80%" />
                 <span>Готуємо превʼю…</span>
             </div>
             <span v-if="f.pages" class="pages">{{ pagesLabel(f.pages) }}</span>

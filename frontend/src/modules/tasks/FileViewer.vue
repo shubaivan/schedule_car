@@ -23,7 +23,12 @@ import { typing } from '../../plan/layers'
 const props = defineProps<{ files: Attachment[]; startId: number; shareOpen?: boolean }>()
 const emit = defineEmits<{ close: []; change: [id: number] }>()
 
-const index = ref(Math.max(0, props.files.findIndex((f) => f.id === props.startId)))
+const index = ref(
+    Math.max(
+        0,
+        props.files.findIndex((f) => f.id === props.startId),
+    ),
+)
 const file = computed(() => props.files[index.value])
 const zoom = ref(false)
 const sharing = ref(false)
@@ -37,10 +42,13 @@ watch(index, () => {
     if (file.value && file.value.id !== props.startId) emit('change', file.value.id)
 })
 // «Назад»/«Вперед» між файлами — адреса змінилась, показуємо той файл.
-watch(() => props.startId, (id) => {
-    const i = props.files.findIndex((f) => f.id === id)
-    if (i >= 0 && i !== index.value) index.value = i
-})
+watch(
+    () => props.startId,
+    (id) => {
+        const i = props.files.findIndex((f) => f.id === id)
+        if (i >= 0 && i !== index.value) index.value = i
+    },
+)
 
 function go(step: number) {
     if (props.files.length < 2) return
@@ -92,58 +100,67 @@ onBeforeUnmount(() => {
                 <div class="name">{{ file.name }}</div>
                 <div class="meta">
                     {{ file.sizeLabel }}
-                    <template v-if="file.pages"> · {{ pagesLabel(file.pages) }}</template>
-                    <template v-if="file.uploadedBy"> · <PersonName :name="file.uploadedBy" /></template>
-                    <template v-if="files.length > 1"> · {{ index + 1 }} з {{ files.length }}</template>
+                    <template v-if="file.pages">· {{ pagesLabel(file.pages) }}</template>
+                    <template v-if="file.uploadedBy">
+                        ·
+                        <PersonName :name="file.uploadedBy" />
+                    </template>
+                    <template v-if="files.length > 1">· {{ index + 1 }} з {{ files.length }}</template>
                 </div>
             </div>
             <a v-if="file.kind === 'pdf'" :href="file.urls.inline" target="_blank" rel="noopener">Відкрити</a>
             <a v-if="driveUrl" :href="driveUrl" target="_blank" rel="noopener noreferrer" class="hide-sm">Google Drive</a>
-            <a :href="file.urls.download">⬇ <span class="hide-sm">Скачати</span></a>
-            <button type="button" class="share" :class="{ on: sharing }" :aria-pressed="sharing" @click="sharing = !sharing">↗ <span class="hide-sm">Поділитися</span></button>
+            <a :href="file.urls.download">
+                ⬇
+                <span class="hide-sm">Скачати</span>
+            </a>
+            <button type="button" class="share" :class="{ on: sharing }" :aria-pressed="sharing" @click="sharing = !sharing">
+                ↗
+                <span class="hide-sm">Поділитися</span>
+            </button>
             <button type="button" aria-label="Закрити" @click="emit('close')">✕</button>
         </div>
 
         <div class="t-viewer-body">
-        <div class="t-viewer-stage" @touchstart.passive="touchStart" @touchend="touchEnd" @click.self="emit('close')">
-            <button v-if="files.length > 1" class="t-nav prev" type="button" aria-label="Попередній" @click="go(-1)">‹</button>
+            <div class="t-viewer-stage" @touchstart.passive="touchStart" @touchend="touchEnd" @click.self="emit('close')">
+                <button v-if="files.length > 1" class="t-nav prev" type="button" aria-label="Попередній" @click="go(-1)">‹</button>
 
-            <img
-                v-if="file.kind === 'image' && file.urls.view"
-                :key="file.id"
-                :src="file.urls.view"
-                :alt="file.name"
-                :class="{ zoom }"
-                :style="zoom ? { cursor: 'zoom-out' } : { cursor: 'zoom-in' }"
-                @click="zoom = !zoom"
+                <img
+                    v-if="file.kind === 'image' && file.urls.view"
+                    :key="file.id"
+                    :src="file.urls.view"
+                    :alt="file.name"
+                    :class="{ zoom }"
+                    :style="zoom ? { cursor: 'zoom-out' } : { cursor: 'zoom-in' }"
+                    @click="zoom = !zoom"
+                />
+
+                <div v-else-if="pages.length" :key="'p' + file.id" class="scroller" @click.self="emit('close')">
+                    <template v-for="n in pages" :key="n">
+                        <img class="page" :src="(file.urls.page ?? '') + n" :alt="'Сторінка ' + n" loading="lazy" />
+                        <div class="pg">{{ n }} / {{ pages.length }}</div>
+                    </template>
+                </div>
+
+                <div v-else class="nopv">
+                    <div class="big" :class="extClass(file)">{{ file.ext || 'FILE' }}</div>
+                    <div v-if="file.preview === 'pending'">Готуємо превʼю…</div>
+                    <div v-else>Для цього файлу перегляду немає — його можна скачати.</div>
+                    <a class="t-btn primary" :href="file.urls.download">⬇ Скачати {{ file.sizeLabel }}</a>
+                </div>
+
+                <button v-if="files.length > 1" class="t-nav next" type="button" aria-label="Наступний" @click="go(1)">›</button>
+            </div>
+            <SharePanel
+                v-if="sharing"
+                :id="file.id"
+                :key="'s' + file.id"
+                :type="fileTypeOf(file)"
+                :name="file.name"
+                :mime="file.mime"
+                :fetch-url="file.urls.inline"
+                @close="sharing = false"
             />
-
-            <div v-else-if="pages.length" :key="'p' + file.id" class="scroller" @click.self="emit('close')">
-                <template v-for="n in pages" :key="n">
-                    <img class="page" :src="(file.urls.page ?? '') + n" :alt="'Сторінка ' + n" loading="lazy" />
-                    <div class="pg">{{ n }} / {{ pages.length }}</div>
-                </template>
-            </div>
-
-            <div v-else class="nopv">
-                <div class="big" :class="extClass(file)">{{ file.ext || 'FILE' }}</div>
-                <div v-if="file.preview === 'pending'">Готуємо превʼю…</div>
-                <div v-else>Для цього файлу перегляду немає — його можна скачати.</div>
-                <a class="t-btn primary" :href="file.urls.download">⬇ Скачати {{ file.sizeLabel }}</a>
-            </div>
-
-            <button v-if="files.length > 1" class="t-nav next" type="button" aria-label="Наступний" @click="go(1)">›</button>
-        </div>
-        <SharePanel
-            v-if="sharing"
-            :id="file.id"
-            :key="'s' + file.id"
-            :type="fileTypeOf(file)"
-            :name="file.name"
-            :mime="file.mime"
-            :fetch-url="file.urls.inline"
-            @close="sharing = false"
-        />
         </div>
 
         <div v-if="files.length > 1" class="t-viewer-strip">
@@ -156,10 +173,22 @@ onBeforeUnmount(() => {
 </template>
 
 <style>
-.t-viewer-body { flex: 1; min-height: 0; display: flex; position: relative; }
-.t-viewer-body > .t-viewer-stage { flex: 1; min-width: 0; }
-.t-viewer-bar button.share.on { background: rgba(255, 255, 255, .3); }
+.t-viewer-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    position: relative;
+}
+.t-viewer-body > .t-viewer-stage {
+    flex: 1;
+    min-width: 0;
+}
+.t-viewer-bar button.share.on {
+    background: rgba(255, 255, 255, 0.3);
+}
 @media (max-width: 760px) {
-    .t-viewer-bar .hide-sm { display: none; }
+    .t-viewer-bar .hide-sm {
+        display: none;
+    }
 }
 </style>

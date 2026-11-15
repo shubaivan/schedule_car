@@ -68,14 +68,18 @@ const form = reactive(
 )
 if (!props.task && (form.description || form.labelIds.length)) more.value = true
 
-watch(form, (value) => {
-    if (props.task) return
-    try {
-        localStorage.setItem(DRAFT, JSON.stringify(value))
-    } catch {
-        /* приватне вікно — без чернетки */
-    }
-}, { deep: true })
+watch(
+    form,
+    (value) => {
+        if (props.task) return
+        try {
+            localStorage.setItem(DRAFT, JSON.stringify(value))
+        } catch {
+            /* приватне вікно — без чернетки */
+        }
+    },
+    { deep: true },
+)
 
 function dropDraft() {
     try {
@@ -180,98 +184,119 @@ onMounted(async () => {
 
 <template>
     <form class="t-formcard p-form p-form-page" aria-labelledby="p-form-title" @submit.prevent="save(!task)" @keydown="onKey">
-            <header>
-                <button type="button" class="p-icon-btn p-form-back" aria-label="Назад" title="Назад (Esc)" @click="emit('close')"><Icon name="back" /></button>
-                <h2 id="p-form-title">{{ task ? 'Редагувати задачу' : 'Нова задача' }}</h2>
-                <button type="button" class="p-icon-btn p-form-x" aria-label="Закрити" title="Закрити (Esc)" @click="emit('close')"><Icon name="x" /></button>
-            </header>
-            <div v-if="meta" class="body">
-                <div v-if="error" class="t-error">{{ error }}</div>
-                <textarea
-                    ref="titleBox"
-                    v-model="form.title"
-                    class="p-title-input"
-                    rows="1"
-                    placeholder="Назва: напр. «Кільця КС 10-9 — 40 шт, с. Ракове»"
-                    aria-label="Назва задачі"
-                    maxlength="255"
-                    @input="grow"
-                    @keydown.enter.exact.prevent
-                />
+        <header>
+            <button type="button" class="p-icon-btn p-form-back" aria-label="Назад" title="Назад (Esc)" @click="emit('close')"><Icon name="back" /></button>
+            <h2 id="p-form-title">{{ task ? 'Редагувати задачу' : 'Нова задача' }}</h2>
+            <button type="button" class="p-icon-btn p-form-x" aria-label="Закрити" title="Закрити (Esc)" @click="emit('close')"><Icon name="x" /></button>
+        </header>
+        <div v-if="meta" class="body">
+            <div v-if="error" class="t-error">{{ error }}</div>
+            <textarea
+                ref="titleBox"
+                v-model="form.title"
+                class="p-title-input"
+                rows="1"
+                placeholder="Назва: напр. «Кільця КС 10-9 — 40 шт, с. Ракове»"
+                aria-label="Назва задачі"
+                maxlength="255"
+                @input="grow"
+                @keydown.enter.exact.prevent
+            />
 
-                <div class="p-frow">
-                    <span class="k"><Icon name="users" :size="16" />Виконавці</span>
-                    <div class="v">
-                        <span v-for="d in chosen.deps" :key="'d' + d.id" class="p-dep">[{{ d.name }}]</span>
-                        <span v-for="p in chosen.people" :key="p.id" class="p-person-chip"><Avatar :person="p" :size="18" /><PersonName :person="p" :link="false" /></span>
-                        <button type="button" class="p-link" @click="picking = !picking">{{ chosen.deps.length || chosen.people.length ? (picking ? 'Готово' : 'Змінити') : 'Додати відділ або людей' }}</button>
-                    </div>
+            <div class="p-frow">
+                <span class="k">
+                    <Icon name="users" :size="16" />
+                    Виконавці
+                </span>
+                <div class="v">
+                    <span v-for="d in chosen.deps" :key="'d' + d.id" class="p-dep">[{{ d.name }}]</span>
+                    <span v-for="p in chosen.people" :key="p.id" class="p-person-chip">
+                        <Avatar :person="p" :size="18" />
+                        <PersonName :person="p" :link="false" />
+                    </span>
+                    <button type="button" class="p-link" @click="picking = !picking">
+                        {{ chosen.deps.length || chosen.people.length ? (picking ? 'Готово' : 'Змінити') : 'Додати відділ або людей' }}
+                    </button>
                 </div>
-                <PeoplePicker v-if="picking" v-model:members="form.memberIds" v-model:departments="form.departmentIds" :meta="meta" />
+            </div>
+            <PeoplePicker v-if="picking" v-model:members="form.memberIds" v-model:departments="form.departmentIds" :meta="meta" />
 
-                <div class="p-frow">
-                    <span class="k"><Icon name="calendar" :size="16" />Термін</span>
-                    <div class="v">
+            <div class="p-frow">
+                <span class="k">
+                    <Icon name="calendar" :size="16" />
+                    Термін
+                </span>
+                <div class="v">
+                    <button
+                        v-for="qd in QUICK"
+                        :key="qd.days"
+                        type="button"
+                        class="p-chip"
+                        :class="{ on: form.dueAt === iso(qd.days) }"
+                        @click="form.dueAt = form.dueAt === iso(qd.days) ? '' : iso(qd.days)"
+                    >
+                        {{ qd.label }}
+                    </button>
+                    <input v-model="form.dueAt" type="date" class="p-date" aria-label="Термін" />
+                </div>
+            </div>
+
+            <div class="p-frow">
+                <span class="k">
+                    <Icon name="building" :size="16" />
+                    Контрагент
+                </span>
+                <div class="v"><input v-model="form.client" class="p-inline-input" placeholder="Клієнт, обʼєкт" aria-label="Контрагент" /></div>
+            </div>
+
+            <button v-if="!more" type="button" class="p-more" @click="more = true">
+                <Icon name="down" :size="16" />
+                Більше полів: опис, мітки, файли
+            </button>
+            <template v-else>
+                <label class="t-field">
+                    <span>Опис</span>
+                    <textarea v-model="form.description" class="t-textarea" rows="3" placeholder="Що потрібно зробити" />
+                </label>
+                <div class="t-field">
+                    <span>Мітки</span>
+                    <div class="p-chips wrap">
                         <button
-                            v-for="qd in QUICK"
-                            :key="qd.days"
+                            v-for="l in meta.labels"
+                            :key="l.id"
                             type="button"
                             class="p-chip"
-                            :class="{ on: form.dueAt === iso(qd.days) }"
-                            @click="form.dueAt = form.dueAt === iso(qd.days) ? '' : iso(qd.days)"
-                        >{{ qd.label }}</button>
-                        <input v-model="form.dueAt" type="date" class="p-date" aria-label="Термін" />
+                            :class="{ on: form.labelIds.includes(l.id) }"
+                            :style="form.labelIds.includes(l.id) ? { background: l.color, borderColor: l.color } : {}"
+                            @click="toggleLabel(l.id)"
+                        >
+                            <span class="dot" :style="{ background: form.labelIds.includes(l.id) ? '#fff' : l.color }" />
+                            {{ l.name }}
+                        </button>
                     </div>
                 </div>
-
-                <div class="p-frow">
-                    <span class="k"><Icon name="building" :size="16" />Контрагент</span>
-                    <div class="v"><input v-model="form.client" class="p-inline-input" placeholder="Клієнт, обʼєкт" aria-label="Контрагент" /></div>
-                </div>
-
-                <button v-if="!more" type="button" class="p-more" @click="more = true"><Icon name="down" :size="16" />Більше полів: опис, мітки, файли</button>
-                <template v-else>
-                    <label class="t-field">
-                        <span>Опис</span>
-                        <textarea v-model="form.description" class="t-textarea" rows="3" placeholder="Що потрібно зробити" />
+                <div v-if="!task" class="t-field">
+                    <span>Файли</span>
+                    <label class="p-btn" style="align-self: flex-start">
+                        <Icon name="clip" :size="16" />
+                        Додати файли
+                        <input type="file" multiple hidden @change="pick" />
                     </label>
-                    <div class="t-field">
-                        <span>Мітки</span>
-                        <div class="p-chips wrap">
-                            <button
-                                v-for="l in meta.labels"
-                                :key="l.id"
-                                type="button"
-                                class="p-chip"
-                                :class="{ on: form.labelIds.includes(l.id) }"
-                                :style="form.labelIds.includes(l.id) ? { background: l.color, borderColor: l.color } : {}"
-                                @click="toggleLabel(l.id)"
-                            >
-                                <span class="dot" :style="{ background: form.labelIds.includes(l.id) ? '#fff' : l.color }" />{{ l.name }}
-                            </button>
-                        </div>
-                    </div>
-                    <div v-if="!task" class="t-field">
-                        <span>Файли</span>
-                        <label class="p-btn" style="align-self: flex-start">
-                            <Icon name="clip" :size="16" />Додати файли
-                            <input type="file" multiple hidden @change="pick" />
-                        </label>
-                        <div v-if="files.length" class="t-hint">{{ files.map((f) => f.name).join(', ') }}</div>
-                    </div>
-                </template>
-            </div>
-            <div v-else class="body t-empty">Завантаження…</div>
-            <footer>
-                <span class="p-hint-keys">{{ task ? 'Ctrl+Enter — зберегти' : 'Ctrl+Enter — створити й відкрити' }}</span>
-                <button type="button" class="p-btn ghost" @click="cancel">Скасувати</button>
-                <template v-if="task">
-                    <button type="submit" class="p-btn primary" :disabled="busy">{{ busy ? 'Зберігаємо…' : 'Зберегти' }}</button>
-                </template>
-                <template v-else>
-                    <button type="button" class="p-btn" :disabled="busy" @click="save(false)">Створити</button>
-                    <button type="submit" class="p-btn primary" :disabled="busy">{{ busy ? 'Створюємо…' : 'Створити й відкрити' }}</button>
-                </template>
-            </footer>
+                    <div v-if="files.length" class="t-hint">{{ files.map((f) => f.name).join(', ') }}</div>
+                </div>
+            </template>
+        </div>
+        <div v-else class="body t-empty">Завантаження…</div>
+        <footer>
+            <span class="p-hint-keys">{{ task ? 'Ctrl+Enter — зберегти' : 'Ctrl+Enter — створити й відкрити' }}</span>
+            <button type="button" class="p-btn ghost" @click="cancel">Скасувати</button>
+            <template v-if="task">
+                <button type="submit" class="p-btn primary" :disabled="busy">{{ busy ? 'Зберігаємо…' : 'Зберегти' }}</button>
+            </template>
+            <template v-else>
+                <button type="button" class="p-btn" :disabled="busy" @click="save(false)">Створити</button>
+                <button type="submit" class="p-btn primary" :disabled="busy">{{ busy ? 'Створюємо…' : 'Створити й відкрити' }}</button>
+            </template>
+        </footer>
     </form>
 </template>

@@ -216,10 +216,11 @@ let metaCache: Promise<WhMeta> | null = null
 export const whApi = {
     /** Довідники кешуються на сесію сторінки; після нової позиції чи нового об'єкта — meta(true). */
     meta: (fresh = false) => {
-        if (fresh || !metaCache) metaCache = call<WhMeta>('/api/warehouse/meta').catch((e) => {
-            metaCache = null
-            throw e
-        })
+        if (fresh || !metaCache)
+            metaCache = call<WhMeta>('/api/warehouse/meta').catch((e) => {
+                metaCache = null
+                throw e
+            })
         return metaCache
     },
     items: (params: { q?: string; category?: string; place?: string; state?: string; tracking?: string; off?: boolean }) =>

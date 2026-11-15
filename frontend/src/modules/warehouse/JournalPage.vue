@@ -20,7 +20,13 @@ const route = useRoute()
 const router = useRouter()
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '')
-const filters = computed(() => ({ user: str(route.query.user), action: str(route.query.action), type: str(route.query.type), from: str(route.query.from), to: str(route.query.to) }))
+const filters = computed(() => ({
+    user: str(route.query.user),
+    action: str(route.query.action),
+    type: str(route.query.type),
+    from: str(route.query.from),
+    to: str(route.query.to),
+}))
 const meta = ref<WhMeta | null>(null)
 const entries = ref<WhActivity[]>([])
 const people = ref<Person[]>([])
@@ -97,9 +103,16 @@ onMounted(async () => {
         <div class="t-panel w-journal-list" :aria-busy="loading">
             <div v-for="e in entries" :key="e.id" class="w-journal-row">
                 <span>
-                    {{ e.emoji }} <PersonName v-if="e.user" :person="e.user" bold /><b v-else>Система</b> {{ e.actionLabel.toLowerCase() }} ·
-                    <router-link v-if="link(e)" :to="link(e)!">{{ e.subjectLabel }}</router-link><template v-else>{{ e.subjectLabel }}</template>
-                    <template v-if="e.details"> · <span class="p-muted">{{ e.details }}</span></template>
+                    {{ e.emoji }}
+                    <PersonName v-if="e.user" :person="e.user" bold />
+                    <b v-else>Система</b>
+                    {{ e.actionLabel.toLowerCase() }} ·
+                    <router-link v-if="link(e)" :to="link(e)!">{{ e.subjectLabel }}</router-link>
+                    <template v-else>{{ e.subjectLabel }}</template>
+                    <template v-if="e.details">
+                        ·
+                        <span class="p-muted">{{ e.details }}</span>
+                    </template>
                 </span>
                 <small class="p-muted">{{ formatDateTime(e.at) }} · {{ e.channelLabel }}</small>
             </div>

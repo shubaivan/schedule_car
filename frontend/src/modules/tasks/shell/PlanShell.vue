@@ -88,19 +88,52 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
     <div class="p-shell" :class="{ 'task-open': fullscreen }">
         <nav class="p-rail" aria-label="Розділи">
             <router-link :to="{ name: 'tasks' }" class="p-logo" title="План · Огляд">П</router-link>
-            <router-link :to="{ name: 'tasks' }" class="p-rail-btn" :class="{ on: name === 'tasks' }" title="Огляд"><Icon name="home" /><span>Огляд</span></router-link>
-            <router-link :to="chronicleTarget(router)" class="p-rail-btn" :class="{ on: onChronicle }" title="Хроніка"><Icon name="activity" /><span>Хроніка</span><b v-if="unread" class="p-badge" :aria-label="unread + ' задач з новим'">{{ badge }}</b></router-link>
-            <router-link :to="{ name: 'tasks-board' }" class="p-rail-btn" :class="{ on: onTasks }" title="Задачі"><Icon name="board" /><span>Задачі</span></router-link>
-            <router-link :to="{ name: 'supply-board' }" class="p-rail-btn" :class="{ on: onSupply }" title="Заявки на постачання"><Icon name="clipboard" /><span>Заявки</span></router-link>
-            <router-link v-if="canWarehouse" :to="{ name: 'warehouse' }" class="p-rail-btn" :class="{ on: onWarehouse }" title="Склад"><Icon name="warehouse" /><span>Склад</span></router-link>
-            <router-link v-if="me?.fleet" :to="{ name: 'schedule' }" class="p-rail-btn" title="Автопарк"><Icon name="truck" /><span>Авто</span></router-link>
-            <router-link :to="searchTarget(router)" class="p-rail-btn" :class="{ on: onSearch }" title="Пошук ( / )"><Icon name="search" /><span>Пошук</span></router-link>
-            <router-link :to="{ name: 'notifications' }" class="p-rail-btn" :class="{ on: onNotifications }" title="Сповіщення" data-testid="rail-bell"><NotificationBell label /></router-link>
-            <router-link :to="{ name: 'staff' }" class="p-rail-btn" :class="{ on: onStaff }" title="Співробітники"><Icon name="users" /><span>Люди</span></router-link>
-            <router-link v-if="canAdmin" :to="{ name: 'admin' }" class="p-rail-btn" :class="{ on: onAdmin }" title="Адмін"><Icon name="shield" /><span>Адмін</span></router-link>
+            <router-link :to="{ name: 'tasks' }" class="p-rail-btn" :class="{ on: name === 'tasks' }" title="Огляд">
+                <Icon name="home" />
+                <span>Огляд</span>
+            </router-link>
+            <router-link :to="chronicleTarget(router)" class="p-rail-btn" :class="{ on: onChronicle }" title="Хроніка">
+                <Icon name="activity" />
+                <span>Хроніка</span>
+                <b v-if="unread" class="p-badge" :aria-label="unread + ' задач з новим'">{{ badge }}</b>
+            </router-link>
+            <router-link :to="{ name: 'tasks-board' }" class="p-rail-btn" :class="{ on: onTasks }" title="Задачі">
+                <Icon name="board" />
+                <span>Задачі</span>
+            </router-link>
+            <router-link :to="{ name: 'supply-board' }" class="p-rail-btn" :class="{ on: onSupply }" title="Заявки на постачання">
+                <Icon name="clipboard" />
+                <span>Заявки</span>
+            </router-link>
+            <router-link v-if="canWarehouse" :to="{ name: 'warehouse' }" class="p-rail-btn" :class="{ on: onWarehouse }" title="Склад">
+                <Icon name="warehouse" />
+                <span>Склад</span>
+            </router-link>
+            <router-link v-if="me?.fleet" :to="{ name: 'schedule' }" class="p-rail-btn" title="Автопарк">
+                <Icon name="truck" />
+                <span>Авто</span>
+            </router-link>
+            <router-link :to="searchTarget(router)" class="p-rail-btn" :class="{ on: onSearch }" title="Пошук ( / )">
+                <Icon name="search" />
+                <span>Пошук</span>
+            </router-link>
+            <router-link :to="{ name: 'notifications' }" class="p-rail-btn" :class="{ on: onNotifications }" title="Сповіщення" data-testid="rail-bell">
+                <NotificationBell label />
+            </router-link>
+            <router-link :to="{ name: 'staff' }" class="p-rail-btn" :class="{ on: onStaff }" title="Співробітники">
+                <Icon name="users" />
+                <span>Люди</span>
+            </router-link>
+            <router-link v-if="canAdmin" :to="{ name: 'admin' }" class="p-rail-btn" :class="{ on: onAdmin }" title="Адмін">
+                <Icon name="shield" />
+                <span>Адмін</span>
+            </router-link>
             <span class="p-rail-sp" />
             <router-link :to="newTarget" class="p-rail-btn p-rail-new" :title="newLabel" :aria-label="newLabel"><Icon name="plus" :stroke="2.2" /></router-link>
-            <router-link :to="{ name: 'tasks-profile' }" class="p-rail-btn" :class="{ on: name === 'tasks-profile' }" title="Профіль"><Icon name="user" /><span>Профіль</span></router-link>
+            <router-link :to="{ name: 'tasks-profile' }" class="p-rail-btn" :class="{ on: name === 'tasks-profile' }" title="Профіль">
+                <Icon name="user" />
+                <span>Профіль</span>
+            </router-link>
         </nav>
 
         <div class="p-main">
@@ -129,7 +162,16 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
                 </template>
                 <h1 v-else class="p-top-title">{{ title }}</h1>
                 <router-link :to="searchTarget(router)" class="p-icon-btn" title="Пошук" aria-label="Пошук"><Icon name="search" /></router-link>
-                <router-link :to="{ name: 'notifications' }" class="p-icon-btn p-mtop-2 p-mtop-bell" :class="{ on: onNotifications }" title="Сповіщення" aria-label="Сповіщення" data-testid="mobile-bell"><NotificationBell /></router-link>
+                <router-link
+                    :to="{ name: 'notifications' }"
+                    class="p-icon-btn p-mtop-2 p-mtop-bell"
+                    :class="{ on: onNotifications }"
+                    title="Сповіщення"
+                    aria-label="Сповіщення"
+                    data-testid="mobile-bell"
+                >
+                    <NotificationBell />
+                </router-link>
             </header>
 
             <main class="p-content">
@@ -138,11 +180,24 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         </div>
 
         <nav class="p-tabbar" aria-label="Вкладки">
-            <router-link :to="chronicleTarget(router)" :class="{ on: onChronicle }"><Icon name="activity" /><span>Хроніка</span><b v-if="unread" class="p-badge" :aria-label="unread + ' задач з новим'">{{ badge }}</b></router-link>
-            <router-link :to="{ name: 'tasks-board' }" :class="{ on: onTasks }"><Icon name="board" /><span>Задачі</span></router-link>
+            <router-link :to="chronicleTarget(router)" :class="{ on: onChronicle }">
+                <Icon name="activity" />
+                <span>Хроніка</span>
+                <b v-if="unread" class="p-badge" :aria-label="unread + ' задач з новим'">{{ badge }}</b>
+            </router-link>
+            <router-link :to="{ name: 'tasks-board' }" :class="{ on: onTasks }">
+                <Icon name="board" />
+                <span>Задачі</span>
+            </router-link>
             <router-link :to="newTarget" class="p-tab-new" :aria-label="newLabel"><Icon name="plus" :size="26" :stroke="2.2" /></router-link>
-            <router-link :to="{ name: 'supply-board' }" :class="{ on: onSupply }"><Icon name="clipboard" /><span>Заявки</span></router-link>
-            <router-link :to="{ name: 'tasks-profile' }" :class="{ on: onMore }"><Icon name="menu" /><span>Ще</span></router-link>
+            <router-link :to="{ name: 'supply-board' }" :class="{ on: onSupply }">
+                <Icon name="clipboard" />
+                <span>Заявки</span>
+            </router-link>
+            <router-link :to="{ name: 'tasks-profile' }" :class="{ on: onMore }">
+                <Icon name="menu" />
+                <span>Ще</span>
+            </router-link>
         </nav>
 
         <NotificationsHost />

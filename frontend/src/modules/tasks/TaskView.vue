@@ -150,7 +150,10 @@ onMounted(load)
                     @favorite="toggleFavorite"
                 />
 
-                <div v-if="banner" class="t-error p-banner" role="status">{{ banner }} <button type="button" class="p-link" @click="banner = null">Зрозуміло</button></div>
+                <div v-if="banner" class="t-error p-banner" role="status">
+                    {{ banner }}
+                    <button type="button" class="p-link" @click="banner = null">Зрозуміло</button>
+                </div>
                 <div v-if="error" class="t-error" style="margin: 0 1rem">{{ error }}</div>
                 <div class="t-mobile-tabs">
                     <button type="button" :class="{ on: tab === 'chat' }" @click="tab = 'chat'">💬 Чат</button>
@@ -165,12 +168,25 @@ onMounted(load)
                 <div v-if="tab !== 'files'" class="t-panel">
                     <h2>Деталі</h2>
                     <dl class="t-dl">
-                        <dt>Контрагент</dt><dd>{{ task.client ?? '—' }}</dd>
-                        <dt>Термін</dt><dd><span :class="{ 't-due over': task.overdue }">{{ task.dueAt ? new Date(task.dueAt).toLocaleDateString('uk-UA') + ' · ' + dueLabel(task.dueAt) : '—' }}</span></dd>
-                        <dt>Постановник</dt><dd class="t-person"><Avatar :person="task.creator" :size="22" /> <PersonName :person="task.creator" /></dd>
-                        <dt>Створено</dt><dd>{{ new Date(task.createdAt).toLocaleDateString('uk-UA') }}</dd>
+                        <dt>Контрагент</dt>
+                        <dd>{{ task.client ?? '—' }}</dd>
+                        <dt>Термін</dt>
+                        <dd>
+                            <span :class="{ 't-due over': task.overdue }">
+                                {{ task.dueAt ? new Date(task.dueAt).toLocaleDateString('uk-UA') + ' · ' + dueLabel(task.dueAt) : '—' }}
+                            </span>
+                        </dd>
+                        <dt>Постановник</dt>
+                        <dd class="t-person">
+                            <Avatar :person="task.creator" :size="22" />
+                            <PersonName :person="task.creator" />
+                        </dd>
+                        <dt>Створено</dt>
+                        <dd>{{ new Date(task.createdAt).toLocaleDateString('uk-UA') }}</dd>
                         <dt v-if="task.departments.length">Відділи</dt>
-                        <dd v-if="task.departments.length" class="p-deps-dd"><span v-for="d in task.departments" :key="d.id" class="p-dep">[{{ d.name }}]</span></dd>
+                        <dd v-if="task.departments.length" class="p-deps-dd">
+                            <span v-for="d in task.departments" :key="d.id" class="p-dep">[{{ d.name }}]</span>
+                        </dd>
                     </dl>
                     <template v-if="task.description">
                         <h2 style="margin-top: 1rem">Опис</h2>
@@ -178,19 +194,28 @@ onMounted(load)
                     </template>
                 </div>
                 <div v-if="tab !== 'files'" class="t-panel">
-                    <h2>Учасники <span class="count">{{ task.members.length }}</span></h2>
+                    <h2>
+                        Учасники
+                        <span class="count">{{ task.members.length }}</span>
+                    </h2>
                     <div class="t-people">
                         <div v-for="p in task.members" :key="p.id" class="t-person">
                             <Avatar :person="p" :size="32" />
                             <div style="min-width: 0">
                                 <div class="n"><PersonName :person="p" /></div>
-                                <div class="p">{{ p.position ?? p.roleLabel }}<template v-if="p.via"> · через «{{ p.via }}»</template></div>
+                                <div class="p">
+                                    {{ p.position ?? p.roleLabel }}
+                                    <template v-if="p.via">· через «{{ p.via }}»</template>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div v-if="tab !== 'details'" class="t-panel">
-                    <h2>Файли задачі <span class="count">{{ files.length }}</span></h2>
+                    <h2>
+                        Файли задачі
+                        <span class="count">{{ files.length }}</span>
+                    </h2>
                     <div v-if="files.length" class="t-gallery">
                         <button v-for="f in files" :key="f.id" type="button" :title="f.name" @click="openFile(f.id)">
                             <img v-if="f.urls.thumb" :src="f.urls.thumb" :alt="f.name" loading="lazy" />

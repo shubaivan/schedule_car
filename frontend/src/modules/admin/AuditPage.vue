@@ -62,11 +62,15 @@ const groups = computed(() => new Set((filters.value.group ?? '').split(',').fil
 
 /** Чернетка полів, які набирають (текст, IP, суб'єкт): у адресу — з паузою або по Enter. */
 const draft = reactive({ q: '', ip: '', subject: '' })
-watch(filters, (f) => {
-    draft.q = f.q ?? ''
-    draft.ip = f.ip ?? ''
-    draft.subject = f.subject ?? ''
-}, { immediate: true })
+watch(
+    filters,
+    (f) => {
+        draft.q = f.q ?? ''
+        draft.ip = f.ip ?? ''
+        draft.subject = f.subject ?? ''
+    },
+    { immediate: true },
+)
 
 function listQuery(query: LocationQuery): Record<string, string> {
     const out: Record<string, string> = {}
@@ -199,7 +203,9 @@ function dayLabel(day: string): string {
     const diff = Math.round((new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime() - date.getTime()) / 86400000)
     if (diff === 0) return 'Сьогодні'
     if (diff === 1) return 'Вчора'
-    return new Intl.DateTimeFormat('uk-UA', { weekday: 'short', day: 'numeric', month: 'long', year: date.getFullYear() === today.getFullYear() ? undefined : 'numeric' }).format(date)
+    return new Intl.DateTimeFormat('uk-UA', { weekday: 'short', day: 'numeric', month: 'long', year: date.getFullYear() === today.getFullYear() ? undefined : 'numeric' }).format(
+        date,
+    )
 }
 
 const totalLabel = computed(() => (totalCapped.value ? `понад ${total.value.toLocaleString('uk-UA')}` : total.value.toLocaleString('uk-UA')))
@@ -251,11 +257,16 @@ onBeforeUnmount(() => {
                 <span class="t-sub" aria-live="polite">{{ loading && !items.length ? 'Завантаження…' : totalLabel + ' ' + plural(total, 'подія', 'події', 'подій') }}</span>
                 <span class="sp" />
                 <button type="button" class="t-btn small ghost a-filters-btn" :aria-expanded="filtersOpen" @click="filtersOpen = !filtersOpen">
-                    Фільтри<b v-if="activeCount" class="a-count">{{ activeCount }}</b>
+                    Фільтри
+                    <b v-if="activeCount" class="a-count">{{ activeCount }}</b>
                 </button>
-                <router-link v-if="canSeeJoinRequests(session.user)" class="t-btn small ghost" :to="{ name: 'admin-join' }" title="Хто просить доступ через бота">Заявки на приєднання</router-link>
+                <router-link v-if="canSeeJoinRequests(session.user)" class="t-btn small ghost" :to="{ name: 'admin-join' }" title="Хто просить доступ через бота">
+                    Заявки на приєднання
+                </router-link>
                 <router-link class="t-btn small ghost" :to="{ name: 'drive-status' }" title="Стан копіювання файлів на Google Диск">Google Диск</router-link>
-                <a class="t-btn small ghost" :href="csvHref" download :title="'CSV, до ' + (meta?.csvMax ?? 50000).toLocaleString('uk-UA') + ' рядків за поточними фільтрами'">Експорт CSV</a>
+                <a class="t-btn small ghost" :href="csvHref" download :title="'CSV, до ' + (meta?.csvMax ?? 50000).toLocaleString('uk-UA') + ' рядків за поточними фільтрами'">
+                    Експорт CSV
+                </a>
             </div>
 
             <form class="a-filters" :class="{ open: filtersOpen }" role="search" @submit.prevent="typed('q', true)">
@@ -280,7 +291,14 @@ onBeforeUnmount(() => {
                 </label>
                 <label class="a-field">
                     <span>Суб'єкт</span>
-                    <input v-model="draft.subject" placeholder="task-12" spellcheck="false" autocapitalize="off" @input="typed('subject')" @keydown.enter.prevent="typed('subject', true)" />
+                    <input
+                        v-model="draft.subject"
+                        placeholder="task-12"
+                        spellcheck="false"
+                        autocapitalize="off"
+                        @input="typed('subject')"
+                        @keydown.enter.prevent="typed('subject', true)"
+                    />
                 </label>
                 <label class="a-field">
                     <span>З</span>
@@ -307,14 +325,21 @@ onBeforeUnmount(() => {
                     :aria-pressed="groups.has(g.value)"
                     :title="g.types.map((t) => t.label).join(', ')"
                     @click="toggleGroup(g.value)"
-                >{{ g.label }}</button>
+                >
+                    {{ g.label }}
+                </button>
             </div>
 
             <div v-if="error" class="t-error">{{ error }}</div>
 
             <div ref="list" class="a-list" :class="{ busy: loading }" @keydown="onKey">
                 <div class="a-row a-row-head" aria-hidden="true">
-                    <span>Час</span><span>Хто</span><span>Подія</span><span>Що</span><span>Деталі</span><span>Звідки</span>
+                    <span>Час</span>
+                    <span>Хто</span>
+                    <span>Подія</span>
+                    <span>Що</span>
+                    <span>Деталі</span>
+                    <span>Звідки</span>
                 </div>
                 <template v-for="d in days" :key="d.day">
                     <div class="a-day">{{ d.label }}</div>
@@ -330,8 +355,13 @@ onBeforeUnmount(() => {
                         @keydown.enter="open(item)"
                     >
                         <span class="a-at">{{ auditStamp(item.at).slice(-5) }}</span>
-                        <span class="a-who"><PersonName v-if="item.actor" :person="item.actor" :link="false" /><template v-else>{{ item.channel === 'cli' ? 'Система' : '—' }}</template></span>
-                        <span class="a-type"><i class="a-badge" :class="'tone-' + (GROUP_TONE[item.group ?? ''] ?? 'slate')">{{ item.typeLabel }}</i></span>
+                        <span class="a-who">
+                            <PersonName v-if="item.actor" :person="item.actor" :link="false" />
+                            <template v-else>{{ item.channel === 'cli' ? 'Система' : '—' }}</template>
+                        </span>
+                        <span class="a-type">
+                            <i class="a-badge" :class="'tone-' + (GROUP_TONE[item.group ?? ''] ?? 'slate')">{{ item.typeLabel }}</i>
+                        </span>
                         <span class="a-subj">
                             <small>{{ item.subject.kindLabel }}</small>
                             {{ item.subject.title ?? item.subject.key }}
@@ -345,7 +375,8 @@ onBeforeUnmount(() => {
                             </template>
                         </span>
                         <span class="a-from">
-                            {{ CHANNELS[item.channel] ?? item.channel }}<template v-if="item.ip"> · {{ item.ip }}</template>
+                            {{ CHANNELS[item.channel] ?? item.channel }}
+                            <template v-if="item.ip">· {{ item.ip }}</template>
                             <i v-if="item.backfill" class="a-hist" title="Перенесено з історії (plan:events:backfill)">іст.</i>
                         </span>
                     </div>
@@ -361,8 +392,8 @@ onBeforeUnmount(() => {
             </nav>
 
             <p v-if="meta" class="a-note">
-                Входи, перегляди, скачування й поширення зберігаються {{ meta.retention.days }} дн.; дії із задачами, заявками й складом — без обмеження.
-                Перегляд картки й скачування того самого файлу однією людиною — не частіше одного рядка за 10 хв.
+                Входи, перегляди, скачування й поширення зберігаються {{ meta.retention.days }} дн.; дії із задачами, заявками й складом — без обмеження. Перегляд картки й
+                скачування того самого файлу однією людиною — не частіше одного рядка за 10 хв.
             </p>
         </div>
 

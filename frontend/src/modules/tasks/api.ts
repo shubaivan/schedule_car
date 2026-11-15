@@ -148,9 +148,32 @@ export type SearchTab = 'all' | 'tasks' | 'comments' | 'files' | 'people'
 export interface SearchResult {
     q: string
     counts: Record<Exclude<SearchTab, 'all'>, number>
-    tasks?: { id: number; number: string; title: Hit[]; client: string | null; snippet: Hit[]; status: string; statusLabel: string; closed: boolean; favorite: boolean; at: string }[]
+    tasks?: {
+        id: number
+        number: string
+        title: Hit[]
+        client: string | null
+        snippet: Hit[]
+        status: string
+        statusLabel: string
+        closed: boolean
+        favorite: boolean
+        at: string
+    }[]
     comments?: { id: number; taskId: number; taskNumber: string; taskTitle: string; closed: boolean; author: Person | null; snippet: Hit[]; starred: boolean; at: string }[]
-    files?: { id: number; name: Hit[]; plainName: string; kind: string; sizeLabel: string; thumb: string | null; taskId: number; taskNumber: string; taskTitle: string; closed: boolean; at: string }[]
+    files?: {
+        id: number
+        name: Hit[]
+        plainName: string
+        kind: string
+        sizeLabel: string
+        thumb: string | null
+        taskId: number
+        taskNumber: string
+        taskTitle: string
+        closed: boolean
+        at: string
+    }[]
     people?: (Person & { nameMarked: Hit[] })[]
 }
 
@@ -259,8 +282,7 @@ export const tasksApi = {
     get: (id: number) => call<TaskDetail>(`/api/tasks/${id}`),
     create: (payload: TaskPayload) => call<TaskDetail>('/api/tasks', { method: 'POST', body: json(payload) }),
     update: (id: number, payload: TaskPayload) => call<TaskDetail>(`/api/tasks/${id}`, { method: 'PATCH', body: json(payload) }),
-    status: (id: number, to: string, comment?: string) =>
-        call<TaskDetail>(`/api/tasks/${id}/status`, { method: 'POST', body: json({ to, comment }) }),
+    status: (id: number, to: string, comment?: string) => call<TaskDetail>(`/api/tasks/${id}/status`, { method: 'POST', body: json({ to, comment }) }),
     poll: (id: number, after: number, pending: number[], changedSince?: string | null) => {
         const params = new URLSearchParams({ after: String(after) })
         pending.forEach((p) => params.append('pending[]', String(p)))
@@ -275,12 +297,9 @@ export const tasksApi = {
         if (replyTo) form.append('replyTo', String(replyTo))
         return upload<Message>(`/api/tasks/${id}/messages`, form)
     },
-    editMessage: (id: number, messageId: number, text: string) =>
-        call<Message>(`/api/tasks/${id}/messages/${messageId}`, { method: 'PATCH', body: json({ text }) }),
-    pinMessage: (id: number, messageId: number, on: boolean) =>
-        call<Message>(`/api/tasks/${id}/messages/${messageId}/pin`, { method: 'POST', body: json({ on }) }),
-    starMessage: (id: number, messageId: number, on: boolean) =>
-        call<Message>(`/api/tasks/${id}/messages/${messageId}/star`, { method: 'POST', body: json({ on }) }),
+    editMessage: (id: number, messageId: number, text: string) => call<Message>(`/api/tasks/${id}/messages/${messageId}`, { method: 'PATCH', body: json({ text }) }),
+    pinMessage: (id: number, messageId: number, on: boolean) => call<Message>(`/api/tasks/${id}/messages/${messageId}/pin`, { method: 'POST', body: json({ on }) }),
+    starMessage: (id: number, messageId: number, on: boolean) => call<Message>(`/api/tasks/${id}/messages/${messageId}/star`, { method: 'POST', body: json({ on }) }),
     favorite: (id: number, on: boolean) => call<{ favorite: boolean }>(`/api/tasks/${id}/favorite`, { method: 'POST', body: json({ on }) }),
     markRead: (id: number) => call<ChronicleCounts>(`/api/tasks/${id}/read`, { method: 'POST' }),
     // Хроніка й пошук — v2 (/api/plan/chronicle, /api/plan/search) у modules/plan/api.ts.

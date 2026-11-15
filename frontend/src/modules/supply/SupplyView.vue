@@ -223,21 +223,26 @@ const closeFile = () => closeLayer(router, route, 'f')
 const showFile = (id: number) => router.replace({ query: { ...route.query, f: String(id) } })
 
 function onChatReload() {
-    api.request(Number(props.id)).then((r) => {
-        request.value = r
-        emit('changed', r)
-    }).catch(() => undefined)
+    api.request(Number(props.id))
+        .then((r) => {
+            request.value = r
+            emit('changed', r)
+        })
+        .catch(() => undefined)
 }
 
 // Та сама сторінка, інша заявка (/supply/:id/full): стрічка й адаптер — уже нової заявки.
-watch(() => props.id, (id) => {
-    feedReady.value = false
-    subject.id = Number(id)
-    subject.status = ''
-    subject.messages.splice(0)
-    subject.files.splice(0)
-    load()
-})
+watch(
+    () => props.id,
+    (id) => {
+        feedReady.value = false
+        subject.id = Number(id)
+        subject.status = ''
+        subject.messages.splice(0)
+        subject.files.splice(0)
+        load()
+    },
+)
 
 // ?f= на файл, якого немає (видалили, чуже посилання) — прибираємо з адреси, щоб не глушив клавіші.
 watch([() => route.query.f, feedReady, () => subject.files.length], () => {
@@ -268,9 +273,28 @@ onMounted(load)
                         <span class="num">Заявка № {{ request.number }}</span>
                         <span v-if="request.department" class="client">· {{ request.department }}</span>
                         <span class="sp" />
-                        <router-link v-if="embedded" :to="{ name: 'supply-full', params: { id: request.id } }" class="p-icon-btn" title="Відкрити окремо" aria-label="Відкрити окремо"><Icon name="monitor" :size="18" /></router-link>
-                        <button type="button" class="p-icon-btn p-side-toggle" :class="{ on: sideOpen }" title="Деталі, закупівля, документи" aria-label="Деталі" @click="sideOpen = !sideOpen"><Icon name="info" :size="18" /></button>
-                        <button v-if="embedded" type="button" class="p-icon-btn p-close" title="Закрити (Esc)" aria-label="Закрити" @click="emit('close')"><Icon name="x" /></button>
+                        <router-link
+                            v-if="embedded"
+                            :to="{ name: 'supply-full', params: { id: request.id } }"
+                            class="p-icon-btn"
+                            title="Відкрити окремо"
+                            aria-label="Відкрити окремо"
+                        >
+                            <Icon name="monitor" :size="18" />
+                        </router-link>
+                        <button
+                            type="button"
+                            class="p-icon-btn p-side-toggle"
+                            :class="{ on: sideOpen }"
+                            title="Деталі, закупівля, документи"
+                            aria-label="Деталі"
+                            @click="sideOpen = !sideOpen"
+                        >
+                            <Icon name="info" :size="18" />
+                        </button>
+                        <button v-if="embedded" type="button" class="p-icon-btn p-close" title="Закрити (Esc)" aria-label="Закрити" @click="emit('close')">
+                            <Icon name="x" />
+                        </button>
                     </div>
                     <h1 class="p-ttitle">
                         <span v-if="request.accent !== 'none'" class="p-accent" :title="request.accentLabel">{{ request.accentEmoji }}</span>
@@ -278,19 +302,32 @@ onMounted(load)
                     </h1>
                     <div class="p-thead-meta">
                         <div class="p-status">
-                            <button type="button" class="p-status-btn" :class="tone(request.status)" :disabled="!moves.length || busy" :aria-expanded="movesOpen" :title="moves.length ? 'Змінити статус' : 'Статус'" @click="movesOpen = !movesOpen">
-                                {{ request.statusLabel }}<Icon v-if="moves.length" name="down" :size="14" :stroke="2.2" />
+                            <button
+                                type="button"
+                                class="p-status-btn"
+                                :class="tone(request.status)"
+                                :disabled="!moves.length || busy"
+                                :aria-expanded="movesOpen"
+                                :title="moves.length ? 'Змінити статус' : 'Статус'"
+                                @click="movesOpen = !movesOpen"
+                            >
+                                {{ request.statusLabel }}
+                                <Icon v-if="moves.length" name="down" :size="14" :stroke="2.2" />
                             </button>
                         </div>
                         <span v-if="request.urgent" class="p-urgent">терміново</span>
-                        <span v-if="request.needBy" class="p-due" :class="{ over: request.overdue }"><Icon name="clock" :size="14" :stroke="2" />{{ request.overdue ? 'прострочено · ' : 'до ' }}{{ formatDate(request.needBy) }}</span>
+                        <span v-if="request.needBy" class="p-due" :class="{ over: request.overdue }">
+                            <Icon name="clock" :size="14" :stroke="2" />
+                            {{ request.overdue ? 'прострочено · ' : 'до ' }}{{ formatDate(request.needBy) }}
+                        </span>
                         <span class="p-muted"><PersonName :person="request.author" /></span>
                     </div>
 
                     <!-- Переходи менеджера — рядком у шапці (не спливаюче меню). -->
                     <div v-if="movesOpen && moves.length" class="p-moves" role="group" aria-label="Змінити статус">
                         <button v-for="t in moves" :key="t.value" type="button" class="p-chip" :disabled="busy" @click="move(t.value)">
-                            <span class="dot" :class="tone(t.value)" />{{ t.label }}
+                            <span class="dot" :class="tone(t.value)" />
+                            {{ t.label }}
                         </button>
                         <button type="button" class="p-link" @click="movesOpen = false">Згорнути</button>
                     </div>
@@ -307,7 +344,9 @@ onMounted(load)
                                 :class="d.value === 'approved' ? 'primary' : d.value === 'rejected' ? 'danger' : ''"
                                 :disabled="busy"
                                 @click="move(d.value)"
-                            >{{ d.label }}</button>
+                            >
+                                {{ d.label }}
+                            </button>
                         </div>
                     </div>
                     <div v-else-if="isDecision" class="t-decision">⏳ Чекає рішення директора</div>
@@ -336,12 +375,24 @@ onMounted(load)
                 <div v-if="tab !== 'files'" class="t-panel">
                     <h2>Деталі</h2>
                     <dl class="t-dl">
-                        <dt>Кількість</dt><dd>{{ quantity(request) }}</dd>
-                        <dt>Потрібно до</dt><dd>{{ request.needBy ? formatDate(request.needBy) : '—' }}</dd>
-                        <dt>Обʼєкт</dt><dd>{{ request.site ?? '—' }}</dd>
-                        <dt>Заявник</dt><dd>{{ request.author.name }}<template v-if="request.author.phone"><br /><a :href="'tel:+' + request.author.phone.replace(/^\+/, '')">+{{ request.author.phone.replace(/^\+/, '') }}</a></template></dd>
-                        <dt>Підрозділ</dt><dd>{{ request.department ?? '—' }}</dd>
-                        <dt>Подано</dt><dd>{{ formatDateTime(request.createdAt) }}</dd>
+                        <dt>Кількість</dt>
+                        <dd>{{ quantity(request) }}</dd>
+                        <dt>Потрібно до</dt>
+                        <dd>{{ request.needBy ? formatDate(request.needBy) : '—' }}</dd>
+                        <dt>Обʼєкт</dt>
+                        <dd>{{ request.site ?? '—' }}</dd>
+                        <dt>Заявник</dt>
+                        <dd>
+                            {{ request.author.name }}
+                            <template v-if="request.author.phone">
+                                <br />
+                                <a :href="'tel:+' + request.author.phone.replace(/^\+/, '')">+{{ request.author.phone.replace(/^\+/, '') }}</a>
+                            </template>
+                        </dd>
+                        <dt>Підрозділ</dt>
+                        <dd>{{ request.department ?? '—' }}</dd>
+                        <dt>Подано</dt>
+                        <dd>{{ formatDateTime(request.createdAt) }}</dd>
                     </dl>
                     <template v-if="request.note">
                         <h2 style="margin-top: 1rem">Примітка</h2>
@@ -350,17 +401,38 @@ onMounted(load)
                     <template v-if="canManage">
                         <h2 style="margin-top: 1rem">Мітка для керівника</h2>
                         <div class="p-chips wrap">
-                            <button v-for="a in accents" :key="a.value" type="button" class="p-chip" :class="{ on: request.accent === a.value }" :disabled="busy" @click="setAccent(request.accent === a.value ? 'none' : a.value)">{{ a.emoji }} {{ a.label }}</button>
+                            <button
+                                v-for="a in accents"
+                                :key="a.value"
+                                type="button"
+                                class="p-chip"
+                                :class="{ on: request.accent === a.value }"
+                                :disabled="busy"
+                                @click="setAccent(request.accent === a.value ? 'none' : a.value)"
+                            >
+                                {{ a.emoji }} {{ a.label }}
+                            </button>
                         </div>
                     </template>
                 </div>
 
                 <div v-if="tab !== 'files'" class="t-panel">
-                    <h2>Закупівля <span v-if="request.purchases?.length" class="count">{{ money(request.purchaseTotal ?? 0) }}</span></h2>
+                    <h2>
+                        Закупівля
+                        <span v-if="request.purchases?.length" class="count">{{ money(request.purchaseTotal ?? 0) }}</span>
+                    </h2>
                     <p v-if="!request.purchases?.length" class="t-hint" style="padding: 0">Ще не вказано, у кого купили. Без цього заявку не перевести на затвердження.</p>
                     <div v-for="p in request.purchases" :key="p.id" class="p-purchase">
-                        <div><b>{{ p.supplier.name }}</b> · {{ p.totalLabel }}<span v-if="!p.vatIncluded" class="p-muted"> без ПДВ</span></div>
-                        <div class="p-muted p-small">{{ p.paymentLabel }}<template v-if="p.invoiceNumber"> · накладна {{ p.invoiceNumber }}</template><template v-if="p.quantity"> · {{ p.quantity }}</template></div>
+                        <div>
+                            <b>{{ p.supplier.name }}</b>
+                            · {{ p.totalLabel }}
+                            <span v-if="!p.vatIncluded" class="p-muted">без ПДВ</span>
+                        </div>
+                        <div class="p-muted p-small">
+                            {{ p.paymentLabel }}
+                            <template v-if="p.invoiceNumber">· накладна {{ p.invoiceNumber }}</template>
+                            <template v-if="p.quantity">· {{ p.quantity }}</template>
+                        </div>
                         <button v-if="canManage" type="button" class="p-link danger" :disabled="busy" @click="removePurchase(p.id)">Прибрати</button>
                     </div>
                     <template v-if="canManage">
@@ -375,8 +447,14 @@ onMounted(load)
                                 <input v-model="purchase.pricePerUnit" class="t-input" type="text" inputmode="decimal" placeholder="Ціна за одиницю" aria-label="Ціна за одиницю" />
                             </div>
                             <div class="t-two">
-                                <select v-model="purchase.payment" class="t-select" aria-label="Оплата"><option value="bank">Безготівка</option><option value="cash">Готівка</option></select>
-                                <label class="p-check"><input v-model="purchase.vatIncluded" type="checkbox" /> з ПДВ</label>
+                                <select v-model="purchase.payment" class="t-select" aria-label="Оплата">
+                                    <option value="bank">Безготівка</option>
+                                    <option value="cash">Готівка</option>
+                                </select>
+                                <label class="p-check">
+                                    <input v-model="purchase.vatIncluded" type="checkbox" />
+                                    з ПДВ
+                                </label>
                             </div>
                             <div class="t-actions">
                                 <button type="button" class="t-btn small primary" :disabled="busy || !purchase.supplierId" @click="savePurchase">Зберегти</button>
@@ -388,7 +466,10 @@ onMounted(load)
                 </div>
 
                 <div v-if="tab !== 'details'" class="t-panel">
-                    <h2>Документи <span class="count">{{ files.length }}</span></h2>
+                    <h2>
+                        Документи
+                        <span class="count">{{ files.length }}</span>
+                    </h2>
                     <div v-if="files.length" class="p-docs">
                         <div v-for="f in files" :key="f.id" class="p-doc">
                             <button type="button" class="p-doc-open" :title="f.name" @click="openFile(f.id)">
@@ -397,12 +478,22 @@ onMounted(load)
                             </button>
                             <div class="p-doc-info">
                                 <button type="button" class="p-doc-name" @click="openFile(f.id)">{{ f.name }}</button>
-                                <div class="p-muted p-small">{{ f.typeLabel }} · {{ f.sizeLabel }}<template v-if="f.uploadedBy"> · <PersonName :name="f.uploadedBy" /></template></div>
+                                <div class="p-muted p-small">
+                                    {{ f.typeLabel }} · {{ f.sizeLabel }}
+                                    <template v-if="f.uploadedBy">
+                                        ·
+                                        <PersonName :name="f.uploadedBy" />
+                                    </template>
+                                </div>
                                 <div class="p-small">
                                     <a v-if="f.driveUrl" :href="f.driveUrl" target="_blank" rel="noopener">Google Drive</a>
                                     <span v-else class="p-muted">Drive: у черзі</span>
-                                    · <a :href="f.urls.download">Скачати</a>
-                                    <template v-if="subject.can.removeFiles"> · <button type="button" class="p-link danger" @click="removeFile(f)">Прибрати</button></template>
+                                    ·
+                                    <a :href="f.urls.download">Скачати</a>
+                                    <template v-if="subject.can.removeFiles">
+                                        ·
+                                        <button type="button" class="p-link danger" @click="removeFile(f)">Прибрати</button>
+                                    </template>
                                 </div>
                             </div>
                         </div>
@@ -413,7 +504,8 @@ onMounted(load)
                             <option v-for="t in ATTACHMENT_TYPES" :key="t.value" :value="t.value">{{ t.label }}</option>
                         </select>
                         <label class="p-btn">
-                            <Icon name="clip" :size="16" />{{ uploading ? 'Завантаження…' : 'Додати документ' }}
+                            <Icon name="clip" :size="16" />
+                            {{ uploading ? 'Завантаження…' : 'Додати документ' }}
                             <input type="file" multiple hidden accept=".pdf,.jpg,.jpeg,.png,.heic,.webp,.doc,.docx,.xls,.xlsx" :disabled="uploading" @change="upload" />
                         </label>
                     </div>

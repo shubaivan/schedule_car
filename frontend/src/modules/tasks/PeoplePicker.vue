@@ -44,7 +44,8 @@ function toggleDep(id: number) {
                 <button type="button" aria-label="Прибрати" @click="toggleDep(d.id)">✕</button>
             </span>
             <span v-for="p in chosenPeople" :key="p.id" class="c">
-                <Avatar :person="p" :size="20" /> <PersonName :person="p" :link="false" />
+                <Avatar :person="p" :size="20" />
+                <PersonName :person="p" :link="false" />
                 <button type="button" aria-label="Прибрати" @click="togglePerson(p.id)">✕</button>
             </span>
         </div>
@@ -55,16 +56,12 @@ function toggleDep(id: number) {
         <input v-model="q" class="t-input search" placeholder="Пошук: імʼя, посада, відділ" />
         <div class="list">
             <template v-if="tab === 'people'">
-                <button
-                    v-for="p in people"
-                    :key="p.id"
-                    type="button"
-                    class="item"
-                    :class="{ on: members.includes(p.id) || viaDeps.has(p.id) }"
-                    @click="togglePerson(p.id)"
-                >
+                <button v-for="p in people" :key="p.id" type="button" class="item" :class="{ on: members.includes(p.id) || viaDeps.has(p.id) }" @click="togglePerson(p.id)">
                     <Avatar :person="p" :size="30" />
-                    <span class="grow"><PersonName :person="p" :link="false" /><small>{{ p.position ?? p.roleLabel }} · {{ p.department ?? 'без відділу' }}</small></span>
+                    <span class="grow">
+                        <PersonName :person="p" :link="false" />
+                        <small>{{ p.position ?? p.roleLabel }} · {{ p.department ?? 'без відділу' }}</small>
+                    </span>
                     <span v-if="members.includes(p.id)">✓</span>
                     <small v-else-if="viaDeps.has(p.id)">через відділ</small>
                 </button>
@@ -72,7 +69,10 @@ function toggleDep(id: number) {
             <template v-else>
                 <button v-for="d in deps" :key="d.id" type="button" class="item" :class="{ on: departments.includes(d.id) }" @click="toggleDep(d.id)">
                     <span class="t-ava" :style="{ width: '30px', height: '30px', fontSize: '12px', background: '#8b5cf6' }">{{ d.name.replace(/^\d+\.\s*/, '').charAt(0) }}</span>
-                    <span class="grow">{{ d.name }}<small>{{ peopleLabel(d.people.length) }} — {{ d.people.length === 1 ? 'додасться' : 'додадуться всі' }}</small></span>
+                    <span class="grow">
+                        {{ d.name }}
+                        <small>{{ peopleLabel(d.people.length) }} — {{ d.people.length === 1 ? 'додасться' : 'додадуться всі' }}</small>
+                    </span>
                     <span v-if="departments.includes(d.id)">✓</span>
                 </button>
             </template>

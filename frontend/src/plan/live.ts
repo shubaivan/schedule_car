@@ -30,8 +30,7 @@ export function useLiveRefresh(refresh: () => unknown, options: LiveOptions): vo
     let off: (() => void) | undefined
 
     let alive = false
-    const interval = () =>
-        store.transport === 'mercure' && !options.fastWhile?.() ? Math.max(LIVE_FALLBACK_MS, options.fallbackMs ?? LIVE_FALLBACK_MS) : options.pollMs
+    const interval = () => (store.transport === 'mercure' && !options.fastWhile?.() ? Math.max(LIVE_FALLBACK_MS, options.fallbackMs ?? LIVE_FALLBACK_MS) : options.pollMs)
     const tick = () => {
         if (!document.hidden) void refresh()
     }
@@ -54,10 +53,13 @@ export function useLiveRefresh(refresh: () => unknown, options: LiveOptions): vo
         })
     })
     // Канал змінився (Mercure підключився або впав) — новий розклад; після падіння — одразу дочитати.
-    watch(() => store.transport, (now, before) => {
-        schedule()
-        if (before === 'mercure' && now !== 'mercure') tick()
-    })
+    watch(
+        () => store.transport,
+        (now, before) => {
+            schedule()
+            if (before === 'mercure' && now !== 'mercure') tick()
+        },
+    )
     onBeforeUnmount(() => {
         alive = false
         window.clearTimeout(timer)

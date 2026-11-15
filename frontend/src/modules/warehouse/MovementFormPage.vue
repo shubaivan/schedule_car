@@ -107,12 +107,15 @@ async function cancel() {
     goBack(router, route.query.item ? { name: 'warehouse-items', params: { id: str(route.query.item) } } : { name: 'warehouse-movements' })
 }
 
-watch(() => draft.value.type, () => {
-    // Інший тип — інші правила місць: прибираємо те, що вже не підходить.
-    if (draft.value.fromId && !fromSites.value.some((s) => String(s.id) === draft.value.fromId)) draft.value.fromId = ''
-    if (draft.value.toId && !toSites.value.some((s) => String(s.id) === draft.value.toId)) draft.value.toId = ''
-    if (!canNewSite.value) newSite.value = false
-})
+watch(
+    () => draft.value.type,
+    () => {
+        // Інший тип — інші правила місць: прибираємо те, що вже не підходить.
+        if (draft.value.fromId && !fromSites.value.some((s) => String(s.id) === draft.value.fromId)) draft.value.fromId = ''
+        if (draft.value.toId && !toSites.value.some((s) => String(s.id) === draft.value.toId)) draft.value.toId = ''
+        if (!canNewSite.value) newSite.value = false
+    },
+)
 
 async function submit() {
     if (saving.value) return
@@ -159,7 +162,9 @@ onMounted(async () => {
     } catch (e) {
         error.value = accessError(e) || session.handle(e)
     }
-    api.suppliers({ active: true }).then((r) => (suppliers.value = r.items)).catch(() => undefined)
+    api.suppliers({ active: true })
+        .then((r) => (suppliers.value = r.items))
+        .catch(() => undefined)
 })
 
 /** Дата руху: здебільше сьогодні або вчора (записують наприкінці зміни). */
@@ -191,15 +196,32 @@ function onKey(e: KeyboardEvent) {
             <div v-if="!meta" class="body t-empty">{{ error || 'Завантаження…' }}</div>
             <div v-else class="body">
                 <div class="p-chips wrap" role="radiogroup" aria-label="Тип руху">
-                    <button v-for="t in meta.movementTypes" :key="t.value" type="button" role="radio" class="p-chip" :class="{ on: draft.type === t.value }" :aria-checked="draft.type === t.value" @click="draft.type = t.value">{{ t.emoji }} {{ t.label }}</button>
+                    <button
+                        v-for="t in meta.movementTypes"
+                        :key="t.value"
+                        type="button"
+                        role="radio"
+                        class="p-chip"
+                        :class="{ on: draft.type === t.value }"
+                        :aria-checked="draft.type === t.value"
+                        @click="draft.type = t.value"
+                    >
+                        {{ t.emoji }} {{ t.label }}
+                    </button>
                 </div>
 
                 <div class="p-frow">
-                    <span class="k"><Icon name="calendar" :size="16" />Дата</span>
+                    <span class="k">
+                        <Icon name="calendar" :size="16" />
+                        Дата
+                    </span>
                     <div class="v"><DateChips v-model="draft.occurredAt" :quick="DAYS" :clearable="false" label="Дата руху" /></div>
                 </div>
                 <div class="p-frow">
-                    <span class="k"><Icon name="file" :size="16" />№ документа</span>
+                    <span class="k">
+                        <Icon name="file" :size="16" />
+                        № документа
+                    </span>
                     <div class="v"><input v-model="draft.documentNumber" class="p-inline-input" type="text" placeholder="напр. ВН-118" aria-label="№ документа" /></div>
                 </div>
 
@@ -236,22 +258,43 @@ function onKey(e: KeyboardEvent) {
                 </div>
 
                 <div class="w-lines-edit">
-                    <div class="w-lines-head"><b>Позиції</b><span class="p-muted p-small">кількість — цілим числом</span></div>
+                    <div class="w-lines-head">
+                        <b>Позиції</b>
+                        <span class="p-muted p-small">кількість — цілим числом</span>
+                    </div>
                     <div v-for="(l, i) in draft.lines" :key="i" class="w-line">
                         <select v-model.number="l.itemId" class="t-select" :aria-label="'Позиція ' + (i + 1)">
                             <option :value="0" disabled>Оберіть позицію</option>
                             <option v-for="it in movable" :key="it.id" :value="it.id">{{ it.inventoryNumber }} · {{ it.name }}</option>
                         </select>
-                        <input v-model="l.quantity" class="t-input w-qty" type="text" inputmode="numeric" :disabled="itemById(l.itemId)?.tracking === 'unit'" :aria-label="'Кількість ' + (i + 1)" />
+                        <input
+                            v-model="l.quantity"
+                            class="t-input w-qty"
+                            type="text"
+                            inputmode="numeric"
+                            :disabled="itemById(l.itemId)?.tracking === 'unit'"
+                            :aria-label="'Кількість ' + (i + 1)"
+                        />
                         <span class="w-unit">{{ itemById(l.itemId)?.unit ?? '' }}</span>
-                        <input v-if="withRate" v-model="l.rate" class="t-input w-rate" type="text" inputmode="decimal" placeholder="₴/доба" :aria-label="'Ставка оренди ' + (i + 1)" />
+                        <input
+                            v-if="withRate"
+                            v-model="l.rate"
+                            class="t-input w-rate"
+                            type="text"
+                            inputmode="decimal"
+                            placeholder="₴/доба"
+                            :aria-label="'Ставка оренди ' + (i + 1)"
+                        />
                         <button type="button" class="p-icon-btn" title="Прибрати рядок" aria-label="Прибрати рядок" @click="removeLine(i)"><Icon name="x" :size="16" /></button>
                         <small v-if="l.itemId && type?.needsFrom" class="w-avail p-muted">{{ available(l.itemId) }}</small>
                     </div>
                     <button type="button" class="p-link" @click="addLine">+ Ще позиція</button>
                 </div>
 
-                <label class="t-field"><span>Примітка</span><textarea v-model="draft.note" class="t-textarea" rows="2" placeholder="Хто віз, номер машини, що не так" /></label>
+                <label class="t-field">
+                    <span>Примітка</span>
+                    <textarea v-model="draft.note" class="t-textarea" rows="2" placeholder="Хто віз, номер машини, що не так" />
+                </label>
 
                 <div class="w-field">
                     <span>Накладна, акт, фото</span>
@@ -259,9 +302,16 @@ function onKey(e: KeyboardEvent) {
                         <select v-model="draft.documentType" class="t-select" aria-label="Тип документа">
                             <option v-for="t in meta.documentTypes" :key="t.value" :value="t.value">{{ t.label }}</option>
                         </select>
-                        <label class="p-btn"><Icon name="clip" :size="16" />Додати файл<input type="file" multiple hidden accept=".pdf,.jpg,.jpeg,.png,.heic,.webp,.doc,.docx,.xls,.xlsx" @change="pickFiles" /></label>
+                        <label class="p-btn">
+                            <Icon name="clip" :size="16" />
+                            Додати файл
+                            <input type="file" multiple hidden accept=".pdf,.jpg,.jpeg,.png,.heic,.webp,.doc,.docx,.xls,.xlsx" @change="pickFiles" />
+                        </label>
                     </div>
-                    <div v-for="(f, i) in files" :key="i" class="w-file">📎 {{ f.name }} <button type="button" class="p-link danger" @click="files.splice(i, 1)">прибрати</button></div>
+                    <div v-for="(f, i) in files" :key="i" class="w-file">
+                        📎 {{ f.name }}
+                        <button type="button" class="p-link danger" @click="files.splice(i, 1)">прибрати</button>
+                    </div>
                 </div>
 
                 <div v-if="error" class="t-error" role="alert">{{ error }}</div>

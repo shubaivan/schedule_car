@@ -45,8 +45,14 @@ onMounted(load)
 
     <div class="card">
         <div class="filters">
-            <label>з <input v-model="from" type="date" /></label>
-            <label>по <input v-model="to" type="date" /></label>
+            <label>
+                з
+                <input v-model="from" type="date" />
+            </label>
+            <label>
+                по
+                <input v-model="to" type="date" />
+            </label>
             <button class="primary" @click="load">Показати</button>
             <button @click="shift(1)">Цей місяць</button>
             <button @click="shift(3)">Квартал</button>
@@ -57,11 +63,13 @@ onMounted(load)
 
     <template v-else-if="report">
         <div class="card">
-            <h3 style="margin-top:0">Разом за період</h3>
+            <h3 style="margin-top: 0">Разом за період</h3>
             <dl class="grid">
                 <div>
                     <dt>Витрачено</dt>
-                    <dd><b>{{ money(report.totals.spent) }} ₴</b></dd>
+                    <dd>
+                        <b>{{ money(report.totals.spent) }} ₴</b>
+                    </dd>
                 </div>
                 <div>
                     <dt>Закупівель</dt>
@@ -85,9 +93,7 @@ onMounted(load)
                 <div>
                     <dt>Середній строк</dt>
                     <dd>
-                        <template v-if="report.totals.leadTimeDays !== null">
-                            {{ report.totals.leadTimeDays }} дн.
-                        </template>
+                        <template v-if="report.totals.leadTimeDays !== null">{{ report.totals.leadTimeDays }} дн.</template>
                         <span v-else class="muted">—</span>
                     </dd>
                 </div>
@@ -95,79 +101,76 @@ onMounted(load)
         </div>
 
         <div class="card">
-            <h3 style="margin-top:0">Постачальники</h3>
+            <h3 style="margin-top: 0">Постачальники</h3>
             <p v-if="!report.suppliers.length" class="muted">За цей період закупівель не було.</p>
             <div v-else class="table-wrap">
                 <table>
                     <thead>
-                    <tr>
-                        <th>Постачальник</th>
-                        <th>Закупівель</th>
-                        <th>Сума</th>
-                        <th>Частка</th>
-                    </tr>
+                        <tr>
+                            <th>Постачальник</th>
+                            <th>Закупівель</th>
+                            <th>Сума</th>
+                            <th>Частка</th>
+                        </tr>
                     </thead>
                     <tbody>
-                    <tr v-for="supplier in report.suppliers" :key="supplier.id">
-                        <td class="wrap">{{ supplier.name }}</td>
-                        <td>{{ supplier.purchases }}</td>
-                        <td>{{ money(supplier.total) }} ₴</td>
-                        <td>{{ supplier.share }}%</td>
-                    </tr>
+                        <tr v-for="supplier in report.suppliers" :key="supplier.id">
+                            <td class="wrap">{{ supplier.name }}</td>
+                            <td>{{ supplier.purchases }}</td>
+                            <td>{{ money(supplier.total) }} ₴</td>
+                            <td>{{ supplier.share }}%</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
         </div>
 
         <div class="card">
-            <h3 style="margin-top:0">Підрозділи</h3>
+            <h3 style="margin-top: 0">Підрозділи</h3>
             <p v-if="!report.departments.length" class="muted">Немає даних.</p>
             <div v-else class="table-wrap">
                 <table>
                     <thead>
-                    <tr>
-                        <th>Підрозділ</th>
-                        <th>Заявок</th>
-                        <th>Сума</th>
-                    </tr>
+                        <tr>
+                            <th>Підрозділ</th>
+                            <th>Заявок</th>
+                            <th>Сума</th>
+                        </tr>
                     </thead>
                     <tbody>
-                    <tr v-for="department in report.departments" :key="department.id ?? 'none'">
-                        <td class="wrap">{{ department.name }}</td>
-                        <td>{{ department.requests }}</td>
-                        <td>{{ money(department.total) }} ₴</td>
-                    </tr>
+                        <tr v-for="department in report.departments" :key="department.id ?? 'none'">
+                            <td class="wrap">{{ department.name }}</td>
+                            <td>{{ department.requests }}</td>
+                            <td>{{ money(department.total) }} ₴</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
         </div>
 
         <div class="card">
-            <h3 style="margin-top:0">Матеріали</h3>
+            <h3 style="margin-top: 0">Матеріали</h3>
             <p v-if="!report.items.length" class="muted">Немає даних.</p>
             <div v-else class="table-wrap">
                 <table>
                     <thead>
-                    <tr>
-                        <th>Матеріал</th>
-                        <th>Заявок</th>
-                        <th>Сума</th>
-                    </tr>
+                        <tr>
+                            <th>Матеріал</th>
+                            <th>Заявок</th>
+                            <th>Сума</th>
+                        </tr>
                     </thead>
                     <tbody>
-                    <tr v-for="row in report.items" :key="row.item">
-                        <td class="wrap">{{ row.item }}</td>
-                        <td>{{ row.requests }}</td>
-                        <td>{{ money(row.total) }} ₴</td>
-                    </tr>
+                        <tr v-for="row in report.items" :key="row.item">
+                            <td class="wrap">{{ row.item }}</td>
+                            <td>{{ row.requests }}</td>
+                            <td>{{ money(row.total) }} ₴</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
         </div>
 
-        <p class="muted">
-            Матеріали групуються за текстом заявки: «Цемент М400» і «цемент м-400» поки рахуються окремо.
-            Точну аналітику по цінах дасть довідник номенклатури.
-        </p>
+        <p class="muted">Матеріали групуються за текстом заявки: «Цемент М400» і «цемент м-400» поки рахуються окремо. Точну аналітику по цінах дасть довідник номенклатури.</p>
     </template>
 </template>

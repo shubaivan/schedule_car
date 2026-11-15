@@ -290,10 +290,16 @@ export function createRealtime(
 
     const mercure = (cfg: RealtimeConfig) => {
         transport = 'mercure'
-        current = createMercureRealtime({ hub: cfg.hub as string, topic: cfg.topic, initialEvent: lastEvent, catchUp: fetchEvents, onDown: () => {
-            // Хаб упав (або кука прострочена): дочитуємо пропущене й живемо на опитуванні, час від часу пробуючи хаб знову.
-            polling(true)
-        } })
+        current = createMercureRealtime({
+            hub: cfg.hub as string,
+            topic: cfg.topic,
+            initialEvent: lastEvent,
+            catchUp: fetchEvents,
+            onDown: () => {
+                // Хаб упав (або кука прострочена): дочитуємо пропущене й живемо на опитуванні, час від часу пробуючи хаб знову.
+                polling(true)
+            },
+        })
         current.subscribe(relay)
         if (started) current.start()
     }

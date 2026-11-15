@@ -18,10 +18,10 @@ import './feed.css'
  * розкриває рядок дій прямо під повідомленням (без шторки поверх сторінки).
  * features — які дії має ця стрічка: у заявок немає відповіді з цитатою, закріплення й ★.
  */
-const props = withDefaults(
-    defineProps<{ m: Message; cont: boolean; readers: Person[]; highlighted?: boolean; features?: { reply: boolean; pin: boolean; star: boolean } }>(),
-    { highlighted: false, features: () => ({ reply: true, pin: true, star: true }) },
-)
+const props = withDefaults(defineProps<{ m: Message; cont: boolean; readers: Person[]; highlighted?: boolean; features?: { reply: boolean; pin: boolean; star: boolean } }>(), {
+    highlighted: false,
+    features: () => ({ reply: true, pin: true, star: true }),
+})
 const emit = defineEmits<{
     reply: [m: Message]
     edit: [m: Message]
@@ -54,7 +54,10 @@ const html = computed(() => {
     const out = escape(props.m.text)
     // Один прохід, довші імена першими: «@Іван» не вклиниться в «@Іван Шуба». Згадка — з телефоном
     // (як скрізь у Плані): «@Ім'я (093 …)», номер — посилання tel:.
-    const people = props.m.mentions.map((id) => store.person(id)).filter((p): p is NonNullable<typeof p> => !!p).sort((a, b) => b.name.length - a.name.length)
+    const people = props.m.mentions
+        .map((id) => store.person(id))
+        .filter((p): p is NonNullable<typeof p> => !!p)
+        .sort((a, b) => b.name.length - a.name.length)
     if (!people.length) return out
     const byName = new Map(people.map((p) => ['@' + escape(p.name), p]))
     const pattern = new RegExp([...byName.keys()].map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g')
@@ -104,11 +107,21 @@ onMounted(measure)
         <Avatar :person="m.author" :size="32" />
         <div class="t-bubble" :class="{ deleted: m.deleted }">
             <div v-if="!m.mine && !cont" class="who" :style="{ color: m.author?.color }">
-                <PersonName v-if="m.author" :person="m.author" /><small>{{ m.author?.position }}</small>
+                <PersonName v-if="m.author" :person="m.author" />
+                <small>{{ m.author?.position }}</small>
             </div>
-            <div v-if="m.pinned && !m.deleted" class="f-pinmark">📌 Закріплено<template v-if="m.pinned.by"> · <PersonName :name="m.pinned.by" /></template></div>
+            <div v-if="m.pinned && !m.deleted" class="f-pinmark">
+                📌 Закріплено
+                <template v-if="m.pinned.by">
+                    ·
+                    <PersonName :name="m.pinned.by" />
+                </template>
+            </div>
             <button v-if="m.replyTo && !m.deleted" type="button" class="f-quote" :style="{ borderColor: m.replyTo.authorColor ?? undefined }" @click="emit('jump', m.replyTo.id)">
-                <b :style="{ color: m.replyTo.authorColor ?? undefined }"><PersonName v-if="m.replyTo.author" :name="m.replyTo.author" :link="false" /><template v-else>Система</template></b>
+                <b :style="{ color: m.replyTo.authorColor ?? undefined }">
+                    <PersonName v-if="m.replyTo.author" :name="m.replyTo.author" :link="false" />
+                    <template v-else>Система</template>
+                </b>
                 <span v-if="m.replyTo.deleted" class="muted">Повідомлення видалено</span>
                 <span v-else>{{ m.replyTo.text || (m.replyTo.files ? '📎 файл' : '') }}</span>
             </button>
@@ -125,7 +138,9 @@ onMounted(measure)
                 <span v-if="m.editedAt && !m.deleted" class="f-edited" :title="'Змінено ' + new Date(m.editedAt).toLocaleString('uk-UA')">змінено</span>
                 <span v-if="m.starred && !m.deleted" class="f-star-on" title="В обраному">★</span>
                 {{ time(m.createdAt) }}
-                <span v-if="m.mine && !m.deleted" class="f-ticks" :class="{ read: readers.length }" :title="readers.length ? 'Прочитали: ' + readerNames : 'Надіслано'">{{ readers.length ? '✓✓' : '✓' }}</span>
+                <span v-if="m.mine && !m.deleted" class="f-ticks" :class="{ read: readers.length }" :title="readers.length ? 'Прочитали: ' + readerNames : 'Надіслано'">
+                    {{ readers.length ? '✓✓' : '✓' }}
+                </span>
                 <button v-if="readers.length" type="button" class="f-readcount" :title="'Прочитали: ' + readerNames" @click="readList = !readList">👁 {{ readers.length }}</button>
                 <button v-if="!m.deleted && hasActions" type="button" class="f-dots" aria-label="Дії" :aria-expanded="sheet" @click="sheet = !sheet">⋯</button>
             </div>
@@ -133,13 +148,21 @@ onMounted(measure)
                 <button v-if="features.reply" type="button" title="Відповісти" @click="act('reply')">↩</button>
                 <button v-if="m.can.edit" type="button" title="Змінити" @click="act('edit')">✎</button>
                 <button v-if="features.pin" type="button" :class="{ on: m.pinned }" :title="m.pinned ? 'Відкріпити' : 'Закріпити'" @click="act('pin')">📌</button>
-                <button v-if="features.star" type="button" :class="{ on: m.starred }" :title="m.starred ? 'Прибрати з обраного' : 'В обране'" @click="act('star')">{{ m.starred ? '★' : '☆' }}</button>
+                <button v-if="features.star" type="button" :class="{ on: m.starred }" :title="m.starred ? 'Прибрати з обраного' : 'В обране'" @click="act('star')">
+                    {{ m.starred ? '★' : '☆' }}
+                </button>
                 <button v-if="m.can.delete" type="button" title="Видалити" @click="act('remove')">🗑</button>
             </div>
             <!-- Хто прочитав — розкривається під повідомленням, а не спливає поверх. -->
             <div v-if="readList" class="f-readlist inline">
-                <div class="h">Прочитали <button type="button" class="f-inline-x" aria-label="Згорнути" @click="readList = false">✕</button></div>
-                <div v-for="p in readers" :key="p.id" class="r"><Avatar :person="p" :size="20" /> <PersonName :person="p" /></div>
+                <div class="h">
+                    Прочитали
+                    <button type="button" class="f-inline-x" aria-label="Згорнути" @click="readList = false">✕</button>
+                </div>
+                <div v-for="p in readers" :key="p.id" class="r">
+                    <Avatar :person="p" :size="20" />
+                    <PersonName :person="p" />
+                </div>
             </div>
             <!-- Телефон: дії з повідомленням рядком під ним (без шторки й затемнення). -->
             <div v-if="sheet && !m.deleted" class="f-inline-actions" role="toolbar" aria-label="Дії з повідомленням">
@@ -155,6 +178,5 @@ onMounted(measure)
             <Avatar v-for="p in readers.slice(0, 5)" :key="p.id" :person="p" :size="18" />
             <span v-if="readers.length > 5" class="more">+{{ readers.length - 5 }}</span>
         </button>
-
     </div>
 </template>

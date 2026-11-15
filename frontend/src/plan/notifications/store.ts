@@ -75,7 +75,12 @@ export const useNotifications = defineStore('plan-notifications', () => {
             if (mine !== generation || users === 0) return
             unread.value = config.unread
             sound.value = settings?.prefs.sound ?? false
-            realtime = createRealtime(config, (after, signal) => notificationsApi.events(after, signal), 20_000, () => notificationsApi.realtime())
+            realtime = createRealtime(
+                config,
+                (after, signal) => notificationsApi.events(after, signal),
+                20_000,
+                () => notificationsApi.realtime(),
+            )
             realtime.subscribe((e) => void onEvent(e))
             realtime.start()
             transport.value = realtime.transport

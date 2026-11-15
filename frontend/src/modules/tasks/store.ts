@@ -11,7 +11,10 @@ export const useTasks = defineStore('tasks', () => {
     async function load(force = false): Promise<TasksMeta> {
         if (meta.value && !force) return meta.value
         if (!loading || force) {
-            loading = tasksApi.meta().then((m) => (meta.value = { ...m, people: sortByName(m.people) })).finally(() => (loading = null))
+            loading = tasksApi
+                .meta()
+                .then((m) => (meta.value = { ...m, people: sortByName(m.people) }))
+                .finally(() => (loading = null))
         }
         return loading
     }

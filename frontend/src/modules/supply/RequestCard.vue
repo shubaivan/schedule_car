@@ -17,15 +17,11 @@ const busy = ref(false)
 // Картку відкриває будь-хто зі своїх — щоб бачити спільну картину. Статуси й
 // закупівлі веде менеджер, а автор ще й пише коментарі та носить документи.
 const canManage = computed(() => session.isManager())
-const canWrite = computed(
-    () => canManage.value || session.isDirector() || request.value?.author.id === session.user?.id,
-)
+const canWrite = computed(() => canManage.value || session.isDirector() || request.value?.author.id === session.user?.id)
 // Рішення про гроші — за директором, решта ланцюжка — за менеджером. Який саме
 // набір кнопок бачить цей користувач, вирішує бек: allowedTransitions уже
 // відфільтровані під його роль. Тут лишається не малювати порожню картку.
-const canMoveStatus = computed(
-    () => (canManage.value || session.isDirector()) && (request.value?.allowedTransitions?.length ?? 0) > 0,
-)
+const canMoveStatus = computed(() => (canManage.value || session.isDirector()) && (request.value?.allowedTransitions?.length ?? 0) > 0)
 
 // Закупівля: у кого купили. Без неї заявку не перевести в «Оплачено» й далі.
 const suppliers = ref<ApiSupplier[]>([])
@@ -164,7 +160,7 @@ onMounted(load)
     <template v-else>
         <div class="card">
             <div class="row" style="justify-content: space-between">
-                <h2 style="margin:0">
+                <h2 style="margin: 0">
                     <span v-if="request.accent !== 'none'" :title="request.accentLabel">{{ request.accentEmoji }}</span>
                     Заявка №{{ request.number }}
                     <span v-if="request.urgent" class="muted quiet">терміново</span>
@@ -172,7 +168,7 @@ onMounted(load)
                 <StatusBadge :status="request.status" :label="request.statusLabel" />
             </div>
 
-            <dl class="grid" style="margin-top:1rem">
+            <dl class="grid" style="margin-top: 1rem">
                 <div>
                     <dt>Матеріал</dt>
                     <dd>{{ request.item }}</dd>
@@ -190,7 +186,11 @@ onMounted(load)
                 </div>
                 <div>
                     <dt>Заявник</dt>
-                    <dd>{{ request.author.name }}<br><span class="muted">{{ request.author.phone ?? '' }}</span></dd>
+                    <dd>
+                        {{ request.author.name }}
+                        <br />
+                        <span class="muted">{{ request.author.phone ?? '' }}</span>
+                    </dd>
                 </div>
                 <div>
                     <dt>Підрозділ</dt>
@@ -202,79 +202,67 @@ onMounted(load)
                 </div>
             </dl>
 
-            <p v-if="request.note" class="muted" style="margin-top:1rem">📝 {{ request.note }}</p>
+            <p v-if="request.note" class="muted" style="margin-top: 1rem">📝 {{ request.note }}</p>
 
             <!-- Мітку ставить менеджер, а читає керівник: вона й у боті стоїть
                  першим рядком картки. -->
-            <div v-if="canManage" class="row" style="margin-top:1rem">
+            <div v-if="canManage" class="row" style="margin-top: 1rem">
                 <span class="muted">Мітка для керівника:</span>
-                <button
-                    v-for="item in accents"
-                    :key="item.value"
-                    :class="{ primary: request.accent === item.value }"
-                    :disabled="busy"
-                    @click="setAccent(item.value)"
-                >
+                <button v-for="item in accents" :key="item.value" :class="{ primary: request.accent === item.value }" :disabled="busy" @click="setAccent(item.value)">
                     {{ item.emoji }} {{ item.label }}
                 </button>
-                <button v-if="request.accent !== 'none'" :disabled="busy" @click="setAccent('none')">
-                    Прибрати
-                </button>
+                <button v-if="request.accent !== 'none'" :disabled="busy" @click="setAccent('none')">Прибрати</button>
             </div>
         </div>
 
         <div class="card">
             <div class="row" style="justify-content: space-between">
-                <h3 style="margin:0">Закупівля</h3>
+                <h3 style="margin: 0">Закупівля</h3>
                 <span v-if="request.purchases?.length" class="muted">
-                    Разом: <b>{{ request.purchaseTotal?.toFixed(2) }} ₴</b>
+                    Разом:
+                    <b>{{ request.purchaseTotal?.toFixed(2) }} ₴</b>
                 </span>
             </div>
 
-            <p v-if="!request.purchases?.length" class="muted" style="margin-top:.5rem">
+            <p v-if="!request.purchases?.length" class="muted" style="margin-top: 0.5rem">
                 Ще не вказано, у кого купили. Без цього заявку не перевести в «Оплачено», «Доставка» чи «На складі».
             </p>
 
-            <div v-else class="table-wrap" style="margin-top:.5rem">
+            <div v-else class="table-wrap" style="margin-top: 0.5rem">
                 <table>
                     <thead>
-                    <tr>
-                        <th>Постачальник</th>
-                        <th>Кількість</th>
-                        <th>Ціна</th>
-                        <th>Сума</th>
-                        <th>Оплата</th>
-                        <th>Накладна</th>
-                        <th v-if="canManage"></th>
-                    </tr>
+                        <tr>
+                            <th>Постачальник</th>
+                            <th>Кількість</th>
+                            <th>Ціна</th>
+                            <th>Сума</th>
+                            <th>Оплата</th>
+                            <th>Накладна</th>
+                            <th v-if="canManage"></th>
+                        </tr>
                     </thead>
                     <tbody>
-                    <tr v-for="item in request.purchases" :key="item.id">
-                        <td class="wrap">{{ item.supplier.name }}</td>
-                        <td>{{ item.quantity ?? '—' }}</td>
-                        <td>{{ item.pricePerUnit?.toFixed(2) ?? '—' }}</td>
-                        <td>
-                            {{ item.totalLabel }}
-                            <span v-if="!item.vatIncluded" class="muted">без ПДВ</span>
-                        </td>
-                        <td>{{ item.paymentLabel }}</td>
-                        <td>{{ item.invoiceNumber ?? '—' }}</td>
-                        <td v-if="canManage">
-                            <button class="danger" :disabled="busy" @click="removePurchase(item.id)">Прибрати</button>
-                        </td>
-                    </tr>
+                        <tr v-for="item in request.purchases" :key="item.id">
+                            <td class="wrap">{{ item.supplier.name }}</td>
+                            <td>{{ item.quantity ?? '—' }}</td>
+                            <td>{{ item.pricePerUnit?.toFixed(2) ?? '—' }}</td>
+                            <td>
+                                {{ item.totalLabel }}
+                                <span v-if="!item.vatIncluded" class="muted">без ПДВ</span>
+                            </td>
+                            <td>{{ item.paymentLabel }}</td>
+                            <td>{{ item.invoiceNumber ?? '—' }}</td>
+                            <td v-if="canManage">
+                                <button class="danger" :disabled="busy" @click="removePurchase(item.id)">Прибрати</button>
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
 
-            <div v-if="addingPurchase && canManage" style="margin-top:.75rem">
+            <div v-if="addingPurchase && canManage" style="margin-top: 0.75rem">
                 <div class="filters">
-                    <SupplierPicker
-                        v-model="purchase.supplierId"
-                        :suppliers="suppliers"
-                        @created="suppliers.push($event)"
-                        @error="error = $event"
-                    />
+                    <SupplierPicker v-model="purchase.supplierId" :suppliers="suppliers" @created="suppliers.push($event)" @error="error = $event" />
                     <input v-model="purchase.totalAmount" type="text" placeholder="Сума, ₴" />
                     <input v-model="purchase.quantity" type="text" placeholder="Кількість" />
                     <input v-model="purchase.pricePerUnit" type="text" placeholder="Ціна за одиницю" />
@@ -290,15 +278,13 @@ onMounted(load)
                 </div>
                 <p class="muted">Досить суми — або ціни разом із кількістю, решту дорахуємо.</p>
                 <div class="row">
-                    <button class="primary" :disabled="busy || !purchase.supplierId" @click="savePurchase">
-                        Зберегти закупівлю
-                    </button>
+                    <button class="primary" :disabled="busy || !purchase.supplierId" @click="savePurchase">Зберегти закупівлю</button>
                     <button :disabled="busy" @click="addingPurchase = false">Скасувати</button>
                     <router-link :to="{ name: 'suppliers' }" class="muted">Довідник постачальників →</router-link>
                 </div>
             </div>
 
-            <div v-else-if="canManage" class="row" style="margin-top:.75rem">
+            <div v-else-if="canManage" class="row" style="margin-top: 0.75rem">
                 <button :disabled="busy" @click="openPurchaseForm">
                     {{ request.purchases?.length ? '+ Ще постачальник' : '+ Вказати постачальника' }}
                 </button>
@@ -306,10 +292,10 @@ onMounted(load)
         </div>
 
         <div v-if="canMoveStatus" class="card">
-            <p v-if="request.status === 'approval' || request.status === 'waiting'" class="muted" style="margin-top:0">
+            <p v-if="request.status === 'approval' || request.status === 'waiting'" class="muted" style="margin-top: 0">
                 ⏳ Рішення про гроші ухвалює директор: підтвердити, відкласти в список очікування або відхилити.
             </p>
-            <p v-else-if="request.status === 'approved'" class="muted" style="margin-top:0">
+            <p v-else-if="request.status === 'approved'" class="muted" style="margin-top: 0">
                 ✅ Директор підтвердив закупівлю. Далі веде менеджер: «Оплачено», щойно гроші пішли.
             </p>
             <div class="row">
@@ -324,9 +310,9 @@ onMounted(load)
                 </button>
             </div>
 
-            <div v-if="rejecting" style="margin-top:.75rem">
+            <div v-if="rejecting" style="margin-top: 0.75rem">
                 <textarea v-model="reason" placeholder="Причина відхилення — вона піде заявнику"></textarea>
-                <div class="row" style="margin-top:.5rem">
+                <div class="row" style="margin-top: 0.5rem">
                     <button class="danger" :disabled="busy || !reason.trim()" @click="reject">Відхилити</button>
                     <button :disabled="busy" @click="rejecting = false">Скасувати</button>
                 </div>
@@ -334,94 +320,89 @@ onMounted(load)
         </div>
 
         <div class="card">
-            <h3 style="margin-top:0">Документи</h3>
+            <h3 style="margin-top: 0">Документи</h3>
 
-            <p v-if="!request.attachments?.length" class="muted">
-                Накладних, рахунків і договорів ще немає.
-            </p>
+            <p v-if="!request.attachments?.length" class="muted">Накладних, рахунків і договорів ще немає.</p>
 
             <div v-else class="table-wrap">
                 <table>
                     <thead>
-                    <tr>
-                        <th>Документ</th>
-                        <th>Тип</th>
-                        <th>Розмір</th>
-                        <th>Завантажив</th>
-                        <th>Drive</th>
-                        <th v-if="canManage"></th>
-                    </tr>
+                        <tr>
+                            <th>Документ</th>
+                            <th>Тип</th>
+                            <th>Розмір</th>
+                            <th>Завантажив</th>
+                            <th>Drive</th>
+                            <th v-if="canManage"></th>
+                        </tr>
                     </thead>
                     <tbody>
-                    <tr v-for="file in request.attachments" :key="file.id">
-                        <td class="wrap">
-                            <a :href="api.attachmentUrl(Number(props.id), file.id)">{{ file.name }}</a>
-                        </td>
-                        <td>{{ file.typeLabel }}</td>
-                        <td>{{ file.sizeLabel }}</td>
-                        <td class="wrap">
-                            <PersonName v-if="file.uploadedBy" :name="file.uploadedBy" /><template v-else>—</template><br>
-                            <span class="muted">{{ formatDateTime(file.uploadedAt) }}</span>
-                        </td>
-                        <td>
-                            <a v-if="file.driveUrl" :href="file.driveUrl" target="_blank" rel="noopener">відкрити</a>
-                            <span v-else class="muted">у черзі</span>
-                        </td>
-                        <td v-if="canManage">
-                            <button class="danger" :disabled="busy" @click="removeAttachment(file.id)">Прибрати</button>
-                        </td>
-                    </tr>
+                        <tr v-for="file in request.attachments" :key="file.id">
+                            <td class="wrap">
+                                <a :href="api.attachmentUrl(Number(props.id), file.id)">{{ file.name }}</a>
+                            </td>
+                            <td>{{ file.typeLabel }}</td>
+                            <td>{{ file.sizeLabel }}</td>
+                            <td class="wrap">
+                                <PersonName v-if="file.uploadedBy" :name="file.uploadedBy" />
+                                <template v-else>—</template>
+                                <br />
+                                <span class="muted">{{ formatDateTime(file.uploadedAt) }}</span>
+                            </td>
+                            <td>
+                                <a v-if="file.driveUrl" :href="file.driveUrl" target="_blank" rel="noopener">відкрити</a>
+                                <span v-else class="muted">у черзі</span>
+                            </td>
+                            <td v-if="canManage">
+                                <button class="danger" :disabled="busy" @click="removeAttachment(file.id)">Прибрати</button>
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
 
-            <div v-if="canWrite" class="filters" style="margin-top:.75rem">
+            <div v-if="canWrite" class="filters" style="margin-top: 0.75rem">
                 <select v-model="attachmentType">
                     <option v-for="type in ATTACHMENT_TYPES" :key="type.value" :value="type.value">
                         {{ type.label }}
                     </option>
                 </select>
-                <input
-                    ref="fileInput"
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png,.heic,.webp,.doc,.docx,.xls,.xlsx"
-                    :disabled="uploading"
-                    @change="uploadFile"
-                />
+                <input ref="fileInput" type="file" accept=".pdf,.jpg,.jpeg,.png,.heic,.webp,.doc,.docx,.xls,.xlsx" :disabled="uploading" @change="uploadFile" />
                 <span v-if="uploading" class="muted">Завантаження…</span>
             </div>
 
             <p v-if="canWrite" class="muted">
-                До 20 МБ. Копія автоматично лягає в Google Drive заводу — у теку
-                за роком, місяцем, заявником і номером заявки.
-                Накладну можна надіслати й фото з бота — кнопка «📎 Накладна» на картці заявки.
+                До 20 МБ. Копія автоматично лягає в Google Drive заводу — у теку за роком, місяцем, заявником і номером заявки. Накладну можна надіслати й фото з бота — кнопка «📎
+                Накладна» на картці заявки.
             </p>
         </div>
 
         <div class="card">
-            <h3 style="margin-top:0">Хронологія</h3>
+            <h3 style="margin-top: 0">Хронологія</h3>
 
             <ul class="timeline">
                 <li v-for="(event, index) in request.timeline" :key="index">
                     <div>
                         <template v-if="event.type === 'status'">
                             <StatusBadge :status="event.status!" :label="event.statusLabel!" />
-                            <span v-if="event.text"> — {{ event.text }}</span>
+                            <span v-if="event.text">— {{ event.text }}</span>
                         </template>
                         <template v-else>💬 {{ event.text }}</template>
                     </div>
                     <div class="meta">
-                        {{ formatDateTime(event.at) }}<span v-if="event.author"> · <PersonName :person="event.author" /></span>
+                        {{ formatDateTime(event.at) }}
+                        <span v-if="event.author">
+                            ·
+                            <PersonName :person="event.author" />
+                        </span>
                     </div>
                 </li>
             </ul>
 
-            <div v-if="canWrite" style="margin-top:1rem">
+            <div v-if="canWrite" style="margin-top: 1rem">
                 <textarea v-model="comment" placeholder="Коментар — заявник отримає його в Telegram"></textarea>
-                <div class="row" style="margin-top:.5rem">
-                    <button class="primary" :disabled="busy || !comment.trim()" @click="sendComment">
-                        Надіслати
-                    </button>
+                <div class="row" style="margin-top: 0.5rem">
+                    <button class="primary" :disabled="busy || !comment.trim()" @click="sendComment">Надіслати</button>
                 </div>
             </div>
         </div>

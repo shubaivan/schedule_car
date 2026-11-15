@@ -43,15 +43,19 @@ export function useSplit(name: string) {
 
     // Телефон: список під відкритим лише схований — «назад» повертає туди, де людина була.
     let savedY = 0
-    watch(openId, async (now, before) => {
-        if (!mobile.value) return
-        if (now && !before) savedY = window.scrollY
-        if (now) window.scrollTo(0, 0)
-        if (!now && before) {
-            await nextTick()
-            window.scrollTo(0, savedY)
-        }
-    }, { flush: 'pre' })
+    watch(
+        openId,
+        async (now, before) => {
+            if (!mobile.value) return
+            if (now && !before) savedY = window.scrollY
+            if (now) window.scrollTo(0, 0)
+            if (!now && before) {
+                await nextTick()
+                window.scrollTo(0, savedY)
+            }
+        },
+        { flush: 'pre' },
+    )
 
     function onKey(e: KeyboardEvent) {
         if (e.key !== 'Escape' || e.defaultPrevented || openId.value === null || typing(e.target)) return

@@ -132,9 +132,7 @@ onMounted(load)
         <form class="filters" @submit.prevent="addCar">
             <input v-model="carDraft.carNumber" type="text" placeholder="AA1234BB" required />
             <input v-model="carDraft.model" type="text" placeholder="Renault Master" />
-            <button class="primary" type="submit" :disabled="saving || !carDraft.carNumber?.trim()">
-                Додати машину
-            </button>
+            <button class="primary" type="submit" :disabled="saving || !carDraft.carNumber?.trim()">Додати машину</button>
         </form>
 
         <div v-if="loading" class="center">Завантаження…</div>
@@ -143,30 +141,35 @@ onMounted(load)
         <div v-else class="table-wrap">
             <table>
                 <thead>
-                <tr>
-                    <th>Номер</th>
-                    <th>Марка</th>
-                    <th>Водії</th>
-                    <th>Стан</th>
-                </tr>
+                    <tr>
+                        <th>Номер</th>
+                        <th>Марка</th>
+                        <th>Водії</th>
+                        <th>Стан</th>
+                    </tr>
                 </thead>
                 <tbody>
-                <tr v-for="car in cars" :key="car.id">
-                    <td>
-                        <input type="text" :value="car.carNumber" @change="carEdited(car, 'carNumber', $event)" />
-                    </td>
-                    <td class="wrap">
-                        <input type="text" :value="car.model ?? ''" @change="carEdited(car, 'model', $event)" />
-                    </td>
-                    <td class="wrap muted">
-                        {{ drivers.filter(d => d.carId === car.id).map(d => d.name ?? d.phone).join(', ') || '—' }}
-                    </td>
-                    <td>
-                        <button :class="car.active ? 'danger' : ''" @click="updateCar(car, { active: !car.active })">
-                            {{ car.active ? 'Прибрати' : 'Повернути' }}
-                        </button>
-                    </td>
-                </tr>
+                    <tr v-for="car in cars" :key="car.id">
+                        <td>
+                            <input type="text" :value="car.carNumber" @change="carEdited(car, 'carNumber', $event)" />
+                        </td>
+                        <td class="wrap">
+                            <input type="text" :value="car.model ?? ''" @change="carEdited(car, 'model', $event)" />
+                        </td>
+                        <td class="wrap muted">
+                            {{
+                                drivers
+                                    .filter((d) => d.carId === car.id)
+                                    .map((d) => d.name ?? d.phone)
+                                    .join(', ') || '—'
+                            }}
+                        </td>
+                        <td>
+                            <button :class="car.active ? 'danger' : ''" @click="updateCar(car, { active: !car.active })">
+                                {{ car.active ? 'Прибрати' : 'Повернути' }}
+                            </button>
+                        </td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -182,55 +185,52 @@ onMounted(load)
                 <option :value="null">без машини</option>
                 <option v-for="car in cars" :key="car.id" :value="car.id">{{ car.label }}</option>
             </select>
-            <button class="primary" type="submit" :disabled="saving || !driverDraft.phone?.trim()">
-                Додати водія
-            </button>
+            <button class="primary" type="submit" :disabled="saving || !driverDraft.phone?.trim()">Додати водія</button>
         </form>
 
         <div v-if="!loading && !drivers.length" class="center muted">
-            Водіїв ще немає. Внесіть телефон — щойно людина натисне «Старт» у боті, вона отримає повідомлення,
-            що вона водій.
+            Водіїв ще немає. Внесіть телефон — щойно людина натисне «Старт» у боті, вона отримає повідомлення, що вона водій.
         </div>
 
         <div v-else-if="!loading" class="table-wrap">
             <table>
                 <thead>
-                <tr>
-                    <th>Телефон</th>
-                    <th>Хто</th>
-                    <th>Машина</th>
-                    <th>Примітка</th>
-                    <th>У боті</th>
-                    <th></th>
-                </tr>
+                    <tr>
+                        <th>Телефон</th>
+                        <th>Хто</th>
+                        <th>Машина</th>
+                        <th>Примітка</th>
+                        <th>У боті</th>
+                        <th></th>
+                    </tr>
                 </thead>
                 <tbody>
-                <tr v-for="driver in drivers" :key="driver.id">
-                    <td>{{ driver.phone }}</td>
-                    <td class="wrap">
-                        <input type="text" :value="driver.name ?? ''" @change="driverEdited(driver, 'name', $event)" />
-                    </td>
-                    <td>
-                        <select :value="driver.carId ?? ''" @change="assignCar(driver, $event)">
-                            <option value="">без машини</option>
-                            <option v-for="car in cars" :key="car.id" :value="car.id">{{ car.label }}</option>
-                        </select>
-                    </td>
-                    <td class="wrap">
-                        <input type="text" :value="driver.note ?? ''" @change="driverEdited(driver, 'note', $event)" />
-                    </td>
-                    <td class="muted">{{ driver.appliedTo ?? 'чекає' }}</td>
-                    <td>
-                        <button class="danger" @click="removeDriver(driver)">Прибрати</button>
-                    </td>
-                </tr>
+                    <tr v-for="driver in drivers" :key="driver.id">
+                        <td>{{ driver.phone }}</td>
+                        <td class="wrap">
+                            <input type="text" :value="driver.name ?? ''" @change="driverEdited(driver, 'name', $event)" />
+                        </td>
+                        <td>
+                            <select :value="driver.carId ?? ''" @change="assignCar(driver, $event)">
+                                <option value="">без машини</option>
+                                <option v-for="car in cars" :key="car.id" :value="car.id">{{ car.label }}</option>
+                            </select>
+                        </td>
+                        <td class="wrap">
+                            <input type="text" :value="driver.note ?? ''" @change="driverEdited(driver, 'note', $event)" />
+                        </td>
+                        <td class="muted">{{ driver.appliedTo ?? 'чекає' }}</td>
+                        <td>
+                            <button class="danger" @click="removeDriver(driver)">Прибрати</button>
+                        </td>
+                    </tr>
                 </tbody>
             </table>
         </div>
     </div>
 
     <p class="muted">
-        Водія заводять телефоном — акаунт у Telegram людина створює собі сама. Щойно вона поділиться номером у боті,
-        бот напише їй, за якою машиною вона закріплена, і надсилатиме бронювання цієї машини.
+        Водія заводять телефоном — акаунт у Telegram людина створює собі сама. Щойно вона поділиться номером у боті, бот напише їй, за якою машиною вона закріплена, і надсилатиме
+        бронювання цієї машини.
     </p>
 </template>

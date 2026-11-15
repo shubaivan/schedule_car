@@ -68,9 +68,7 @@ async function decide(user: ApiUser, status: 'approved' | 'rejected') {
 
     try {
         Object.assign(user, await api.decideAccess(user.id, status))
-        notice.value = status === 'approved'
-            ? `${user.name} — доступ відкрито, бот уже написав про це.`
-            : `${user.name} — доступ закрито.`
+        notice.value = status === 'approved' ? `${user.name} — доступ відкрито, бот уже написав про це.` : `${user.name} — доступ закрито.`
     } catch (e) {
         error.value = session.handle(e)
     }
@@ -136,21 +134,21 @@ onMounted(load)
     <p v-if="notice" class="muted">{{ notice }}</p>
 
     <div v-if="pending.length" class="card">
-        <h3 style="margin-top:0">Чекають підтвердження</h3>
+        <h3 style="margin-top: 0">Чекають підтвердження</h3>
         <p class="muted">Ці люди зареєструвались у боті й чекають, поки їм відкриють доступ.</p>
 
         <div class="table-wrap">
             <table>
                 <tbody>
-                <tr v-for="user in pending" :key="user.id">
-                    <td class="wrap">{{ user.name }}</td>
-                    <td>{{ user.phone ?? '—' }}</td>
-                    <td>{{ user.department ?? 'без підрозділу' }}</td>
-                    <td class="row">
-                        <button class="primary" @click="decide(user, 'approved')">Погодити</button>
-                        <button class="danger" @click="decide(user, 'rejected')">Відхилити</button>
-                    </td>
-                </tr>
+                    <tr v-for="user in pending" :key="user.id">
+                        <td class="wrap">{{ user.name }}</td>
+                        <td>{{ user.phone ?? '—' }}</td>
+                        <td>{{ user.department ?? 'без підрозділу' }}</td>
+                        <td class="row">
+                            <button class="primary" @click="decide(user, 'approved')">Погодити</button>
+                            <button class="danger" @click="decide(user, 'rejected')">Відхилити</button>
+                        </td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -158,16 +156,15 @@ onMounted(load)
 
     <div class="card">
         <div class="row" style="justify-content: space-between">
-            <h3 style="margin:0">Люди в системі</h3>
+            <h3 style="margin: 0">Люди в системі</h3>
             <label class="row muted">
                 <input v-model="withArchived" type="checkbox" @change="load" />
                 показати прибраних
             </label>
         </div>
 
-        <p class="muted" style="margin-top:.5rem">
-            Ім'я, роль і підрозділ правляться просто в таблиці. Телефон не змінюється: саме за ним людина
-            чіпляється до свого запису під час реєстрації в боті.
+        <p class="muted" style="margin-top: 0.5rem">
+            Ім'я, роль і підрозділ правляться просто в таблиці. Телефон не змінюється: саме за ним людина чіпляється до свого запису під час реєстрації в боті.
         </p>
 
         <div v-if="loading" class="center">Завантаження…</div>
@@ -175,117 +172,107 @@ onMounted(load)
         <div v-else class="table-wrap">
             <table>
                 <thead>
-                <tr>
-                    <th>Ім'я</th>
-                    <th>Прізвище</th>
-                    <th>Телефон</th>
-                    <th>Доступ</th>
-                    <th>Роль</th>
-                    <th>Підрозділ</th>
-                    <th></th>
-                </tr>
+                    <tr>
+                        <th>Ім'я</th>
+                        <th>Прізвище</th>
+                        <th>Телефон</th>
+                        <th>Доступ</th>
+                        <th>Роль</th>
+                        <th>Підрозділ</th>
+                        <th></th>
+                    </tr>
                 </thead>
                 <tbody>
-                <tr v-for="user in users" :key="user.id">
-                    <td>
-                        <input type="text" :value="user.firstName ?? ''" @change="edited(user, 'firstName', $event)" />
-                    </td>
-                    <td>
-                        <input type="text" :value="user.lastName ?? ''" @change="edited(user, 'lastName', $event)" />
-                    </td>
-                    <td class="muted">{{ user.phone ?? '—' }}</td>
-                    <td>
-                        <span class="badge" :class="`badge-access-${user.accessStatus}`">
-                            {{ user.accessStatusLabel }}
-                        </span>
-                        <div class="row" style="margin-top:.35rem">
-                            <button v-if="user.accessStatus !== 'approved'" @click="decide(user, 'approved')">
-                                Погодити
-                            </button>
-                            <button v-if="user.accessStatus !== 'rejected'" @click="decide(user, 'rejected')">
-                                Відхилити
-                            </button>
-                        </div>
-                    </td>
-                    <td>
-                        <select
-                            :value="user.role"
-                            @change="update(user, { role: ($event.target as HTMLSelectElement).value })"
-                        >
-                            <option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option>
-                        </select>
-                    </td>
-                    <td>
-                        <select
-                            :value="user.departmentId ?? ''"
-                            @change="update(user, {
-                                departmentId: ($event.target as HTMLSelectElement).value
-                                    ? Number(($event.target as HTMLSelectElement).value)
-                                    : null,
-                            })"
-                        >
-                            <option value="">— без підрозділу —</option>
-                            <option v-for="item in departments" :key="item.id" :value="item.id">{{ item.name }}</option>
-                        </select>
-                    </td>
-                    <td>
-                        <button v-if="user.archived" @click="restore(user)">Повернути</button>
-                        <button v-else class="danger" @click="remove(user)">Прибрати</button>
-                    </td>
-                </tr>
+                    <tr v-for="user in users" :key="user.id">
+                        <td>
+                            <input type="text" :value="user.firstName ?? ''" @change="edited(user, 'firstName', $event)" />
+                        </td>
+                        <td>
+                            <input type="text" :value="user.lastName ?? ''" @change="edited(user, 'lastName', $event)" />
+                        </td>
+                        <td class="muted">{{ user.phone ?? '—' }}</td>
+                        <td>
+                            <span class="badge" :class="`badge-access-${user.accessStatus}`">
+                                {{ user.accessStatusLabel }}
+                            </span>
+                            <div class="row" style="margin-top: 0.35rem">
+                                <button v-if="user.accessStatus !== 'approved'" @click="decide(user, 'approved')">Погодити</button>
+                                <button v-if="user.accessStatus !== 'rejected'" @click="decide(user, 'rejected')">Відхилити</button>
+                            </div>
+                        </td>
+                        <td>
+                            <select :value="user.role" @change="update(user, { role: ($event.target as HTMLSelectElement).value })">
+                                <option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option>
+                            </select>
+                        </td>
+                        <td>
+                            <select
+                                :value="user.departmentId ?? ''"
+                                @change="
+                                    update(user, {
+                                        departmentId: ($event.target as HTMLSelectElement).value ? Number(($event.target as HTMLSelectElement).value) : null,
+                                    })
+                                "
+                            >
+                                <option value="">— без підрозділу —</option>
+                                <option v-for="item in departments" :key="item.id" :value="item.id">{{ item.name }}</option>
+                            </select>
+                        </td>
+                        <td>
+                            <button v-if="user.archived" @click="restore(user)">Повернути</button>
+                            <button v-else class="danger" @click="remove(user)">Прибрати</button>
+                        </td>
+                    </tr>
                 </tbody>
             </table>
         </div>
 
-        <p class="muted" style="margin-top:.75rem">
-            Прибрана людина зникає зі списку й більше не заходить у бота. Якщо на ній висять заявки, запис
-            лишається в історії — його видно за галочкою «показати прибраних».
+        <p class="muted" style="margin-top: 0.75rem">
+            Прибрана людина зникає зі списку й більше не заходить у бота. Якщо на ній висять заявки, запис лишається в історії — його видно за галочкою «показати прибраних».
         </p>
     </div>
 
     <div class="card">
-        <h3 style="margin-top:0">Довідник телефонів</h3>
-        <p class="muted">
-            Внесіть номер і роль — людина отримає її автоматично, щойно поділиться контактом у боті.
-            Якщо вона вже зареєстрована, роль видається одразу.
-        </p>
+        <h3 style="margin-top: 0">Довідник телефонів</h3>
+        <p class="muted">Внесіть номер і роль — людина отримає її автоматично, щойно поділиться контактом у боті. Якщо вона вже зареєстрована, роль видається одразу.</p>
 
         <div v-if="staff.length" class="table-wrap">
             <table>
                 <thead>
-                <tr>
-                    <th>Телефон</th>
-                    <th>Хто</th>
-                    <th>Роль</th>
-                    <th>Стан</th>
-                    <th></th>
-                </tr>
+                    <tr>
+                        <th>Телефон</th>
+                        <th>Хто</th>
+                        <th>Роль</th>
+                        <th>Стан</th>
+                        <th></th>
+                    </tr>
                 </thead>
                 <tbody>
-                <tr v-for="entry in staff" :key="entry.id">
-                    <td>{{ entry.phone }}</td>
-                    <td class="wrap">
-                        {{ entry.name ?? '—' }}
-                        <br v-if="entry.note">
-                        <span v-if="entry.note" class="muted">{{ entry.note }}</span>
-                    </td>
-                    <td>{{ entry.roleLabel }}</td>
-                    <td class="wrap">
-                        <template v-if="entry.appliedTo">
-                            видано: {{ entry.appliedTo.name }}<br>
-                            <span class="muted">{{ formatDateTime(entry.appliedAt!) }}</span>
-                        </template>
-                        <span v-else class="muted">чекає на реєстрацію</span>
-                    </td>
-                    <td>
-                        <button class="danger" :disabled="saving" @click="removePhone(entry.id)">Прибрати</button>
-                    </td>
-                </tr>
+                    <tr v-for="entry in staff" :key="entry.id">
+                        <td>{{ entry.phone }}</td>
+                        <td class="wrap">
+                            {{ entry.name ?? '—' }}
+                            <br v-if="entry.note" />
+                            <span v-if="entry.note" class="muted">{{ entry.note }}</span>
+                        </td>
+                        <td>{{ entry.roleLabel }}</td>
+                        <td class="wrap">
+                            <template v-if="entry.appliedTo">
+                                видано: {{ entry.appliedTo.name }}
+                                <br />
+                                <span class="muted">{{ formatDateTime(entry.appliedAt!) }}</span>
+                            </template>
+                            <span v-else class="muted">чекає на реєстрацію</span>
+                        </td>
+                        <td>
+                            <button class="danger" :disabled="saving" @click="removePhone(entry.id)">Прибрати</button>
+                        </td>
+                    </tr>
                 </tbody>
             </table>
         </div>
 
-        <div class="filters" style="margin-top:.75rem">
+        <div class="filters" style="margin-top: 0.75rem">
             <input v-model="draft.phone" type="text" placeholder="Телефон, напр. 0671112233" />
             <input v-model="draft.name" type="text" placeholder="Чий номер" />
             <select v-model="draft.role">

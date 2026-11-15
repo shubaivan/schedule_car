@@ -25,15 +25,19 @@ export function useHistoryLayer(open: Ref<boolean>): void {
         }
     }
 
-    watch(open, (now) => {
-        if (now && !pushed && window.matchMedia(MOBILE_QUERY).matches) {
-            window.history.pushState({ ...(window.history.state ?? {}), planLayer: id }, '')
-            pushed = true
-        } else if (!now && pushed) {
-            pushed = false
-            if (ours()) window.history.back()
-        }
-    }, { flush: 'sync' })
+    watch(
+        open,
+        (now) => {
+            if (now && !pushed && window.matchMedia(MOBILE_QUERY).matches) {
+                window.history.pushState({ ...(window.history.state ?? {}), planLayer: id }, '')
+                pushed = true
+            } else if (!now && pushed) {
+                pushed = false
+                if (ours()) window.history.back()
+            }
+        },
+        { flush: 'sync' },
+    )
 
     window.addEventListener('popstate', onPop)
     onBeforeUnmount(() => {

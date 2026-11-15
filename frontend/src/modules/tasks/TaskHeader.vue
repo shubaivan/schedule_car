@@ -61,13 +61,24 @@ onBeforeUnmount(() => window.removeEventListener('keydown', esc, true))
             <span v-if="task.client" class="client" :title="task.client">· {{ task.client }}</span>
             <span class="sp" />
             <button v-if="task.can.edit" type="button" class="p-icon-btn" title="Редагувати" aria-label="Редагувати" @click="emit('edit')"><Icon name="edit" :size="18" /></button>
-            <button type="button" class="p-icon-btn p-side-toggle" :class="{ on: sideOpen }" title="Деталі, учасники, файли" aria-label="Деталі" @click="emit('side')"><Icon name="info" :size="18" /></button>
+            <button type="button" class="p-icon-btn p-side-toggle" :class="{ on: sideOpen }" title="Деталі, учасники, файли" aria-label="Деталі" @click="emit('side')">
+                <Icon name="info" :size="18" />
+            </button>
             <button v-if="embedded" type="button" class="p-icon-btn p-close" title="Закрити (Esc)" aria-label="Закрити" @click="emit('close')"><Icon name="x" /></button>
         </div>
 
         <h1 class="p-ttitle">
             <span :class="{ closed: task.closed }">{{ task.title }}</span>
-            <button type="button" class="f-fav" :class="{ on: task.favorite }" :title="task.favorite ? 'Прибрати з обраного' : 'В обране'" :aria-pressed="task.favorite" @click="emit('favorite')">{{ task.favorite ? '★' : '☆' }}</button>
+            <button
+                type="button"
+                class="f-fav"
+                :class="{ on: task.favorite }"
+                :title="task.favorite ? 'Прибрати з обраного' : 'В обране'"
+                :aria-pressed="task.favorite"
+                @click="emit('favorite')"
+            >
+                {{ task.favorite ? '★' : '☆' }}
+            </button>
         </h1>
 
         <div class="p-thead-meta">
@@ -81,20 +92,26 @@ onBeforeUnmount(() => window.removeEventListener('keydown', esc, true))
                     :title="moves.length ? 'Змінити статус' : 'Статус'"
                     @click="menu = !menu"
                 >
-                    {{ task.statusLabel }}<Icon v-if="moves.length" name="down" :size="14" :stroke="2.2" />
+                    {{ task.statusLabel }}
+                    <Icon v-if="moves.length" name="down" :size="14" :stroke="2.2" />
                 </button>
             </div>
             <span v-if="task.dueAt" class="p-due" :class="{ over: task.overdue && !task.closed }" :title="new Date(task.dueAt).toLocaleDateString('uk-UA')">
-                <Icon name="clock" :size="14" :stroke="2" />{{ dueLabel(task.dueAt) }}
+                <Icon name="clock" :size="14" :stroke="2" />
+                {{ dueLabel(task.dueAt) }}
             </span>
             <span v-for="d in task.departments" :key="d.id" class="p-dep">[{{ d.name }}]</span>
-            <span v-for="l in task.labels" :key="l.id" class="p-lbl" :title="l.name"><span class="dot" :style="{ background: l.color }" />{{ l.name }}</span>
+            <span v-for="l in task.labels" :key="l.id" class="p-lbl" :title="l.name">
+                <span class="dot" :style="{ background: l.color }" />
+                {{ l.name }}
+            </span>
             <AvatarStack class="p-thead-people" :people="task.members" :max="5" :size="24" />
         </div>
 
         <div v-if="menu" class="p-moves" role="group" aria-label="Змінити статус">
             <button v-for="t in moves" :key="t.value" type="button" class="p-chip" @click="go(t.value)">
-                <span class="dot" :class="'tone-' + (STATUS_TONE[t.value] ?? 'slate')" />{{ t.action }}
+                <span class="dot" :class="'tone-' + (STATUS_TONE[t.value] ?? 'slate')" />
+                {{ t.action }}
             </button>
             <button type="button" class="p-link" @click="menu = false">Згорнути</button>
         </div>
@@ -111,7 +128,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', esc, true))
                     :class="d.value === 'approved' ? 'primary' : d.value === 'rejected' ? 'danger' : ''"
                     :disabled="moving"
                     @click="decide(d.value)"
-                >{{ d.action }}</button>
+                >
+                    {{ d.action }}
+                </button>
             </div>
         </div>
         <div v-else-if="task.awaitsDecision" class="t-decision">Чекає рішення директора</div>

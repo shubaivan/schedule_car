@@ -103,8 +103,8 @@ watch(
                     <a v-if="session.user?.shop" href="/shop">🛒 Магазин</a>
                 </nav>
                 <span class="who">
-                    {{ session.user?.name }} · {{ session.user?.roleLabel }}
-                    · <a href="/crm/logout">вийти</a>
+                    {{ session.user?.name }} · {{ session.user?.roleLabel }} ·
+                    <a href="/crm/logout">вийти</a>
                 </span>
             </header>
             <nav class="subnav">

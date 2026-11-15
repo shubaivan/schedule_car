@@ -88,8 +88,14 @@ function fill(row: StaffRow | 'new' | null) {
     if (!row) return
     const r = row === 'new' ? null : row
     Object.assign(form, {
-        firstName: r?.firstName ?? '', lastName: r?.lastName ?? '', position: r?.position ?? '', email: r?.email ?? '',
-        phone: r?.phone ?? '', role: r?.role ?? 'production', departmentId: r?.departmentId ?? 0, password: '',
+        firstName: r?.firstName ?? '',
+        lastName: r?.lastName ?? '',
+        position: r?.position ?? '',
+        email: r?.email ?? '',
+        phone: r?.phone ?? '',
+        role: r?.role ?? 'production',
+        departmentId: r?.departmentId ?? 0,
+        password: '',
     })
     error.value = ''
 }
@@ -149,165 +155,244 @@ const depColor = (i: number) => ['#6366f1', '#eab308', '#94a3b8', '#3b82f6', '#a
 const printOrg = () => window.print()
 
 // Нова картка чи інша людина — заповнюємо форму наново (і коли список щойно довантажився).
-watch(() => [route.name, route.params.id, loaded.value] as const, () => fill(editing.value), { immediate: true })
+watch(
+    () => [route.name, route.params.id, loaded.value] as const,
+    () => fill(editing.value),
+    { immediate: true },
+)
 
 onMounted(load)
 </script>
 
 <template>
     <div class="p-split p-staff" :class="{ split: route.name === 'staff-new' || route.name === 'staff-card' }">
-    <div class="t-page p-split-left">
-        <div class="t-head">
-            <div>
-                <h1>Співробітники</h1>
-                <div class="t-sub">{{ people(rows.length) }} · {{ deps.length }} {{ plural(deps.length, 'відділ', 'відділи', 'відділів') }}</div>
-            </div>
-            <div class="t-actions t-noprint">
-                <button v-if="tab === 'org'" type="button" class="t-btn" @click="printOrg">🖨 Друк</button>
-                <router-link v-if="canSeeJoinRequests(session.user)" :to="{ name: 'admin-join' }" class="t-btn">🙋 Заявки на приєднання</router-link>
-                <router-link v-if="isAdmin" :to="{ name: 'staff-new', query: route.query }" class="t-btn primary">＋ Новий співробітник</router-link>
-            </div>
-        </div>
-
-        <div class="t-seg t-noprint">
-            <button type="button" :class="{ on: tab === 'all' }" @click="tab = 'all'">Усі співробітники</button>
-            <button type="button" :class="{ on: tab === 'deps' }" @click="tab = 'deps'">Відділи</button>
-            <button type="button" :class="{ on: tab === 'org' }" @click="tab = 'org'">Структура компанії</button>
-            <button v-if="isAdmin" type="button" :class="{ on: tab === 'trash' }" @click="tab = 'trash'">🗑 Кошик · {{ trash.length }}</button>
-        </div>
-
-        <div v-if="error && !editing" class="t-error">{{ error }}</div>
-
-        <template v-if="tab === 'all'">
-            <label class="t-search"><input v-model="q" class="t-input" placeholder="Пошук: імʼя, посада, відділ, email" /></label>
-            <table class="t-table responsive">
-                <thead>
-                    <tr><th /><th>Співробітник</th><th>Відділ</th><th>Роль</th><th>Контакти</th><th>Активність</th><th v-if="isAdmin" /></tr>
-                </thead>
-                <tbody>
-                    <tr v-for="r in filtered" :key="r.id">
-                        <td class="av"><Avatar :person="r" :size="36" /></td>
-                        <td><a :href="'/crm/staff/' + r.id" class="p-staff-name" :class="{ sel: editing !== 'new' && editing?.id === r.id }" @click.prevent="open(r)"><PersonName :person="r" bold :link="false" /></a> <span v-if="r.telegram" title="Підключений до Telegram-бота: отримує сповіщення">✈️</span><div class="t-hint" style="padding: 0">{{ r.position ?? '—' }}</div></td>
-                        <td>{{ r.department ?? '—' }}</td>
-                        <td><span class="t-status tone-slate">{{ r.roleLabel }}</span></td>
-                        <td class="hide-sm" style="font-size: .85rem">{{ r.email ?? '' }}<div class="t-hint" style="padding: 0"><a v-if="formatPhone(r.phone)" :href="'tel:' + formatPhone(r.phone)!.tel">{{ formatPhone(r.phone)!.phone }}</a></div></td>
-                        <td class="hide-sm" style="font-size: .85rem; color: var(--text-muted)">{{ r.lastSeenAt ? ago(r.lastSeenAt) : 'входів ще не було' }}</td>
-                        <td v-if="isAdmin" style="white-space: nowrap; text-align: right">
-                            <button type="button" class="t-btn small ghost" @click="open(r)">✏️</button>
-                            <button v-if="!r.me" type="button" class="t-btn small ghost" title="У кошик" @click="toTrash(r)">🗑</button>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </template>
-
-        <template v-else-if="tab === 'deps'">
-            <div v-if="isAdmin" class="t-toolbar">
-                <input v-model="newDep" class="t-input" style="max-width: 320px" placeholder="Новий відділ, напр. «10. Відділ якості»" @keydown.enter="addDep" />
-                <button type="button" class="t-btn" @click="addDep">Додати</button>
-            </div>
-            <div class="t-hint" style="padding: 0">Обрали відділ у задачі — до неї додаються всі його люди.</div>
-            <div class="t-deps">
-                <div v-for="(d, i) in deps" :key="d.id" class="t-dep">
-                    <h3><span class="ico" :style="{ background: depColor(i) }">{{ d.name.replace(/^\d+\.\s*/, '').charAt(0) }}</span>{{ d.name }}<span class="cnt">{{ d.people.length }}</span></h3>
-                    <div class="t-people">
-                        <div v-for="p in d.people" :key="p.id" class="t-person">
-                            <Avatar :person="p" :size="28" />
-                            <div style="min-width: 0"><div class="n"><PersonName :person="p" /></div><div class="p">{{ p.position ?? p.roleLabel }}</div></div>
-                        </div>
-                        <div v-if="!d.people.length" class="t-hint" style="padding: 0">Поки нікого.</div>
-                    </div>
+        <div class="t-page p-split-left">
+            <div class="t-head">
+                <div>
+                    <h1>Співробітники</h1>
+                    <div class="t-sub">{{ people(rows.length) }} · {{ deps.length }} {{ plural(deps.length, 'відділ', 'відділи', 'відділів') }}</div>
+                </div>
+                <div class="t-actions t-noprint">
+                    <button v-if="tab === 'org'" type="button" class="t-btn" @click="printOrg">🖨 Друк</button>
+                    <router-link v-if="canSeeJoinRequests(session.user)" :to="{ name: 'admin-join' }" class="t-btn">🙋 Заявки на приєднання</router-link>
+                    <router-link v-if="isAdmin" :to="{ name: 'staff-new', query: route.query }" class="t-btn primary">＋ Новий співробітник</router-link>
                 </div>
             </div>
-        </template>
 
-        <template v-else-if="tab === 'org'">
-            <div class="t-org">
-                <div class="top">
-                    <div v-for="p in direction?.people ?? []" :key="p.id" class="t-person">
-                        <Avatar :person="p" :size="40" />
-                        <div><div class="n"><PersonName :person="p" /></div><div class="p">{{ p.position }}</div></div>
-                    </div>
-                    <div v-if="!direction" class="t-hint">Дирекція</div>
+            <div class="t-seg t-noprint">
+                <button type="button" :class="{ on: tab === 'all' }" @click="tab = 'all'">Усі співробітники</button>
+                <button type="button" :class="{ on: tab === 'deps' }" @click="tab = 'deps'">Відділи</button>
+                <button type="button" :class="{ on: tab === 'org' }" @click="tab = 'org'">Структура компанії</button>
+                <button v-if="isAdmin" type="button" :class="{ on: tab === 'trash' }" @click="tab = 'trash'">🗑 Кошик · {{ trash.length }}</button>
+            </div>
+
+            <div v-if="error && !editing" class="t-error">{{ error }}</div>
+
+            <template v-if="tab === 'all'">
+                <label class="t-search"><input v-model="q" class="t-input" placeholder="Пошук: імʼя, посада, відділ, email" /></label>
+                <table class="t-table responsive">
+                    <thead>
+                        <tr>
+                            <th />
+                            <th>Співробітник</th>
+                            <th>Відділ</th>
+                            <th>Роль</th>
+                            <th>Контакти</th>
+                            <th>Активність</th>
+                            <th v-if="isAdmin" />
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="r in filtered" :key="r.id">
+                            <td class="av"><Avatar :person="r" :size="36" /></td>
+                            <td>
+                                <a :href="'/crm/staff/' + r.id" class="p-staff-name" :class="{ sel: editing !== 'new' && editing?.id === r.id }" @click.prevent="open(r)">
+                                    <PersonName :person="r" bold :link="false" />
+                                </a>
+                                <span v-if="r.telegram" title="Підключений до Telegram-бота: отримує сповіщення">✈️</span>
+                                <div class="t-hint" style="padding: 0">{{ r.position ?? '—' }}</div>
+                            </td>
+                            <td>{{ r.department ?? '—' }}</td>
+                            <td>
+                                <span class="t-status tone-slate">{{ r.roleLabel }}</span>
+                            </td>
+                            <td class="hide-sm" style="font-size: 0.85rem">
+                                {{ r.email ?? '' }}
+                                <div class="t-hint" style="padding: 0">
+                                    <a v-if="formatPhone(r.phone)" :href="'tel:' + formatPhone(r.phone)!.tel">{{ formatPhone(r.phone)!.phone }}</a>
+                                </div>
+                            </td>
+                            <td class="hide-sm" style="font-size: 0.85rem; color: var(--text-muted)">{{ r.lastSeenAt ? ago(r.lastSeenAt) : 'входів ще не було' }}</td>
+                            <td v-if="isAdmin" style="white-space: nowrap; text-align: right">
+                                <button type="button" class="t-btn small ghost" @click="open(r)">✏️</button>
+                                <button v-if="!r.me" type="button" class="t-btn small ghost" title="У кошик" @click="toTrash(r)">🗑</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </template>
+
+            <template v-else-if="tab === 'deps'">
+                <div v-if="isAdmin" class="t-toolbar">
+                    <input v-model="newDep" class="t-input" style="max-width: 320px" placeholder="Новий відділ, напр. «10. Відділ якості»" @keydown.enter="addDep" />
+                    <button type="button" class="t-btn" @click="addDep">Додати</button>
                 </div>
-                <div class="line" />
-                <div class="branches">
-                    <div v-for="d in branches" :key="d.id" class="node">
-                        <h4>{{ d.name }}</h4>
+                <div class="t-hint" style="padding: 0">Обрали відділ у задачі — до неї додаються всі його люди.</div>
+                <div class="t-deps">
+                    <div v-for="(d, i) in deps" :key="d.id" class="t-dep">
+                        <h3>
+                            <span class="ico" :style="{ background: depColor(i) }">{{ d.name.replace(/^\d+\.\s*/, '').charAt(0) }}</span>
+                            {{ d.name }}
+                            <span class="cnt">{{ d.people.length }}</span>
+                        </h3>
                         <div class="t-people">
                             <div v-for="p in d.people" :key="p.id" class="t-person">
-                                <Avatar :person="p" :size="26" />
-                                <div style="min-width: 0"><div class="n" style="font-size: .85rem"><PersonName :person="p" /></div><div class="p">{{ p.position }}</div></div>
+                                <Avatar :person="p" :size="28" />
+                                <div style="min-width: 0">
+                                    <div class="n"><PersonName :person="p" /></div>
+                                    <div class="p">{{ p.position ?? p.roleLabel }}</div>
+                                </div>
                             </div>
-                            <div v-if="!d.people.length" class="t-hint" style="padding: 0">вакансія</div>
+                            <div v-if="!d.people.length" class="t-hint" style="padding: 0">Поки нікого.</div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </template>
+            </template>
 
-        <template v-else>
-            <div class="t-hint" style="padding: 0">Співробітники не видаляються назавжди: їхні повідомлення й документи лишаються в задачах.</div>
-            <table class="t-table responsive">
-                <thead><tr><th /><th>Співробітник</th><th>Роль</th><th>Хто видалив</th><th>Дата</th><th /></tr></thead>
-                <tbody>
-                    <tr v-for="r in trash" :key="r.id">
-                        <td class="av"><Avatar :person="r" :size="34" /></td>
-                        <td><PersonName :person="r" bold /><div class="t-hint" style="padding: 0">{{ r.position }}</div></td>
-                        <td>{{ r.roleLabel }}</td>
-                        <td><PersonName v-if="r.archivedBy" :name="r.archivedBy" /><template v-else>—</template></td>
-                        <td>{{ r.archivedAt ? new Date(r.archivedAt).toLocaleString('uk-UA', { dateStyle: 'short', timeStyle: 'short' }) : '' }}</td>
-                        <td style="text-align: right"><button type="button" class="t-btn small" @click="restore(r)">↩ Відновити</button></td>
-                    </tr>
-                    <tr v-if="!trash.length"><td colspan="6" class="t-empty">Кошик порожній.</td></tr>
-                </tbody>
-            </table>
-        </template>
+            <template v-else-if="tab === 'org'">
+                <div class="t-org">
+                    <div class="top">
+                        <div v-for="p in direction?.people ?? []" :key="p.id" class="t-person">
+                            <Avatar :person="p" :size="40" />
+                            <div>
+                                <div class="n"><PersonName :person="p" /></div>
+                                <div class="p">{{ p.position }}</div>
+                            </div>
+                        </div>
+                        <div v-if="!direction" class="t-hint">Дирекція</div>
+                    </div>
+                    <div class="line" />
+                    <div class="branches">
+                        <div v-for="d in branches" :key="d.id" class="node">
+                            <h4>{{ d.name }}</h4>
+                            <div class="t-people">
+                                <div v-for="p in d.people" :key="p.id" class="t-person">
+                                    <Avatar :person="p" :size="26" />
+                                    <div style="min-width: 0">
+                                        <div class="n" style="font-size: 0.85rem"><PersonName :person="p" /></div>
+                                        <div class="p">{{ p.position }}</div>
+                                    </div>
+                                </div>
+                                <div v-if="!d.people.length" class="t-hint" style="padding: 0">вакансія</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
 
-    </div>
-
-    <!-- Картка співробітника — праворуч від списку (телефон: на весь екран). -->
-    <section v-if="route.name === 'staff-new' || route.name === 'staff-card'" class="p-split-right p-staff-card">
-        <div v-if="!editing && loaded" class="t-panel t-empty">
-            <p>Співробітника не знайдено.</p>
-            <button type="button" class="t-btn" @click="close">← До списку</button>
+            <template v-else>
+                <div class="t-hint" style="padding: 0">Співробітники не видаляються назавжди: їхні повідомлення й документи лишаються в задачах.</div>
+                <table class="t-table responsive">
+                    <thead>
+                        <tr>
+                            <th />
+                            <th>Співробітник</th>
+                            <th>Роль</th>
+                            <th>Хто видалив</th>
+                            <th>Дата</th>
+                            <th />
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="r in trash" :key="r.id">
+                            <td class="av"><Avatar :person="r" :size="34" /></td>
+                            <td>
+                                <PersonName :person="r" bold />
+                                <div class="t-hint" style="padding: 0">{{ r.position }}</div>
+                            </td>
+                            <td>{{ r.roleLabel }}</td>
+                            <td>
+                                <PersonName v-if="r.archivedBy" :name="r.archivedBy" />
+                                <template v-else>—</template>
+                            </td>
+                            <td>{{ r.archivedAt ? new Date(r.archivedAt).toLocaleString('uk-UA', { dateStyle: 'short', timeStyle: 'short' }) : '' }}</td>
+                            <td style="text-align: right"><button type="button" class="t-btn small" @click="restore(r)">↩ Відновити</button></td>
+                        </tr>
+                        <tr v-if="!trash.length"><td colspan="6" class="t-empty">Кошик порожній.</td></tr>
+                    </tbody>
+                </table>
+            </template>
         </div>
-        <form v-else-if="editing" class="t-formcard p-form p-form-page" aria-labelledby="p-staff-title" @submit.prevent="save" @keydown.esc="close">
-            <header>
-                <button type="button" class="p-icon-btn p-form-back" aria-label="Назад" @click="close"><Icon name="back" /></button>
-                <h2 id="p-staff-title">{{ editing === 'new' ? 'Новий співробітник' : 'Картка співробітника' }}</h2>
-                <button type="button" class="p-icon-btn p-form-x" aria-label="Закрити" title="Закрити (Esc)" @click="close"><Icon name="x" /></button>
-            </header>
-            <div class="body">
-                <div v-if="error" class="t-error">{{ error }}</div>
-                <fieldset class="p-fieldset" :disabled="!isAdmin">
-                    <div class="t-two">
-                        <label class="t-field"><span>Імʼя *</span><input v-model="form.firstName" class="t-input" /></label>
-                        <label class="t-field"><span>Прізвище</span><input v-model="form.lastName" class="t-input" /></label>
-                    </div>
-                    <label class="t-field"><span>Посада</span><input v-model="form.position" class="t-input" placeholder="Технолог, майстер дільниці…" /></label>
-                    <div class="t-two">
-                        <label class="t-field"><span>Роль</span>
-                            <select v-model="form.role" class="t-select"><option v-for="r in store.meta?.roles" :key="r.value" :value="r.value">{{ r.label }}</option></select>
-                        </label>
-                        <label class="t-field"><span>Відділ</span>
-                            <select v-model.number="form.departmentId" class="t-select"><option :value="0">— без відділу —</option><option v-for="d in deps" :key="d.id" :value="d.id">{{ d.name }}</option></select>
-                        </label>
-                    </div>
-                    <div class="t-two">
-                        <label class="t-field"><span>Email (логін)</span><input v-model="form.email" type="email" class="t-input" autocomplete="off" /></label>
-                        <label class="t-field"><span>Телефон (для входу через Telegram)</span><input v-model="form.phone" class="t-input" inputmode="tel" autocomplete="off" placeholder="050 123 45 67" /></label>
-                    </div>
-                    <div class="t-hint" style="padding: 0">Людина входить у План кнопкою «Увійти через Telegram»: уперше бот попросить поділитися номером і впізнає її за цим телефоном. Пароль не потрібен.</div>
-                    <label v-if="isAdmin && store.meta?.me.passwordLogin !== false" class="t-field"><span>{{ editing === 'new' ? 'Пароль (необовʼязково, запасний вхід)' : 'Новий пароль (необовʼязково; порожнє — без змін)' }}</span><input v-model="form.password" type="password" class="t-input" autocomplete="new-password" minlength="8" /></label>
-                </fieldset>
+
+        <!-- Картка співробітника — праворуч від списку (телефон: на весь екран). -->
+        <section v-if="route.name === 'staff-new' || route.name === 'staff-card'" class="p-split-right p-staff-card">
+            <div v-if="!editing && loaded" class="t-panel t-empty">
+                <p>Співробітника не знайдено.</p>
+                <button type="button" class="t-btn" @click="close">← До списку</button>
             </div>
-            <footer>
-                <button type="button" class="t-btn ghost" @click="close">{{ isAdmin ? 'Скасувати' : 'Закрити' }}</button>
-                <button v-if="isAdmin" type="submit" class="t-btn primary">Зберегти</button>
-            </footer>
-        </form>
-        <div v-else class="t-empty">Завантаження…</div>
-    </section>
+            <form v-else-if="editing" class="t-formcard p-form p-form-page" aria-labelledby="p-staff-title" @submit.prevent="save" @keydown.esc="close">
+                <header>
+                    <button type="button" class="p-icon-btn p-form-back" aria-label="Назад" @click="close"><Icon name="back" /></button>
+                    <h2 id="p-staff-title">{{ editing === 'new' ? 'Новий співробітник' : 'Картка співробітника' }}</h2>
+                    <button type="button" class="p-icon-btn p-form-x" aria-label="Закрити" title="Закрити (Esc)" @click="close"><Icon name="x" /></button>
+                </header>
+                <div class="body">
+                    <div v-if="error" class="t-error">{{ error }}</div>
+                    <fieldset class="p-fieldset" :disabled="!isAdmin">
+                        <div class="t-two">
+                            <label class="t-field">
+                                <span>Імʼя *</span>
+                                <input v-model="form.firstName" class="t-input" />
+                            </label>
+                            <label class="t-field">
+                                <span>Прізвище</span>
+                                <input v-model="form.lastName" class="t-input" />
+                            </label>
+                        </div>
+                        <label class="t-field">
+                            <span>Посада</span>
+                            <input v-model="form.position" class="t-input" placeholder="Технолог, майстер дільниці…" />
+                        </label>
+                        <div class="t-two">
+                            <label class="t-field">
+                                <span>Роль</span>
+                                <select v-model="form.role" class="t-select">
+                                    <option v-for="r in store.meta?.roles" :key="r.value" :value="r.value">{{ r.label }}</option>
+                                </select>
+                            </label>
+                            <label class="t-field">
+                                <span>Відділ</span>
+                                <select v-model.number="form.departmentId" class="t-select">
+                                    <option :value="0">— без відділу —</option>
+                                    <option v-for="d in deps" :key="d.id" :value="d.id">{{ d.name }}</option>
+                                </select>
+                            </label>
+                        </div>
+                        <div class="t-two">
+                            <label class="t-field">
+                                <span>Email (логін)</span>
+                                <input v-model="form.email" type="email" class="t-input" autocomplete="off" />
+                            </label>
+                            <label class="t-field">
+                                <span>Телефон (для входу через Telegram)</span>
+                                <input v-model="form.phone" class="t-input" inputmode="tel" autocomplete="off" placeholder="050 123 45 67" />
+                            </label>
+                        </div>
+                        <div class="t-hint" style="padding: 0">
+                            Людина входить у План кнопкою «Увійти через Telegram»: уперше бот попросить поділитися номером і впізнає її за цим телефоном. Пароль не потрібен.
+                        </div>
+                        <label v-if="isAdmin && store.meta?.me.passwordLogin !== false" class="t-field">
+                            <span>{{ editing === 'new' ? 'Пароль (необовʼязково, запасний вхід)' : 'Новий пароль (необовʼязково; порожнє — без змін)' }}</span>
+                            <input v-model="form.password" type="password" class="t-input" autocomplete="new-password" minlength="8" />
+                        </label>
+                    </fieldset>
+                </div>
+                <footer>
+                    <button type="button" class="t-btn ghost" @click="close">{{ isAdmin ? 'Скасувати' : 'Закрити' }}</button>
+                    <button v-if="isAdmin" type="submit" class="t-btn primary">Зберегти</button>
+                </footer>
+            </form>
+            <div v-else class="t-empty">Завантаження…</div>
+        </section>
     </div>
 </template>
