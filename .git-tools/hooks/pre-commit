@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# pre-commit: PHP-CS-Fixer виправляє staged PHP-файли (і додає їх назад у коміт), PHPStan
+# перевіряє ці ж файли. Проєкт — PHP 8.5: якщо php на хості старіший, запускаємо в образі
+# sc-php85 (PLAN_PHP_IMAGE). Встановити: composer install-git-hooks. Пропустити: git commit --no-verify.
+set -u
+
+files=$(git diff --cached --name-only --diff-filter=ACMR | grep '\.php$' || true)
+[ -z "$files" ] && exit 0
+
+if php -r 'exit(PHP_VERSION_ID >= 80500 ? 0 : 1);' 2>/dev/null; then
+    run() { "$@"; }
+else
+    image="${PLAN_PHP_IMAGE:-sc-php85}"
+    run() { docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:/app" -w /app "$image" "$@"; }
+fi
+
+# shellcheck disable=SC2086
+run php vendor/bin/php-cs-fixer fix -q --config=.php-cs-fixer.dist.php --path-mode=intersection $files || exit 1
+# shellcheck disable=SC2086
+git add $files
+
+phpstan_files=$(printf '%s\n' $files | grep -E '^(src|tests)/' || true)
+if [ -n "$phpstan_files" ]; then
+    # shellcheck disable=SC2086
+    run php vendor/bin/phpstan analyse -c phpstan.dist.neon --no-progress --memory-limit=1G $phpstan_files || {
+        echo 'PHPStan: виправте помилки вище (або git commit --no-verify, якщо дуже треба).' >&2
+        exit 1
+    }
+fi
+exit 0
