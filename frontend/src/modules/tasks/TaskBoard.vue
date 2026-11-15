@@ -12,7 +12,7 @@ import { useSession } from '../../app/store'
 
 /**
  * Дошка — колонки за відповіддю клієнта 13.11.2026:
- * Хроніка (що я відкривав) · Мої повідомлення (де я писав останнім або мене згадали)
+ * Хроніка (усі задачі, де я присутній) · Мої повідомлення (я створив, я писав або до мене звернулись)
  * · Нова заявка · В роботі · Виконана.
  *
  * Розділений екран, як у ПланФіксі: клік по картці відкриває задачу праворуч
@@ -35,8 +35,8 @@ const error = ref('')
 const filter = ref<HTMLInputElement | null>(null)
 
 const COLUMNS: { key: Column; title: string; color: string; empty: string; status?: boolean }[] = [
-    { key: 'chronicle', title: 'Хроніка', color: '#64748b', empty: 'Тут зʼявляться задачі, які ви відкривали.', status: true },
-    { key: 'messages', title: 'Мої повідомлення', color: '#db2777', empty: 'Тут задачі, де ви писали останнім або вас згадали.', status: true },
+    { key: 'chronicle', title: 'Хроніка', color: '#64748b', empty: 'Тут зʼявляться задачі, де ви автор чи учасник.', status: true },
+    { key: 'messages', title: 'Мої повідомлення', color: '#db2777', empty: 'Тут задачі, які ви створили, де ви писали або до вас звернулись.', status: true },
     { key: 'new', title: 'Нова заявка', color: '#2563eb', empty: 'Нових заявок немає.' },
     { key: 'work', title: 'В роботі', color: '#7c3aed', empty: 'Нічого в роботі.', status: true },
     { key: 'done', title: 'Виконана', color: '#16a34a', empty: 'Ще нічого не закрито.', status: true },
@@ -263,7 +263,7 @@ onBeforeUnmount(() => {
                 >
                     {{ c.title }}
                     <span class="n">{{ board ? board[c.key].length : '·' }}</span>
-                    <span v-if="unreadIn(c.key)" class="u" :title="unreadIn(c.key) + ' непрочитаних'" />
+                    <span v-if="unreadIn(c.key)" class="u" :title="unreadIn(c.key) + ' непрочитаних'">{{ unreadIn(c.key) }}</span>
                 </button>
             </div>
 

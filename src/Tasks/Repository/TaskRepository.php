@@ -223,18 +223,9 @@ class TaskRepository extends ServiceEntityRepository
         return array_map('intval', $rows);
     }
 
-    /** Задачі, які людина відкривала, — колонка «Хроніка». @return int[] */
-    public function openedBy(TelegramUser $user, int $limit = 40): array
-    {
-        return array_map('intval', $this->getEntityManager()->getConnection()->fetchFirstColumn(
-            'SELECT r.task_id FROM task_read r JOIN task t ON t.id = r.task_id
-              WHERE r.user_id = :user ORDER BY t.last_activity_at DESC LIMIT ' . $limit,
-            ['user' => $user->getId()],
-        ));
-    }
-
     /**
-     * «Мої повідомлення»: де людина написала останньою або її згадали.
+     * «Мої повідомлення» (Олександр, 15.11.2026): «я створив, я написав» або «до мене
+     * звернулись» (@відмітка) — найсвіжіша активність зверху. Видимість — у search().
      *
      * @return int[]
      */
@@ -242,12 +233,11 @@ class TaskRepository extends ServiceEntityRepository
     {
         return array_map('intval', $this->getEntityManager()->getConnection()->fetchFirstColumn(
             "SELECT t.id FROM task t
-              WHERE EXISTS (
+              WHERE t.creator_id = :user
+                 OR EXISTS (
                     SELECT 1 FROM task_message m WHERE m.task_id = t.id AND m.kind = 'comment' AND m.deleted_at IS NULL
-                       AND m.mentions::jsonb @> to_jsonb(ARRAY[:user]::int[])
+                       AND (m.author_id = :user OR m.mentions::jsonb @> to_jsonb(ARRAY[:user]::int[]))
                  )
-                 OR (SELECT m.author_id FROM task_message m WHERE m.task_id = t.id AND m.kind = 'comment' AND m.deleted_at IS NULL
-                      ORDER BY m.id DESC LIMIT 1) = :user
               ORDER BY t.last_activity_at DESC LIMIT " . $limit,
             ['user' => $user->getId()],
         ));

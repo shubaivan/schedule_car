@@ -822,14 +822,16 @@ body.p-noscroll {
     opacity: 0.75;
     font-variant-numeric: tabular-nums;
 }
+/* «М'ячик» — скільки непрочитаних у колонці. */
 .p-coltabs .u {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
     background: var(--badge);
+    color: #fff;
+    font: 700 11px/18px var(--p-font);
+    text-align: center;
 }
 .p-board.split .p-cols {
     display: block;

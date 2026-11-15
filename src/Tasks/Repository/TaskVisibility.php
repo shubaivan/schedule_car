@@ -12,7 +12,7 @@ use App\Entity\TelegramUser;
 final class TaskVisibility
 {
     /**
-     * Задачі, де людина бере участь (автор, учасник) або які позначила ★, — по них
+     * Задачі, де людина бере участь (автор, учасник, писала в чаті) або які позначила ★, — по них
      * рахуються «+N» і лічильник меню (для директора теж: інакше це шум усього заводу).
      * Рядки Хроніки — chronicle(). ★ працює тільки в межах видимості.
      *
@@ -25,7 +25,8 @@ final class TaskVisibility
         return [
             sprintf(
                 '(%2$s AND (%1$s.creator_id = :involved OR EXISTS (SELECT 1 FROM task_member im WHERE im.task_id = %1$s.id AND im.user_id = :involved)
-                    OR EXISTS (SELECT 1 FROM task_favorite iv WHERE iv.task_id = %1$s.id AND iv.user_id = :involved)))',
+                    OR EXISTS (SELECT 1 FROM task_favorite iv WHERE iv.task_id = %1$s.id AND iv.user_id = :involved)
+                    OR EXISTS (SELECT 1 FROM task_message iw WHERE iw.task_id = %1$s.id AND iw.author_id = :involved AND iw.kind = \'comment\' AND iw.deleted_at IS NULL)))',
                 $alias,
                 $visible,
             ),

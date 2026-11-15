@@ -162,7 +162,8 @@ class TaskApiController extends TasksController
         ];
 
         $columns = [
-            'chronicle' => $this->tasks->search($me, [...$filters, 'ids' => $this->tasks->openedBy($me)], 30),
+            // «Хроніка» — усі задачі, де я присутній (автор, учасник, через відділ); директор і адмін — усі.
+            'chronicle' => $this->tasks->search($me, $filters, 30),
             'messages' => $this->tasks->search($me, [...$filters, 'ids' => $this->tasks->myMessages($me)], 30),
             'new' => $this->tasks->search($me, [...$filters, 'status' => [TaskStatus::New]], 60),
             'work' => $this->tasks->search($me, [...$filters, 'status' => [TaskStatus::InWork, TaskStatus::Approval, TaskStatus::Approved, TaskStatus::Waiting]], 60, 'due'),
