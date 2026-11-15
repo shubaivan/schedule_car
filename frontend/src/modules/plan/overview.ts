@@ -16,7 +16,7 @@ export interface DecisionAction {
 }
 
 export interface Decision {
-    kind: 'task' | 'supply'
+    kind: 'supply'
     id: number
     number: string
     title: string
@@ -31,6 +31,19 @@ export interface Decision {
     actions: DecisionAction[]
 }
 
+/** «Чекають моєї відповіді»: коментар у задачі, де мене відмітили, а я ще не відповів. */
+export interface Reply {
+    messageId: number
+    taskId: number
+    number: string | null
+    title: string
+    client: string | null
+    excerpt: string
+    at: string
+    author: { id?: number | null; name: string; phone?: string | null; tel?: string | null } | null
+    unread: boolean
+}
+
 export interface FleetCar {
     id: number
     number: string
@@ -41,18 +54,20 @@ export interface FleetCar {
 
 export interface Overview {
     generatedAt: string
-    scope: { all: boolean; department: string | null; decideTasks: boolean; decideSupply: boolean }
+    scope: { all: boolean; department: string | null; decideSupply: boolean }
     kpi: {
         overdueTasks: number
         openTasks: number
         mineTasks: number
         staleTasks: number
+        replies: number
         decisions: number
         supplyOverdue: number
         fleet: { busy: number; free: number } | null
         shipmentsToday: number | null
     }
-    decisions: { items: Decision[]; total: number; tasks: number; supply: number }
+    replies: { items: Reply[]; total: number }
+    decisions: { items: Decision[]; total: number; supply: number }
     control: { rows: (Counts3 & { id: number; name: string })[]; none: Counts3; total: Counts3; staleDays: number }
     supply: {
         counts: { open: number; new: number; overdue: number; decide: number; mine: number }
@@ -81,7 +96,7 @@ export interface Overview {
     mine: TaskItem[]
 }
 
-export type ListFilter = 'open' | 'overdue' | 'stale' | 'decide' | 'mine'
+export type ListFilter = 'open' | 'overdue' | 'stale' | 'mine'
 
 export interface TaskList {
     items: TaskItem[]

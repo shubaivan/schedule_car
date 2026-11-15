@@ -27,7 +27,6 @@ const FILTERS: { key: ListFilter; label: string }[] = [
     { key: 'open', label: 'Відкриті' },
     { key: 'overdue', label: 'Прострочені' },
     { key: 'stale', label: 'Без руху' },
-    { key: 'decide', label: 'Чекають рішення' },
     { key: 'mine', label: 'Мої' },
 ]
 

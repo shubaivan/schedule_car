@@ -10,7 +10,7 @@ import type { TaskDetail } from './api'
 /**
  * Шапка задачі в два рядки (як у ПланФіксі): «№ · контрагент» → назва;
  * далі статус-кнопка зі списком переходів, термін, відділи, учасники.
- * Рішення директора — окремою жовтою смугою (наш плюс, лишаємо).
+ * Окремого «рішення директора» немає (15.11.2026): питання — відміткою в чаті.
  * Переходи статусу розкриваються рядком прямо в шапці (не спливаюче меню поверх сторінки).
  */
 const props = defineProps<{ task: TaskDetail; embedded?: boolean; moving?: boolean; sideOpen?: boolean }>()
@@ -20,21 +20,14 @@ const route = useRoute()
 const menu = ref(false)
 // Телефон: «Назад» спершу згортає рядок статусів.
 useHistoryLayer(menu)
-const note = ref('')
 
 const transitions = computed(() => props.task.can.transitions)
-const decisions = computed(() => transitions.value.filter((t) => t.decision))
-const moves = computed(() => transitions.value.filter((t) => !t.decision))
+const moves = computed(() => transitions.value)
 const tone = computed(() => 'tone-' + (STATUS_TONE[props.task.status] ?? 'slate'))
 
 function go(to: string) {
     menu.value = false
     emit('move', to)
-}
-
-function decide(to: string) {
-    emit('move', to, note.value)
-    note.value = ''
 }
 
 /** Esc спершу згортає рядок статусів і бічну панель, а не всю задачу. */
@@ -115,24 +108,5 @@ onBeforeUnmount(() => window.removeEventListener('keydown', esc, true))
             </button>
             <button type="button" class="p-link" @click="menu = false">Згорнути</button>
         </div>
-
-        <div v-if="decisions.length" class="t-decision">
-            <span>Рішення директора</span>
-            <input v-model="note" class="t-input p-note" placeholder="Коментар (необовʼязково)" />
-            <div class="t-actions">
-                <button
-                    v-for="d in decisions"
-                    :key="d.value"
-                    type="button"
-                    class="t-btn small"
-                    :class="d.value === 'approved' ? 'primary' : d.value === 'rejected' ? 'danger' : ''"
-                    :disabled="moving"
-                    @click="decide(d.value)"
-                >
-                    {{ d.action }}
-                </button>
-            </div>
-        </div>
-        <div v-else-if="task.awaitsDecision" class="t-decision">Чекає рішення директора</div>
     </div>
 </template>

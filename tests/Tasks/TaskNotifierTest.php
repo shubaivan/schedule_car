@@ -75,16 +75,17 @@ class TaskNotifierTest extends KernelTestCase
         self::assertArrayNotHasKey($crmOnly->getTelegramId(), $sent, 'Картці без Telegram — ні');
     }
 
-    public function testApprovalReachesDirectorEvenIfNotMember(): void
+    public function testStatusChangeDoesNotPullInDirectorWhoIsNotMember(): void
     {
         $manager = $this->person(WorkRole::Manager);
         $director = $this->person(WorkRole::Director);
         $task = $this->task($manager, []);
-        $task->setStatus(TaskStatus::Approval);
+        $task->setStatus(TaskStatus::Done);
 
         $this->notifier->statusChanged($task, TaskStatus::InWork, $manager);
 
-        self::assertStringContainsString('Потрібне ваше рішення', $this->sent()[$director->getTelegramId()] ?? '');
+        // Рішення директора в задачах немає: стороннього директора статус не турбує.
+        self::assertArrayNotHasKey($director->getTelegramId(), $this->sent());
     }
 
     /** @return array<string, string> chat_id => текст */

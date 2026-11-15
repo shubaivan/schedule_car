@@ -31,20 +31,13 @@ class TaskPolicy
     }
 
     /**
-     * Рішення про гроші — лише директор (і адмін як запасний ключ): поки задача
-     * «На погодженні» чи «Очікує», і коли перехід сам є рішенням.
-     * Решту руху веде той, хто працює із задачею: менеджер, автор чи учасник.
+     * Статус веде той, хто працює із задачею: менеджер, директор, автор чи учасник.
+     * Окремого «рішення директора» в задачах немає — питання вирішуються в чаті.
      */
     public function canMove(TelegramUser $user, Task $task, TaskStatus $to): bool
     {
-        $from = $task->getStatus();
-
-        if (! $from->canMoveTo($to) || ! $this->canView($user, $task)) {
+        if (! $task->getStatus()->canMoveTo($to) || ! $this->canView($user, $task)) {
             return false;
-        }
-
-        if ($from->awaitsDecision() || $to->isDecision()) {
-            return $user->getWorkRole()->decides();
         }
 
         return $user->getWorkRole()->editsAnyTask() ||

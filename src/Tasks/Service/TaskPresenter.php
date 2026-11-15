@@ -84,7 +84,6 @@ class TaskPresenter
             'action' => $status->action(),
             'column' => $status->column(),
             'closed' => $status->isClosed(),
-            'decision' => $status->isDecision(),
         ];
     }
 
@@ -171,7 +170,6 @@ class TaskPresenter
                 'comment' => $this->policy->canComment($viewer, $task),
                 'transitions' => array_map($this->status(...), $this->policy->transitions($viewer, $task)),
             ],
-            'awaitsDecision' => $task->getStatus()->awaitsDecision(),
             'messages' => array_map(fn (TaskMessage $m) => $this->message($m, $viewer, $starred), $messages),
             'files' => $files,
             'favorite' => $this->feed->isFavorite($viewer, $task),

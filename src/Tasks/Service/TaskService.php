@@ -157,9 +157,7 @@ class TaskService
             }
 
             if (! $this->policy->canMove($user, $task, $to)) {
-                throw new TaskException($task->getStatus()->awaitsDecision() || $to->isDecision()
-                    ? 'Це рішення приймає директор.'
-                    : sprintf('Перехід «%s» → «%s» недоступний.', $task->getStatus()->label(), $to->label()));
+                throw new TaskException(sprintf('Перехід «%s» → «%s» недоступний.', $task->getStatus()->label(), $to->label()));
             }
 
             $from = $task->getStatus();
@@ -177,7 +175,7 @@ class TaskService
                 $from->value,
                 $to->value,
                 closes: $to->isClosed(),
-                asksApproval: $to === TaskStatus::Approval,
+                asksApproval: false,
                 comment: $comment,
                 refId: $message->getId(),
             ));

@@ -21,6 +21,7 @@ use App\Tasks\Entity\Task;
 use App\Tasks\Entity\TaskMember;
 use App\Tasks\Enum\TaskStatus;
 use App\Tasks\Enum\WorkRole;
+use App\Tasks\Service\TaskService;
 use App\Tests\Warehouse\WarehouseFixtures;
 use App\Warehouse\Enum\MovementType;
 use App\Warehouse\Enum\Tracking;
@@ -134,7 +135,6 @@ class OverviewApiTest extends WebTestCase
         $data = $this->get('/api/plan/overview');
 
         self::assertFalse($data['scope']['all']);
-        self::assertFalse($data['scope']['decideTasks']);
         self::assertFalse($data['scope']['decideSupply']);
         self::assertSame([], $data['decisions']['items']);
         self::assertSame(0, $data['decisions']['total']);
@@ -150,33 +150,66 @@ class OverviewApiTest extends WebTestCase
         self::assertSame([$mine->getId()], array_column($data['mine'], 'id'));
     }
 
-    public function testInlineTaskDecisionUsesExistingPermissionsAndAudit(): void
+    public function testAwaitingMyReplyListsMentionsUntilIAnswer(): void
     {
         $director = $this->user(WorkRole::Director, SupplyRole::Director);
         $manager = $this->user(WorkRole::Manager, SupplyRole::Manager);
-        $task = $this->task('Знижка 3% для ТОВ Будмакс', $manager, [], status: TaskStatus::Approval);
+        $other = $this->user(WorkRole::Production, SupplyRole::Worker);
+        $task = $this->task('Знижка 3% для ТОВ Будмакс', $manager, [], members: [$director]);
+        $closed = $this->task('Закрита', $manager, [], status: TaskStatus::Done, members: [$director]);
+        $service = self::getContainer()->get(TaskService::class);
+
+        $first = $service->post($task, $manager, 'Погоджуємо знижку 3%?', [], [(int) $director->getId()]);
+        $second = $service->post($task, $manager, "І термін —\nдо пʼятниці?", [], [(int) $director->getId(), (int) $other->getId()]);
+        $service->post($task, $manager, 'Без відмітки — не питання до директора.');
+        $service->post($closed, $manager, 'Закрита задача — не чекає відповіді', [], [(int) $director->getId()]);
 
         $this->client->loginUser($director);
-        $row = $this->decision($this->get('/api/plan/overview'), 'task', (int) $task->getId());
-        self::assertSame(['approved', 'rejected'], array_column($row['actions'], 'to'));
-        self::assertSame(['Погодити', 'Відхилити'], array_column($row['actions'], 'label'));
+        $data = $this->get('/api/plan/overview');
+        self::assertSame(2, $data['replies']['total']);
+        self::assertSame(2, $data['kpi']['replies']);
+        // Найстаріше питання — першим; посилання веде на повідомлення в задачі.
+        self::assertSame([$first->getId(), $second->getId()], array_column($data['replies']['items'], 'messageId'));
+        $row = $data['replies']['items'][1];
+        self::assertSame($task->getId(), $row['taskId']);
+        self::assertSame('І термін — до пʼятниці?', $row['excerpt']);
+        self::assertTrue($row['unread']);
+        self::assertNotNull($row['author']);
+        // Рішення директора в задачах немає: у черзі рішень лише заявки.
+        self::assertNull($this->decision($data, 'task', (int) $task->getId()));
+        self::assertArrayNotHasKey('tasks', $data['decisions']);
 
-        // Менеджер (автор) рішення не ухвалює — ні кнопок, ні переходу.
+        // Відмітили не мене — у мене порожньо.
+        $this->client->loginUser($other);
+        self::assertSame([$second->getId()], array_column($this->get('/api/plan/overview')['replies']['items'], 'messageId'));
+
+        // Директор відповів у задачі — обидва питання закриті.
+        $director = $this->em->find(TelegramUser::class, $director->getId()) ?? self::fail('director');
+        $task = $this->em->find(Task::class, $task->getId()) ?? self::fail('task');
+        $service->post($task, $director, 'Так, погоджую.');
+        $this->client->loginUser($director);
+        $data = $this->get('/api/plan/overview');
+        self::assertSame(0, $data['replies']['total']);
+        self::assertSame([], $data['replies']['items']);
+    }
+
+    public function testTaskStatusesHaveNoDirectorDecision(): void
+    {
+        $director = $this->user(WorkRole::Director, SupplyRole::Director);
+        $manager = $this->user(WorkRole::Manager, SupplyRole::Manager);
+        $task = $this->task('Нова від менеджера', $manager, [], status: TaskStatus::New);
+        $legacy = $this->task('Стара «на погодженні»', $manager, [], status: TaskStatus::Approval);
+
         $this->client->loginUser($manager);
-        self::assertSame([], $this->get('/api/plan/overview')['decisions']['items']);
-        $this->post('/api/tasks/' . $task->getId() . '/status', ['to' => 'approved']);
-        self::assertResponseStatusCodeSame(422);
-
-        $this->client->loginUser($director);
-        $this->post('/api/tasks/' . $task->getId() . '/status', ['to' => 'approved']);
+        $detail = $this->get('/api/tasks/' . $task->getId());
+        self::assertNotContains('approval', array_column($detail['can']['transitions'], 'value'), 'на погодження директору більше не відправляють');
+        self::assertArrayNotHasKey('awaitsDecision', $detail);
+        // Стара задача «на погодженні» не застрягає: автор сам виводить її в роботу.
+        self::assertSame(['in_work', 'done', 'rejected'], array_column($this->get('/api/tasks/' . $legacy->getId())['can']['transitions'], 'value'));
+        $this->post('/api/tasks/' . $legacy->getId() . '/status', ['to' => 'in_work']);
         self::assertResponseIsSuccessful();
-        self::assertNull($this->decision($this->get('/api/plan/overview'), 'task', (int) $task->getId()));
-
-        $events = (int) $this->em->getConnection()->fetchOne(
-            "SELECT COUNT(*) FROM plan_event WHERE subject_type = 'task' AND subject_id = ? AND actor_id = ?",
-            [$task->getId(), $director->getId()],
-        );
-        self::assertGreaterThan(0, $events, 'рішення з «Огляду» лишає слід у журналі подій');
+        $this->post('/api/tasks/' . $task->getId() . '/status', ['to' => 'approval']);
+        self::assertResponseStatusCodeSame(422);
     }
 
     public function testSupplyDecisionRequiresReasonToReject(): void

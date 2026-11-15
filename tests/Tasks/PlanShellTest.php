@@ -201,8 +201,13 @@ class PlanShellTest extends WebTestCase
         }
 
         // Кожна колонка дошки має що показати.
-        foreach (['new', 'in_work', 'approval', 'approved', 'waiting', 'done', 'rejected'] as $status) {
+        foreach (['new', 'in_work', 'done', 'rejected'] as $status) {
             self::assertArrayHasKey($status, $statuses);
+        }
+
+        // Статусів погодження директором у демо немає — рішень у задачах немає (15.11.2026).
+        foreach (['approval', 'approved', 'waiting'] as $status) {
+            self::assertArrayNotHasKey($status, $statuses);
         }
     }
 

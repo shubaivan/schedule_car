@@ -5,6 +5,7 @@ namespace App\Plan\Overview;
 use App\Entity\TelegramUser;
 use App\Plan\Access\PlanAccess;
 use App\Plan\Access\PlanCapability;
+use App\Repository\TelegramUserRepository;
 use App\Service\FleetSection;
 use App\Supply\Entity\SupplyRequest;
 use App\Supply\Enum\SupplyStatus;
@@ -17,7 +18,7 @@ use App\Tasks\Enum\TaskStatus;
 use App\Tasks\Repository\TaskAttachmentRepository;
 use App\Tasks\Repository\TaskMessageRepository;
 use App\Tasks\Repository\TaskRepository;
-use App\Tasks\Service\TaskPolicy;
+use App\Tasks\Repository\TaskVisibility;
 use App\Tasks\Service\TaskPresenter;
 use App\Warehouse\Service\LowStock;
 use DateTimeImmutable;
@@ -27,7 +28,8 @@ use Doctrine\DBAL\Connection;
 
 /**
  * «Огляд» v2 — екран директора за зразком ПланФікса: рядок великих чисел, під ним
- * «Чекають мого рішення» з кнопками просто в рядку, «Контроль по відділах»,
+ * «Чекають моєї відповіді» (мене відмітили в чаті задачі, я ще не відповів),
+ * заявки на моєму рішенні з кнопками просто в рядку, «Контроль по відділах»,
  * постачання за місяць, автопарк по бронях і склад. Одна відповідь на весь екран.
  *
  * Кожне число рахується тим самим правилом, що й список, куди воно веде
@@ -39,6 +41,7 @@ final class DirectorOverview
 {
     public const int STALE_DAYS = 3;
     private const int DECISIONS_LIMIT = 10;
+    private const int REPLIES_LIMIT = 10;
     private const int MINE_LIMIT = 6;
     private const int LOW_LIMIT = 6;
 
@@ -48,7 +51,7 @@ final class DirectorOverview
         private readonly PlanOverview $overview,
         private readonly TaskRepository $tasks,
         private readonly TaskPresenter $taskPresenter,
-        private readonly TaskPolicy $policy,
+        private readonly TelegramUserRepository $users,
         private readonly TaskMessageRepository $messages,
         private readonly TaskAttachmentRepository $attachments,
         private readonly SupplyRequestRepository $requests,
@@ -66,6 +69,7 @@ final class DirectorOverview
         $now = new DateTimeImmutable('now', new DateTimeZone('Europe/Kyiv'));
         $stats = $this->tasks->dashboardStats($me);
         $decisions = $this->decisions($me);
+        $replies = $this->replies($me);
         $supply = $this->supply($me, $now);
         $fleet = $this->fleet($now);
         $warehouse = $this->warehouse($me);
@@ -76,7 +80,6 @@ final class DirectorOverview
             'scope' => [
                 'all' => $me->seesAllTasks(),
                 'department' => $me->getDepartment()?->getName(),
-                'decideTasks' => $me->getWorkRole()->decides(),
                 'decideSupply' => $supply['approve'],
             ],
             'kpi' => [
@@ -84,11 +87,13 @@ final class DirectorOverview
                 'openTasks' => $stats['open'],
                 'mineTasks' => $stats['mine'],
                 'staleTasks' => $control['total']['stale'],
+                'replies' => $replies['total'],
                 'decisions' => $decisions['total'],
                 'supplyOverdue' => $supply['counts']['overdue'],
                 'fleet' => ! $fleet['enabled'] ? null : ['busy' => $fleet['busyToday'], 'free' => $fleet['freeToday']],
                 'shipmentsToday' => $warehouse['shipmentsToday'] ?? null,
             ],
+            'replies' => $replies,
             'decisions' => $decisions,
             'control' => $control,
             'supply' => $supply,
@@ -99,26 +104,92 @@ final class DirectorOverview
     }
 
     /**
-     * Задачі (директору й адміну) і заявки (тим, хто погоджує оплату) однією чергою;
-     * у кожному рядку — лише ті рішення, які ця людина справді може ухвалити.
+     * «Чекають моєї відповіді»: коментарі в задачах, де мене відмітили (@Ім'я), а я
+     * після них у цій задачі ще нічого не написав. Рішення директора в задачах немає
+     * (15.11.2026) — питання ставлять відміткою в чаті, відповідь закриває рядок.
+     * Найстаріші — першими; закриті задачі й видалені повідомлення не рахуються.
      *
-     * @return array{items: list<array<string, mixed>>, total: int, tasks: int, supply: int}
+     * @return array{items: list<array<string, mixed>>, total: int}
+     */
+    private function replies(TelegramUser $me): array
+    {
+        [$visible, $params] = TaskVisibility::sql($me, 't');
+        $where = "m.kind = 'comment' AND m.deleted_at IS NULL
+              AND m.mentions::jsonb @> to_jsonb(ARRAY[:me]::int[])
+              AND m.author_id IS DISTINCT FROM :me
+              AND t.status NOT IN (:closed)
+              AND " . $visible . "
+              AND NOT EXISTS (SELECT 1 FROM task_message a WHERE a.task_id = m.task_id AND a.id > m.id
+                                 AND a.author_id = :me AND a.kind = 'comment' AND a.deleted_at IS NULL)";
+        $params = [...$params, 'me' => (int) $me->getId(), 'closed' => [TaskStatus::Done->value, TaskStatus::Rejected->value]];
+        $types = ['closed' => ArrayParameterType::STRING];
+
+        $total = (int) $this->db->fetchOne('SELECT COUNT(*) FROM task_message m JOIN task t ON t.id = m.task_id WHERE ' . $where, $params, $types);
+
+        if ($total === 0) {
+            return ['items' => [], 'total' => 0];
+        }
+
+        $rows = $this->db->fetchAllAssociative(
+            'SELECT m.id, m.task_id, m.author_id, m.text, m.created_at, t.title, t.client,
+                    (m.id > COALESCE(r.last_message_id, 0)) AS unread
+               FROM task_message m
+               JOIN task t ON t.id = m.task_id
+               LEFT JOIN task_read r ON r.task_id = m.task_id AND r.user_id = :me
+              WHERE ' . $where . '
+              ORDER BY m.id ASC
+              LIMIT ' . self::REPLIES_LIMIT,
+            $params,
+            $types,
+        );
+
+        $tasks = [];
+
+        foreach ($this->tasks->findBy(['id' => array_values(array_unique(array_map(static fn (array $r) => (int) $r['task_id'], $rows)))]) as $task) {
+            $tasks[(int) $task->getId()] = $task;
+        }
+
+        $authors = [];
+
+        foreach ($this->users->findBy(['id' => array_values(array_unique(array_filter(array_map(static fn (array $r) => (int) $r['author_id'], $rows))))]) as $user) {
+            $authors[(int) $user->getId()] = $user;
+        }
+
+        $kyiv = new DateTimeZone('Europe/Kyiv');
+        $items = [];
+
+        foreach ($rows as $row) {
+            $task = $tasks[(int) $row['task_id']] ?? null;
+            $author = $authors[(int) $row['author_id']] ?? null;
+            $text = trim(preg_replace('/\s+/u', ' ', (string) $row['text']) ?? '');
+
+            $items[] = [
+                'messageId' => (int) $row['id'],
+                'taskId' => (int) $row['task_id'],
+                'number' => $task?->number(),
+                'title' => (string) $row['title'],
+                'client' => $row['client'],
+                'excerpt' => mb_strlen($text) > 180 ? mb_substr($text, 0, 179) . '…' : $text,
+                'at' => new DateTimeImmutable((string) $row['created_at'], $kyiv)->format(DATE_ATOM),
+                'author' => $author !== null ? $this->taskPresenter->person($author) : null,
+                'unread' => (bool) $row['unread'],
+            ];
+        }
+
+        return ['items' => $items, 'total' => $total];
+    }
+
+    /**
+     * Заявки постачання, що чекають рішення тих, хто погоджує оплату; у кожному рядку —
+     * лише ті рішення, які ця людина справді може ухвалити. Задач тут немає: рішення
+     * директора в задачах прибрано (15.11.2026), їхнє місце — «Чекають моєї відповіді».
+     *
+     * @return array{items: list<array<string, mixed>>, total: int, supply: int}
      */
     private function decisions(TelegramUser $me): array
     {
         $items = [];
-        $taskTotal = 0;
         $supplyTotal = 0;
-        $awaiting = [TaskStatus::Approval, TaskStatus::Waiting];
-
-        if ($me->getWorkRole()->decides()) {
-            $filters = ['status' => $awaiting];
-            $taskTotal = $this->tasks->countMatching($me, $filters);
-
-            foreach ($this->tasks->search($me, $filters, self::DECISIONS_LIMIT, 'due') as $task) {
-                $items[] = $this->taskDecision($me, $task);
-            }
-        }
 
         if ($this->access->can($me, PlanCapability::SupplyApprove)) {
             [$requests, $supplyTotal] = $this->awaitingSupply();
@@ -133,8 +204,7 @@ final class DirectorOverview
 
         return [
             'items' => array_slice($items, 0, self::DECISIONS_LIMIT),
-            'total' => $taskTotal + $supplyTotal,
-            'tasks' => $taskTotal,
+            'total' => $supplyTotal,
             'supply' => $supplyTotal,
         ];
     }
@@ -172,34 +242,6 @@ final class DirectorOverview
         usort($requests, static fn (SupplyRequest $x, SupplyRequest $y) => $position[(int) $x->getId()] <=> $position[(int) $y->getId()]);
 
         return [$requests, $total];
-    }
-
-    /** @return array<string, mixed> */
-    private function taskDecision(TelegramUser $me, Task $task): array
-    {
-        $actions = [];
-
-        foreach ([TaskStatus::Approved, TaskStatus::Rejected] as $to) {
-            if ($task->getStatus()->canMoveTo($to) && $this->policy->canMove($me, $task, $to)) {
-                $actions[] = ['to' => $to->value, 'label' => $to->action(), 'reject' => $to === TaskStatus::Rejected, 'reasonRequired' => false];
-            }
-        }
-
-        return [
-            'kind' => 'task',
-            'id' => $task->getId(),
-            'number' => $task->number(),
-            'title' => $task->getTitle(),
-            'detail' => $task->getClient(),
-            'status' => $task->getStatus()->value,
-            'statusLabel' => $task->getStatus()->label(),
-            'due' => $task->getDueAt()?->format('Y-m-d'),
-            'overdue' => $task->isOverdue(),
-            'since' => $task->getLastActivityAt()->format(DATE_ATOM),
-            'person' => $this->taskPresenter->person($task->getCreator()),
-            'amount' => null,
-            'actions' => $actions,
-        ];
     }
 
     /** @return array<string, mixed> */

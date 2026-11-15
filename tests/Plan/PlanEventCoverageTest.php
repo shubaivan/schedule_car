@@ -193,8 +193,8 @@ class PlanEventCoverageTest extends KernelTestCase
         $this->one('comment_deleted', SubjectType::Task, $task->getId(), $manager);
 
         $this->begin();
-        $tasks->changeStatus($task, $manager, TaskStatus::Approval);
-        $this->one('approval_requested', SubjectType::Task, $task->getId(), $manager);
+        $tasks->changeStatus($task, $manager, TaskStatus::New);
+        $this->one('status_changed', SubjectType::Task, $task->getId(), $manager);
 
         $this->begin();
         $tasks->changeStatus($task, $director, TaskStatus::Rejected, 'Дорого');

@@ -139,9 +139,9 @@ class NoDoubleNotificationTest extends KernelTestCase
         $tasks->post($task, $manager, 'Перше повідомлення', mentions: [(int) $other->getId()]);
         self::assertSame($this->expect([$member->getTelegramId() => 1, $other->getTelegramId() => 1]), $this->sent(), 'Згаданий учасник — одне «вас згадали», не два');
 
-        $tasks->changeStatus($task, $manager, TaskStatus::Approval);
+        $tasks->changeStatus($task, $manager, TaskStatus::InWork);
         $sent = $this->sent();
-        self::assertSame(1, $sent[$director->getTelegramId()] ?? 0, 'Директор — одне «потрібне рішення»');
+        self::assertArrayNotHasKey($director->getTelegramId(), $sent, 'Директора поза задачею статус не турбує — рішень у задачах немає');
         self::assertSame([1], array_values(array_unique($sent)), 'Кожен — рівно один раз');
         self::assertArrayNotHasKey($manager->getTelegramId(), $sent, 'Автору дії — нічого');
 

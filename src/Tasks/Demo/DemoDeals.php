@@ -75,7 +75,7 @@ final class DemoDeals
             ],
             [
                 'title' => 'Сходові марші ЛМ для 9-поверхівки — погодження ціни',
-                'creator' => 'prodazhi', 'status' => TaskStatus::Approval, 'days' => -3, 'due' => '+2 days',
+                'creator' => 'prodazhi', 'status' => TaskStatus::InWork, 'days' => -3, 'due' => '+2 days',
                 'client' => 'ТОВ «Житлобуд-Черкаси»', 'labels' => ['Звернути увагу', 'Чекаємо оплату'],
                 'departments' => ['3. Відділ продажу', '9. Відділ економіки'], 'members' => ['dyrektor'],
                 'description' => 'Замовник просить знижку 3% при оплаті до 25.11. Економіка порахувала маржу — потрібне рішення директора.',
@@ -89,7 +89,7 @@ final class DemoDeals
             ],
             [
                 'title' => 'Фундаментні блоки ФБС 24-4-6 — 120 шт',
-                'creator' => 'pavlo.lytvyn', 'status' => TaskStatus::Approval, 'days' => -4, 'due' => '+3 days',
+                'creator' => 'pavlo.lytvyn', 'status' => TaskStatus::InWork, 'days' => -4, 'due' => '+3 days',
                 'client' => 'ТОВ «Агрохолдинг Поросся»', 'labels' => ['Чекаємо оплату'],
                 'departments' => ['3. Відділ продажу', '4. Фінансовий відділ'], 'members' => ['dyrektor', 'vyrobnytstvo'],
                 'description' => 'Відстрочка платежу 14 днів — потрібне погодження директора.',
@@ -102,7 +102,7 @@ final class DemoDeals
             ],
             [
                 'title' => 'Металокаркас складу 24×60 м',
-                'creator' => 'olha.petrenko', 'status' => TaskStatus::Approved, 'days' => -9, 'due' => '+12 days',
+                'creator' => 'olha.petrenko', 'status' => TaskStatus::InWork, 'days' => -9, 'due' => '+12 days',
                 'client' => 'ФОП Демченко С. І.', 'labels' => ['Потрібне креслення'],
                 'departments' => ['2. Відділ побудови', '5. Відділ закупок'], 'members' => ['yurii.kuzmenko', 'ihor.marchenko', 'prodazhi'],
                 'description' => 'Каркас легкого складу, 12 рам. Метал закуповуємо під замовлення.',
@@ -115,7 +115,7 @@ final class DemoDeals
             ],
             [
                 'title' => 'Палі С 80.30 — 64 шт для складу агрохолдингу',
-                'creator' => 'prodazhi', 'status' => TaskStatus::Approved, 'days' => -8, 'due' => '+9 days',
+                'creator' => 'prodazhi', 'status' => TaskStatus::InWork, 'days' => -8, 'due' => '+9 days',
                 'client' => 'ПрАТ «Смілянський елеватор»', 'labels' => ['Звернути увагу'],
                 'departments' => ['3. Відділ продажу', '7. Виробництво', '6. Технічний відділ'], 'members' => ['dyrektor'],
                 'description' => 'Палі С 80.30-8 за серією 1.011.1-10. Приймання з лабораторією замовника.',
@@ -241,7 +241,7 @@ final class DemoDeals
             ],
             [
                 'title' => 'Розчин М100 — 12 м³ на обʼєкт',
-                'creator' => 'dmytro.lysenko', 'status' => TaskStatus::Waiting, 'days' => -2, 'due' => '+4 days',
+                'creator' => 'dmytro.lysenko', 'status' => TaskStatus::InWork, 'days' => -2, 'due' => '+4 days',
                 'client' => 'ТОВ «Майстер-Буд»', 'labels' => ['Може почекати'],
                 'departments' => [], 'members' => ['vyrobnytstvo', 'dyrektor'],
                 'description' => 'Клієнт ще не визначився з датою, просить тримати ціну.',

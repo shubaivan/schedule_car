@@ -21,7 +21,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
  * Розділ «Задачі»: вхід за паролем, видимість, відділ → усі його люди,
- * рішення директора, чат із файлами й превʼю, кошик співробітників.
+ * статуси без рішення директора, чат із файлами й превʼю, кошик співробітників.
  */
 class TasksApiTest extends WebTestCase
 {
@@ -162,28 +162,22 @@ class TasksApiTest extends WebTestCase
         self::assertResponseIsSuccessful();
     }
 
-    public function testOnlyDirectorDecides(): void
+    public function testStatusIsLedByWhoWorksOnTheTaskWithoutDirectorDecision(): void
     {
         $manager = $this->user(WorkRole::Manager, 'mgr');
-        $director = $this->user(WorkRole::Director, 'dir');
+        $this->user(WorkRole::Director, 'dir');
 
         $this->login($manager);
         $task = $this->send('POST', '/api/tasks', ['title' => 'Знижка 3%']);
+        self::assertSame(['in_work', 'done', 'rejected'], array_column($task['can']['transitions'], 'value'));
         $task = $this->send('POST', '/api/tasks/' . $task['id'] . '/status', ['to' => 'in_work']);
         self::assertSame('in_work', $task['status']);
-        $task = $this->send('POST', '/api/tasks/' . $task['id'] . '/status', ['to' => 'approval']);
-        self::assertSame('approval', $task['status']);
-        self::assertSame([], $task['can']['transitions'], 'Менеджер не бачить кнопок рішення');
-
-        $this->send('POST', '/api/tasks/' . $task['id'] . '/status', ['to' => 'approved']);
+        // «На погодження директору» більше немає (15.11.2026): питання — відміткою в чаті.
+        $this->send('POST', '/api/tasks/' . $task['id'] . '/status', ['to' => 'approval']);
         self::assertResponseStatusCodeSame(422);
-
-        $this->login($director);
-        $detail = $this->get('/api/tasks/' . $task['id']);
-        self::assertSame(['approved', 'waiting', 'rejected'], array_column($detail['can']['transitions'], 'value'));
-        $task = $this->send('POST', '/api/tasks/' . $task['id'] . '/status', ['to' => 'approved', 'comment' => 'Погоджую']);
-        self::assertSame('approved', $task['status']);
-        self::assertSame('Погоджую', end($task['messages'])['text']);
+        $task = $this->send('POST', '/api/tasks/' . $task['id'] . '/status', ['to' => 'rejected', 'comment' => 'Клієнт відмовився']);
+        self::assertSame('rejected', $task['status']);
+        self::assertSame('Клієнт відмовився', end($task['messages'])['text']);
     }
 
     public function testOverviewDedupesTasksAndCountsMatchChronicle(): void
@@ -193,20 +187,19 @@ class TasksApiTest extends WebTestCase
 
         $this->login($manager);
         $yesterday = new DateTimeImmutable('yesterday')->format('Y-m-d');
-        $a = $this->send('POST', '/api/tasks', ['title' => 'Огляд: на погодженні й прострочена', 'dueAt' => $yesterday, 'memberIds' => [$director->getId()]]);
+        $a = $this->send('POST', '/api/tasks', ['title' => 'Огляд: прострочена', 'dueAt' => $yesterday, 'memberIds' => [$director->getId()]]);
         $this->send('POST', '/api/tasks/' . $a['id'] . '/status', ['to' => 'in_work']);
-        $this->send('POST', '/api/tasks/' . $a['id'] . '/status', ['to' => 'approval']);
         $this->send('POST', '/api/tasks', ['title' => 'Огляд: звичайна', 'memberIds' => [$director->getId()]]);
 
         $mine = $this->get('/api/tasks/dashboard');
         self::assertGreaterThanOrEqual(2, $mine['stats']['mine']);
-        self::assertSame([], $mine['decisions'], 'Менеджер не вирішує — блоку рішень немає');
+        self::assertArrayNotHasKey('decisions', $mine, 'Рішень директора в задачах немає');
         self::assertArrayHasKey('supply', $mine);
         self::assertNull($mine['warehouse'], 'Склад вимкнено в тестовому оточенні — блоку немає');
 
         $this->login($director);
         $dash = $this->get('/api/tasks/dashboard');
-        $blocks = ['decisions', 'overdue', 'mine', 'department', 'recent'];
+        $blocks = ['overdue', 'mine', 'department', 'recent'];
         $where = [];
 
         foreach ($blocks as $block) {
@@ -215,7 +208,7 @@ class TasksApiTest extends WebTestCase
             }
         }
 
-        self::assertSame(['decisions'], $where[$a['id']] ?? null, 'Задача на погодженні й прострочена — лише в «Рішеннях», без повторів');
+        self::assertSame(['overdue'], $where[$a['id']] ?? null, 'Прострочена — лише в «Прострочених», без повторів');
 
         foreach ($where as $id => $in) {
             self::assertCount(1, $in, "Задача {$id} в одному блоці, а не в " . implode(', ', $in));
@@ -224,7 +217,7 @@ class TasksApiTest extends WebTestCase
         $chronicle = $this->get('/api/plan/chronicle/counts');
         self::assertSame($chronicle['tasks'], $dash['stats']['unread'], '«З новим» в Огляді — те саме число, що біля «Хроніки»');
         self::assertGreaterThan(0, $dash['stats']['overdue']);
-        self::assertGreaterThanOrEqual(1, $dash['stats']['decisions']);
+        self::assertArrayNotHasKey('decisions', $dash['stats']);
     }
 
     public function testChatWithFilesAndPreviews(): void
@@ -342,17 +335,17 @@ class TasksApiTest extends WebTestCase
         $director = $this->user(WorkRole::Director, 'dir');
         $this->login($manager);
         $id = $this->send('POST', '/api/tasks', ['title' => 'Дві кнопки одночасно'])['id'];
-        $this->send('POST', '/api/tasks/' . $id . '/status', ['to' => 'approval']);
+        $this->send('POST', '/api/tasks/' . $id . '/status', ['to' => 'in_work']);
         self::assertResponseIsSuccessful();
 
         $task = $this->em->find(Task::class, $id);
-        self::assertSame('approval', $task->getStatus()->value);
-        // Інший директор уже відхилив (інший запит): у базі rejected, у пам'яті — approval.
+        self::assertSame('in_work', $task->getStatus()->value);
+        // Хтось інший уже відхилив (інший запит): у базі rejected, у пам'яті — in_work.
         $this->em->getConnection()->executeStatement("UPDATE task SET status = 'rejected' WHERE id = ?", [$id]);
         $events = (int) $this->em->getConnection()->fetchOne("SELECT COUNT(*) FROM plan_event WHERE subject_type = 'task' AND subject_id = ?", [$id]);
 
         try {
-            self::getContainer()->get(TaskService::class)->changeStatus($task, $director, TaskStatus::from('approved'));
+            self::getContainer()->get(TaskService::class)->changeStatus($task, $director, TaskStatus::from('done'));
             self::fail('другий перехід з того самого «from» має відмовити');
         } catch (TaskException $e) {
             self::assertStringContainsString('щойно змінили', $e->getMessage());

@@ -5,7 +5,6 @@ import { vocative } from '../../plan/vocative'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import TaskRow from './TaskRow.vue'
-import { tasksApi } from './api'
 import { dueLabel, today } from './format'
 import { useTasks } from './store'
 import { api } from '../../app/api'
@@ -13,13 +12,14 @@ import { useSession } from '../../app/store'
 import { useLiveRefresh } from '../../plan/live'
 import { useNotifications } from '../../plan/notifications/store'
 import { isoDay } from '../plan/searchQuery'
-import { overviewApi, type Decision, type DecisionAction, type Overview } from '../plan/overview'
+import { overviewApi, type Decision, type DecisionAction, type Overview, type Reply } from '../plan/overview'
 
 /**
  * «Огляд» v2 — екран директора за зразком ПланФікса (DASHBOARD_MARKET_2026-11-15 §3–4):
  * зверху рядок великих чисел «Сьогодні», клік по числу — той самий список задач, заявок
- * чи рухів складу (окрема адреса, «Назад» повертає сюди). Нижче: «Чекають мого рішення»
- * з кнопками просто в рядку, «Контроль по відділах», праворуч — постачання, автопарк,
+ * чи рухів складу (окрема адреса, «Назад» повертає сюди). Нижче: «Чекають моєї відповіді»
+ * (мене відмітили в чаті задачі — рішень директора в задачах немає з 15.11.2026),
+ * заявки на моєму рішенні з кнопками просто в рядку, «Контроль по відділах», праворуч — постачання, автопарк,
  * склад. Продажі, дебіторка й ліди — позначені «скоро», без вигаданих цифр.
  * Цифри живі: оновлюються за подією (Mercure), без нього — раз на 30 с.
  */
@@ -56,17 +56,20 @@ const todayIso = computed(() => serverDay())
 const weekAgoIso = computed(() => serverDay(-6))
 const updated = computed(() => (data.value ? new Date(data.value.generatedAt).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' }) : ''))
 const month = computed(() => (data.value?.supply.month ? new Intl.DateTimeFormat('uk-UA', { month: 'long' }).format(new Date(data.value.supply.month.from + 'T12:00:00')) : ''))
-const deciding = computed(() => !!data.value && (data.value.scope.decideTasks || data.value.scope.decideSupply))
+const deciding = computed(() => !!data.value?.scope.decideSupply)
 const uah = (n: number) => `${num(Math.round(n))} ₴`
 const list = (show: string, dep?: number | 'none') => ({ name: 'tasks-list', query: { ...(show !== 'open' ? { show } : {}), ...(dep !== undefined ? { dep: String(dep) } : {}) } })
 
-/** Плитка «Чекають рішення» — список: лише задачі → список задач, лише заявки → дошка заявок; обидва — блок нижче. */
-const decideRoute = computed(() => {
-    const d = data.value?.decisions
-    if (d && d.tasks && !d.supply) return list('decide')
-    if (d && d.supply && !d.tasks) return { name: 'supply-board', query: { v: 'decide' } }
-    return { name: 'tasks', hash: '#decide' }
-})
+/* ---------- чекають моєї відповіді ---------- */
+const REPLIES_SHOWN = 5
+const showAllReplies = ref(false)
+const shownReplies = computed(() => (data.value ? (showAllReplies.value ? data.value.replies.items : data.value.replies.items.slice(0, REPLIES_SHOWN)) : []))
+const replyRoute = (r: Reply) => ({ name: 'tasks-board', params: { id: String(r.taskId) }, query: { m: String(r.messageId) } })
+const when = (iso: string) => {
+    const d = new Date(iso)
+    const time = d.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kyiv' })
+    return isoDay(d) === todayIso.value ? time : `${d.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short', timeZone: 'Europe/Kyiv' })}, ${time}`
+}
 
 /* ---------- рішення в рядку ---------- */
 // 3 рядки — щоб на 1440×900 під ними було видно «Контроль по відділах».
@@ -79,7 +82,7 @@ const reason = ref('')
 const rowError = ref<Record<string, string>>({})
 const done = ref<Record<string, string>>({})
 const key = (d: Decision) => `${d.kind}-${d.id}`
-const openRoute = (d: Decision) => (d.kind === 'task' ? { name: 'tasks-board', params: { id: d.id } } : { name: 'supply-board', params: { id: d.id } })
+const openRoute = (d: Decision) => ({ name: 'supply-board', params: { id: d.id } })
 
 async function act(d: Decision, a: DecisionAction) {
     const k = key(d)
@@ -96,8 +99,7 @@ async function act(d: Decision, a: DecisionAction) {
     busy.value = k
     rowError.value = { ...rowError.value, [k]: '' }
     try {
-        if (d.kind === 'task') await tasksApi.status(d.id, a.to, comment || undefined)
-        else await api.changeStatus(d.id, a.to, comment || undefined)
+        await api.changeStatus(d.id, a.to, comment || undefined)
         done.value = { ...done.value, [k]: a.reject ? 'Відхилено' : 'Погоджено' }
         rejecting.value = null
         await load()
@@ -121,13 +123,13 @@ function hours(list: number[]): string {
 }
 
 onMounted(() => load())
-// Плитка «Чекають рішення» (/crm/tasks#decide) — прокрутити до блоку, щойно він є.
+// Плитки «Чекають моєї відповіді» (#replies) і заявок на рішенні (#decide) — прокрутити до блоку.
 watch(
     () => [route.hash, !!data.value] as const,
     async ([hash, ready]) => {
-        if (hash !== '#decide' || !ready) return
+        if ((hash !== '#decide' && hash !== '#replies') || !ready) return
         await nextTick()
-        document.getElementById('decide')?.scrollIntoView({ block: 'start' })
+        document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'start' })
     },
     { immediate: true },
 )
@@ -168,13 +170,9 @@ useLiveRefresh(() => load(), { pollMs: 30000, debounceMs: 1000 })
                     <span class="v">{{ data.kpi.overdueTasks }}</span>
                     <span class="k">Прострочені задачі</span>
                 </router-link>
-                <router-link v-if="deciding" :to="decideRoute" class="ov-tile" :class="{ warn: data.kpi.decisions }" data-testid="kpi-decide">
-                    <span class="v">{{ data.kpi.decisions }}</span>
-                    <span class="k">Чекають рішення</span>
-                </router-link>
-                <router-link v-else :to="list('mine')" class="ov-tile" data-testid="kpi-mine">
-                    <span class="v">{{ data.kpi.mineTasks }}</span>
-                    <span class="k">Мої відкриті</span>
+                <router-link :to="{ name: 'tasks', hash: '#replies' }" class="ov-tile" :class="{ warn: data.kpi.replies }" data-testid="kpi-replies">
+                    <span class="v">{{ data.kpi.replies }}</span>
+                    <span class="k">Чекають моєї відповіді</span>
                 </router-link>
                 <router-link :to="{ name: 'supply-board', query: { v: 'overdue' } }" class="ov-tile" :class="{ alert: data.kpi.supplyOverdue }" data-testid="kpi-supply">
                     <span class="v">{{ data.kpi.supplyOverdue }}</span>
@@ -209,16 +207,47 @@ useLiveRefresh(() => load(), { pollMs: 30000, debounceMs: 1000 })
 
             <div class="ov-grid">
                 <div class="ov-main">
-                    <!-- (2) Чекають мого рішення -->
+                    <!-- (2) Чекають моєї відповіді: мене відмітили в чаті задачі, я ще не відповів -->
+                    <section id="replies" class="t-panel ov-decide ov-replies" :class="{ calm: !data.replies.total }" data-testid="ov-replies">
+                        <h2>
+                            💬 Чекають моєї відповіді
+                            <span class="count">{{ data.replies.total }}</span>
+                        </h2>
+                        <div v-if="data.replies.items.length" class="ov-drows">
+                            <div v-for="r in shownReplies" :key="r.messageId" class="ov-drow" :data-testid="'reply-' + r.messageId">
+                                <router-link :to="replyRoute(r)" class="ov-dmain">
+                                    <span class="ov-kind">Задача № {{ r.number }} · {{ r.title }}</span>
+                                    <span class="ov-dtitle ov-excerpt" :class="{ unread: r.unread }">{{ r.excerpt || 'Вас відмітили' }}</span>
+                                    <span class="ov-dmeta">
+                                        <PersonName v-if="r.author" :person="r.author" :link="false" tel />
+                                        <span>{{ when(r.at) }}</span>
+                                        <span v-if="r.client">{{ r.client }}</span>
+                                    </span>
+                                </router-link>
+                                <div class="ov-acts">
+                                    <router-link :to="replyRoute(r)" class="t-btn small primary">Відповісти</router-link>
+                                </div>
+                            </div>
+                        </div>
+                        <div v-else class="t-empty">Питань до вас у задачах немає.</div>
+                        <button v-if="!showAllReplies && data.replies.items.length > REPLIES_SHOWN" type="button" class="p-link ov-showall" @click="showAllReplies = true">
+                            Показати ще {{ data.replies.items.length - REPLIES_SHOWN }}
+                        </button>
+                        <div v-if="data.replies.total > data.replies.items.length" class="ov-more">
+                            Показано найстаріші {{ data.replies.items.length }} з {{ data.replies.total }} — відповідайте, і список оновиться.
+                        </div>
+                    </section>
+
+                    <!-- (2б) Заявки на моєму рішенні (погодження оплати) -->
                     <section v-if="deciding" id="decide" class="t-panel ov-decide" :class="{ calm: !data.decisions.total }" data-testid="ov-decide">
                         <h2>
-                            ⚖️ Чекають мого рішення
+                            ⚖️ Заявки на моєму рішенні
                             <span class="count">{{ data.decisions.total }}</span>
                         </h2>
                         <div v-if="data.decisions.items.length" class="ov-drows">
                             <div v-for="d in shownDecisions" :key="key(d)" class="ov-drow" :data-testid="'decision-' + key(d)">
                                 <router-link :to="openRoute(d)" class="ov-dmain">
-                                    <span class="ov-kind" :class="d.kind">{{ d.kind === 'task' ? 'Задача' : 'Заявка' }} № {{ d.number }}</span>
+                                    <span class="ov-kind supply">Заявка № {{ d.number }}</span>
                                     <span class="ov-dtitle">{{ d.title }}</span>
                                     <span class="ov-dmeta">
                                         <span class="t-status tone-amber">{{ d.statusLabel }}</span>
@@ -276,12 +305,11 @@ useLiveRefresh(() => load(), { pollMs: 30000, debounceMs: 1000 })
                                 <div v-if="rowError[key(d)]" class="t-error ov-rowerr">{{ rowError[key(d)] }}</div>
                             </div>
                         </div>
-                        <div v-else class="t-empty">Рішень не чекає нічого.</div>
+                        <div v-else class="t-empty">Заявок на рішенні немає.</div>
                         <button v-if="!showAll && data.decisions.items.length > DECISIONS_SHOWN" type="button" class="p-link ov-showall" @click="showAll = true">
                             Показати ще {{ data.decisions.items.length - DECISIONS_SHOWN }}
                         </button>
-                        <div v-if="data.decisions.total > data.decisions.items.length || data.decisions.tasks || data.decisions.supply" class="ov-more">
-                            <router-link v-if="data.decisions.tasks" :to="list('decide')">Усі задачі на рішенні ({{ data.decisions.tasks }}) →</router-link>
+                        <div v-if="data.decisions.supply" class="ov-more">
                             <router-link v-if="data.decisions.supply" :to="{ name: 'supply-board', query: { v: 'decide' } }">
                                 Усі заявки на рішенні ({{ data.decisions.supply }}) →
                             </router-link>
@@ -605,6 +633,12 @@ a.ov-tile:hover {
 }
 .ov-decide.calm {
     border-color: var(--border);
+}
+.ov-excerpt {
+    font-weight: 500;
+}
+.ov-excerpt.unread {
+    font-weight: 700;
 }
 .ov-drows {
     display: flex;

@@ -85,13 +85,13 @@ class TaskApiController extends TasksController
         ]);
     }
 
-    /** «Мій день»: мої відкриті, прострочені, мого відділу, чекають рішення. */
+    /** «Мій день»: мої відкриті, прострочені, мого відділу, остання активність. */
     #[Route('/dashboard', name: 'api_tasks_dashboard', methods: ['GET'])]
     public function dashboard(PlanOverview $overview, PlanChronicle $chronicle): JsonResponse
     {
         $me = $this->me();
 
-        // Кожна задача — в одному блоці, у порядку важливості: рішення → прострочені →
+        // Кожна задача — в одному блоці, у порядку важливості: прострочені →
         // мої → відділ → остання активність (раніше одна задача стояла в 3–4 блоках).
         $seen = [];
         $take = static function (array $tasks, int $limit) use (&$seen): array {
@@ -111,9 +111,6 @@ class TaskApiController extends TasksController
             return $out;
         };
 
-        $decisions = $me->getWorkRole()->decides()
-            ? $take($this->tasks->search($me, ['status' => [TaskStatus::Approval, TaskStatus::Waiting]], 12), 12)
-            : [];
         $overdue = $take($this->tasks->search($me, ['overdue' => true], 20, 'due'), 8);
         $mine = $take($this->tasks->search($me, ['member' => $me, 'open' => true], 20, 'due'), 8);
         $department = $me->getDepartment() !== null
@@ -121,7 +118,7 @@ class TaskApiController extends TasksController
             : [];
         $recent = $take($this->tasks->search($me, [], 16), 6);
 
-        $all = array_merge($decisions, $overdue, $mine, $department, $recent);
+        $all = array_merge($overdue, $mine, $department, $recent);
         $ids = array_map(static fn (Task $t) => (int) $t->getId(), $all);
         $unread = $this->tasks->unreadCounts($me, $ids);
         $last = $this->messages->lastComments($ids);
@@ -139,14 +136,12 @@ class TaskApiController extends TasksController
                 'open' => $stats['open'],
                 'unread' => $news['tasks'],
                 'unreadEvents' => $news['events'],
-                'decisions' => ($stats['byStatus'][TaskStatus::Approval->value] ?? 0) + ($stats['byStatus'][TaskStatus::Waiting->value] ?? 0),
                 'byStatus' => $stats['byStatus'],
             ],
             'mine' => array_map($item, $mine),
             'overdue' => array_map($item, $overdue),
             'department' => array_map($item, $department),
             'departmentName' => $me->getDepartment()?->getName(),
-            'decisions' => array_map($item, $decisions),
             'recent' => array_map($item, $recent),
             'supply' => $overview->supply($me),
             'warehouse' => $overview->warehouse($me),
@@ -198,7 +193,7 @@ class TaskApiController extends TasksController
     }
 
     /**
-     * Список задач під фільтром — куди ведуть числа «Огляду»: ?f=open|overdue|stale|decide|mine
+     * Список задач під фільтром — куди ведуть числа «Огляду»: ?f=open|overdue|stale|mine
      * і ?dep=<id відділу>|none. Ті самі правила, що й у лічильниках (TaskRepository),
      * у межах видимості людини.
      */
@@ -210,11 +205,10 @@ class TaskApiController extends TasksController
         $filters = match ($f) {
             'overdue' => ['overdue' => true],
             'stale' => ['stale' => DirectorOverview::STALE_DAYS],
-            'decide' => ['status' => [TaskStatus::Approval, TaskStatus::Waiting]],
             'mine' => ['member' => $me, 'open' => true],
             default => ['open' => true],
         };
-        $f = in_array($f, ['overdue', 'stale', 'decide', 'mine'], true) ? $f : 'open';
+        $f = in_array($f, ['overdue', 'stale', 'mine'], true) ? $f : 'open';
 
         $dep = (string) $request->query->get('dep', '');
         $department = null;

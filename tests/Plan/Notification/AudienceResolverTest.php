@@ -108,7 +108,7 @@ class AudienceResolverTest extends KernelTestCase
         self::assertSame([$member->getId() => 'comment'], $this->rowsForLastEvent(), 'Сповіщення — лише тим, кому задачу видно');
     }
 
-    public function testApprovalGoesToDecidersAsImportantAndToMembersAsStatus(): void
+    public function testTaskStatusGoesToMembersOnlyWithoutDirectorDecision(): void
     {
         $creator = $this->person(WorkRole::Manager);
         $member = $this->person();
@@ -116,9 +116,9 @@ class AudienceResolverTest extends KernelTestCase
         $admin = $this->person(WorkRole::Admin);
         $task = $this->tasks->create($creator, ['title' => 'Знижка 7%', 'memberIds' => [$member->getId()]]);
 
-        $this->tasks->changeStatus($task, $creator, TaskStatus::Approval);
+        $this->tasks->changeStatus($task, $creator, TaskStatus::InWork);
         self::assertSame(
-            [$member->getId() => 'status', $director->getId() => 'approval', $admin->getId() => 'approval'],
+            [$member->getId() => 'status'],
             array_intersect_key($this->rowsForLastEvent(), array_flip([$member->getId(), $director->getId(), $admin->getId(), $creator->getId()])),
         );
     }

@@ -108,23 +108,8 @@ class TaskNotifier
             $text .= "\n«" . $this->e(trim($comment)) . '»';
         }
 
-        $recipients = $this->involved($task, except: $by);
-        $deciders = [];
-
-        // На погодження — тим, хто вирішує, навіть якщо їх у задачі не позначили.
-        if ($to === TaskStatus::Approval) {
-            foreach ($this->users->findAll() as $user) {
-                if ($user->getWorkRole()->decides() && $user->getId() !== $by->getId() && ! $user->isArchived()) {
-                    $recipients[$user->getId()] = $user;
-                    $deciders[$user->getId()] = true;
-                }
-            }
-
-            $text = "⚖️ <b>Потрібне ваше рішення</b>\n" . $text;
-        }
-
-        foreach ($recipients as $user) {
-            $this->send($user, $text, $task, isset($deciders[$user->getId()]) ? EventGroup::Approval : EventGroup::Status);
+        foreach ($this->involved($task, except: $by) as $user) {
+            $this->send($user, $text, $task, EventGroup::Status);
         }
     }
 

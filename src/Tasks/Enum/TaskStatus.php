@@ -7,8 +7,11 @@ namespace App\Tasks\Enum;
  *
  * Колонки дошки — за відповіддю клієнта 13.11.2026: «Нова заявка», «В роботі»,
  * «Виконана» (плюс «Хроніка» й «Мої повідомлення», які статусом не є).
- * Рішення про гроші розведені за ролями, як у заявках (фідбек 19.08.2026):
- * «На погодженні» рухає тільки директор — погодити, відкласти або відхилити.
+ * Рішення директора в задачах прибрано (Олександр, 15.11.2026: «все узгоджується
+ * в самому чаті — відмітка уповноваженої особи з питанням, відповідь»). Статуси
+ * «На погодженні», «Погоджено», «Очікування» лишились лише для історії подій:
+ * нові задачі в них не потрапляють, а старі з них виводять звичайні переходи.
+ * Погодження заявок постачання (SupplyStatus) — без змін.
  */
 enum TaskStatus: string
 {
@@ -62,27 +65,14 @@ enum TaskStatus: string
         return $this === self::Done || $this === self::Rejected;
     }
 
-    /** Поки задача тут, рухає її лише директор. */
-    public function awaitsDecision(): bool
-    {
-        return $this === self::Approval || $this === self::Waiting;
-    }
-
-    /** Перехід у цей статус — рішення директора, а не робота виконавця. */
-    public function isDecision(): bool
-    {
-        return $this === self::Approved || $this === self::Waiting || $this === self::Rejected;
-    }
-
     /** @return list<self> */
     public function allowedTransitions(): array
     {
         return match ($this) {
-            self::New => [self::InWork, self::Approval, self::Done, self::Rejected],
-            self::InWork => [self::Approval, self::Done, self::New],
-            self::Approval => [self::Approved, self::Waiting, self::Rejected],
-            self::Waiting => [self::Approved, self::Rejected],
-            self::Approved => [self::InWork, self::Done],
+            self::New => [self::InWork, self::Done, self::Rejected],
+            self::InWork => [self::Done, self::New, self::Rejected],
+            // Колишні статуси погодження — лише вихід у звичайну роботу.
+            self::Approval, self::Waiting, self::Approved => [self::InWork, self::Done, self::Rejected],
             self::Rejected => [self::InWork],
             self::Done => [self::InWork],
         };

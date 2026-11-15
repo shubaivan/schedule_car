@@ -31,7 +31,6 @@ export interface StatusInfo {
     action: string
     column: string
     closed: boolean
-    decision: boolean
 }
 
 export interface Attachment {
@@ -107,7 +106,6 @@ export interface TaskDetail extends TaskItem {
     departments: { id: number; name: string }[]
     closedAt: string | null
     can: { edit: boolean; comment: boolean; transitions: StatusInfo[] }
-    awaitsDecision: boolean
     messages: Message[]
     files: Attachment[]
     favorite: boolean
@@ -197,12 +195,11 @@ export interface TasksMeta {
 
 export interface Dashboard {
     /** unread — записів Хроніки з новим (те саме число, що біля «Хроніки»), unreadEvents — скільки в них подій. */
-    stats: { mine: number; overdue: number; open: number; unread: number; unreadEvents: number; decisions: number; byStatus: Record<string, number> }
+    stats: { mine: number; overdue: number; open: number; unread: number; unreadEvents: number; byStatus: Record<string, number> }
     mine: TaskItem[]
     overdue: TaskItem[]
     department: TaskItem[]
     departmentName: string | null
-    decisions: TaskItem[]
     recent: TaskItem[]
     supply: {
         counts: { open: number; new: number; overdue: number; decide: number; mine: number }
