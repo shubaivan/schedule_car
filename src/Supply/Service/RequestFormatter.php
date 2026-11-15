@@ -48,9 +48,6 @@ class RequestFormatter
 
         if ($forManager) {
             $lines[] = '👤 Заявник: ' . $this->escape(PhoneFormat::named($request->getAuthor()->displayName(), $request->getAuthor()->getPhoneNumber()));
-            if ($request->getAuthor()->getPhoneNumber()) {
-                $lines[] = '📞 ' . $this->escape($request->getAuthor()->getPhoneNumber());
-            }
             if ($request->getDepartment()) {
                 $lines[] = '🏢 Підрозділ: ' . $this->escape($request->getDepartment()->getName());
             }

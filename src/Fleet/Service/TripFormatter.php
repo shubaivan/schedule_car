@@ -5,6 +5,7 @@ namespace App\Fleet\Service;
 use App\Entity\Car;
 use App\Entity\ScheduledSet;
 use App\Entity\TelegramUser;
+use App\Plan\People\PhoneFormat;
 use DateTimeInterface;
 
 /**
@@ -58,10 +59,7 @@ class TripFormatter
         }
 
         $names = array_map(function (TelegramUser $driver): string {
-            $phone = $driver->getPhoneNumber();
-
-            return $this->escape($driver->displayName())
-                . ($phone !== null && $phone !== '' ? ' · ' . $this->escape($phone) : '');
+            return $this->escape(PhoneFormat::named($driver->displayName(), $driver->getPhoneNumber()));
         }, $drivers);
 
         return $heading . "\n    " . (count($names) > 1 ? 'водії: ' : 'водій: ') . implode(', ', $names);

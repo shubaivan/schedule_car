@@ -67,7 +67,7 @@ class ScheduleTest extends KernelTestCase
 
         self::assertStringContainsString('AA5151BB', $heading);
         self::assertStringContainsString('Іван', $heading, 'у шапці машини має бути водій');
-        self::assertStringContainsString('380631112299', $heading, 'і його телефон');
+        self::assertStringContainsString('+380 63 111 22 99', $heading, 'і його телефон (+380 — Telegram робить його клікабельним)');
     }
 
     public function testCarWithoutDriverSaysSoInsteadOfSilence(): void

@@ -5,6 +5,7 @@ namespace App\Service;
 use App\Entity\Car;
 use App\Entity\TelegramUser;
 use App\Enum\AccessStatus;
+use App\Plan\People\PhoneFormat;
 use App\Repository\TelegramUserRepository;
 use App\Telegram\Access\AccessCallback;
 use App\Telegram\Start\Command\StartCommand;
@@ -94,7 +95,7 @@ class AccessNotifier
         return sprintf(
             '%s %s — %s',
             $status === AccessStatus::Approved ? '✅' : '⛔',
-            $this->escape($user->displayName()),
+            $this->escape(PhoneFormat::named($user->displayName(), $user->getPhoneNumber())),
             $status->label(),
         );
     }
