@@ -24,12 +24,13 @@ const route = useRoute()
 const router = useRouter()
 const { openId, open, close } = useSplit('warehouse-items')
 
-type View = 'all' | 'bulk' | 'unit' | 'repair' | 'none' | 'off'
+type View = 'all' | 'bulk' | 'unit' | 'repair' | 'low' | 'none' | 'off'
 const VIEWS: { key: View; label: string }[] = [
     { key: 'all', label: 'Усі' },
     { key: 'bulk', label: 'Кількістю' },
     { key: 'unit', label: 'Поштучні' },
     { key: 'repair', label: 'У ремонті' },
+    { key: 'low', label: 'Нижче мінімуму' },
     { key: 'none', label: 'Немає в наявності' },
     { key: 'off', label: 'Списані' },
 ]
@@ -42,7 +43,7 @@ const q = ref(str(route.query.q))
 
 const meta = ref<WhMeta | null>(null)
 const items = ref<WhItemRow[]>([])
-const counts = ref({ all: 0, unit: 0, bulk: 0, repair: 0 })
+const counts = ref({ all: 0, unit: 0, bulk: 0, repair: 0, low: 0 })
 const loading = ref(false)
 const error = ref('')
 const denied = ref('')
@@ -63,7 +64,7 @@ async function load() {
         const r = await whApi.items({
             q: q.value.trim() || undefined,
             category: category.value || undefined,
-            place: v === 'none' ? 'none' : place.value || undefined,
+            place: v === 'none' || v === 'low' ? v : place.value || undefined,
             tracking: v === 'bulk' || v === 'unit' ? v : undefined,
             state: v === 'repair' ? 'repair' : v === 'off' ? 'written_off' : undefined,
         })
@@ -198,6 +199,7 @@ onBeforeUnmount(() => {
                     <template v-else-if="v.key === 'bulk'">· {{ counts.bulk }}</template>
                     <template v-else-if="v.key === 'unit'">· {{ counts.unit }}</template>
                     <template v-else-if="v.key === 'repair' && counts.repair">· {{ counts.repair }}</template>
+                    <template v-else-if="v.key === 'low' && counts.low">· {{ counts.low }}</template>
                 </button>
             </div>
             <div class="p-supply-filters">
@@ -205,7 +207,7 @@ onBeforeUnmount(() => {
                     <option value="">Усі категорії</option>
                     <option v-for="c in meta?.categories ?? []" :key="c.id" :value="String(c.id)">{{ c.emoji }} {{ c.name }}</option>
                 </select>
-                <select :value="place" aria-label="Де" :disabled="view === 'none'" @change="setQuery({ place: ($event.target as HTMLSelectElement).value })">
+                <select :value="place" aria-label="Де" :disabled="view === 'none' || view === 'low'" @change="setQuery({ place: ($event.target as HTMLSelectElement).value })">
                     <option value="">Усі місця</option>
                     <option v-for="s in meta?.sites ?? []" :key="s.id" :value="String(s.id)">{{ s.label }}{{ s.active ? '' : ' · закрите' }}</option>
                 </select>

@@ -84,6 +84,10 @@ class WhItem
     #[ORM\Column(name: 'purchased_at', type: Types::DATE_MUTABLE, nullable: true)]
     private ?DateTime $purchasedAt = null;
 
+    /** Мінімальний залишок на складах — лише для позицій «кількістю»; нижче — попередження в «Огляді». */
+    #[ORM\Column(name: 'min_quantity', type: 'integer', nullable: true, options: ['comment' => 'Мінімальний залишок на складах (лише позиції «кількістю»); нижче — попередження в «Огляді»'])]
+    private ?int $minQuantity = null;
+
     /** Ставка оренди за добу за одиницю, грн — підставляється у відвантаження. */
     #[ORM\Column(name: 'rental_rate', type: Types::DECIMAL, precision: 12, scale: 2, nullable: true)]
     private ?string $rentalRate = null;
@@ -244,6 +248,18 @@ class WhItem
     public function setPurchasedAt(?DateTime $purchasedAt): self
     {
         $this->purchasedAt = $purchasedAt;
+
+        return $this;
+    }
+
+    public function getMinQuantity(): ?int
+    {
+        return $this->minQuantity;
+    }
+
+    public function setMinQuantity(?int $minQuantity): self
+    {
+        $this->minQuantity = $minQuantity;
 
         return $this;
     }

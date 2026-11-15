@@ -269,6 +269,7 @@ class ItemApiController extends AbstractWarehouseApiController
             'ціну' => (string) $item->getPurchasePrice(),
             'дату купівлі' => (string) $item->getPurchasedAt()?->format('Y-m-d'),
             'ставку оренди' => (string) $item->getRentalRate(),
+            'мінімальний залишок' => (string) $item->getMinQuantity(),
         ];
     }
 }

@@ -10,6 +10,7 @@ use App\Warehouse\Repository\WhCategoryRepository;
 use App\Warehouse\Repository\WhDocumentRepository;
 use App\Warehouse\Repository\WhItemRepository;
 use App\Warehouse\Repository\WhSiteRepository;
+use App\Warehouse\Service\LowStock;
 use Doctrine\DBAL\Connection;
 
 /**
@@ -30,13 +31,14 @@ final class ItemCatalog
         private readonly WhDocumentRepository $documents,
         private readonly WarehousePresenter $presenter,
         private readonly Connection $connection,
+        private readonly LowStock $lowStock,
     ) {
     }
 
     /**
-     * @param string $place '' — усе; 'none' — ніде (ще не надійшло / усе роздано); інакше id місця
+     * @param string $place '' — усе; 'none' — ніде (ще не надійшло / усе роздано); 'low' — на складах менше мінімуму; інакше id місця
      *
-     * @return array{items: list<array<string, mixed>>, total: int, counts: array{all: int, unit: int, bulk: int, repair: int}}
+     * @return array{items: list<array<string, mixed>>, total: int, counts: array{all: int, unit: int, bulk: int, repair: int, low: int}}
      */
     public function search(string $query, ?int $categoryId, string $place, ?string $state, ?string $tracking, bool $withWrittenOff): array
     {
@@ -44,14 +46,16 @@ final class ItemCatalog
         $items = $this->items->search($query, $category, '', $withWrittenOff || $state === ItemState::WrittenOff->value);
         $balances = $this->bulkBalances();
 
-        $counts = ['all' => count($items), 'unit' => 0, 'bulk' => 0, 'repair' => 0];
+        $low = array_flip($this->lowStock->ids());
+        $counts = ['all' => count($items), 'unit' => 0, 'bulk' => 0, 'repair' => 0, 'low' => 0];
 
         foreach ($items as $item) {
             ++$counts[$item->isUnit() ? 'unit' : 'bulk'];
             $counts['repair'] += $item->getState() === ItemState::Repair ? 1 : 0;
+            $counts['low'] += isset($low[(int) $item->getId()]) ? 1 : 0;
         }
 
-        $items = array_values(array_filter($items, function (WhItem $item) use ($place, $state, $tracking, $balances): bool {
+        $items = array_values(array_filter($items, function (WhItem $item) use ($place, $state, $tracking, $balances, $low): bool {
             if ($state !== null && $state !== '' && $item->getState()->value !== $state) {
                 return false;
             }
@@ -64,6 +68,7 @@ final class ItemCatalog
 
             return match (true) {
                 $place === '' => true,
+                $place === 'low' => isset($low[(int) $item->getId()]),
                 $place === 'none' => $item->isUnit() ? $item->getCurrentSite() === null : array_sum($here) === 0,
                 ctype_digit($place) => $item->isUnit() ? $item->getCurrentSite()?->getId() === (int) $place : ($here[(int) $place] ?? 0) > 0,
                 default => true,

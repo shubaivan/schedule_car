@@ -144,6 +144,8 @@ export interface WhItem {
     purchasePrice: string | null
     purchasedAt: string | null
     rentalRate: string | null
+    /** Мінімальний залишок на складах (лише «кількістю»). */
+    minQuantity: number | null
     total: number
     places: { site: WhSite; quantity: number; since: string | null }[]
     documents: WhDocument[]
@@ -172,6 +174,7 @@ export interface ItemPayload {
     purchasePrice: string
     purchasedAt: string
     rentalRate: string
+    minQuantity: string
     state: string
     attributes: { name: string; value: string }[]
 }
@@ -224,7 +227,7 @@ export const whApi = {
         return metaCache
     },
     items: (params: { q?: string; category?: string; place?: string; state?: string; tracking?: string; off?: boolean }) =>
-        call<{ items: WhItemRow[]; total: number; counts: { all: number; unit: number; bulk: number; repair: number } }>('/api/warehouse/items' + qs(params)),
+        call<{ items: WhItemRow[]; total: number; counts: { all: number; unit: number; bulk: number; repair: number; low: number } }>('/api/warehouse/items' + qs(params)),
     item: (id: number) => call<WhItem>(`/api/warehouse/items/${id}`),
     viewed: (id: number) => call<{ logged: boolean }>(`/api/warehouse/items/${id}/viewed`, { method: 'POST', headers: JSON_WRITE }),
     feed: (id: number) => call<FeedSubject>(`/api/warehouse/items/${id}/feed`),

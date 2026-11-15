@@ -4,6 +4,7 @@ namespace App\Tasks\Controller;
 
 use App\Entity\TelegramUser;
 use App\Plan\Chronicle\PlanChronicle;
+use App\Plan\Overview\DirectorOverview;
 use App\Plan\Overview\PlanOverview;
 use App\Plan\Telegram\PlanBotMode;
 use App\Repository\TelegramUserRepository;
@@ -35,6 +36,8 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/api/tasks')]
 class TaskApiController extends TasksController
 {
+    private const int LIST_LIMIT = 200;
+
     public function __construct(
         private TaskRepository $tasks,
         private TaskMessageRepository $messages,
@@ -192,6 +195,62 @@ class TaskApiController extends TasksController
         };
 
         return self::compact($this->json(array_map(static fn (array $tasks) => array_map($item, $tasks), $columns)));
+    }
+
+    /**
+     * Список задач під фільтром — куди ведуть числа «Огляду»: ?f=open|overdue|stale|decide|mine
+     * і ?dep=<id відділу>|none. Ті самі правила, що й у лічильниках (TaskRepository),
+     * у межах видимості людини.
+     */
+    #[Route('/list', name: 'api_tasks_list', methods: ['GET'])]
+    public function list(Request $request, DepartmentRepository $departments): JsonResponse
+    {
+        $me = $this->me();
+        $f = (string) $request->query->get('f', 'open');
+        $filters = match ($f) {
+            'overdue' => ['overdue' => true],
+            'stale' => ['stale' => DirectorOverview::STALE_DAYS],
+            'decide' => ['status' => [TaskStatus::Approval, TaskStatus::Waiting]],
+            'mine' => ['member' => $me, 'open' => true],
+            default => ['open' => true],
+        };
+        $f = in_array($f, ['overdue', 'stale', 'decide', 'mine'], true) ? $f : 'open';
+
+        $dep = (string) $request->query->get('dep', '');
+        $department = null;
+
+        if ($dep === 'none') {
+            $filters['department'] = TaskRepository::DEPARTMENT_NONE;
+        } elseif (ctype_digit($dep) && (int) $dep > 0) {
+            $department = $departments->find((int) $dep);
+
+            if ($department === null) {
+                return $this->error('Такого відділу немає.', Response::HTTP_NOT_FOUND);
+            }
+
+            $filters['department'] = (int) $department->getId();
+        } else {
+            $dep = '';
+        }
+
+        $tasks = $this->tasks->search($me, $filters, self::LIST_LIMIT, $f === 'stale' ? 'stale' : 'due');
+        $ids = array_map(static fn (Task $t) => (int) $t->getId(), $tasks);
+        $unread = $this->tasks->unreadCounts($me, $ids);
+        $last = $this->messages->lastComments($ids);
+        $files = $this->attachments->statsByTask($ids);
+
+        return self::compact($this->json([
+            'items' => array_map(fn (Task $t) => $this->presenter->listItem($t, $unread, $last, $files), $tasks),
+            'total' => count($tasks) < self::LIST_LIMIT ? count($tasks) : $this->tasks->countMatching($me, $filters),
+            'limit' => self::LIST_LIMIT,
+            'filter' => [
+                'f' => $f,
+                'dep' => $dep,
+                'departmentName' => $dep === 'none' ? 'Без відділу' : $department?->getName(),
+                'staleDays' => DirectorOverview::STALE_DAYS,
+                'all' => $me->seesAllTasks(),
+            ],
+        ]));
     }
 
     /** JSON без екранування кирилиці — у 2–3 рази менше байтів для українського тексту. */

@@ -14,6 +14,7 @@ use Symfony\Component\Validator\Constraints\NotBlank;
 
 #[ORM\Entity(repositoryClass: ScheduledSetRepository::class)]
 #[ORM\Index(name: 'unique_set', columns: ['telegram_user_id', 'year', 'month', 'day', 'hour', 'car_id'], options: ['unique' => true])]
+#[ORM\Index(name: 'scheduled_set_at_idx', columns: ['scheduled_at'])]
 #[UniqueEntity(fields: ['telegramUserId', 'year', 'month', 'day', 'hour', 'car'], message: 'Хтось вже забронював. Оберіть інший час')]
 #[ORM\HasLifecycleCallbacks()]
 #[ScheduleLimit]

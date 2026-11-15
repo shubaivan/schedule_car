@@ -158,6 +158,7 @@ final class WarehousePresenter
             'purchasePrice' => $item->getPurchasePrice(),
             'purchasedAt' => $item->getPurchasedAt()?->format('Y-m-d'),
             'rentalRate' => $item->getRentalRate(),
+            'minQuantity' => $item->getMinQuantity(),
             'total' => $total,
             'places' => $rows,
             'documents' => array_map($this->document(...), $documents),

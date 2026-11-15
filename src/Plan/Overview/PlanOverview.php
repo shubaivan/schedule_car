@@ -37,6 +37,32 @@ final class PlanOverview
      */
     public function supply(TelegramUser $me): array
     {
+        $approves = $this->access->can($me, PlanCapability::SupplyApprove);
+        $decisions = [];
+
+        if ($approves) {
+            $result = $this->requests->search(['status' => [SupplyStatus::Approval, SupplyStatus::Waiting]], 1, self::DECISIONS_LIMIT);
+
+            foreach ($result['items'] as $request) {
+                $decisions[] = $this->presenter->listItem($request);
+            }
+        }
+
+        return [
+            'counts' => $this->supplyCounts($me),
+            'decisions' => $decisions,
+            'approve' => $approves,
+            'manage' => $approves || $this->access->can($me, PlanCapability::SupplyManage),
+        ];
+    }
+
+    /**
+     * Лічильники заявок одним запитом (заявки бачить кожен — як стіл заявок).
+     *
+     * @return array{open: int, new: int, overdue: int, decide: int, mine: int}
+     */
+    public function supplyCounts(TelegramUser $me): array
+    {
         $open = array_map(static fn (SupplyStatus $s) => $s->value, SupplyStatus::openCases());
         $decide = [SupplyStatus::Approval->value, SupplyStatus::Waiting->value];
         $row = $this->db->fetchAssociative(
@@ -50,28 +76,12 @@ final class PlanOverview
             ['open' => ArrayParameterType::STRING, 'decide' => ArrayParameterType::STRING],
         ) ?: [];
 
-        $approves = $this->access->can($me, PlanCapability::SupplyApprove);
-        $decisions = [];
-
-        if ($approves) {
-            $result = $this->requests->search(['status' => [SupplyStatus::Approval, SupplyStatus::Waiting]], 1, self::DECISIONS_LIMIT);
-
-            foreach ($result['items'] as $request) {
-                $decisions[] = $this->presenter->listItem($request);
-            }
-        }
-
         return [
-            'counts' => [
-                'open' => (int) ($row['open'] ?? 0),
-                'new' => (int) ($row['new'] ?? 0),
-                'overdue' => (int) ($row['overdue'] ?? 0),
-                'decide' => (int) ($row['decide'] ?? 0),
-                'mine' => (int) ($row['mine'] ?? 0),
-            ],
-            'decisions' => $decisions,
-            'approve' => $approves,
-            'manage' => $approves || $this->access->can($me, PlanCapability::SupplyManage),
+            'open' => (int) ($row['open'] ?? 0),
+            'new' => (int) ($row['new'] ?? 0),
+            'overdue' => (int) ($row['overdue'] ?? 0),
+            'decide' => (int) ($row['decide'] ?? 0),
+            'mine' => (int) ($row['mine'] ?? 0),
         ];
     }
 
@@ -107,7 +117,7 @@ final class PlanOverview
         ];
     }
 
-    private static function today(): string
+    public static function today(): string
     {
         return new DateTimeImmutable('today', new DateTimeZone('Europe/Kyiv'))->format('Y-m-d');
     }

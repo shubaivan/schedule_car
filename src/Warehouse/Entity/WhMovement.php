@@ -25,6 +25,7 @@ use SortDirection;
 #[ORM\Table(name: 'wh_movement')]
 #[ORM\Index(name: 'wh_movement_from_idx', columns: ['from_site_id'])]
 #[ORM\Index(name: 'wh_movement_to_idx', columns: ['to_site_id'])]
+#[ORM\Index(name: 'wh_movement_occurred_idx', columns: ['occurred_at'])]
 #[ORM\HasLifecycleCallbacks]
 class WhMovement
 {

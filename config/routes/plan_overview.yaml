@@ -1,0 +1,6 @@
+# «Огляд» v2 — екран директора (/api/plan/overview).
+plan_overview:
+    resource:
+        path: ../../src/Plan/Overview/
+        namespace: App\Plan\Overview
+    type: attribute

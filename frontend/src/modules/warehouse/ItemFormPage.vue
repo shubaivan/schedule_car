@@ -37,6 +37,7 @@ const draft = ref<ItemPayload>({
     purchasePrice: '',
     purchasedAt: '',
     rentalRate: '',
+    minQuantity: '',
     state: 'active',
     attributes: [],
 })
@@ -86,6 +87,7 @@ onMounted(async () => {
                 purchasePrice: i.purchasePrice ?? '',
                 purchasedAt: i.purchasedAt ?? '',
                 rentalRate: i.rentalRate ?? '',
+                minQuantity: i.minQuantity === null ? '' : String(i.minQuantity),
                 state: i.state,
                 attributes: Object.entries(i.attributes).map(([name, value]) => ({ name, value })),
             }
@@ -152,6 +154,10 @@ function onKey(e: KeyboardEvent) {
                         </select>
                     </label>
                 </div>
+                <label v-if="draft.tracking === 'bulk'" class="w-field">
+                    <span>Мінімальний залишок на складах, {{ draft.unit }}</span>
+                    <input v-model="draft.minQuantity" class="t-input" type="text" inputmode="numeric" placeholder="Напр. 50 — нижче покаже «Огляд»" data-testid="wh-min-qty" />
+                </label>
                 <div class="w-attrs">
                     <b class="p-small">Характеристики</b>
                     <div v-for="(a, i) in draft.attributes" :key="i" class="t-two">

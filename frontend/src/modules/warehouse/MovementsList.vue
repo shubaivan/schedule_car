@@ -27,6 +27,15 @@ const str = (v: unknown) => (typeof v === 'string' ? v : '')
 const type = computed(() => str(route.query.t))
 const site = computed(() => str(route.query.site))
 const item = computed(() => str(route.query.item))
+// ?from=2026-11-15&to=2026-11-15 — так «Огляд» відкриває «видачу сьогодні».
+const DAY = /^\d{4}-\d\d-\d\d$/
+const from = computed(() => (DAY.test(str(route.query.from)) ? str(route.query.from) : ''))
+const to = computed(() => (DAY.test(str(route.query.to)) ? str(route.query.to) : ''))
+const period = computed(() => {
+    if (!from.value && !to.value) return ''
+    const day = (d: string) => d.split('-').reverse().join('.')
+    return from.value === to.value ? day(from.value) : `${from.value ? 'з ' + day(from.value) : ''}${to.value ? ' по ' + day(to.value) : ''}`.trim()
+})
 const q = ref(str(route.query.q))
 
 const meta = ref<WhMeta | null>(null)
@@ -48,7 +57,14 @@ async function load() {
     const mine = ++seq
     loading.value = true
     try {
-        const r = await whApi.movements({ type: type.value || undefined, site: site.value || undefined, item: item.value || undefined, q: q.value.trim() || undefined })
+        const r = await whApi.movements({
+            type: type.value || undefined,
+            site: site.value || undefined,
+            item: item.value || undefined,
+            q: q.value.trim() || undefined,
+            from: from.value || undefined,
+            to: to.value || undefined,
+        })
         if (mine !== seq) return
         items.value = r.items
         limit.value = r.limit
@@ -96,7 +112,7 @@ watch(q, (value) => {
     }, 300)
 })
 watch(
-    () => [route.query.t, route.query.site, route.query.item, route.query.q],
+    () => [route.query.t, route.query.site, route.query.item, route.query.q, route.query.from, route.query.to],
     () => {
         if (str(route.query.q) !== sentQ) {
             sentQ = str(route.query.q)
@@ -168,6 +184,9 @@ onBeforeUnmount(() => {
                     <option v-for="s in meta?.sites ?? []" :key="s.id" :value="String(s.id)">{{ s.label }}</option>
                 </select>
                 <button v-if="item" type="button" class="p-chip on" title="Прибрати фільтр за позицією" @click="setQuery({ item: '' })">Одна позиція ✕</button>
+                <button v-if="period" type="button" class="p-chip on" title="Прибрати фільтр за датою" data-testid="wh-period" @click="setQuery({ from: '', to: '' })">
+                    📅 {{ period }} ✕
+                </button>
             </div>
 
             <div v-if="error" class="t-error">{{ error }}</div>

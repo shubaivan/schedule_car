@@ -6,6 +6,7 @@ use App\Entity\TelegramUser;
 use App\Tasks\Entity\Task;
 use App\Tasks\Entity\TaskMember;
 use App\Tasks\Enum\TaskStatus;
+use DateTime;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\QueryBuilder;
@@ -21,6 +22,9 @@ use SortDirection;
  */
 class TaskRepository extends ServiceEntityRepository
 {
+    /** Фільтр «Без відділу» у списку задач і «Контролі по відділах». */
+    public const int DEPARTMENT_NONE = -1;
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Task::class);
@@ -44,11 +48,78 @@ class TaskRepository extends ServiceEntityRepository
     }
 
     /**
-     * @param array{q?: ?string, label?: ?int, status?: list<TaskStatus>, open?: ?bool, overdue?: ?bool, member?: ?TelegramUser, department?: ?int, ids?: ?list<int>} $filters
+     * @param array{q?: ?string, label?: ?int, status?: list<TaskStatus>, open?: ?bool, overdue?: ?bool, stale?: ?int, member?: ?TelegramUser, department?: ?int, ids?: ?list<int>} $filters
      *
      * @return Task[]
      */
     public function search(TelegramUser $user, array $filters, int $limit = 60, string $order = 'activity'): array
+    {
+        $qb = $this->filtered($user, $filters);
+
+        // Ліміт з fetch-join колекцій зрізав би мітки — спершу id, потім повні обʼєкти.
+        // Після скидання join-ів рядки не множаться, тож DISTINCT не потрібен.
+        $idQuery = (clone $qb)->resetDQLPart('join')->select('t.id');
+
+        if ($order === 'due') {
+            $idQuery->addSelect('CASE WHEN t.dueAt IS NULL THEN 1 ELSE 0 END AS HIDDEN nodue')
+                ->addOrderBy('nodue', SortDirection::Ascending)
+                ->addOrderBy('t.dueAt', SortDirection::Ascending);
+        }
+
+        // «Без руху» — спершу ті, що стоять найдовше.
+        $idQuery->addOrderBy('t.lastActivityAt', $order === 'stale' ? SortDirection::Ascending : SortDirection::Descending)
+            ->addOrderBy('t.id', SortDirection::Descending);
+
+        $ids = array_map(
+            static fn (array $row) => (int) $row['id'],
+            $idQuery->setMaxResults($limit)->getQuery()->getArrayResult(),
+        );
+
+        if ($ids === []) {
+            return [];
+        }
+
+        $tasks = $this->createQueryBuilder('t')
+            ->leftJoin('t.labels', 'l')->addSelect('l')
+            ->leftJoin('t.creator', 'c')->addSelect('c')
+            ->leftJoin('t.members', 'm')->addSelect('m')
+            ->leftJoin('m.user', 'mu')->addSelect('mu')
+            ->leftJoin('mu.department', 'md')->addSelect('md')
+            ->leftJoin('t.departments', 'd')->addSelect('d')
+            ->andWhere('t.id IN (:ids)')->setParameter('ids', $ids)
+            ->getQuery()->getResult();
+
+        $position = array_flip($ids);
+        usort($tasks, static fn (Task $a, Task $b) => $position[$a->getId()] <=> $position[$b->getId()]);
+
+        return $tasks;
+    }
+
+    /**
+     * Скільки задач під тими самими фільтрами, що й search() — для «показано N з M».
+     *
+     * @param array{q?: ?string, label?: ?int, status?: list<TaskStatus>, open?: ?bool, overdue?: ?bool, stale?: ?int, member?: ?TelegramUser, department?: ?int, ids?: ?list<int>} $filters
+     */
+    public function countMatching(TelegramUser $user, array $filters): int
+    {
+        return (int) $this->filtered($user, $filters)->resetDQLPart('join')->select('COUNT(t.id)')->getQuery()->getSingleScalarResult();
+    }
+
+    /**
+     * «Без руху» — від цього моменту назад остання активність (повідомлення, статус, правка).
+     */
+    public static function staleBefore(int $days): DateTime
+    {
+        return Task::now()->modify(sprintf('-%d days', $days));
+    }
+
+    /**
+     * Фільтри списку задач. department = id відділу (задача позначена відділом або в ній
+     * є людина з цього відділу — як у пошуку), DEPARTMENT_NONE — ні того, ні іншого.
+     *
+     * @param array{q?: ?string, label?: ?int, status?: list<TaskStatus>, open?: ?bool, overdue?: ?bool, stale?: ?int, member?: ?TelegramUser, department?: ?int, ids?: ?list<int>} $filters
+     */
+    private function filtered(TelegramUser $user, array $filters): QueryBuilder
     {
         $qb = $this->visibleTo($user);
 
@@ -89,7 +160,19 @@ class TaskRepository extends ServiceEntityRepository
                 ->setParameter('me', $filters['member']);
         }
 
-        if (! empty($filters['department'])) {
+        if (($filters['stale'] ?? null) !== null) {
+            $qb->andWhere('t.lastActivityAt < :staleBefore')
+                ->andWhere('t.status NOT IN (:closedS)')
+                ->setParameter('closedS', [TaskStatus::Done, TaskStatus::Rejected])
+                ->setParameter('staleBefore', self::staleBefore((int) $filters['stale']));
+        }
+
+        if (($filters['department'] ?? null) === self::DEPARTMENT_NONE) {
+            $qb->andWhere(sprintf(
+                't.departments IS EMPTY AND NOT EXISTS (SELECT 1 FROM %s nm JOIN nm.user nu WHERE nm.task = t AND nu.department IS NOT NULL)',
+                TaskMember::class,
+            ));
+        } elseif (! empty($filters['department'])) {
             $qb->andWhere(sprintf(
                 ':dep MEMBER OF t.departments OR EXISTS (SELECT 1 FROM %s dm JOIN dm.user du WHERE dm.task = t AND du.department = :dep)',
                 TaskMember::class,
@@ -100,41 +183,7 @@ class TaskRepository extends ServiceEntityRepository
             $qb->andWhere('t.id IN (:ids)')->setParameter('ids', $filters['ids'] ?: [0]);
         }
 
-        // Ліміт з fetch-join колекцій зрізав би мітки — спершу id, потім повні обʼєкти.
-        // Після скидання join-ів рядки не множаться, тож DISTINCT не потрібен.
-        $idQuery = (clone $qb)->resetDQLPart('join')->select('t.id');
-
-        if ($order === 'due') {
-            $idQuery->addSelect('CASE WHEN t.dueAt IS NULL THEN 1 ELSE 0 END AS HIDDEN nodue')
-                ->addOrderBy('nodue', SortDirection::Ascending)
-                ->addOrderBy('t.dueAt', SortDirection::Ascending);
-        }
-
-        $idQuery->addOrderBy('t.lastActivityAt', SortDirection::Descending)->addOrderBy('t.id', SortDirection::Descending);
-
-        $ids = array_map(
-            static fn (array $row) => (int) $row['id'],
-            $idQuery->setMaxResults($limit)->getQuery()->getArrayResult(),
-        );
-
-        if ($ids === []) {
-            return [];
-        }
-
-        $tasks = $this->createQueryBuilder('t')
-            ->leftJoin('t.labels', 'l')->addSelect('l')
-            ->leftJoin('t.creator', 'c')->addSelect('c')
-            ->leftJoin('t.members', 'm')->addSelect('m')
-            ->leftJoin('m.user', 'mu')->addSelect('mu')
-            ->leftJoin('mu.department', 'md')->addSelect('md')
-            ->leftJoin('t.departments', 'd')->addSelect('d')
-            ->andWhere('t.id IN (:ids)')->setParameter('ids', $ids)
-            ->getQuery()->getResult();
-
-        $position = array_flip($ids);
-        usort($tasks, static fn (Task $a, Task $b) => $position[$a->getId()] <=> $position[$b->getId()]);
-
-        return $tasks;
+        return $qb;
     }
 
     /**
@@ -233,6 +282,69 @@ class TaskRepository extends ServiceEntityRepository
 
             if (! (TaskStatus::tryFrom($status)?->isClosed() ?? false)) {
                 $out['open'] += (int) $row['n'];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * «Контроль по відділах»: відкриті, прострочені й без руху N днів — по кожному відділу
+     * серед задач, які людина бачить. Відділ задачі — той самий, що й у фільтрі списку
+     * (позначений у задачі або відділ когось із учасників), тож число й список збігаються.
+     * Задача в кількох відділах рахується в кожному — рядки не складаються в «усього»,
+     * для цього окремо total (без повторів).
+     *
+     * @return array{departments: array<int, array{open: int, overdue: int, stale: int}>, none: array{open: int, overdue: int, stale: int}, total: array{open: int, overdue: int, stale: int}}
+     */
+    public function departmentControl(TelegramUser $user, int $staleDays): array
+    {
+        [$visible, $params] = TaskVisibility::sql($user, 't');
+        $params = [
+            ...$params,
+            'now' => Task::now()->format('Y-m-d H:i:s'),
+            'stale' => self::staleBefore($staleDays)->format('Y-m-d H:i:s'),
+            'closed' => [TaskStatus::Done->value, TaskStatus::Rejected->value],
+        ];
+        $types = ['closed' => ArrayParameterType::STRING];
+
+        // Один прохід: відкриті видимі задачі → пари (задача, відділ) без повторів → підсумки.
+        // department_id NULL — задача без жодного відділу (ні в задачі, ні в учасників).
+        $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            'WITH v AS (
+                 SELECT t.id, (t.due_at IS NOT NULL AND t.due_at < CAST(:now AS timestamp)) AS overdue,
+                        (t.last_activity_at < CAST(:stale AS timestamp)) AS stale
+                   FROM task t
+                  WHERE t.status NOT IN (:closed) AND ' . $visible . '
+             ), td AS (
+                 SELECT d.task_id, d.department_id FROM task_department d JOIN v ON v.id = d.task_id
+                 UNION
+                 SELECT m.task_id, u.department_id FROM task_member m JOIN v ON v.id = m.task_id
+                   JOIN telegram_user u ON u.id = m.user_id
+                  WHERE u.department_id IS NOT NULL
+             ), pairs AS (
+                 SELECT v.id, td.department_id, v.overdue, v.stale FROM v LEFT JOIN td ON td.task_id = v.id
+             )
+             SELECT department_id, COUNT(*) AS open, COUNT(*) FILTER (WHERE overdue) AS overdue, COUNT(*) FILTER (WHERE stale) AS stale, FALSE AS total
+               FROM pairs GROUP BY department_id
+             UNION ALL
+             SELECT NULL, COUNT(*), COUNT(*) FILTER (WHERE overdue), COUNT(*) FILTER (WHERE stale), TRUE FROM v',
+            $params,
+            $types,
+        );
+
+        $zero = ['open' => 0, 'overdue' => 0, 'stale' => 0];
+        $out = ['departments' => [], 'none' => $zero, 'total' => $zero];
+
+        foreach ($rows as $row) {
+            $counts = ['open' => (int) $row['open'], 'overdue' => (int) $row['overdue'], 'stale' => (int) $row['stale']];
+
+            if ((bool) $row['total']) {
+                $out['total'] = $counts;
+            } elseif ($row['department_id'] === null) {
+                $out['none'] = $counts;
+            } else {
+                $out['departments'][(int) $row['department_id']] = $counts;
             }
         }
 

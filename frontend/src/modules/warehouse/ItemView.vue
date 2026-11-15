@@ -306,6 +306,10 @@ watch(tab, (t) => {
                             <dt>Оренда</dt>
                             <dd>{{ money(item.rentalRate) }}/доба</dd>
                         </template>
+                        <template v-if="item.minQuantity !== null">
+                            <dt>Мінімум</dt>
+                            <dd>{{ item.minQuantity }} {{ item.unit }} на складах</dd>
+                        </template>
                         <template v-if="item.createdBy">
                             <dt>Завів</dt>
                             <dd><PersonName :person="item.createdBy" /></dd>

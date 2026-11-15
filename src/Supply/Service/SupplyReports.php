@@ -40,6 +40,30 @@ class SupplyReports
         ];
     }
 
+    /**
+     * Гроші за період для «Огляду»: сума й кількість закупівель плюс найбільші
+     * постачальники й підрозділи (решту — у повному звіті).
+     *
+     * @return array{spent: float, purchases: int, suppliers: list<array<string, mixed>>, departments: list<array<string, mixed>>}
+     */
+    public function spend(DateTimeInterface $from, DateTimeInterface $to, int $top = 3): array
+    {
+        $period = ['from' => $from->format('Y-m-d'), 'to' => $to->format('Y-m-d')];
+        $money = $this->connection->fetchAssociative(
+            'SELECT COALESCE(SUM(total_amount), 0) AS spent, COUNT(*) AS purchases
+             FROM supply_purchase
+             WHERE purchased_at BETWEEN :from AND :to',
+            $period,
+        ) ?: [];
+
+        return [
+            'spent' => round((float) ($money['spent'] ?? 0), 2),
+            'purchases' => (int) ($money['purchases'] ?? 0),
+            'suppliers' => array_slice($this->bySupplier($period), 0, $top),
+            'departments' => array_slice($this->byDepartment($period), 0, $top),
+        ];
+    }
+
     /** Загальні цифри: скільки заявок, скільки грошей, як довго закривали. */
     private function totals(array $period): array
     {

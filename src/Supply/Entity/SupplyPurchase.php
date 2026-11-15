@@ -22,6 +22,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'supply_purchase')]
 #[ORM\Index(name: 'supply_purchase_request_idx', columns: ['request_id'])]
 #[ORM\Index(name: 'supply_purchase_supplier_idx', columns: ['supplier_id'])]
+#[ORM\Index(name: 'supply_purchase_purchased_idx', columns: ['purchased_at'])]
 #[ORM\HasLifecycleCallbacks]
 class SupplyPurchase
 {

@@ -78,6 +78,13 @@ class WarehouseDirectory
             ->setRentalRate($this->money($data['rentalRate'] ?? null, 'Ставка оренди'))
             ->setAttributes($this->attributes($data));
 
+        // Поріг — лише для «кількістю» і лише коли форма його надіслала (Twig-склад поля не має).
+        if ($tracking === Tracking::Unit) {
+            $item->setMinQuantity(null);
+        } elseif (array_key_exists('minQuantity', $data)) {
+            $item->setMinQuantity($this->minQuantity($data['minQuantity']));
+        }
+
         $state = ItemState::tryFrom((string) ($data['state'] ?? ''));
 
         // Списання — лише рухом «Списання»: так воно лишає слід в історії.
@@ -386,6 +393,21 @@ class WarehouseDirectory
         $value = trim((string) $value);
 
         return $value === '' ? null : $value;
+    }
+
+    private function minQuantity(mixed $value): ?int
+    {
+        $value = trim((string) $value);
+
+        if ($value === '') {
+            return null;
+        }
+
+        if (! ctype_digit($value) || (int) $value > 1_000_000_000) {
+            throw new WarehouseException('Мінімальний залишок — ціле число від 0, наприклад 50.');
+        }
+
+        return (int) $value;
     }
 
     private function money(mixed $value, string $field): ?string
