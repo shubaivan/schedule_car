@@ -74,16 +74,17 @@ class OverviewApiTest extends WebTestCase
         // Задача в двох відділах: рахується в кожному, але в «усього» — один раз.
         $both = $this->task('Сходові марші', $director, [$sales, $prod], due: '-2 days');
         $this->task('Плити ПК', $director, [$sales]);
-        $stale = $this->task('ФБС 24-4-6', $director, [], members: [$worker], activity: '-5 days');
+        $stale = $this->task('ФБС 24-4-6', $director, [$prod], activity: '-5 days');
         $this->task('Закрита', $director, [$sales], status: TaskStatus::Done, due: '-3 days');
+        // Відділ учасника не рахується — лише позначений у задачі (інакше «Дирекція» роздувається).
+        $this->task('Лише учасник з виробництва', $director, [$sales], members: [$worker]);
 
         $this->client->loginUser($director);
         $data = $this->get('/api/plan/overview');
 
         self::assertTrue($data['scope']['all']);
         $rows = array_column($data['control']['rows'], null, 'id');
-        self::assertSame(['open' => 2, 'overdue' => 1, 'stale' => 0], $this->counts($rows[$sales->getId()]));
-        // Відділ учасника теж рахується: ФБС позначена лише людиною з виробництва.
+        self::assertSame(['open' => 3, 'overdue' => 1, 'stale' => 0], $this->counts($rows[$sales->getId()]));
         self::assertSame(['open' => 2, 'overdue' => 1, 'stale' => 1], $this->counts($rows[$prod->getId()]));
         // Директор бачить і відділ без задач — нуль теж відповідь.
         self::assertSame(['open' => 0, 'overdue' => 0, 'stale' => 0], $this->counts($rows[$empty->getId()]));
@@ -105,7 +106,10 @@ class OverviewApiTest extends WebTestCase
     {
         $director = $this->user(WorkRole::Director, SupplyRole::Director);
         $loose = $this->task('Без відділу', $director, []);
+        $worker = $this->user(WorkRole::Production, SupplyRole::Worker, $this->department('Цех'));
+        $withMember = $this->task('Учасник з цеху, відділ не позначено', $director, [], members: [$worker]);
         $this->client->loginUser($director);
+        self::assertContains($withMember->getId(), array_column($this->get('/api/tasks/list?dep=none')['items'], 'id'));
 
         self::assertContains($loose->getId(), array_column($this->get('/api/tasks/list?dep=none')['items'], 'id'));
         self::assertGreaterThanOrEqual(1, $this->get('/api/plan/overview')['control']['none']['open']);

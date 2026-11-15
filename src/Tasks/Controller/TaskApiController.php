@@ -220,7 +220,7 @@ class TaskApiController extends TasksController
         $department = null;
 
         if ($dep === 'none') {
-            $filters['department'] = TaskRepository::DEPARTMENT_NONE;
+            $filters['taggedDepartment'] = TaskRepository::DEPARTMENT_NONE;
         } elseif (ctype_digit($dep) && (int) $dep > 0) {
             $department = $departments->find((int) $dep);
 
@@ -228,7 +228,7 @@ class TaskApiController extends TasksController
                 return $this->error('Такого відділу немає.', Response::HTTP_NOT_FOUND);
             }
 
-            $filters['department'] = (int) $department->getId();
+            $filters['taggedDepartment'] = (int) $department->getId();
         } else {
             $dep = '';
         }

@@ -48,7 +48,7 @@ class TaskRepository extends ServiceEntityRepository
     }
 
     /**
-     * @param array{q?: ?string, label?: ?int, status?: list<TaskStatus>, open?: ?bool, overdue?: ?bool, stale?: ?int, member?: ?TelegramUser, department?: ?int, ids?: ?list<int>} $filters
+     * @param array{q?: ?string, label?: ?int, status?: list<TaskStatus>, open?: ?bool, overdue?: ?bool, stale?: ?int, member?: ?TelegramUser, department?: ?int, taggedDepartment?: ?int, ids?: ?list<int>} $filters
      *
      * @return Task[]
      */
@@ -98,7 +98,7 @@ class TaskRepository extends ServiceEntityRepository
     /**
      * Скільки задач під тими самими фільтрами, що й search() — для «показано N з M».
      *
-     * @param array{q?: ?string, label?: ?int, status?: list<TaskStatus>, open?: ?bool, overdue?: ?bool, stale?: ?int, member?: ?TelegramUser, department?: ?int, ids?: ?list<int>} $filters
+     * @param array{q?: ?string, label?: ?int, status?: list<TaskStatus>, open?: ?bool, overdue?: ?bool, stale?: ?int, member?: ?TelegramUser, department?: ?int, taggedDepartment?: ?int, ids?: ?list<int>} $filters
      */
     public function countMatching(TelegramUser $user, array $filters): int
     {
@@ -115,9 +115,10 @@ class TaskRepository extends ServiceEntityRepository
 
     /**
      * Фільтри списку задач. department = id відділу (задача позначена відділом або в ній
-     * є людина з цього відділу — як у пошуку), DEPARTMENT_NONE — ні того, ні іншого.
+     * є людина з цього відділу — «мій відділ», як у пошуку); taggedDepartment — лише
+     * позначений у задачі відділ, DEPARTMENT_NONE — задача без позначеного відділу.
      *
-     * @param array{q?: ?string, label?: ?int, status?: list<TaskStatus>, open?: ?bool, overdue?: ?bool, stale?: ?int, member?: ?TelegramUser, department?: ?int, ids?: ?list<int>} $filters
+     * @param array{q?: ?string, label?: ?int, status?: list<TaskStatus>, open?: ?bool, overdue?: ?bool, stale?: ?int, member?: ?TelegramUser, department?: ?int, taggedDepartment?: ?int, ids?: ?list<int>} $filters
      */
     private function filtered(TelegramUser $user, array $filters): QueryBuilder
     {
@@ -167,12 +168,16 @@ class TaskRepository extends ServiceEntityRepository
                 ->setParameter('staleBefore', self::staleBefore((int) $filters['stale']));
         }
 
-        if (($filters['department'] ?? null) === self::DEPARTMENT_NONE) {
-            $qb->andWhere(sprintf(
-                't.departments IS EMPTY AND NOT EXISTS (SELECT 1 FROM %s nm JOIN nm.user nu WHERE nm.task = t AND nu.department IS NOT NULL)',
-                TaskMember::class,
-            ));
-        } elseif (! empty($filters['department'])) {
+        // «Контроль по відділах» і список з нього: лише відділи, позначені в самій задачі
+        // ([N. Відділ …]), — без відділів учасників (рішення Івана 15.11: інакше «Дирекція»
+        // роздувається через директора-учасника).
+        if (($filters['taggedDepartment'] ?? null) === self::DEPARTMENT_NONE) {
+            $qb->andWhere('t.departments IS EMPTY');
+        } elseif (! empty($filters['taggedDepartment'])) {
+            $qb->andWhere(':tdep MEMBER OF t.departments')->setParameter('tdep', $filters['taggedDepartment']);
+        }
+
+        if (! empty($filters['department'])) {
             $qb->andWhere(sprintf(
                 ':dep MEMBER OF t.departments OR EXISTS (SELECT 1 FROM %s dm JOIN dm.user du WHERE dm.task = t AND du.department = :dep)',
                 TaskMember::class,
@@ -290,8 +295,8 @@ class TaskRepository extends ServiceEntityRepository
 
     /**
      * «Контроль по відділах»: відкриті, прострочені й без руху N днів — по кожному відділу
-     * серед задач, які людина бачить. Відділ задачі — той самий, що й у фільтрі списку
-     * (позначений у задачі або відділ когось із учасників), тож число й список збігаються.
+     * серед задач, які людина бачить. Відділ задачі — лише позначений у самій задачі
+     * (task_department), як фільтр taggedDepartment у списку, тож число й список збігаються.
      * Задача в кількох відділах рахується в кожному — рядки не складаються в «усього»,
      * для цього окремо total (без повторів).
      *
@@ -309,7 +314,7 @@ class TaskRepository extends ServiceEntityRepository
         $types = ['closed' => ArrayParameterType::STRING];
 
         // Один прохід: відкриті видимі задачі → пари (задача, відділ) без повторів → підсумки.
-        // department_id NULL — задача без жодного відділу (ні в задачі, ні в учасників).
+        // department_id NULL — задача без жодного позначеного відділу.
         $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
             'WITH v AS (
                  SELECT t.id, (t.due_at IS NOT NULL AND t.due_at < CAST(:now AS timestamp)) AS overdue,
@@ -318,10 +323,6 @@ class TaskRepository extends ServiceEntityRepository
                   WHERE t.status NOT IN (:closed) AND ' . $visible . '
              ), td AS (
                  SELECT d.task_id, d.department_id FROM task_department d JOIN v ON v.id = d.task_id
-                 UNION
-                 SELECT m.task_id, u.department_id FROM task_member m JOIN v ON v.id = m.task_id
-                   JOIN telegram_user u ON u.id = m.user_id
-                  WHERE u.department_id IS NOT NULL
              ), pairs AS (
                  SELECT v.id, td.department_id, v.overdue, v.stale FROM v LEFT JOIN td ON td.task_id = v.id
              )

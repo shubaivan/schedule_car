@@ -69,7 +69,8 @@ const decideRoute = computed(() => {
 })
 
 /* ---------- рішення в рядку ---------- */
-const DECISIONS_SHOWN = 4
+// 3 рядки — щоб на 1440×900 під ними було видно «Контроль по відділах».
+const DECISIONS_SHOWN = 3
 const showAll = ref(false)
 const shownDecisions = computed(() => (data.value ? (showAll.value ? data.value.decisions.items : data.value.decisions.items.slice(0, DECISIONS_SHOWN)) : []))
 const busy = ref<string | null>(null)
@@ -357,7 +358,7 @@ useLiveRefresh(() => load(), { pollMs: 30000, debounceMs: 1000 })
                                 </tr>
                             </tfoot>
                         </table>
-                        <p class="ov-note">Задача з кількома відділами рахується в кожному, тож «Усього» — без повторів, а не сума рядків.</p>
+                        <p class="ov-note">Відділ — той, що позначений у задачі. Задача з кількома відділами рахується в кожному, тож «Усього» — без повторів, а не сума рядків.</p>
                     </section>
 
                     <section class="t-panel" data-testid="ov-mine">
