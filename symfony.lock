@@ -132,6 +132,9 @@
             "tests/bootstrap.php"
         ]
     },
+    "squizlabs/php_codesniffer": {
+        "version": "3.13.6"
+    },
     "symfony/apache-pack": {
         "version": "1.0",
         "recipe": {
