@@ -137,7 +137,9 @@ body:has(.p-shell) {
 body.p-noscroll {
     overflow: hidden;
 }
-.layout.plan {
+/* «План» — на всю ширину екрана (.layout.wide з 1560px перебивав це правило на широких моніторах). */
+.layout.plan,
+.layout.plan.wide {
     max-width: none;
     padding: 0;
     margin: 0;
@@ -513,6 +515,8 @@ body.p-noscroll {
 }
 .p-board-bar .p-chips {
     flex: 1;
+    /* Мітки дошки не ховаються за краєм вузької лівої панелі — переносяться. */
+    flex-wrap: wrap;
 }
 .p-new {
     margin-left: auto;
@@ -764,7 +768,7 @@ body.p-noscroll {
 
 /* ---------- розділений екран ---------- */
 .p-board.split .p-board-left {
-    flex: 0 0 384px;
+    flex: 0 0 clamp(384px, 22vw, 500px);
     padding-right: 12px;
 }
 .p-board.split .p-board-bar {
@@ -787,8 +791,8 @@ body.p-noscroll {
 .p-board.split .p-coltabs,
 .p-coltabs {
     gap: 4px;
-    overflow-x: auto;
-    scrollbar-width: none;
+    /* Усі колонки видно завжди: вкладки переносяться в другий рядок, а не ховаються за краєм. */
+    flex-wrap: wrap;
     flex: none;
 }
 .p-board.split .p-coltabs {
@@ -860,7 +864,7 @@ body.p-noscroll {
     min-height: 420px;
 }
 .p-split.split > .p-split-left {
-    flex: 0 0 400px;
+    flex: 0 0 clamp(400px, 22vw, 500px);
     min-width: 0;
     overflow-y: auto;
     padding-right: 12px;
@@ -909,7 +913,7 @@ body.p-noscroll {
 }
 .p-embedded .t-task {
     height: 100%;
-    grid-template-columns: minmax(0, 1fr) 300px;
+    grid-template-columns: minmax(0, 1fr) clamp(300px, 17vw, 380px);
     gap: 0;
     position: relative;
 }

@@ -465,7 +465,10 @@
 .t-search {
     position: relative;
     display: block;
-    flex: 1 1 260px;
+    /* Основа «auto», не 260px: у колонковому flex (сторінка «Люди») 260px ставали висотою —
+       під полем висіла порожня смуга з самотньою 🔍. */
+    flex: 1 1 auto;
+    min-width: min(260px, 100%);
     max-width: 420px;
 }
 .t-search input {
