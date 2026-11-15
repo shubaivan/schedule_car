@@ -1334,6 +1334,14 @@ body.p-noscroll {
     .p-board.split .p-board-left {
         flex-basis: 320px;
     }
+    /* Мітки — окремим рядком під фільтром, а не вузьким стовпчиком між полем і кнопкою. */
+    .p-board-bar {
+        flex-wrap: wrap;
+    }
+    .p-board-bar .p-chips {
+        order: 3;
+        flex: 1 0 100%;
+    }
     .p-split.split > .p-split-left {
         flex-basis: 320px;
     }
