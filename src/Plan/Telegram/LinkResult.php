@@ -11,4 +11,6 @@ enum LinkResult
     case Invalid;
     /** Цей Telegram уже належить іншому обліковому запису Плану. */
     case Taken;
+    /** Людина вже прив'язана до ІНШОГО Telegram: спершу відключити старий (у Плані, з поточної сесії). */
+    case OtherTelegram;
 }

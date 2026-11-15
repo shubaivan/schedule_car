@@ -276,6 +276,7 @@ final class AuditPresenter
         $role = static fn (string $value): string => WorkRole::tryFrom($value)?->label() ?? $value;
         $parts = [match ($action) {
             'create' => 'заведено',
+            'telegram' => 'підключено Telegram за номером телефону',
             'trash' => 'у кошик',
             'restore' => 'з кошика',
             default => 'змінено',

@@ -124,6 +124,11 @@ class LoginNonce
         return $this->expiresAt;
     }
 
+    public function getConfirmedAt(): ?DateTimeImmutable
+    {
+        return $this->confirmedAt;
+    }
+
     public function isExpired(DateTimeImmutable $now): bool
     {
         return $now >= $this->expiresAt;

@@ -50,18 +50,16 @@ final class TelegramLogin
         return $this->mode->enabled() && $this->link->botUsername() !== null;
     }
 
+    /** Скільки останніх спроб пам'ятає сесія: друга вкладка чи автооновлення не «вбивають» ту, що вже в боті. */
+    public const int SESSION_KEEP = 3;
+    /** Підтвердили в останні секунди TTL — браузер ще встигає забрати вхід. */
+    public const int CONFIRM_GRACE_SECONDS = 60;
+
     /** @return array{url: string, code: string, expiresIn: int, id: int} */
     public function start(SessionInterface $session, ?string $ip, ?string $userAgent, ?DateTimeImmutable $now = null): array
     {
         $now ??= new DateTimeImmutable();
-        $db = $this->em->getConnection();
-
-        // Попередня незавершена спроба цієї ж сесії більше не потрібна; старі рядки — геть.
-        $previous = $session->get(self::SESSION_PENDING);
-        if (is_array($previous) && isset($previous['id'])) {
-            $db->executeStatement("DELETE FROM plan_login_nonce WHERE id = ? AND status = 'pending'", [(int) $previous['id']]);
-        }
-        $db->executeStatement('DELETE FROM plan_login_nonce WHERE expires_at < ?', [$now->modify('-1 day')->format('Y-m-d H:i:s')]);
+        $this->em->getConnection()->executeStatement('DELETE FROM plan_login_nonce WHERE expires_at < ?', [$now->modify('-1 day')->format('Y-m-d H:i:s')]);
 
         $nonce = bin2hex(random_bytes(16));
         $hash = hash('sha256', $nonce);
@@ -70,7 +68,8 @@ final class TelegramLogin
         $this->em->persist($row);
         $this->em->flush();
 
-        $session->set(self::SESSION_PENDING, ['id' => (int) $row->getId(), 'hash' => $hash]);
+        $attempts = [...self::attemptsOf($session), ['id' => (int) $row->getId(), 'hash' => $hash]];
+        $session->set(self::SESSION_PENDING, array_slice($attempts, -self::SESSION_KEEP));
 
         return [
             'url' => sprintf('https://t.me/%s?start=%s%s', (string) $this->link->botUsername(), self::PREFIX, $nonce),
@@ -81,26 +80,35 @@ final class TelegramLogin
     }
 
     /**
-     * Стан спроби цієї сесії: none (не починали) | pending | confirmed | denied | join | expired.
+     * Стан спроб цієї сесії: none (не починали) | pending | confirmed | denied | join | expired.
+     * Кілька спроб (вкладки, автооновлення) — найважливіший стан: confirmed > join > denied > pending > expired;
+     * code — найсвіжішої спроби (її показує сторінка).
      *
      * @return array{state: string, code?: string}
      */
     public function status(SessionInterface $session, ?DateTimeImmutable $now = null): array
     {
         $now ??= new DateTimeImmutable();
-        $row = $this->pendingOf($session);
+        $rank = ['confirmed' => 5, 'join' => 4, 'denied' => 3, 'pending' => 2, 'expired' => 1];
+        $best = null;
+        $code = null;
 
-        if ($row === null) {
-            return ['state' => 'none'];
+        foreach ($this->attemptRows($session) as $row) {
+            $state = match ($row->getStatus()) {
+                LoginNonceStatus::Confirmed => $this->completable($row, $now) ? 'confirmed' : 'expired',
+                LoginNonceStatus::Pending => $row->isExpired($now) ? 'expired' : 'pending',
+                LoginNonceStatus::Join => 'join',
+                LoginNonceStatus::Denied => 'denied',
+                default => 'expired',
+            };
+            $code = $row->getCode();
+
+            if ($best === null || $rank[$state] > $rank[$best]) {
+                $best = $state;
+            }
         }
 
-        $state = match ($row->getStatus()) {
-            LoginNonceStatus::Pending, LoginNonceStatus::Confirmed => $row->isExpired($now) ? 'expired' : $row->getStatus()->value,
-            LoginNonceStatus::Join => 'join',
-            default => 'denied',
-        };
-
-        return ['state' => $state, 'code' => $row->getCode()];
+        return $best === null ? ['state' => 'none'] : ['state' => $best, 'code' => (string) $code];
     }
 
     /**
@@ -111,25 +119,27 @@ final class TelegramLogin
     public function complete(SessionInterface $session, ?DateTimeImmutable $now = null): ?array
     {
         $now ??= new DateTimeImmutable();
-        $pending = $session->get(self::SESSION_PENDING);
+        $at = $now->format('Y-m-d H:i:s');
+        $grace = $now->modify('-' . self::CONFIRM_GRACE_SECONDS . ' seconds')->format('Y-m-d H:i:s');
 
-        if (! is_array($pending) || ! isset($pending['id'], $pending['hash'])) {
-            return null;
+        foreach (self::attemptsOf($session) as $attempt) {
+            $userId = $this->em->getConnection()->fetchOne(
+                "UPDATE plan_login_nonce SET status = 'used', used_at = ? WHERE id = ? AND nonce_hash = ? AND status = 'confirmed' AND (expires_at > ? OR confirmed_at > ?) RETURNING user_id",
+                [$at, $attempt['id'], $attempt['hash'], $at, $grace],
+            );
+
+            if ($userId === false || $userId === null) {
+                continue;
+            }
+
+            // Забрали — решту спроб цієї сесії більше не чекаємо.
+            $session->remove(self::SESSION_PENDING);
+            $user = $this->users->find((int) $userId);
+
+            return $user instanceof TelegramUser && self::canLogIn($user) ? [$user, $attempt['id']] : null;
         }
 
-        $userId = $this->em->getConnection()->fetchOne(
-            "UPDATE plan_login_nonce SET status = 'used', used_at = ? WHERE id = ? AND nonce_hash = ? AND status = 'confirmed' AND expires_at > ? RETURNING user_id",
-            [$now->format('Y-m-d H:i:s'), (int) $pending['id'], (string) $pending['hash'], $now->format('Y-m-d H:i:s')],
-        );
-        $session->remove(self::SESSION_PENDING);
-
-        $user = $userId !== false && $userId !== null ? $this->users->find((int) $userId) : null;
-
-        if (! $user instanceof TelegramUser || ! self::canLogIn($user)) {
-            return null;
-        }
-
-        return [$user, (int) $pending['id']];
+        return null;
     }
 
     /** Бот: /start login_<nonce> — живу спробу закріпити за цим Telegram. */
@@ -159,6 +169,18 @@ final class TelegramLogin
         );
 
         return $id !== false && $id !== null ? $this->refreshed((int) $id) : null;
+    }
+
+    /** Бот: жива спроба з цим id, яку забрав саме цей Telegram. */
+    public function pendingById(int $id, string $telegramId, ?DateTimeImmutable $now = null): ?LoginNonce
+    {
+        $now ??= new DateTimeImmutable();
+        $found = $this->em->getConnection()->fetchOne(
+            "SELECT id FROM plan_login_nonce WHERE id = ? AND telegram_id = ? AND status = 'pending' AND expires_at > ?",
+            [$id, $telegramId, $now->format('Y-m-d H:i:s')],
+        );
+
+        return $found !== false && $found !== null ? $this->refreshed((int) $found) : null;
     }
 
     public function confirm(LoginNonce $nonce, TelegramUser $user, ?DateTimeImmutable $now = null): bool
@@ -208,9 +230,9 @@ final class TelegramLogin
      */
     public function staffByPhone(string $phone): array
     {
-        $tail = substr((string) preg_replace('/\D+/', '', $phone), -9);
+        $full = self::e164($phone);
 
-        if (strlen($tail) !== 9) {
+        if ($full === null) {
             return [];
         }
 
@@ -218,13 +240,34 @@ final class TelegramLogin
         $found = $this->users->createQueryBuilder('u')
             ->where('u.phone_number LIKE :tail')
             ->andWhere('u.telegram_id NOT LIKE :demo')
-            ->setParameter('tail', '%' . $tail)
+            ->setParameter('tail', '%' . substr($full, -9))
             ->setParameter('demo', 'demo-%')
             ->orderBy('u.id')
             ->getQuery()
             ->getResult();
 
-        return array_values(array_filter($found, static fn (TelegramUser $u) => ! TelegramLink::isStub($u)));
+        // Хвіст лише звужує пошук; збіг — за повним номером (+48 і +380 з однаковим хвостом — різні люди).
+        $same = array_values(array_filter($found, static fn (TelegramUser $u) => ! TelegramLink::isStub($u) && self::e164((string) $u->getPhoneNumber()) === $full));
+        $live = array_values(array_filter($same, self::canLogIn(...)));
+
+        // Стара картка в кошику не заважає живій; «закрито» — лише коли живих немає.
+        return $live !== [] ? $live : $same;
+    }
+
+    /**
+     * Номер до повного вигляду цифрами: 0631234567 → 380631234567, 631234567 → 380631234567;
+     * з кодом країни — як є. null — замало цифр.
+     */
+    public static function e164(string $phone): ?string
+    {
+        $digits = (string) preg_replace('/\D+/', '', $phone);
+
+        return match (true) {
+            strlen($digits) === 9 => '380' . $digits,
+            strlen($digits) === 10 && str_starts_with($digits, '0') => '38' . $digits,
+            strlen($digits) >= 11 => $digits,
+            default => null,
+        };
     }
 
     /** Чи пускати людину: підтверджена, не в кошику. */
@@ -233,17 +276,41 @@ final class TelegramLogin
         return $user->isApproved() && ! $user->isArchived();
     }
 
-    private function pendingOf(SessionInterface $session): ?LoginNonce
+    /** @return list<array{id: int, hash: string}> */
+    private static function attemptsOf(SessionInterface $session): array
     {
-        $pending = $session->get(self::SESSION_PENDING);
+        $out = [];
 
-        if (! is_array($pending) || ! isset($pending['id'], $pending['hash'])) {
-            return null;
+        foreach ((array) $session->get(self::SESSION_PENDING, []) as $attempt) {
+            if (is_array($attempt) && isset($attempt['id'], $attempt['hash'])) {
+                $out[] = ['id' => (int) $attempt['id'], 'hash' => (string) $attempt['hash']];
+            }
         }
 
-        $row = $this->refreshed((int) $pending['id']);
+        return $out;
+    }
 
-        return $row !== null && hash_equals($row->getNonceHash(), (string) $pending['hash']) ? $row : null;
+    /** @return list<LoginNonce> спроби цієї сесії, що справді її (хеш збігся) */
+    private function attemptRows(SessionInterface $session): array
+    {
+        $rows = [];
+
+        foreach (self::attemptsOf($session) as $attempt) {
+            $row = $this->refreshed($attempt['id']);
+
+            if ($row !== null && hash_equals($row->getNonceHash(), $attempt['hash'])) {
+                $rows[] = $row;
+            }
+        }
+
+        return $rows;
+    }
+
+    private function completable(LoginNonce $row, DateTimeImmutable $now): bool
+    {
+        $confirmed = $row->getConfirmedAt();
+
+        return ! $row->isExpired($now) || ($confirmed !== null && $confirmed > $now->modify('-' . self::CONFIRM_GRACE_SECONDS . ' seconds'));
     }
 
     private function refreshed(int $id): ?LoginNonce

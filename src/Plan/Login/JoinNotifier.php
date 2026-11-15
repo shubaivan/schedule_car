@@ -31,8 +31,17 @@ final class JoinNotifier
     ) {
     }
 
-    public function requested(JoinRequest $request): void
+    /** Більше стількох заявок за годину — суперадмінам не пишемо (заявки лишаються в Плані). */
+    public const int NOTIFY_PER_HOUR = 20;
+
+    public function requested(JoinRequest $request, int $lastHour = 0): void
     {
+        if ($lastHour > self::NOTIFY_PER_HOUR) {
+            $this->logger->warning('plan: забагато заявок на приєднання — суперадмінам не пишемо', ['lastHour' => $lastHour]);
+
+            return;
+        }
+
         $keyboard = InlineKeyboardMarkup::make()->addRow(
             InlineKeyboardButton::make('✅ Затвердити', callback_data: PlanLoginBot::JOIN_APPROVE . $request->getId()),
             InlineKeyboardButton::make('✖ Відхилити', callback_data: PlanLoginBot::JOIN_REJECT . $request->getId()),
@@ -69,6 +78,21 @@ final class JoinNotifier
         foreach ($this->superadmins() as $admin) {
             if ($admin->getId() !== $by->getId()) {
                 $this->send($admin, sprintf('ℹ️ Заявку №%d (%s) %s — %s.', (int) $request->getId(), htmlspecialchars($request->name()), $approved ? 'затверджено' : 'відхилено', htmlspecialchars($by->shortName())));
+            }
+        }
+    }
+
+    /** Хтось уперше підключив Telegram до картки за номером — суперадмінам для відома (крім самого себе). */
+    public function linked(TelegramUser $user, ?string $username): void
+    {
+        foreach ($this->superadmins() as $admin) {
+            if ($admin->getId() !== $user->getId()) {
+                $this->send($admin, sprintf(
+                    "🔗 %s підключив(ла) Telegram%s до Плану за номером %s.\nЯкщо це не та людина — відкрийте картку й зверніться до неї.",
+                    htmlspecialchars($user->shortName()),
+                    $username !== null ? ' (@' . htmlspecialchars($username) . ')' : '',
+                    JoinRequests::maskPhone((string) $user->getPhoneNumber()),
+                ), str_starts_with($this->url('/'), 'https://') ? InlineKeyboardMarkup::make()->addRow(InlineKeyboardButton::make('Картка в Плані', url: $this->url('/crm/staff/' . $user->getId()))) : null);
             }
         }
     }

@@ -9,7 +9,9 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use LogicException;
 use Psr\Log\LoggerInterface;
+use SergiX44\Nutgram\Nutgram;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Throwable;
 
 /**
  * Прив'язка Telegram до облікового запису Плану.
@@ -34,6 +36,7 @@ final class TelegramLink
         private readonly LoggerInterface $logger,
         #[Autowire('%env(default::TELEGRAM_BOT_USERNAME)%')]
         private readonly ?string $botUsername = null,
+        private readonly ?Nutgram $bot = null,
     ) {
     }
 
@@ -98,6 +101,13 @@ final class TelegramLink
             return [LinkResult::Taken, $holder];
         }
 
+        // Перепривʼязати вже підключену картку до іншого Telegram посиланням не можна: так
+        // викрадена сесія забрала б людині вхід назавжди. Спершу «Відключити» (старий Telegram
+        // отримає повідомлення), потім підключити новий.
+        if (self::isLinked($user)) {
+            return [LinkResult::OtherTelegram, $user];
+        }
+
         // Атомарно «забрати» токен: два одночасні /start з тим самим посиланням — спрацює один.
         if ($this->em->getConnection()->executeStatement('UPDATE telegram_link_token SET used_at = ? WHERE token_hash = ? AND used_at IS NULL', [$now->format('Y-m-d H:i:s'), hash('sha256', $token)]) !== 1) {
             return [LinkResult::Invalid, null];
@@ -149,8 +159,16 @@ final class TelegramLink
             return;
         }
 
+        $chat = $user->getChatId() ?: $user->getTelegramId();
         $user->setTelegramId('staff-' . bin2hex(random_bytes(8)))->setChatId(null);
         $this->em->flush();
+
+        // Старий Telegram має знати, що його відключили (якщо це зробив не він — сигнал).
+        try {
+            $this->bot?->sendMessage(text: "🔌 Цей Telegram відключено від Плану.\nЯкщо це зробили не ви — негайно повідомте адміністратора.", chat_id: $chat);
+        } catch (Throwable $e) {
+            $this->logger->info('plan: повідомлення про відключення Telegram не доставлено', ['error' => $e->getMessage()]);
+        }
     }
 
     /**

@@ -30,6 +30,12 @@ framework:
             policy: sliding_window
             limit: 30
             interval: '15 minutes'
+        # Стеля на IP: увесь завод за одним NAT.
+        plan_tg_login_start_ip:
+            cache_pool: cache.plan_login_limiter
+            policy: sliding_window
+            limit: 400
+            interval: '15 minutes'
         plan_tg_login_status:
             cache_pool: cache.plan_login_limiter
             policy: sliding_window

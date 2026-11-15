@@ -106,6 +106,11 @@ final class JoinRequests
         return $qb->getQuery()->getResult();
     }
 
+    public function createdSince(DateTimeImmutable $since): int
+    {
+        return (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM plan_join_request WHERE created_at > ?', [$since->format('Y-m-d H:i:s')]);
+    }
+
     public function pendingCount(): int
     {
         return (int) $this->em->getConnection()->fetchOne("SELECT COUNT(*) FROM plan_join_request WHERE status = 'pending'");

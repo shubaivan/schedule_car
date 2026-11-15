@@ -75,7 +75,12 @@ final class PlanBot
         } elseif (preg_match('~^/mute(?:@\w+)?$~', $text) === 1 && $linked) {
             $this->toggleMute($bot, $user);
         } elseif (preg_match('~^/start(?:@\w+)?$~', $text) === 1 && $linked) {
-            $this->say($bot, sprintf("👋 %s, сюди приходять сповіщення Плану: нові задачі й заявки, коментарі, зміни статусу, погодження.\n\nУвійти в План — кнопка «Увійти через Telegram» на сайті.\n/mute — вимкнути або ввімкнути сповіщення\n/help — довідка", htmlspecialchars($user->shortName())), $this->url('tasks'));
+            // Знайома людина: одна кнопка «Увійти в План» — одноразовий вхід просто з бота.
+            $bot->sendMessage(
+                text: sprintf("👋 %s, натисніть «Увійти в План» — відкриється План, уже з входом.\n\nСюди ж приходять сповіщення: нові задачі й заявки, коментарі, погодження.\n/mute — вимкнути або ввімкнути сповіщення\n/help — довідка", htmlspecialchars($user->shortName())),
+                parse_mode: ParseMode::HTML,
+                reply_markup: $this->login->loginButton($user),
+            );
         } elseif ($linked) {
             $this->say($bot, $this->help(), $this->url('tasks'));
         } else {
@@ -98,6 +103,7 @@ final class PlanBot
             LinkResult::Linked => sprintf("✅ Telegram підключено, %s.\nСюди приходитимуть сповіщення Плану. Налаштувати, що саме, — у Плані: 🔔 → Налаштування.\n\n/mute — вимкнути сповіщення", htmlspecialchars((string) $user?->shortName())),
             LinkResult::AlreadyLinked => '✅ Цей Telegram уже підключено до вашого облікового запису.',
             LinkResult::Taken => '⛔ Цей Telegram уже підключено до іншого облікового запису Плану. Спершу відключіть його там (Налаштування сповіщень).',
+            LinkResult::OtherTelegram => '⛔ Ваша картка в Плані вже підключена до іншого Telegram. Спершу відключіть його (План → 🔔 → Налаштування → «Відключити») або зверніться до адміністратора.',
             LinkResult::Invalid => '⌛ Посилання застаріло або вже використане. Відкрийте План → 🔔 → Налаштування → «Підключити Telegram» ще раз.',
         }, $this->url('notifications/settings'));
     }

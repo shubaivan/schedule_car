@@ -106,7 +106,7 @@
     <a class="btn ghost" href="{{ path('crm_logout') }}">Вийти</a>
   {% elseif telegram_login %}
     <div id="tg-login" class="tg-block" data-csrf="{{ csrf_token('tg_login') }}">
-      <a id="tg-go" class="btn tg big" href="https://t.me/{{ bot_username }}" target="_blank" rel="noopener" aria-disabled="true">
+      <a id="tg-go" class="btn tg big" href="https://t.me/{{ bot_username }}" target="_blank" rel="noopener" aria-disabled="true" tabindex="-1">
         <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M21.9 4.3 18.6 20c-.2 1.1-.9 1.4-1.8.9l-5-3.7-2.4 2.3c-.3.3-.5.5-1 .5l.4-5.1 9.3-8.4c.4-.4-.1-.6-.6-.2L6 13.5l-5-1.6c-1.1-.3-1.1-1.1.2-1.6L20.5 3c.9-.3 1.7.2 1.4 1.3z"/></svg>
         Увійти через Telegram
       </a>
@@ -115,7 +115,7 @@
       <div id="tg-wait" class="tg-wait" aria-live="polite">
         <div class="tg-hint"><span class="tg-spin"></span>Чекаємо підтвердження в Telegram…</div>
         <div class="tg-code" id="tg-code">····</div>
-        <div class="tg-hint">Той самий код покаже бот. Натисніть у ньому <b>«Старт»</b>; уперше — ще <b>«Поділитися номером»</b>.</div>
+        <div class="tg-hint">У боті натисніть <b>«Старт»</b> (уперше — ще <b>«Поділитися номером»</b>), а потім — <b>цей самий код</b>.</div>
         <button type="button" class="link-btn" id="tg-again">Відкрити Telegram ще раз</button>
       </div>
 
@@ -131,7 +131,7 @@
 
     <ol>
       <li>Натисніть <b>«Увійти через Telegram»</b> — відкриється бот @{{ bot_username }}.<span class="desk-only"> З комп'ютера можна просто відсканувати QR-код телефоном.</span></li>
-      <li>У боті натисніть <b>«Старт»</b>. Уперше — ще <b>«📱 Поділитися номером»</b>: так бот упізнає вас за телефоном.</li>
+      <li>У боті натисніть <b>«Старт»</b> (уперше — ще <b>«📱 Поділитися номером»</b>) і код, який бачите тут.</li>
       <li>Поверніться сюди — План відкриється сам.</li>
     </ol>
 
@@ -150,7 +150,7 @@
       </form>
     </details>
     {% endif %}
-    <script src="/plan-login.js?v=1" defer></script>
+    <script src="/plan-login.js?v=2" defer></script>
   {% else %}
     {% if password_login %}
     <form class="pw" method="post" action="{{ path('app_login_password') }}">

@@ -67,12 +67,16 @@ class TelegramLoginFlowTest extends KernelTestCase
 
         $bot = $this->bot();
         $bot->hearText('/start login_' . self::nonce($started['url']))->reply();
-        $reply = $this->lastSent($bot);
-        self::assertStringContainsString('Вхід підтверджено', (string) $reply['text']);
-        self::assertStringContainsString($started['code'], (string) $reply['text'], 'Бот показує той самий код');
-        self::assertStringContainsString('Chrome, Android', (string) $reply['text']);
-        self::assertStringContainsString(PlanLoginBot::NOT_ME, (string) json_encode($reply['reply_markup'] ?? null));
+        $ask = $this->lastSent($bot);
+        self::assertStringContainsString('Натисніть код', (string) $ask['text']);
+        self::assertStringNotContainsString($started['code'], (string) $ask['text'], 'Код не в тексті — лише серед трьох кнопок');
+        self::assertStringContainsString('Chrome, Android', (string) $ask['text']);
+        self::assertStringContainsString('IP 10.0.0.1', (string) $ask['text']);
+        self::assertSame(3, substr_count((string) json_encode($ask['reply_markup']), PlanLoginBot::CODE), 'Три коди на вибір');
+        self::assertStringContainsString(PlanLoginBot::CODE . $this->attemptId($started['url']) . ':' . $started['code'], (string) json_encode($ask['reply_markup']));
+        self::assertSame('pending', $this->login->status($session)['state'], 'Сам /start нічого не підтверджує');
 
+        $this->pressCode($started['url']);
         self::assertSame('confirmed', $this->login->status($session)['state']);
         $done = $this->login->complete($session);
         self::assertNotNull($done);
@@ -97,8 +101,10 @@ class TelegramLoginFlowTest extends KernelTestCase
 
         $bot = $this->bot();
         $bot->hearMessage(['contact' => ['phone_number' => '+380632223302', 'first_name' => 'Іван', 'user_id' => self::TG]])->reply();
-        self::assertStringContainsString('Вхід підтверджено', (string) $this->lastSent($bot)['text']);
+        self::assertStringContainsString('Натисніть код', (string) $this->lastSent($bot)['text']);
         self::assertSame((string) self::TG, $user->getTelegramId(), 'Telegram прив\'язано до картки за номером');
+        self::assertSame('staff_changed', $this->lastEventType(), 'Прив\'язка за номером — у журналі');
+        $this->pressCode($started['url']);
         self::assertSame($user->getId(), $this->login->complete($session)[0]->getId() ?? null);
 
         // Другий вхід: бот уже знає цей Telegram — без контакту.
@@ -107,8 +113,67 @@ class TelegramLoginFlowTest extends KernelTestCase
         $started = $this->login->start($session, null, null);
         $bot = $this->bot();
         $bot->hearText('/start login_' . self::nonce($started['url']))->reply();
-        self::assertStringContainsString('Вхід підтверджено', (string) $this->lastSent($bot)['text']);
+        self::assertStringContainsString('Натисніть код', (string) $this->lastSent($bot)['text']);
+        $this->pressCode($started['url']);
         self::assertSame('confirmed', $this->login->status($session)['state']);
+    }
+
+    public function testBareStartThenContactLinksAndOffersOneTapLoginFromTheBot(): void
+    {
+        // Як Сашко 15.11: відкрив бота сам (без сайту), натиснув /start.
+        $user = $this->staff('0933504499');
+        $this->stranger();
+        $bot = $this->bot();
+        $bot->hearText('/start')->reply();
+        self::assertStringContainsString('request_contact', (string) json_encode($this->lastSent($bot)['reply_markup'] ?? null));
+
+        $tokens = (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM login_token WHERE user_id = ?', [$user->getId()]);
+        $bot = $this->bot();
+        $bot->hearMessage(['contact' => ['phone_number' => '380933504499', 'first_name' => 'Олександр', 'user_id' => self::TG]])->reply();
+        self::assertStringContainsString('Увійти в План', (string) $this->lastSent($bot)['text']);
+        self::assertSame((string) self::TG, $user->getTelegramId());
+        self::assertSame($tokens + 1, (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM login_token WHERE user_id = ?', [$user->getId()]), 'Одноразове посилання входу видано');
+
+        // Наступний голий /start — одразу кнопка входу.
+        $this->users()->initUser(['id' => (string) self::TG, 'chat_id' => (string) self::TG]);
+        $bot = $this->bot();
+        $bot->hearText('/start')->reply();
+        self::assertStringContainsString('Увійти в План', (string) $this->lastSent($bot)['text']);
+    }
+
+    public function testWrongCodeCancelsTheAttemptPhishingCase(): void
+    {
+        $this->staff('0639990011', telegramId: (string) self::TG);
+        // Зловмисник почав вхід у СВОЄМУ браузері й надіслав посилання жертві.
+        $attacker = self::session();
+        $started = $this->login->start($attacker, '6.6.6.6', null);
+        $bot = $this->bot();
+        $bot->hearText('/start login_' . self::nonce($started['url']))->reply();
+
+        $wrong = $started['code'] === '0000' ? '0001' : '0000';
+        $bot = $this->bot();
+        $bot->hearCallbackQueryData(PlanLoginBot::CODE . $this->attemptId($started['url']) . ':' . $wrong)->reply();
+        self::assertSame('denied', $this->login->status($attacker)['state']);
+        self::assertNull($this->login->complete($attacker));
+        self::assertStringContainsString('невірний код', $this->lastFailure());
+
+        // Після відмови правильний код уже нічого не дає.
+        $this->pressCode($started['url']);
+        self::assertSame('denied', $this->login->status($attacker)['state']);
+    }
+
+    public function testTailMatchUsesTheFullNumberAndIgnoresArchivedTwins(): void
+    {
+        $this->staff('48632223399');            // +48 з тим самим хвостом
+        $old = $this->staff('0632223399');
+        $old->archive();
+        $live = $this->staff('380632223399');
+        $this->em->flush();
+
+        $found = $this->login->staffByPhone('+380 63 222 33 99');
+        self::assertCount(1, $found);
+        self::assertSame($live->getId(), $found[0]->getId());
+        self::assertSame([], $this->login->staffByPhone('+44 63 222 33 99'));
     }
 
     public function testForeignContactExpiredLinkAndSecondTelegramAreRefused(): void
@@ -212,6 +277,7 @@ class TelegramLoginFlowTest extends KernelTestCase
         $nonce = self::nonce($this->login->start($session, null, null)['url']);
         $bot = $this->bot();
         $bot->hearText('/start login_' . $nonce)->reply();
+        $this->pressCode('login_' . $nonce);
         self::assertSame($joined->getId(), $this->login->complete($session)[0]->getId() ?? null);
     }
 
@@ -241,6 +307,7 @@ class TelegramLoginFlowTest extends KernelTestCase
         $nonce = self::nonce($this->login->start($session, null, null)['url']);
         $bot = $this->bot();
         $bot->hearText('/start login_' . $nonce)->reply();
+        $this->pressCode('login_' . $nonce);
         [, $attempt] = $this->login->complete($session) ?? [null, 0];
         self::assertGreaterThan(0, $attempt);
         self::assertFalse($this->login->isRevoked($attempt));
@@ -268,6 +335,19 @@ class TelegramLoginFlowTest extends KernelTestCase
         $bot->fallback(new PlanBotFallback());
 
         return $bot;
+    }
+
+    private function attemptId(string $url): int
+    {
+        return (int) $this->em->getConnection()->fetchOne('SELECT id FROM plan_login_nonce WHERE nonce_hash = ?', [hash('sha256', self::nonce($url))]);
+    }
+
+    /** Людина натискає в боті правильний код (той, що бачить на сайті). */
+    private function pressCode(string $url, int $tg = self::TG): void
+    {
+        $code = (string) $this->em->getConnection()->fetchOne('SELECT code FROM plan_login_nonce WHERE nonce_hash = ?', [hash('sha256', self::nonce($url))]);
+        $bot = $this->bot($tg);
+        $bot->hearCallbackQueryData(PlanLoginBot::CODE . $this->attemptId($url) . ':' . $code)->reply();
     }
 
     private function users(): TelegramUserService

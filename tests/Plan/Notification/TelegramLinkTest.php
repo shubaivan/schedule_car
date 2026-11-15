@@ -99,6 +99,18 @@ class TelegramLinkTest extends KernelTestCase
         self::assertSame(LinkResult::Invalid, $this->link->consume('nonsense', '1', '1')[0]);
     }
 
+    public function testLinkedCardIsNotMovedToAnotherTelegramByALink(): void
+    {
+        $user = $this->webUser();
+        $first = substr($this->link->issue($user)['url'], -32);
+        self::assertSame(LinkResult::Linked, $this->link->consume($first, '700100601', '700100601')[0]);
+
+        // Посилання з профілю (напр. з викраденої сесії) не перепривʼязує картку до чужого Telegram.
+        $second = substr($this->link->issue($user)['url'], -32);
+        self::assertSame(LinkResult::OtherTelegram, $this->link->consume($second, '700100602', '700100602')[0]);
+        self::assertSame('700100601', $user->getTelegramId());
+    }
+
     public function testPlanBotLinksMutesAndHelpsWithoutSupplyMenus(): void
     {
         $user = $this->webUser();
@@ -130,7 +142,7 @@ class TelegramLinkTest extends KernelTestCase
         $bot = $this->bot($users);
         $bot->hearText('/start')->reply();
         $start = $this->lastText($bot);
-        self::assertStringContainsString('сповіщення Плану', $start);
+        self::assertStringContainsString('Увійти в План', $start);
         self::assertStringNotContainsString('Постачання', $start, 'Меню заявок у боті Плану немає');
     }
 

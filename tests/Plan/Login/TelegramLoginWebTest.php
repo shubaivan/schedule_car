@@ -146,13 +146,16 @@ class TelegramLoginWebTest extends WebTestCase
         self::assertGreaterThanOrEqual(1, $list['pending']);
         self::assertContains('+380 93 123 12 31', array_column($list['items'], 'phone'));
 
-        $this->client->request('POST', '/api/plan/join-requests/' . $request->getId() . '/approve', content: json_encode(['role' => 'accountant', 'firstName' => 'Петро', 'lastName' => 'Новий']) ?: '');
+        $this->client->request('POST', '/api/plan/join-requests/' . $request->getId() . '/approve', server: ['CONTENT_TYPE' => 'application/json'], content: json_encode(['role' => 'accountant', 'firstName' => 'Петро', 'lastName' => 'Новий']) ?: '');
         self::assertResponseIsSuccessful();
         $row = json_decode((string) $this->client->getResponse()->getContent(), true);
         self::assertSame('approved', $row['status']);
         self::assertSame('Бухгалтер', $row['userRole']);
 
-        $this->client->request('POST', '/api/plan/join-requests/' . $request->getId() . '/reject');
+        $this->client->request('POST', '/api/plan/join-requests/' . $request->getId() . '/reject', ['reason' => 'x']);
+        self::assertResponseStatusCodeSame(415, 'Звичайна форма (не JSON) рішення не приймає');
+
+        $this->client->request('POST', '/api/plan/join-requests/' . $request->getId() . '/reject', server: ['CONTENT_TYPE' => 'application/json'], content: '{}');
         self::assertResponseStatusCodeSame(422, 'Двічі не вирішити');
     }
 

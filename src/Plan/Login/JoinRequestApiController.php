@@ -59,6 +59,10 @@ final class JoinRequestApiController extends AbstractController
     #[Route('/{id}/approve', name: 'api_plan_join_approve', methods: ['POST'], requirements: ['id' => '\d+'])]
     public function approve(int $id, Request $http): JsonResponse
     {
+        if (($refused = self::jsonOnly($http)) !== null) {
+            return $refused;
+        }
+
         $request = $this->joins->find($id) ?? throw $this->createNotFoundException();
         $me = $this->me();
         $data = self::payload($http);
@@ -85,6 +89,10 @@ final class JoinRequestApiController extends AbstractController
     #[Route('/{id}/reject', name: 'api_plan_join_reject', methods: ['POST'], requirements: ['id' => '\d+'])]
     public function reject(int $id, Request $http): JsonResponse
     {
+        if (($refused = self::jsonOnly($http)) !== null) {
+            return $refused;
+        }
+
         $request = $this->joins->find($id) ?? throw $this->createNotFoundException();
         $me = $this->me();
 
@@ -120,6 +128,17 @@ final class JoinRequestApiController extends AbstractController
             'userRole' => $r->getUser()?->getWorkRole()->label(),
             'reason' => $r->getReason(),
         ];
+    }
+
+    /**
+     * Рішення — лише JSON-запитом застосунку: звичайна HTML-форма з іншого сайту
+     * (text/plain, form-urlencoded) не може вдати клік суперадміна.
+     */
+    private static function jsonOnly(Request $request): ?JsonResponse
+    {
+        return $request->getContentTypeFormat() === 'json' && $request->headers->get('Sec-Fetch-Site', 'same-origin') === 'same-origin'
+            ? null
+            : new JsonResponse(['error' => 'Очікується JSON-запит із самого Плану.'], Response::HTTP_UNSUPPORTED_MEDIA_TYPE);
     }
 
     /** @return array<string, mixed> */

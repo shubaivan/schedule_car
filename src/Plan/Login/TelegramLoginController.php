@@ -35,6 +35,8 @@ final class TelegramLoginController extends AbstractController
         private readonly CsrfTokenManagerInterface $csrf,
         #[Autowire(service: 'limiter.plan_tg_login_start')]
         private readonly RateLimiterFactoryInterface $startLimiter,
+        #[Autowire(service: 'limiter.plan_tg_login_start_ip')]
+        private readonly RateLimiterFactoryInterface $startIpLimiter,
         #[Autowire(service: 'limiter.plan_tg_login_status')]
         private readonly RateLimiterFactoryInterface $statusLimiter,
     ) {
@@ -51,7 +53,11 @@ final class TelegramLoginController extends AbstractController
             return new JsonResponse(['error' => 'Сторінка застаріла. Оновіть її.'], Response::HTTP_FORBIDDEN);
         }
 
-        if (! $this->startLimiter->create('ip:' . $request->getClientIp())->consume()->isAccepted()) {
+        // Завод сидить за одним IP: ліміт — на сесію браузера, на IP — лише висока стеля.
+        $session = $request->getSession();
+        $session->start();
+        if (! $this->startLimiter->create('s:' . hash('sha256', $session->getId()))->consume()->isAccepted() ||
+            ! $this->startIpLimiter->create('ip:' . $request->getClientIp())->consume()->isAccepted()) {
             return new JsonResponse(['error' => 'Забагато спроб. Зачекайте кілька хвилин.'], Response::HTTP_TOO_MANY_REQUESTS);
         }
 

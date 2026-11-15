@@ -1,6 +1,7 @@
 /*
  * «Увійти через Telegram» на /vhid (див. App\Plan\Login\TelegramLoginController).
  *
+ * Бот підтверджує вхід лише тоді, коли людина натисне в ньому код, показаний тут.
  * 1. Одразу готуємо спробу (POST /vhid/telegram/start): посилання t.me/<бот>?start=login_<nonce>
  *    стає href кнопки — тож натиск відкриває Telegram напряму, без проміжних кроків
  *    (на телефоні — застосунок, на комп'ютері — нова вкладка; також QR для телефона).
@@ -38,6 +39,7 @@
         if (preparing) return;
         preparing = true;
         go.setAttribute('aria-disabled', 'true');
+        go.setAttribute('tabindex', '-1');
         fetch('/vhid/telegram/start', {
             method: 'POST',
             credentials: 'same-origin',
@@ -52,6 +54,7 @@
             }
             go.href = res.data.url;
             go.removeAttribute('aria-disabled');
+            go.removeAttribute('tabindex');
             code.textContent = res.data.code;
             if (res.data.qr) {
                 qr.src = res.data.qr;
@@ -121,8 +124,11 @@
         prepare();
     }
 
-    function opened() {
-        if (go.getAttribute('aria-disabled') === 'true') return;
+    function opened(e) {
+        if (go.getAttribute('aria-disabled') === 'true') {
+            e.preventDefault();
+            return;
+        }
         clicked = true;
         startWaiting(true);
     }

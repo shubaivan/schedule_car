@@ -10,7 +10,9 @@ use App\Plan\Subject\SubjectRef;
 use App\Plan\Telegram\LinkResult;
 use App\Plan\Telegram\PlanBotMode;
 use App\Plan\Telegram\TelegramLink;
+use App\Service\CrmLoginLink;
 use App\Tasks\Exception\TaskException;
+use DateTimeImmutable;
 use Psr\Log\LoggerInterface;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Properties\ParseMode;
@@ -39,6 +41,8 @@ use Throwable;
 final class PlanLoginBot
 {
     public const string NOT_ME = 'pl:x:';
+    /** Кнопка з кодом: pl:c:<id спроби>:<код>. */
+    public const string CODE = 'pl:c:';
     public const string JOIN_APPROVE = 'pj:a:';
     public const string JOIN_REJECT = 'pj:r:';
 
@@ -49,6 +53,8 @@ final class PlanLoginBot
         private readonly TelegramLink $link,
         private readonly PlanEventRecorder $events,
         private readonly LoggerInterface $logger,
+        private readonly CrmLoginLink $loginLinks,
+        private readonly TelegramLinkAudit $audit,
         #[Autowire('%env(APP_BASE_URL)%')]
         private readonly string $baseUrl = 'http://localhost',
     ) {
@@ -72,14 +78,14 @@ final class PlanLoginBot
         }
 
         if ($me !== null && TelegramLink::isLinked($me) && ! TelegramLink::isStub($me)) {
-            $this->confirmFor($bot, $attempt, $me);
+            $this->askCode($bot, $attempt, $me);
 
             return;
         }
 
         $this->say(
             $bot,
-            sprintf("🔐 Вхід у План. Код на екрані: <b>%s</b>\n\nЩоб ми вас упізнали, поділіться номером телефону — кнопка нижче. Це потрібно лише один раз.", $attempt->getCode()),
+            "🔐 Вхід у План.\n\nЩоб ми вас упізнали, поділіться номером телефону — кнопка нижче. Це потрібно лише один раз.",
             self::contactKeyboard(),
         );
     }
@@ -109,8 +115,8 @@ final class PlanLoginBot
         // Telegram уже прив'язаний до живої картки — номер не перевіряємо (міг змінитися).
         if ($me !== null && TelegramLink::isLinked($me) && ! TelegramLink::isStub($me)) {
             $attempt !== null
-                ? $this->confirmFor($bot, $attempt, $me)
-                : $this->say($bot, '✅ Ваш Telegram уже підключено до Плану. Для входу натисніть «Увійти через Telegram» на сайті.', PlanBotMode::openButton($this->url('/vhid'), 'Відкрити План'));
+                ? $this->askCode($bot, $attempt, $me)
+                : $this->say($bot, '✅ Ваш Telegram уже підключено до Плану.', $this->loginButton($me));
 
             return;
         }
@@ -148,7 +154,7 @@ final class PlanLoginBot
         };
 
         if ($result === JoinSubmit::Created && $request !== null) {
-            $this->notifier->requested($request);
+            $this->notifier->requested($request, $this->joins->createdSince(new DateTimeImmutable('-1 hour')));
         }
     }
 
@@ -166,6 +172,12 @@ final class PlanLoginBot
     public function callback(Nutgram $bot, ?TelegramUser $me): bool
     {
         $data = (string) $bot->callbackQuery()?->data;
+
+        if (preg_match('/^' . preg_quote(self::CODE, '/') . '(\d+):(\d{4})$/', $data, $m) === 1) {
+            $this->checkCode($bot, $me, (int) $m[1], $m[2]);
+
+            return true;
+        }
 
         if (str_starts_with($data, self::NOT_ME)) {
             $this->notMe($bot, $me, (int) substr($data, strlen(self::NOT_ME)));
@@ -253,16 +265,23 @@ final class PlanLoginBot
             return;
         }
 
+        $this->audit->linkedByPhone($user, $bot->user());
+
         if ($attempt !== null) {
-            $this->confirmFor($bot, $attempt, $user);
+            $this->askCode($bot, $attempt, $user);
 
             return;
         }
 
-        $this->say($bot, sprintf("✅ Telegram підключено до Плану, %s.\nДля входу натискайте «Увійти через Telegram» на сайті — більше нічого вводити не треба.", htmlspecialchars($user->shortName())), PlanBotMode::openButton($this->url('/vhid'), 'Відкрити План'));
+        $this->say($bot, sprintf("✅ Telegram підключено до Плану, %s.\nНатисніть «Увійти в План» — або на сайті «Увійти через Telegram». Паролів не треба.", htmlspecialchars($user->shortName())), $this->loginButton($user));
     }
 
-    private function confirmFor(Nutgram $bot, LoginNonce $attempt, TelegramUser $user): void
+    /**
+     * Підтвердження входу з браузера: звідки (браузер, IP, час) і три кнопки з кодами —
+     * людина тисне той, що бачить на екрані. Посилання, яке хтось надіслав (зі своїм
+     * браузером на іншому кінці), так не підтвердити: коду з чужого екрана людина не знає.
+     */
+    private function askCode(Nutgram $bot, LoginNonce $attempt, TelegramUser $user): void
     {
         if (! TelegramLogin::canLogIn($user)) {
             $this->refuse($bot, $attempt, $user, 'доступ закрито (картка в кошику або не підтверджена)', "⛔ Доступ до Плану для вас закрито.\nЗверніться, будь ласка, до адміністратора.", $user);
@@ -270,23 +289,70 @@ final class PlanLoginBot
             return;
         }
 
-        if (! $this->login->confirm($attempt, $user)) {
-            $this->fail($user, 'час на підтвердження минув');
-            $this->say($bot, "⌛ Час на вхід минув.\nНатисніть «Увійти через Telegram» на сайті ще раз.", PlanBotMode::openButton($this->url('/vhid'), 'Відкрити План'));
+        $codes = [$attempt->getCode()];
+        while (count($codes) < 3) {
+            $fake = sprintf('%04d', random_int(0, 9999));
+            if (! in_array($fake, $codes, true)) {
+                $codes[] = $fake;
+            }
+        }
+        shuffle($codes);
+
+        $keyboard = InlineKeyboardMarkup::make()->addRow(...array_map(
+            fn (string $code) => InlineKeyboardButton::make($code, callback_data: self::CODE . $attempt->getId() . ':' . $code),
+            $codes,
+        ))->addRow(InlineKeyboardButton::make('🚫 Це не я', callback_data: self::NOT_ME . $attempt->getId()));
+
+        $this->say($bot, sprintf(
+            "🔐 %s, вхід у План з браузера%s.\n\nНатисніть код, який бачите на екрані входу.\n⚠️ Якщо вам це посилання <b>надіслали</b> або ви не входите зараз — натисніть «Це не я».",
+            htmlspecialchars($user->shortName()),
+            self::origin($attempt),
+        ), $keyboard);
+    }
+
+    private function checkCode(Nutgram $bot, ?TelegramUser $me, int $attemptId, string $code): void
+    {
+        $from = $bot->user();
+        $attempt = $from !== null ? $this->login->pendingById($attemptId, (string) $from->id) : null;
+
+        if ($attempt === null || $me === null || ! TelegramLink::isLinked($me) || TelegramLink::isStub($me)) {
+            $bot->answerCallbackQuery(text: 'Ця спроба входу вже не діє.', show_alert: true);
+            $this->edit($bot, "⌛ Ця спроба входу вже не діє.\nНатисніть «Увійти через Telegram» на сайті ще раз.");
 
             return;
         }
 
-        $this->say(
-            $bot,
-            sprintf(
-                "✅ Вхід підтверджено, %s.\nПоверніться у браузер — План відкриється сам.\n\nКод на екрані: <b>%s</b>%s\nЯкщо ви не входили — натисніть «Це був не я».",
-                htmlspecialchars($user->shortName()),
-                $attempt->getCode(),
-                self::browser($attempt->getUserAgent()),
-            ),
-            InlineKeyboardMarkup::make()->addRow(InlineKeyboardButton::make('🚫 Це був не я', callback_data: self::NOT_ME . $attempt->getId())),
-        );
+        if (! hash_equals($attempt->getCode(), $code)) {
+            $this->login->close($attempt, LoginNonceStatus::Denied);
+            $this->fail($me, 'невірний код у боті (можливо, чуже посилання)' . self::origin($attempt));
+            $bot->answerCallbackQuery(text: 'Код не збігся — вхід скасовано');
+            $this->edit($bot, "⛔ Код не збігся — цей вхід скасовано.\nЯкщо вам надіслали посилання для входу — нікому його не підтверджуйте й повідомте адміністратора.");
+
+            return;
+        }
+
+        if (! TelegramLogin::canLogIn($me) || ! $this->login->confirm($attempt, $me)) {
+            $bot->answerCallbackQuery(text: 'Не вдалося підтвердити вхід.', show_alert: true);
+            $this->edit($bot, "⌛ Час на вхід минув.\nНатисніть «Увійти через Telegram» на сайті ще раз.");
+
+            return;
+        }
+
+        $bot->answerCallbackQuery(text: 'Вхід підтверджено');
+        $this->edit($bot, sprintf(
+            "✅ Вхід підтверджено, %s.\nПоверніться у браузер — План відкриється сам.%s\n\nЯкщо це були не ви — натисніть «Це був не я».",
+            htmlspecialchars($me->shortName()),
+            self::origin($attempt),
+        ), InlineKeyboardMarkup::make()->addRow(InlineKeyboardButton::make('🚫 Це був не я', callback_data: self::NOT_ME . $attempt->getId())));
+    }
+
+    /** Кнопка «Увійти в План» — одноразове посилання (15 хв) просто з бота, без сайту. */
+    public function loginButton(TelegramUser $user): ?InlineKeyboardMarkup
+    {
+        $issued = $this->loginLinks->issue($user);
+        $path = (string) parse_url($issued, PHP_URL_PATH);
+
+        return PlanBotMode::openButton($this->url($path), '🔐 Увійти в План');
     }
 
     private function refuse(Nutgram $bot, ?LoginNonce $attempt, ?TelegramUser $me, string $reason, string $text, ?TelegramUser $subject = null): void
@@ -316,10 +382,10 @@ final class PlanLoginBot
         }
     }
 
-    /** « · Chrome, Android» — щоб людина впізнала свій браузер. */
-    private static function browser(?string $agent): string
+    /** « · Chrome, Android · IP 1.2.3.4 · 13:05» — щоб людина впізнала свій браузер. */
+    private static function origin(LoginNonce $attempt): string
     {
-        $agent = (string) $agent;
+        $agent = (string) $attempt->getUserAgent();
         $name = match (true) {
             str_contains($agent, 'Edg/') => 'Edge',
             str_contains($agent, 'OPR/') => 'Opera',
@@ -336,9 +402,9 @@ final class PlanLoginBot
             str_contains($agent, 'Linux') => 'Linux',
             default => null,
         };
-        $parts = array_filter([$name, $os]);
+        $parts = array_filter([$name !== null || $os !== null ? implode(', ', array_filter([$name, $os])) : null, $attempt->getIp() !== null ? 'IP ' . $attempt->getIp() : null, $attempt->getCreatedAt()->format('H:i')]);
 
-        return $parts !== [] ? ' · ' . implode(', ', $parts) : '';
+        return ' · ' . implode(' · ', $parts);
     }
 
     public static function contactKeyboard(): ReplyKeyboardMarkup
