@@ -38,6 +38,8 @@ final class PlanEventTypes
         DriveAuthBroken::class,
         LeadReceived::class,
         StaffChanged::class,
+        JoinRequested::class,
+        JoinDecided::class,
     ];
 
     /**
@@ -56,6 +58,8 @@ final class PlanEventTypes
         ShareRevoked::class,
         DriveAuthBroken::class,
         StaffChanged::class,
+        JoinRequested::class,
+        JoinDecided::class,
     ];
 
     public static function isAuditOnly(PlanEvent $event): bool

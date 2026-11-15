@@ -10,6 +10,7 @@ import { useTasks } from './store'
 import { useSession } from '../../app/store'
 import { goBack } from '../../plan/layers'
 import { notify, undoable } from '../../plan/undo'
+import { canSeeJoinRequests } from '../admin/access'
 
 /**
  * Співробітники — як розділ налаштувань ПланФікса (скріни клієнта 13.11.2026):
@@ -161,6 +162,7 @@ onMounted(load)
             </div>
             <div class="t-actions t-noprint">
                 <button v-if="tab === 'org'" type="button" class="t-btn" @click="printOrg">🖨 Друк</button>
+                <router-link v-if="canSeeJoinRequests(session.user)" :to="{ name: 'admin-join' }" class="t-btn">🙋 Заявки на приєднання</router-link>
                 <router-link v-if="isAdmin" :to="{ name: 'staff-new', query: route.query }" class="t-btn primary">＋ Новий співробітник</router-link>
             </div>
         </div>
@@ -292,10 +294,10 @@ onMounted(load)
                     </div>
                     <div class="t-two">
                         <label class="t-field"><span>Email (логін)</span><input v-model="form.email" type="email" class="t-input" autocomplete="off" /></label>
-                        <label class="t-field"><span>Телефон</span><input v-model="form.phone" class="t-input" inputmode="tel" /></label>
+                        <label class="t-field"><span>Телефон (для входу через Telegram)</span><input v-model="form.phone" class="t-input" inputmode="tel" autocomplete="off" placeholder="050 123 45 67" /></label>
                     </div>
-                    <div class="t-hint" style="padding: 0">Коли людина зайде в Telegram-бот і поділиться цим номером, картка сама звʼяжеться з ботом — і сповіщення по задачах підуть у Telegram.</div>
-                    <label v-if="isAdmin" class="t-field"><span>{{ editing === 'new' ? 'Пароль' : 'Новий пароль (залиште порожнім, щоб не міняти)' }}</span><input v-model="form.password" type="password" class="t-input" autocomplete="new-password" minlength="8" /></label>
+                    <div class="t-hint" style="padding: 0">Людина входить у План кнопкою «Увійти через Telegram»: уперше бот попросить поділитися номером і впізнає її за цим телефоном. Пароль не потрібен.</div>
+                    <label v-if="isAdmin" class="t-field"><span>{{ editing === 'new' ? 'Пароль (необовʼязково, запасний вхід)' : 'Новий пароль (необовʼязково; порожнє — без змін)' }}</span><input v-model="form.password" type="password" class="t-input" autocomplete="new-password" minlength="8" /></label>
                 </fieldset>
             </div>
             <footer>

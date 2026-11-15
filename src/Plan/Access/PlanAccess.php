@@ -30,7 +30,7 @@ final class PlanAccess
             PlanCapability::SupplyManage => $supply->canManage(),
             PlanCapability::SupplyApprove => $supply->canApprovePayment(),
             PlanCapability::WarehouseView, PlanCapability::WarehouseEdit => WarehouseSection::canManage($user),
-            PlanCapability::AuditView => $user->isSuperadmin(),
+            PlanCapability::AuditView, PlanCapability::StaffJoin => $user->isSuperadmin(),
             PlanCapability::LeadsReceive => in_array($work, [WorkRole::Manager, WorkRole::Director, WorkRole::Admin], true),
         };
     }

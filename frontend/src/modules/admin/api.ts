@@ -82,3 +82,44 @@ export const auditApi = {
     event: (id: number) => call<AuditDetail>(`/api/plan/audit/${id}`),
     csvUrl: (filters: AuditFilters) => '/api/plan/audit.csv?' + filterQuery(filters),
 }
+
+/** Заявки на приєднання (вхід через Telegram) — /api/plan/join-requests*, лише суперадмін. */
+export interface JoinRequestRow {
+    id: number
+    name: string
+    firstName: string | null
+    lastName: string | null
+    username: string | null
+    phone: string
+    status: 'pending' | 'approved' | 'rejected'
+    statusLabel: string
+    createdAt: string
+    decidedAt: string | null
+    decidedBy: string | null
+    userId: number | null
+    userRole: string | null
+    reason: string | null
+}
+
+export interface JoinRequestList {
+    items: JoinRequestRow[]
+    pending: number
+    roles: { value: string; label: string }[]
+    departments: { id: number; name: string }[]
+}
+
+export interface JoinApproval {
+    role: string
+    departmentId: number
+    firstName: string
+    lastName: string
+    position: string
+}
+
+export const joinApi = {
+    list: () => call<JoinRequestList>('/api/plan/join-requests'),
+    approve: (id: number, data: JoinApproval) =>
+        call<JoinRequestRow>(`/api/plan/join-requests/${id}/approve`, { method: 'POST', body: JSON.stringify(data) }),
+    reject: (id: number, reason: string) =>
+        call<JoinRequestRow>(`/api/plan/join-requests/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
+}

@@ -83,6 +83,23 @@ class TelegramUserRepository extends ServiceEntityRepository
     }
 
     /**
+     * Інша жива (не в кошику) картка з тим самим хвостом номера — для перевірки дублів.
+     */
+    public function findLiveTwinByPhoneTail(string $tail, int $exceptId): ?TelegramUser
+    {
+        return $this->createQueryBuilder('tu')
+            ->where('tu.phone_number LIKE :tail')
+            ->andWhere('tu.id <> :id')
+            ->andWhere('tu.archivedAt IS NULL')
+            ->setParameter('tail', '%' . $tail)
+            ->setParameter('id', $exceptId)
+            ->orderBy('tu.id', SortDirection::Ascending)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
      * Хто погоджує оплату. Адмін тут не для звітності, а як запасний ключ:
      * поки директора немає в боті, заявки не мають зависати «На затвердженні».
      *

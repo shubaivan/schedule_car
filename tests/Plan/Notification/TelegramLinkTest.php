@@ -3,6 +3,7 @@
 namespace App\Tests\Plan\Notification;
 
 use App\Entity\TelegramUser;
+use App\Plan\Login\PlanLoginBot;
 use App\Plan\Notification\NotificationPreferences;
 use App\Plan\Telegram\LinkResult;
 use App\Plan\Telegram\PlanBot;
@@ -133,14 +134,18 @@ class TelegramLinkTest extends KernelTestCase
         self::assertStringNotContainsString('Постачання', $start, 'Меню заявок у боті Плану немає');
     }
 
-    public function testStrangerGetsInstructionsInsteadOfRegistration(): void
+    public function testStrangerGetsLoginInstructionsAndShareContactButton(): void
     {
         $users = self::getContainer()->get(TelegramUserService::class);
         $users->initUser(['id' => '700100500', 'first_name' => 'Хтось', 'chat_id' => '700100500']);
         $bot = $this->bot($users, 700100500);
         $bot->hearText('привіт')->reply();
 
-        self::assertStringContainsString('Підключити Telegram', $this->lastText($bot));
+        $reply = $this->lastText($bot);
+        self::assertStringContainsString('Увійти через Telegram', $reply);
+        $history = $bot->getRequestHistory();
+        [$request] = array_values(end($history));
+        self::assertStringContainsString('request_contact', json_encode(FakeNutgram::getActualData($request)) ?: '', 'Кнопка «Поділитися номером»');
     }
 
     private function bot(TelegramUserService $users, int $id = 700100400): FakeNutgram
@@ -148,7 +153,7 @@ class TelegramLinkTest extends KernelTestCase
         $bot = Nutgram::fake();
         $bot->setCommonUser(User::make($id, false, 'Ivan'));
         $bot->setCommonChat(Chat::make($id, ChatType::PRIVATE));
-        $bot->middleware(new PlanBot(new PlanBotMode(true), $this->link, $users, self::getContainer()->get(NotificationPreferences::class), 'https://plan.test'));
+        $bot->middleware(new PlanBot(new PlanBotMode(true), $this->link, $users, self::getContainer()->get(NotificationPreferences::class), self::getContainer()->get(PlanLoginBot::class), 'https://plan.test'));
         $bot->onCommand('start {payload}', new PlanBotFallback());
         $bot->onCommand('start', new PlanBotFallback());
         $bot->fallback(new PlanBotFallback());

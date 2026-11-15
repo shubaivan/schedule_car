@@ -245,10 +245,13 @@ final class AuditPresenter
             'user_logged_in' => match ($str('method')) {
                 'password' => 'за паролем',
                 'bot' => 'посиланням із бота',
+                'telegram' => 'через Telegram',
                 default => '',
             },
             'login_failed' => trim($str('name') . ($str('reason') !== '' ? ' · ' . self::reason($str('reason')) : ''), ' ·'),
             'staff_changed' => self::staff($str('action'), $list('fields'), $str('roleFrom'), $str('roleTo')),
+            'join_requested' => trim('№' . $str('requestId') . ' · ' . $str('name') . ($str('username') !== '' ? ' (@' . $str('username') . ')' : '') . ' · ' . $str('phone'), ' ·'),
+            'join_decided' => trim('№' . $str('requestId') . ' · ' . ($str('decision') === 'approved' ? 'затверджено' : 'відхилено') . ' · ' . $str('name') . ($str('role') !== '' ? ' · ' . (WorkRole::tryFrom($str('role'))?->label() ?? $str('role')) : '') . ($str('reason') !== '' ? ' · ' . $str('reason') : ''), ' ·'),
             'lead_received' => trim($str('name') . ' · ' . $str('interest'), ' ·'),
             default => '',
         };

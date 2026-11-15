@@ -21,3 +21,8 @@ export function canSeeWarehouse(user: ApiUser | null | undefined): boolean {
     // warehouse — склад увімкнено (WAREHOUSE_ENABLED) і людина його веде; capabilities — право в «Плані».
     return user?.capabilities?.['warehouse.view'] === true && user?.warehouse === true
 }
+
+/** Заявки на приєднання (вхід через Telegram) — лише суперадміну: `staff.join`. */
+export function canSeeJoinRequests(user: ApiUser | null | undefined): boolean {
+    return user?.capabilities?.['staff.join'] === true
+}

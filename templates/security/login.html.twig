@@ -7,8 +7,9 @@
 <title>Вхід · {{ company }}</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔐</text></svg>">
 {#
-    Сторінка входу. Паролів у системі немає — вхід лише за одноразовим посиланням
-    із бота, тож замість полів логіна тут три кроки й кнопка «Відкрити бота».
+    Сторінка входу. На «Плані» (telegram_login) — велика кнопка «Увійти через Telegram»:
+    /plan-login.js готує одноразову спробу, відкриває бота і чекає підтвердження; пароль —
+    згорнутий запасний варіант. На стендах заявок — три кроки й кнопка «Відкрити бота».
 
     Відкривають її частіше з телефона, ніж із комп'ютера: картка на всю ширину,
     кнопка під великий палець, текст 16px і жодного горизонтального скролу.
@@ -64,6 +65,27 @@
   form.pw input:focus { outline: 2px solid var(--mark); border-color: var(--mark); }
   .or { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; margin: 18px 0 14px; }
   .or::before, .or::after { content: ''; flex: 1; height: 1px; background: var(--rule); }
+  .tg-block { display: flex; flex-direction: column; gap: 12px; }
+  .btn.tg.big { font-size: 18px; padding: 16px; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .btn.tg.big svg { width: 24px; height: 24px; flex: none; }
+  .btn[aria-disabled="true"] { opacity: .65; pointer-events: none; }
+  .tg-wait { display: none; text-align: center; }
+  .tg-wait.on { display: block; }
+  .tg-code { font-size: 30px; font-weight: 700; letter-spacing: .3em; margin: 4px 0 2px; font-variant-numeric: tabular-nums; }
+  .tg-hint { color: var(--muted); font-size: 14px; }
+  .tg-spin { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--rule); border-top-color: var(--tg); border-radius: 50%; animation: tg-spin 1s linear infinite; vertical-align: -2px; margin-right: 6px; }
+  @keyframes tg-spin { to { transform: rotate(360deg); } }
+  .tg-qr { display: none; margin: 14px auto 0; width: 180px; height: 180px; background: #fff; border-radius: 10px; padding: 6px; }
+  @media (min-width: 720px) and (hover: hover) { .tg-qr.ready { display: block; } }
+  .desk-only { display: none; }
+  @media (min-width: 720px) and (hover: hover) { .desk-only { display: inline; } }
+  .tg-msg { display: none; }
+  .tg-msg.on { display: block; }
+  details.pw-fallback { margin-top: 18px; border-top: 1px solid var(--rule); padding-top: 12px; }
+  details.pw-fallback summary { cursor: pointer; color: var(--muted); font-size: 14px; text-align: center; list-style: none; }
+  details.pw-fallback summary::-webkit-details-marker { display: none; }
+  details.pw-fallback[open] summary { margin-bottom: 12px; }
+  .link-btn { background: none; border: 0; color: var(--muted); text-decoration: underline; font: inherit; font-size: 14px; cursor: pointer; padding: 6px; }
 </style>
 </head>
 <body>
@@ -75,13 +97,60 @@
   </div>
 
   {% if error %}<div class="note error">{{ error }}</div>{% endif %}
-  {% if loggedOut %}<div class="note info">Ви вийшли. Щоб зайти знову — візьміть нове посилання в боті.</div>{% endif %}
+  {% if loggedOut %}<div class="note info">{% if telegram_login %}Ви вийшли. Щоб зайти знову — «Увійти через Telegram».{% else %}Ви вийшли. Щоб зайти знову — візьміть нове посилання в боті.{% endif %}</div>{% endif %}
 
   {% if app.user %}
     <div class="note info">Ви вже увійшли як <b>{{ app.user.displayName }}</b>.</div>
     <a class="btn primary" href="{{ path('crm_index') }}">{% if tasks %}✅ Відкрити робоче місце{% else %}📦 Відкрити заявки{% endif %}</a>
     {% if warehouse %}<a class="btn ghost" href="{{ path('wh_items') }}">🏗 Відкрити склад</a>{% endif %}
     <a class="btn ghost" href="{{ path('crm_logout') }}">Вийти</a>
+  {% elseif telegram_login %}
+    <div id="tg-login" class="tg-block" data-csrf="{{ csrf_token('tg_login') }}">
+      <a id="tg-go" class="btn tg big" href="https://t.me/{{ bot_username }}" target="_blank" rel="noopener" aria-disabled="true">
+        <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M21.9 4.3 18.6 20c-.2 1.1-.9 1.4-1.8.9l-5-3.7-2.4 2.3c-.3.3-.5.5-1 .5l.4-5.1 9.3-8.4c.4-.4-.1-.6-.6-.2L6 13.5l-5-1.6c-1.1-.3-1.1-1.1.2-1.6L20.5 3c.9-.3 1.7.2 1.4 1.3z"/></svg>
+        Увійти через Telegram
+      </a>
+      <img id="tg-qr" class="tg-qr" alt="QR-код входу: відскануйте камерою телефона">
+
+      <div id="tg-wait" class="tg-wait" aria-live="polite">
+        <div class="tg-hint"><span class="tg-spin"></span>Чекаємо підтвердження в Telegram…</div>
+        <div class="tg-code" id="tg-code">····</div>
+        <div class="tg-hint">Той самий код покаже бот. Натисніть у ньому <b>«Старт»</b>; уперше — ще <b>«Поділитися номером»</b>.</div>
+        <button type="button" class="link-btn" id="tg-again">Відкрити Telegram ще раз</button>
+      </div>
+
+      <div id="tg-msg-denied" class="note error tg-msg">Вхід не підтверджено. Якщо ви бачите це вперше — натисніть «Увійти через Telegram» ще раз або зверніться до адміністратора.</div>
+      <div id="tg-msg-join" class="note info tg-msg">Вашого номера ще немає в Плані — заявку на приєднання надіслано адміністраторам. Бот напише вам, щойно її розглянуть.</div>
+      <div id="tg-msg-expired" class="note error tg-msg">Час на вхід минув. Натисніть «Увійти через Telegram» ще раз.</div>
+      <div id="tg-msg-error" class="note error tg-msg">Не вдалося підготувати вхід. Оновіть сторінку.</div>
+
+      <form id="tg-complete" method="post" action="{{ path('app_login_telegram_complete') }}" hidden>
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token('tg_login') }}">
+      </form>
+    </div>
+
+    <ol>
+      <li>Натисніть <b>«Увійти через Telegram»</b> — відкриється бот @{{ bot_username }}.<span class="desk-only"> З комп'ютера можна просто відсканувати QR-код телефоном.</span></li>
+      <li>У боті натисніть <b>«Старт»</b>. Уперше — ще <b>«📱 Поділитися номером»</b>: так бот упізнає вас за телефоном.</li>
+      <li>Поверніться сюди — План відкриється сам.</li>
+    </ol>
+
+    {% if password_login %}
+    <details class="pw-fallback"{% if password_tried %} open{% endif %}>
+      <summary>Вхід за паролем{% if password_superadmin_only %} (для адміністраторів){% endif %}</summary>
+      <form class="pw" method="post" action="{{ path('app_login_password') }}">
+        <label>Email або телефон
+          <input name="login" value="{{ last_login }}" autocomplete="username" inputmode="email" required>
+        </label>
+        <label>Пароль
+          <input name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token('login') }}">
+        <button class="btn primary" type="submit">Увійти</button>
+      </form>
+    </details>
+    {% endif %}
+    <script src="/plan-login.js?v=1" defer></script>
   {% else %}
     {% if password_login %}
     <form class="pw" method="post" action="{{ path('app_login_password') }}">
@@ -108,7 +177,9 @@
   {% endif %}
 
   <div class="foot">
-    {% if password_login and not bot_username %}Пароль нікому не передавайте.<br>Кожен вхід записується в журнал.{% else %}{% if password_login %}Посилання з бота діє {{ ttl }} хвилин і лише один раз.{% else %}Паролів немає: посилання з бота діє {{ ttl }} хвилин і лише один раз.{% endif %}<br>
+    {% if telegram_login and not app.user %}Паролів не треба: вхід підтверджує ваш Telegram, посилання діє 5 хвилин і лише один раз.<br>
+    Нікому його не пересилайте. Кожен вхід записується в журнал.
+    {% elseif password_login and not bot_username %}Пароль нікому не передавайте.<br>Кожен вхід записується в журнал.{% else %}{% if password_login %}Посилання з бота діє {{ ttl }} хвилин і лише один раз.{% else %}Паролів немає: посилання з бота діє {{ ttl }} хвилин і лише один раз.{% endif %}<br>
     Нікому його не пересилайте. Кожен вхід записується в журнал.{% endif %}
   </div>
 </main>

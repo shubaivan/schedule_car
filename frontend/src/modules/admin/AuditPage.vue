@@ -3,7 +3,7 @@ import { plural, sortByName } from '../../plan/uk'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter, type LocationQuery } from 'vue-router'
 import { useSession } from '../../app/store'
-import { canSeeAdmin } from './access'
+import { canSeeAdmin, canSeeJoinRequests } from './access'
 import { auditApi, FILTER_KEYS, type AuditFilters, type AuditItem, type AuditMeta } from './api'
 import AuditEventView from './AuditEventView.vue'
 import { auditDay, auditStamp, CHANNELS, COMMENT_TYPES, GROUP_TONE } from './format'
@@ -250,6 +250,7 @@ onBeforeUnmount(() => {
                 <button type="button" class="t-btn small ghost a-filters-btn" :aria-expanded="filtersOpen" @click="filtersOpen = !filtersOpen">
                     Фільтри<b v-if="activeCount" class="a-count">{{ activeCount }}</b>
                 </button>
+                <router-link v-if="canSeeJoinRequests(session.user)" class="t-btn small ghost" :to="{ name: 'admin-join' }" title="Хто просить доступ через бота">Заявки на приєднання</router-link>
                 <router-link class="t-btn small ghost" :to="{ name: 'drive-status' }" title="Стан копіювання файлів на Google Диск">Google Диск</router-link>
                 <a class="t-btn small ghost" :href="csvHref" download :title="'CSV, до ' + (meta?.csvMax ?? 50000).toLocaleString('uk-UA') + ' рядків за поточними фільтрами'">Експорт CSV</a>
             </div>

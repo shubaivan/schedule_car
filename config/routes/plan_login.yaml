@@ -1,0 +1,6 @@
+# «План»: вхід через Telegram (/vhid/telegram/*) і заявки на приєднання (/api/plan/join-requests).
+plan_login_controllers:
+    resource:
+        path: ../../src/Plan/Login/
+        namespace: App\Plan\Login
+    type: attribute

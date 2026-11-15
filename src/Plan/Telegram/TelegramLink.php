@@ -94,12 +94,8 @@ final class TelegramLink
             return [LinkResult::AlreadyLinked, $user];
         }
 
-        if ($holder !== null) {
-            if (! self::isStub($holder)) {
-                return [LinkResult::Taken, $holder];
-            }
-
-            $this->release($holder);
+        if ($holder !== null && ! self::isStub($holder)) {
+            return [LinkResult::Taken, $holder];
         }
 
         // Атомарно «забрати» токен: два одночасні /start з тим самим посиланням — спрацює один.
@@ -108,11 +104,42 @@ final class TelegramLink
         }
 
         $this->em->refresh($link);
+
+        return [$this->attach($user, $telegramId, $chatId), $user];
+    }
+
+    /**
+     * Записати людині справжній Telegram (telegram_id + chat_id) — спільне для прив'язки
+     * з профілю й для входу через Telegram за номером телефону (PlanLoginBot).
+     *
+     * Порожній запис, який бот завів цьому Telegram, звільняє id; Telegram іншої живої
+     * людини — Taken. Чи можна перепривʼязати людину, що вже має ІНШИЙ Telegram, вирішує
+     * той, хто кличе: з профілю — так, за номером телефону — ні (PlanLoginBot).
+     */
+    public function attach(TelegramUser $user, string $telegramId, ?string $chatId): LinkResult
+    {
+        $holder = $this->users->getByTelegramId($telegramId);
+
+        if ($holder !== null && $holder->getId() === $user->getId()) {
+            $user->setChatId($chatId ?? $user->getChatId());
+            $this->em->flush();
+
+            return LinkResult::AlreadyLinked;
+        }
+
+        if ($holder !== null) {
+            if (! self::isStub($holder)) {
+                return LinkResult::Taken;
+            }
+
+            $this->release($holder);
+        }
+
         $user->setTelegramId($telegramId)->setChatId($chatId);
         $this->em->flush();
         $this->logger->info('plan: Telegram прив\'язано', ['user' => $user->getId()]);
 
-        return [LinkResult::Linked, $user];
+        return LinkResult::Linked;
     }
 
     /** Відв'язати: бот більше не пише цій людині (до нової прив'язки). */
@@ -130,7 +157,7 @@ final class TelegramLink
      * «Порожній» запис, який бот завів незнайомцю: без підтвердження, без
      * пароля й пошти, без ролі в Плані, без номера.
      */
-    private static function isStub(TelegramUser $user): bool
+    public static function isStub(TelegramUser $user): bool
     {
         return ! $user->isApproved() && $user->getEmail() === null && $user->getPhoneNumber() === null && $user->getPosition() === null && $user->getPassword() === null;
     }

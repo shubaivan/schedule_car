@@ -40,6 +40,10 @@ class PasswordLoginAuthenticator extends AbstractAuthenticator
         #[Autowire('%password_login_enabled%')]
         private bool $enabled,
         private PasswordHasherFactoryInterface $hashers,
+        #[Autowire('%env(bool:default::PASSWORD_LOGIN_SUPERADMIN_ONLY)%')]
+        private bool $superadminOnly = false,
+        #[Autowire('%env(bool:default::PLAN_DEMO_STAND)%')]
+        private bool $demoStand = false,
     ) {
     }
 
@@ -68,7 +72,7 @@ class PasswordLoginAuthenticator extends AbstractAuthenticator
                 $user = $this->find($identifier);
 
                 // Та сама відповідь, що й на хибний пароль: не підказуємо, чи є такий логін.
-                if ($user === null || $user->isArchived() || ! $user->isApproved() || $user->getPassword() === null) {
+                if ($user === null || $user->isArchived() || ! $user->isApproved() || $user->getPassword() === null || ! $this->passwordAllowed($user)) {
                     // Порожнє хешування — щоб за часом відповіді не відрізнити «немає логіна» від «хибний пароль».
                     $this->hashers->getPasswordHasher(TelegramUser::class)->hash('timing-equaliser');
 
@@ -103,6 +107,18 @@ class PasswordLoginAuthenticator extends AbstractAuthenticator
             : ($exception instanceof CustomUserMessageAuthenticationException ? $exception->getMessageKey() : 'Невірний логін або пароль.');
 
         return $this->login->page($message, status: Response::HTTP_UNAUTHORIZED);
+    }
+
+    /**
+     * PASSWORD_LOGIN_SUPERADMIN_ONLY=1 («План»): пароль — запасний ключ суперадміна, решта
+     * входить через Telegram. На демо-стенді демо-люди (telegram_id demo-…) теж за паролем —
+     * у них немає Telegram.
+     */
+    private function passwordAllowed(TelegramUser $user): bool
+    {
+        return ! $this->superadminOnly ||
+            $user->isSuperadmin() ||
+            ($this->demoStand && str_starts_with((string) $user->getTelegramId(), 'demo-'));
     }
 
     private function find(string $identifier): ?TelegramUser

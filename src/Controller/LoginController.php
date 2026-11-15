@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\LoginToken;
 use App\Entity\TelegramUser;
+use App\Plan\Login\TelegramLogin;
 use App\Warehouse\Service\WarehouseSection;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -14,8 +15,9 @@ use Symfony\Component\Routing\Attribute\Route;
 /**
  * Сторінка входу — сюди веде будь-яка закрита сторінка без сесії.
  *
- * Сам вхід відбувається не тут, а за посиланням із бота (/crm/auth/<токен>);
- * ця сторінка пояснює, де його взяти, і показує, чому попереднє не спрацювало.
+ * На «Плані» тут кнопка «Увійти через Telegram» (TelegramLoginController + /plan-login.js),
+ * пароль — згорнутий запасний варіант. На стендах заявок вхід — за посиланням із бота
+ * (/crm/auth/<токен>), а сторінка пояснює, де його взяти, і чому попереднє не спрацювало.
  */
 class LoginController extends AbstractController
 {
@@ -32,13 +34,16 @@ class LoginController extends AbstractController
         private bool $passwordLogin = false,
         #[Autowire('%tasks_enabled%')]
         private bool $tasks = false,
+        private ?TelegramLogin $telegramLogin = null,
+        #[Autowire('%env(bool:default::PASSWORD_LOGIN_SUPERADMIN_ONLY)%')]
+        private bool $passwordSuperadminOnly = false,
     ) {
     }
 
     #[Route('/vhid', name: 'app_login', methods: ['GET'])]
     public function index(Request $request): Response
     {
-        return $this->page(null, $request->query->getBoolean('out'));
+        return $this->page($request->query->getBoolean('revoked') ? 'Сесію завершено з Telegram («Це був не я»). Увійдіть знову.' : null, $request->query->getBoolean('out'));
     }
 
     /**
@@ -64,6 +69,10 @@ class LoginController extends AbstractController
             'loggedOut' => $loggedOut && $user === null,
             'warehouse' => $user instanceof TelegramUser && $this->warehouse->inMenuFor($user),
             'password_login' => $this->passwordLogin,
+            // «План»: головне — кнопка «Увійти через Telegram»; пароль — згорнутий запасний варіант.
+            'telegram_login' => $this->telegramLogin?->enabled() ?? false,
+            'password_superadmin_only' => $this->passwordSuperadminOnly,
+            'password_tried' => $this->lastLogin() !== '' && $error !== null,
             'tasks' => $this->tasks,
             'last_login' => $this->lastLogin(),
         ], new Response(status: $status));

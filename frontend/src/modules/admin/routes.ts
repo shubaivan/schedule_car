@@ -2,6 +2,7 @@ import type { RouteRecordRaw } from 'vue-router'
 
 // Адмін-розділ «Плану» — журнал аудиту суперадміна; окремий шматок, решті він не потрібен.
 const AuditPage = () => import('./AuditPage.vue')
+const JoinRequestsPage = () => import('./JoinRequestsPage.vue')
 
 const plan = { shell: 'plan' as const }
 
@@ -10,4 +11,6 @@ export const adminRoutes: RouteRecordRaw[] = [
     // Подія — окремий маршрут (не модалка): на десктопі праворуч від журналу, на телефоні на весь екран.
     // Фільтри й сторінка журналу — у ?query, тож «Назад» повертає той самий зріз.
     { path: '/admin/audit/:id(\\d+)?', name: 'admin-audit', component: AuditPage, meta: { ...plan, title: 'Журнал аудиту' } },
+    // Заявки на приєднання з бота: список і картка заявки — маршрути, не модалки.
+    { path: '/admin/join/:id(\\d+)?', name: 'admin-join', component: JoinRequestsPage, meta: { ...plan, title: 'Заявки на приєднання' } },
 ]

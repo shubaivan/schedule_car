@@ -281,6 +281,19 @@ class StaffDirectory
 
         if (array_key_exists('phone', $data)) {
             $digits = preg_replace('/\D+/', '', (string) $data['phone']) ?: null;
+
+            if ($digits !== null && strlen($digits) < 9) {
+                throw new TaskException('Телефон — щонайменше 9 цифр.');
+            }
+
+            // За телефоном бот упізнає людину при вході через Telegram: дві живі картки
+            // з одним номером — і вхід неможливий (PlanLoginBot відмовить), тож не допускаємо.
+            $twin = $digits !== null && $user->getId() !== null ? $this->users->findLiveTwinByPhoneTail(substr($digits, -9), (int) $user->getId()) : null;
+
+            if ($twin !== null) {
+                throw new TaskException(sprintf('Такий телефон уже має %s.', $twin->shortName()));
+            }
+
             $user->setPhoneNumber($digits);
         }
 

@@ -11,6 +11,8 @@ use App\Plan\Event\FileAdded;
 use App\Plan\Event\FileDownloaded;
 use App\Plan\Event\FileRemoved;
 use App\Plan\Event\ItemCreated;
+use App\Plan\Event\JoinDecided;
+use App\Plan\Event\JoinRequested;
 use App\Plan\Event\LeadReceived;
 use App\Plan\Event\LoginFailed;
 use App\Plan\Event\MemberAdded;
@@ -49,7 +51,7 @@ final class AuditCatalog
         'money' => ['label' => 'Закупівлі й склад', 'types' => [PurchaseRecorded::TYPE, PurchaseRemoved::TYPE, StockMoved::TYPE]],
         'access' => ['label' => 'Скачування й поширення', 'types' => [FileDownloaded::TYPE, ShareCreated::TYPE, ShareRevoked::TYPE]],
         'view' => ['label' => 'Перегляди й скани', 'types' => [SubjectViewed::TYPE]],
-        'login' => ['label' => 'Входи', 'types' => [UserLoggedIn::TYPE, LoginFailed::TYPE]],
+        'login' => ['label' => 'Входи', 'types' => [UserLoggedIn::TYPE, LoginFailed::TYPE, JoinRequested::TYPE, JoinDecided::TYPE]],
         'staff' => ['label' => 'Співробітники й ролі', 'types' => [StaffChanged::TYPE]],
         'system' => ['label' => 'Службові', 'types' => [DriveAuthBroken::TYPE]],
     ];
@@ -82,6 +84,8 @@ final class AuditCatalog
         UserLoggedIn::TYPE => 'Вхід',
         LoginFailed::TYPE => 'Невдалий вхід',
         StaffChanged::TYPE => 'Картку співробітника змінено',
+        JoinRequested::TYPE => 'Заявка на приєднання',
+        JoinDecided::TYPE => 'Рішення щодо заявки',
     ];
 
     public const array SUBJECTS = [

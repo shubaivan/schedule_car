@@ -15,6 +15,8 @@ enum PlanCapability: string
     case WarehouseView = 'warehouse.view';
     case WarehouseEdit = 'warehouse.edit';
     case AuditView = 'audit.view';
+    /** Заявки на приєднання (вхід через Telegram) — розглядає суперадмін. */
+    case StaffJoin = 'staff.join';
     case LeadsReceive = 'leads.receive';
 
     /** `warehouse.view` → `PLAN_WAREHOUSE_VIEW`. */

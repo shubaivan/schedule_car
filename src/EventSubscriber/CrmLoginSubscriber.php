@@ -11,6 +11,7 @@ use App\Plan\Subject\SubjectRef;
 use App\Repository\TelegramUserRepository;
 use App\Security\LoginIdentity;
 use App\Security\PasswordLoginAuthenticator;
+use App\Security\TelegramLoginAuthenticator;
 use App\Service\CrmLoginLink;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -55,7 +56,7 @@ class CrmLoginSubscriber implements EventSubscriberInterface
     {
         $user = $event->getUser();
 
-        $method = $event->getAuthenticator() instanceof PasswordLoginAuthenticator ? 'password' : 'bot';
+        $method = self::method($event->getAuthenticator());
 
         $this->record($event->getRequest(), $user instanceof TelegramUser ? $user : null, true, null, $method);
     }
@@ -68,9 +69,17 @@ class CrmLoginSubscriber implements EventSubscriberInterface
             return;
         }
 
-        $password = $event->getAuthenticator() instanceof PasswordLoginAuthenticator;
+        $this->record($request, null, false, $event->getException()->getMessageKey(), self::method($event->getAuthenticator()));
+    }
 
-        $this->record($request, null, false, $event->getException()->getMessageKey(), $password ? 'password' : 'bot');
+    /** password | telegram (кнопка «Увійти через Telegram») | bot (одноразове посилання з бота заявок). */
+    private static function method(object $authenticator): string
+    {
+        return match (true) {
+            $authenticator instanceof PasswordLoginAuthenticator => 'password',
+            $authenticator instanceof TelegramLoginAuthenticator => 'telegram',
+            default => 'bot',
+        };
     }
 
     private function record(Request $request, ?TelegramUser $user, bool $success, ?string $reason, string $method): void

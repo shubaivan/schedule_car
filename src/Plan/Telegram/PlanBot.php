@@ -3,6 +3,8 @@
 namespace App\Plan\Telegram;
 
 use App\Entity\TelegramUser;
+use App\Plan\Login\PlanLoginBot;
+use App\Plan\Login\TelegramLogin;
 use App\Plan\Notification\NotificationPreferences;
 use App\Service\TelegramUserService;
 use SergiX44\Nutgram\Nutgram;
@@ -14,8 +16,9 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  * він відповідає на все сам і далі (меню заявок, реєстрація за номером) не пускає;
  * інакше — прозорий, стенди заявок працюють як раніше.
  *
- * Команди: /start (і /start plink_<токен> — прив'язка з профілю), /mute
- * (вимкнути/увімкнути сповіщення в Telegram), /help.
+ * Команди: /start (і /start plink_<токен> — прив'язка з профілю, /start login_<nonce> —
+ * вхід через Telegram), /mute (вимкнути/увімкнути сповіщення в Telegram), /help.
+ * Вхід, контакт і заявки на приєднання веде PlanLoginBot.
  */
 final class PlanBot
 {
@@ -31,6 +34,7 @@ final class PlanBot
         private readonly TelegramLink $link,
         private readonly TelegramUserService $users,
         private readonly NotificationPreferences $prefs,
+        private readonly PlanLoginBot $login,
         #[Autowire('%env(APP_BASE_URL)%')]
         private readonly string $baseUrl = 'http://localhost',
     ) {
@@ -44,25 +48,38 @@ final class PlanBot
             return;
         }
 
+        $user = $this->users->getCurrentUser();
+
         if ($bot->isCallbackQuery()) {
-            // Кнопки старих повідомлень бота заявок тут не діють — лише «Відкрити» (url).
-            $bot->answerCallbackQuery();
+            // Кнопки входу й заявок — свої; кнопки старих повідомлень бота заявок тут не діють.
+            if (! $this->login->callback($bot, $user)) {
+                $bot->answerCallbackQuery();
+            }
+
+            return;
+        }
+
+        if ($bot->message()?->contact !== null) {
+            $this->login->contact($bot, $user);
+
+            return;
         }
 
         $text = trim((string) $bot->message()?->text);
-        $user = $this->users->getCurrentUser();
         $linked = $user !== null && TelegramLink::isLinked($user) && $user->isApproved() && ! $user->isArchived();
 
-        if (preg_match('~^/start(?:@\w+)?\s+' . TelegramLink::PREFIX . '([A-Za-z0-9]+)$~', $text, $m) === 1) {
+        if (preg_match('~^/start(?:@\w+)?\s+' . TelegramLogin::PREFIX . '([A-Za-z0-9]+)$~', $text, $m) === 1) {
+            $this->login->start($bot, $user, $m[1]);
+        } elseif (preg_match('~^/start(?:@\w+)?\s+' . TelegramLink::PREFIX . '([A-Za-z0-9]+)$~', $text, $m) === 1) {
             $this->linkFrom($bot, $m[1]);
         } elseif (preg_match('~^/mute(?:@\w+)?$~', $text) === 1 && $linked) {
             $this->toggleMute($bot, $user);
         } elseif (preg_match('~^/start(?:@\w+)?$~', $text) === 1 && $linked) {
-            $this->say($bot, sprintf("👋 %s, сюди приходять сповіщення Плану: нові задачі й заявки, коментарі, зміни статусу, погодження.\n\n/mute — вимкнути або ввімкнути сповіщення\n/help — довідка", htmlspecialchars($user->shortName())), $this->url('tasks'));
+            $this->say($bot, sprintf("👋 %s, сюди приходять сповіщення Плану: нові задачі й заявки, коментарі, зміни статусу, погодження.\n\nУвійти в План — кнопка «Увійти через Telegram» на сайті.\n/mute — вимкнути або ввімкнути сповіщення\n/help — довідка", htmlspecialchars($user->shortName())), $this->url('tasks'));
         } elseif ($linked) {
             $this->say($bot, $this->help(), $this->url('tasks'));
         } else {
-            $this->say($bot, "Це бот сповіщень «Плану».\n\nЩоб підключити його: увійдіть у План → 🔔 Сповіщення → Налаштування → «Підключити Telegram» і відкрийте посилання з цього пристрою.", $this->url('notifications/settings'));
+            $this->login->welcome($bot);
         }
     }
 
