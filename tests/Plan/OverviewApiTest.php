@@ -195,6 +195,16 @@ class OverviewApiTest extends WebTestCase
         $this->post('/api/supply/requests/' . $request->getId() . '/status', ['to' => 'rejected', 'comment' => 'Дорого']);
         self::assertResponseIsSuccessful();
 
+        // «В списку очікування» напряму не погоджується — у рядку «Повернути на затвердження».
+        // Після запитів клієнта менеджер сутностей очищений — беремо людей заново.
+        $manager = $this->em->find(TelegramUser::class, $manager->getId()) ?? self::fail('manager');
+        $director = $this->em->find(TelegramUser::class, $director->getId()) ?? self::fail('director');
+        $waiting = $this->awaitingApproval($manager);
+        self::getContainer()->get(ChangeStatus::class)($waiting, SupplyStatus::Waiting, $director);
+        $row = $this->decision($this->get('/api/plan/overview'), 'supply', (int) $waiting->getId());
+        self::assertSame(['approval', 'rejected'], array_column($row['actions'] ?? [], 'to'));
+        self::assertSame('Повернути на затвердження', $row['actions'][0]['label']);
+
         // Менеджер постачання бачить гроші місяця, але не кнопки директора.
         $this->client->loginUser($manager);
         $data = $this->get('/api/plan/overview');

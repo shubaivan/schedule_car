@@ -76,6 +76,9 @@ function call(tel: string) {
 }
 .p-person-tel {
     cursor: pointer;
+    /* Більша зона дотику без зсуву тексту: промах не відкриває картку. */
+    padding: 10px 4px;
+    margin: -10px -4px;
     color: var(--link, #1d4ed8);
 }
 .p-person-phone {

@@ -22,6 +22,7 @@ use App\Tasks\Service\TaskPresenter;
 use App\Warehouse\Service\LowStock;
 use DateTimeImmutable;
 use DateTimeZone;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 
 /**
@@ -120,10 +121,9 @@ final class DirectorOverview
         }
 
         if ($this->access->can($me, PlanCapability::SupplyApprove)) {
-            $result = $this->requests->search(['status' => [SupplyStatus::Approval, SupplyStatus::Waiting]], 1, self::DECISIONS_LIMIT);
-            $supplyTotal = $result['total'];
+            [$requests, $supplyTotal] = $this->awaitingSupply();
 
-            foreach ($result['items'] as $request) {
+            foreach ($requests as $request) {
                 $items[] = $this->supplyDecision($me, $request);
             }
         }
@@ -137,6 +137,41 @@ final class DirectorOverview
             'tasks' => $taskTotal,
             'supply' => $supplyTotal,
         ];
+    }
+
+    /**
+     * Заявки на рішенні в порядку терміновості (прострочені, далі за терміном, далі
+     * найстаріші) — а не як на дошці; закупівлі підтягнуто одним запитом (сума в рядку).
+     *
+     * @return array{0: list<SupplyRequest>, 1: int}
+     */
+    private function awaitingSupply(): array
+    {
+        $statuses = [SupplyStatus::Approval->value, SupplyStatus::Waiting->value];
+        $ids = array_map('intval', $this->db->fetchFirstColumn(
+            'SELECT id FROM supply_request WHERE status IN (:st)
+              ORDER BY (need_by IS NOT NULL AND need_by < CAST(:today AS date)) DESC, need_by ASC NULLS LAST, created_at ASC, id ASC
+              LIMIT ' . self::DECISIONS_LIMIT,
+            ['st' => $statuses, 'today' => PlanOverview::today()],
+            ['st' => ArrayParameterType::STRING],
+        ));
+        $total = (int) $this->db->fetchOne('SELECT COUNT(*) FROM supply_request WHERE status IN (:st)', ['st' => $statuses], ['st' => ArrayParameterType::STRING]);
+
+        if ($ids === []) {
+            return [[], $total];
+        }
+
+        /** @var list<SupplyRequest> $requests */
+        $requests = $this->requests->createQueryBuilder('r')
+            ->leftJoin('r.purchases', 'p')->addSelect('p')
+            ->leftJoin('r.author', 'a')->addSelect('a')
+            ->leftJoin('r.department', 'd')->addSelect('d')
+            ->andWhere('r.id IN (:ids)')->setParameter('ids', $ids)
+            ->getQuery()->getResult();
+        $position = array_flip($ids);
+        usort($requests, static fn (SupplyRequest $x, SupplyRequest $y) => $position[(int) $x->getId()] <=> $position[(int) $y->getId()]);
+
+        return [$requests, $total];
     }
 
     /** @return array<string, mixed> */
@@ -172,9 +207,11 @@ final class DirectorOverview
     {
         $from = $request->getStatus();
         $actions = [];
-        $labels = [SupplyStatus::Approved->value => 'Погодити', SupplyStatus::Rejected->value => 'Відхилити'];
+        // «В списку очікування» напряму не погоджується (SupplyStatus::allowedTransitions):
+        // повертаємо на затвердження — далі той самий «Погодити».
+        $labels = [SupplyStatus::Approved->value => 'Погодити', SupplyStatus::Approval->value => 'Повернути на затвердження', SupplyStatus::Rejected->value => 'Відхилити'];
 
-        foreach ([SupplyStatus::Approved, SupplyStatus::Rejected] as $to) {
+        foreach ([SupplyStatus::Approved, SupplyStatus::Approval, SupplyStatus::Rejected] as $to) {
             if ($from->canTransitionTo($to) && $me->getSupplyRole()->canMoveRequest($from, $to)) {
                 // Відхилення заявки — лише з причиною (ChangeStatus): заявник має знати, що далі.
                 $actions[] = ['to' => $to->value, 'label' => $labels[$to->value], 'reject' => $to === SupplyStatus::Rejected, 'reasonRequired' => $to === SupplyStatus::Rejected];

@@ -2,7 +2,8 @@
 import PersonName from '../../plan/PersonName.vue'
 import { num, plural } from '../../plan/uk'
 import { vocative } from '../../plan/vocative'
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import TaskRow from './TaskRow.vue'
 import { tasksApi } from './api'
 import { dueLabel, today } from './format'
@@ -23,6 +24,7 @@ import { overviewApi, type Decision, type DecisionAction, type Overview } from '
  * Цифри живі: оновлюються за подією (Mercure), без нього — раз на 30 с.
  */
 const session = useSession()
+const route = useRoute()
 const store = useTasks()
 const live = useNotifications()
 const data = ref<Overview | null>(null)
@@ -38,18 +40,38 @@ async function load() {
     }
 }
 
+// Година й дата — з generatedAt (Київ), а не з годинника браузера: вкладка, відкрита з учора, не бреше.
+const kyiv = (part: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat('uk-UA', { timeZone: 'Europe/Kyiv', ...part }).format(data.value ? new Date(data.value.generatedAt) : new Date())
 const hello = () => {
-    const h = new Date().getHours()
+    const h = Number(kyiv({ hour: '2-digit', hourCycle: 'h23' }))
     return h < 12 ? 'Доброго ранку' : h < 18 ? 'Добрий день' : 'Добрий вечір'
 }
-const todayIso = isoDay(new Date())
+const serverDay = (shift = 0) => {
+    const d = new Date(new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kyiv' }).format(data.value ? new Date(data.value.generatedAt) : new Date()) + 'T12:00:00')
+    d.setDate(d.getDate() + shift)
+    return isoDay(d)
+}
+const todayIso = computed(() => serverDay())
+const weekAgoIso = computed(() => serverDay(-6))
 const updated = computed(() => (data.value ? new Date(data.value.generatedAt).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' }) : ''))
 const month = computed(() => (data.value?.supply.month ? new Intl.DateTimeFormat('uk-UA', { month: 'long' }).format(new Date(data.value.supply.month.from + 'T12:00:00')) : ''))
 const deciding = computed(() => !!data.value && (data.value.scope.decideTasks || data.value.scope.decideSupply))
 const uah = (n: number) => `${num(Math.round(n))} ₴`
 const list = (show: string, dep?: number | 'none') => ({ name: 'tasks-list', query: { ...(show !== 'open' ? { show } : {}), ...(dep !== undefined ? { dep: String(dep) } : {}) } })
 
+/** Плитка «Чекають рішення» — список: лише задачі → список задач, лише заявки → дошка заявок; обидва — блок нижче. */
+const decideRoute = computed(() => {
+    const d = data.value?.decisions
+    if (d && d.tasks && !d.supply) return list('decide')
+    if (d && d.supply && !d.tasks) return { name: 'supply-board', query: { v: 'decide' } }
+    return { name: 'tasks', hash: '#decide' }
+})
+
 /* ---------- рішення в рядку ---------- */
+const DECISIONS_SHOWN = 4
+const showAll = ref(false)
+const shownDecisions = computed(() => (data.value ? (showAll.value ? data.value.decisions.items : data.value.decisions.items.slice(0, DECISIONS_SHOWN)) : []))
 const busy = ref<string | null>(null)
 const rejecting = ref<string | null>(null)
 const reason = ref('')
@@ -98,6 +120,16 @@ function hours(list: number[]): string {
 }
 
 onMounted(() => load())
+// Плитка «Чекають рішення» (/crm/tasks#decide) — прокрутити до блоку, щойно він є.
+watch(
+    () => [route.hash, !!data.value] as const,
+    async ([hash, ready]) => {
+        if (hash !== '#decide' || !ready) return
+        await nextTick()
+        document.getElementById('decide')?.scrollIntoView({ block: 'start' })
+    },
+    { immediate: true },
+)
 // З Mercure — за подією (+ раз на хвилину), інакше кожні 30 с.
 useLiveRefresh(() => load(), { pollMs: 30000, debounceMs: 1000 })
 </script>
@@ -135,10 +167,10 @@ useLiveRefresh(() => load(), { pollMs: 30000, debounceMs: 1000 })
                     <span class="v">{{ data.kpi.overdueTasks }}</span>
                     <span class="k">Прострочені задачі</span>
                 </router-link>
-                <a v-if="deciding" href="#decide" class="ov-tile" :class="{ warn: data.kpi.decisions }" data-testid="kpi-decide">
+                <router-link v-if="deciding" :to="decideRoute" class="ov-tile" :class="{ warn: data.kpi.decisions }" data-testid="kpi-decide">
                     <span class="v">{{ data.kpi.decisions }}</span>
                     <span class="k">Чекають рішення</span>
-                </a>
+                </router-link>
                 <router-link v-else :to="list('mine')" class="ov-tile" data-testid="kpi-mine">
                     <span class="v">{{ data.kpi.mineTasks }}</span>
                     <span class="k">Мої відкриті</span>
@@ -147,10 +179,10 @@ useLiveRefresh(() => load(), { pollMs: 30000, debounceMs: 1000 })
                     <span class="v">{{ data.kpi.supplyOverdue }}</span>
                     <span class="k">Заявки прострочені</span>
                 </router-link>
-                <a v-if="data.kpi.fleet" href="#fleet" class="ov-tile" data-testid="kpi-fleet">
+                <router-link v-if="data.kpi.fleet" :to="{ name: 'schedule' }" class="ov-tile" data-testid="kpi-fleet">
                     <span class="v">{{ data.kpi.fleet.busy }} / {{ data.kpi.fleet.free }}</span>
-                    <span class="k">Машини зайняті / вільні</span>
-                </a>
+                    <span class="k">Машини з бронню / вільні</span>
+                </router-link>
                 <div v-else class="ov-tile off" title="Розділ «Автопарк» у Плані ще не ввімкнено" data-testid="kpi-fleet">
                     <span class="v">—</span>
                     <span class="k">Автопарк · не підключено</span>
@@ -183,7 +215,7 @@ useLiveRefresh(() => load(), { pollMs: 30000, debounceMs: 1000 })
                             <span class="count">{{ data.decisions.total }}</span>
                         </h2>
                         <div v-if="data.decisions.items.length" class="ov-drows">
-                            <div v-for="d in data.decisions.items" :key="key(d)" class="ov-drow" :data-testid="'decision-' + key(d)">
+                            <div v-for="d in shownDecisions" :key="key(d)" class="ov-drow" :data-testid="'decision-' + key(d)">
                                 <router-link :to="openRoute(d)" class="ov-dmain">
                                     <span class="ov-kind" :class="d.kind">{{ d.kind === 'task' ? 'Задача' : 'Заявка' }} № {{ d.number }}</span>
                                     <span class="ov-dtitle">{{ d.title }}</span>
@@ -244,6 +276,9 @@ useLiveRefresh(() => load(), { pollMs: 30000, debounceMs: 1000 })
                             </div>
                         </div>
                         <div v-else class="t-empty">Рішень не чекає нічого.</div>
+                        <button v-if="!showAll && data.decisions.items.length > DECISIONS_SHOWN" type="button" class="p-link ov-showall" @click="showAll = true">
+                            Показати ще {{ data.decisions.items.length - DECISIONS_SHOWN }}
+                        </button>
                         <div v-if="data.decisions.total > data.decisions.items.length || data.decisions.tasks || data.decisions.supply" class="ov-more">
                             <router-link v-if="data.decisions.tasks" :to="list('decide')">Усі задачі на рішенні ({{ data.decisions.tasks }}) →</router-link>
                             <router-link v-if="data.decisions.supply" :to="{ name: 'supply-board', query: { v: 'decide' } }">
@@ -337,22 +372,13 @@ useLiveRefresh(() => load(), { pollMs: 30000, debounceMs: 1000 })
                 </div>
 
                 <aside class="ov-side">
-                    <!-- (4) Продажі — скоро -->
-                    <section v-if="data.scope.all" class="t-panel ov-soon" data-testid="ov-sales">
-                        <h2>
-                            📈 Продажі: план / факт
-                            <span class="ov-badge">скоро</span>
-                        </h2>
-                        <p>План місяця директор вводитиме сам (як «Ввести вручну» в ПланФіксі), факт — з 1С. Поки цифр немає — не показуємо жодних.</p>
-                    </section>
-
                     <!-- (7) Автопарк по бронях -->
                     <section id="fleet" class="t-panel" data-testid="ov-fleet">
                         <h2>🚚 Автопарк сьогодні</h2>
                         <template v-if="data.fleet.enabled">
                             <div class="ov-line">
                                 <b>{{ data.fleet.busyToday }}</b>
-                                {{ plural(data.fleet.busyToday, 'зайнята', 'зайняті', 'зайнятих') }} ·
+                                з бронями сьогодні ·
                                 <b>{{ data.fleet.freeToday }}</b>
                                 {{ plural(data.fleet.freeToday, 'вільна', 'вільні', 'вільних') }} · завтра в броні {{ data.fleet.busyTomorrow }}
                             </div>
@@ -371,15 +397,6 @@ useLiveRefresh(() => load(), { pollMs: 30000, debounceMs: 1000 })
                             <router-link :to="{ name: 'schedule' }" class="ov-more">Розклад машин →</router-link>
                         </template>
                         <p v-else class="ov-note">Розділ «Автопарк» у Плані ще не ввімкнено. Щойно в ньому зʼявляться машини, тут буде видно броні на сьогодні й завтра.</p>
-                    </section>
-
-                    <!-- (5) Звернення — скоро -->
-                    <section v-if="data.scope.all" class="t-panel ov-soon" data-testid="ov-leads">
-                        <h2>
-                            📨 Звернення за тиждень
-                            <span class="ov-badge">скоро</span>
-                        </h2>
-                        <p>Сайт, ІІ-консультант, Telegram — зʼявляться, коли бот сайту передаватиме заявки в План.</p>
                     </section>
 
                     <!-- (6) Постачання за місяць -->
@@ -403,7 +420,7 @@ useLiveRefresh(() => load(), { pollMs: 30000, debounceMs: 1000 })
                             </router-link>
                             <router-link :to="{ name: 'supply-board', query: { v: 'decide' } }" :class="{ warn: data.supply.counts.decide }">
                                 <b>{{ data.supply.counts.decide }}</b>
-                                на затвердженні
+                                чекають рішення
                             </router-link>
                             <router-link v-if="!data.supply.manage" :to="{ name: 'supply-board', query: { v: 'mine' } }">
                                 <b>{{ data.supply.counts.mine }}</b>
@@ -449,7 +466,7 @@ useLiveRefresh(() => load(), { pollMs: 30000, debounceMs: 1000 })
                                 <b>{{ data.warehouse.repair }}</b>
                                 у ремонті
                             </router-link>
-                            <router-link :to="{ name: 'warehouse-movements' }">
+                            <router-link :to="{ name: 'warehouse-movements', query: { from: weekAgoIso, to: todayIso } }">
                                 <b>{{ data.warehouse.movesWeek }}</b>
                                 {{ plural(data.warehouse.movesWeek, 'рух', 'рухи', 'рухів') }} за тиждень
                             </router-link>
@@ -466,6 +483,25 @@ useLiveRefresh(() => load(), { pollMs: 30000, debounceMs: 1000 })
                             </ul>
                         </template>
                         <p v-else class="ov-note">Залишків нижче мінімуму немає. Мінімум задається в картці позиції «кількістю».</p>
+                    </section>
+
+                    <!-- «Скоро» — у кінці колонки: заглушки не займають першого екрана. -->
+                    <!-- (4) Продажі — скоро -->
+                    <section v-if="data.scope.all" class="t-panel ov-soon" data-testid="ov-sales">
+                        <h2>
+                            📈 Продажі: план / факт
+                            <span class="ov-badge">скоро</span>
+                        </h2>
+                        <p>План місяця директор вводитиме сам (як «Ввести вручну» в ПланФіксі), факт — з 1С. Поки цифр немає — не показуємо жодних.</p>
+                    </section>
+
+                    <!-- (5) Звернення — скоро -->
+                    <section v-if="data.scope.all" class="t-panel ov-soon" data-testid="ov-leads">
+                        <h2>
+                            📨 Звернення за тиждень
+                            <span class="ov-badge">скоро</span>
+                        </h2>
+                        <p>Сайт, ІІ-консультант, Telegram — зʼявляться, коли бот сайту передаватиме заявки в План.</p>
                     </section>
 
                     <!-- (8) Дебіторка — скоро -->
@@ -625,6 +661,10 @@ a.ov-tile:hover {
     gap: 6px;
     flex-wrap: wrap;
     justify-content: flex-end;
+}
+.ov-showall {
+    margin-top: 6px;
+    min-height: 36px;
 }
 .ov-reason {
     grid-column: 1 / -1;
@@ -869,7 +909,17 @@ a.ov-tile:hover {
         font-size: 16px;
     }
     .ov-table td a {
-        padding: 10px 6px;
+        padding: 12px 6px;
+        min-height: 44px;
+        box-sizing: border-box;
+    }
+    .ov .t-head .t-btn,
+    .ov-showall,
+    .ov-more a,
+    a.ov-more {
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
     }
     .ov-table th {
         padding: 4px 6px;
