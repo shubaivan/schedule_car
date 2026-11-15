@@ -1341,6 +1341,21 @@ body.p-noscroll {
     }
 }
 
+/* Планшет у портреті (761–899 px): список + відкрите поруч стискали чат до ~350 px —
+   імена «Ми…», слова рвались посередині. Тут відкрите займає всю ширину, список
+   ховається (як на телефоні); закрити — ✕ або «Назад». 900+ і альбомна — без змін. */
+@media (max-width: 899px) and (min-width: 761px) {
+    .p-board.split .p-board-left,
+    .p-split.split > .p-split-left {
+        display: none;
+    }
+    .p-board.split .p-board-right,
+    .p-split.split > .p-split-right {
+        flex: 1 1 auto;
+        width: 100%;
+    }
+}
+
 /* ---------- телефон ---------- */
 @media (max-width: 760px) {
     .p-shell {
