@@ -12,7 +12,7 @@ namespace App\Plan\Search;
  */
 final class SearchText
 {
-    private const APOSTROPHES = ['’', 'ʼ', '‘', '`', '´'];
+    private const array APOSTROPHES = ['’', 'ʼ', '‘', '`', '´'];
 
     /** Скільки слів запиту беремо (решту ігноруємо — щоб запит лишався дешевим). */
     public const int MAX_TERMS = 6;

@@ -56,7 +56,7 @@ class StaffDirectory
     /** @param array<string, mixed> $data $by = null — з консолі (plan:user:create) */
     public function create(array $data, ?TelegramUser $by): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             // Людина ще не в боті: службовий ідентифікатор, поки не прийде з Telegram.
             ->setTelegramId('staff-' . bin2hex(random_bytes(8)))
             ->setLanguageCode('uk');
@@ -161,7 +161,7 @@ class StaffDirectory
             throw new TaskException(sprintf('Відділ «%s» уже є.', $name));
         }
 
-        $department = (new Department())->setName($name);
+        $department = new Department()->setName($name);
         $this->em->persist($department);
         $this->em->flush();
 

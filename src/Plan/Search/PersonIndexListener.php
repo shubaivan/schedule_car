@@ -22,7 +22,7 @@ use Throwable;
 final class PersonIndexListener
 {
     /** Поля, з яких складається документ «людина». */
-    private const INDEXED = ['first_name', 'last_name', 'username', 'position', 'department', 'workRole', 'supplyRole', 'accessStatus', 'archivedAt', 'email'];
+    private const array INDEXED = ['first_name', 'last_name', 'username', 'position', 'department', 'workRole', 'supplyRole', 'accessStatus', 'archivedAt', 'email'];
 
     /** @var array<int, TelegramUser> змінені/нові люди (id нових з'явиться лише після INSERT) */
     private array $pending = [];

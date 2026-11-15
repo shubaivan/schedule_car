@@ -100,7 +100,7 @@ class WarehouseBotTest extends KernelTestCase
         self::assertTrue($section->inMenuFor($this->person(SupplyRole::Manager)));
         self::assertTrue($section->inMenuFor($this->person(SupplyRole::Director)));
         self::assertFalse($section->inMenuFor($this->person(SupplyRole::Worker)));
-        self::assertFalse((new WarehouseSection(false))->inMenuFor($this->person(SupplyRole::Admin)));
+        self::assertFalse(new WarehouseSection(false)->inMenuFor($this->person(SupplyRole::Admin)));
 
         $callbacks = [];
 
@@ -137,7 +137,7 @@ class WarehouseBotTest extends KernelTestCase
             'application/pdf',
         );
 
-        $command = new CommandTester((new Application(self::$kernel))->find('supply:drive-sync'));
+        $command = new CommandTester(new Application(self::$kernel)->find('supply:drive-sync'));
         $command->execute([]);
 
         self::assertSame(0, $command->getStatusCode());

@@ -25,7 +25,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class AccentTest extends WebTestCase
 {
-    private const PREFIX = 'accent-test-';
+    private const string PREFIX = 'accent-test-';
 
     private KernelBrowser $client;
     private EntityManagerInterface $em;
@@ -150,7 +150,7 @@ class AccentTest extends WebTestCase
 
     private function user(SupplyRole $role): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId(self::PREFIX . uniqid())
             ->setFirstName('Тест-Мітка')
             ->setSupplyRole($role);

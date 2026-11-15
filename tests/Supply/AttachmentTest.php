@@ -92,7 +92,7 @@ class AttachmentTest extends KernelTestCase
         $request = $this->request($worker);
 
         $this->expectException(SupplyException::class);
-        $this->expectExceptionMessage('PDF, фото та документи');
+        $this->expectExceptionMessageIsOrContains('PDF, фото та документи');
 
         ($this->attachFile)($request, $manager, 'MZ...', 'virus.exe', 'application/x-msdownload');
     }
@@ -103,7 +103,7 @@ class AttachmentTest extends KernelTestCase
         $request = $this->request($worker);
 
         $this->expectException(SupplyException::class);
-        $this->expectExceptionMessage('завеликий');
+        $this->expectExceptionMessageIsOrContains('завеликий');
 
         ($this->attachFile)(
             $request,
@@ -132,7 +132,7 @@ class AttachmentTest extends KernelTestCase
         $stranger = $this->user('stranger', SupplyRole::Worker);
 
         $this->expectException(SupplyException::class);
-        $this->expectExceptionMessage('автор заявки й менеджер');
+        $this->expectExceptionMessageIsOrContains('автор заявки й менеджер');
 
         ($this->attachFile)($request, $stranger, 'фото', 'photo.jpg', 'image/jpeg');
     }
@@ -154,7 +154,7 @@ class AttachmentTest extends KernelTestCase
         $attachment = ($this->attachFile)($request, $manager, 'зміст', 'скан.pdf', 'application/pdf');
 
         $this->expectException(SupplyException::class);
-        $this->expectExceptionMessage('лише менеджер');
+        $this->expectExceptionMessageIsOrContains('лише менеджер');
 
         $this->attachFile->remove($attachment, $worker);
     }
@@ -239,7 +239,7 @@ class AttachmentTest extends KernelTestCase
 
     private function user(string $prefix, SupplyRole $role): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId($prefix . '-file-' . uniqid())
             ->setFirstName('Тест-Файл')
             ->setSupplyRole($role);

@@ -17,7 +17,7 @@ use DateTimeInterface;
  */
 class TripFormatter
 {
-    private const WEEKDAYS = [1 => 'пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'нд'];
+    private const array WEEKDAYS = [1 => 'пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'нд'];
 
     /**
      * Екрануємо тільки <, > і & — саме їх Telegram вимагає в HTML-розмітці.

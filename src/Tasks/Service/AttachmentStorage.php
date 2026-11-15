@@ -21,8 +21,8 @@ class AttachmentStorage
 {
     public const MAX_BYTES = 20 * 1024 * 1024;
 
-    private const IMAGE = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-    private const OFFICE = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp', 'rtf'];
+    private const array IMAGE = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+    private const array OFFICE = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp', 'rtf'];
 
     /**
      * Що приймаємо у вкладення задач (та сама родина, що в заявках і на складі:
@@ -30,7 +30,7 @@ class AttachmentStorage
      * креслення DWG/DXF, архіви. Тип — за вмістом (finfo), не за тим, що прислав
      * браузер. HTML, SVG, скрипти й програми — ні.
      */
-    private const ALLOWED_MIME = [
+    private const array ALLOWED_MIME = [
         'application/pdf',
         'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif',
         'application/msword', 'application/vnd.ms-excel', 'application/vnd.ms-powerpoint',
@@ -39,10 +39,10 @@ class AttachmentStorage
         'image/vnd.dwg', 'image/vnd.dxf', 'application/acad', 'application/dxf', 'application/x-dwg',
     ];
 
-    private const ALLOWED_PREFIX = ['application/vnd.openxmlformats-officedocument.', 'application/vnd.oasis.opendocument.'];
+    private const array ALLOWED_PREFIX = ['application/vnd.openxmlformats-officedocument.', 'application/vnd.oasis.opendocument.'];
 
     /** Офісні файли, які finfo бачить лише як контейнер (zip / OLE) — приймаємо за розширенням. */
-    private const OFFICE_CONTAINERS = ['application/octet-stream', 'application/zip', 'application/cdfv2', 'application/x-ole-storage', 'application/vnd.ms-office'];
+    private const array OFFICE_CONTAINERS = ['application/octet-stream', 'application/zip', 'application/cdfv2', 'application/x-ole-storage', 'application/vnd.ms-office'];
 
     private Filesystem $fs;
 
@@ -68,7 +68,7 @@ class AttachmentStorage
     /** Тип файла за вмістом (finfo); null — не вдалося визначити. */
     public static function detect(string $path): ?string
     {
-        $mime = (new finfo(FILEINFO_MIME_TYPE))->file($path);
+        $mime = new finfo(FILEINFO_MIME_TYPE)->file($path);
 
         return is_string($mime) && $mime !== '' ? strtolower($mime) : null;
     }

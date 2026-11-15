@@ -30,7 +30,7 @@ class DriveAuthCommand extends Command
      *
      * Слухати порт не потрібно: код одноразовий, обмінюємо його ми самі.
      */
-    private const REDIRECT_URI = 'http://localhost:53682';
+    private const string REDIRECT_URI = 'http://localhost:53682';
 
     public function __construct(
         #[Autowire('%env(GOOGLE_DRIVE_CLIENT_ID)%')]

@@ -148,7 +148,7 @@ class NotificationDeliveryTest extends KernelTestCase
         $day = new UserPrefs(quietFrom: 13 * 60, quietTo: 14 * 60);
         self::assertTrue($day->quietAt(new DateTimeImmutable('2026-11-15 13:30', $kyiv)));
         self::assertFalse($day->quietAt(new DateTimeImmutable('2026-11-15 14:00', $kyiv)));
-        self::assertFalse((new UserPrefs())->quietAt(new DateTimeImmutable('2026-11-15 03:00', $kyiv)), 'Без налаштування — ніколи');
+        self::assertFalse(new UserPrefs()->quietAt(new DateTimeImmutable('2026-11-15 03:00', $kyiv)), 'Без налаштування — ніколи');
         self::assertSame(['quietFrom' => '22:00', 'quietTo' => '07:30'], array_intersect_key(self::getContainer()->get(NotificationPreferences::class)->of((int) $user->getId())->toArray(), ['quietFrom' => 1, 'quietTo' => 1]));
     }
 

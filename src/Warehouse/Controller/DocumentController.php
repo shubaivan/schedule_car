@@ -24,7 +24,7 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/sklad/documents')]
 class DocumentController extends AbstractWarehouseController
 {
-    private const OWNERS = [
+    private const array OWNERS = [
         'client' => WhClient::class,
         'site' => WhSite::class,
         'item' => WhItem::class,

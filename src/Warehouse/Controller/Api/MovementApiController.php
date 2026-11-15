@@ -24,7 +24,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[IsGranted('PLAN_WAREHOUSE_VIEW')]
 class MovementApiController extends AbstractWarehouseApiController
 {
-    private const LIMIT = 200;
+    private const int LIMIT = 200;
 
     public function __construct(
         private readonly WarehousePresenter $presenter,

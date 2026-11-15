@@ -98,7 +98,7 @@ final class ProjectionsReconcileCommand extends Command
                 }
             }
 
-            $rows[] = [(new ReflectionClass($consumer))->getShortName(), count($ids), $input->getOption('dry-run') ? '—' : $done];
+            $rows[] = [new ReflectionClass($consumer)->getShortName(), count($ids), $input->getOption('dry-run') ? '—' : $done];
             $total += count($ids);
         }
 

@@ -109,6 +109,6 @@ final class PlanOverview
 
     private static function today(): string
     {
-        return (new DateTimeImmutable('today', new DateTimeZone('Europe/Kyiv')))->format('Y-m-d');
+        return new DateTimeImmutable('today', new DateTimeZone('Europe/Kyiv'))->format('Y-m-d');
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Tests\Telegram;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use SergiX44\Nutgram\Nutgram;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
@@ -46,7 +47,7 @@ final class WebhookSecretTest extends WebTestCase
     /**
      * @param array<string, string> $headers
      */
-    #[\PHPUnit\Framework\Attributes\DataProvider('cases')]
+    #[DataProvider('cases')]
     public function testHookRequiresTheSecretWhenTheBotIsOn(string $token, string $secret, array $headers, int $status): void
     {
         $this->env('TELEGRAM_TOKEN', $token);

@@ -28,7 +28,7 @@ class DocumentStore
 {
     public const MAX_SIZE = 20 * 1024 * 1024;
 
-    private const ALLOWED_MIME = [
+    private const array ALLOWED_MIME = [
         'application/pdf',
         'image/jpeg',
         'image/png',
@@ -81,7 +81,7 @@ class DocumentStore
 
         $this->warehouseStorage->write($path, $contents);
 
-        $document = (new WhDocument())
+        $document = new WhDocument()
             ->attachTo($owner)
             ->setType($type)
             ->setOriginalName($originalName)
@@ -164,7 +164,7 @@ class DocumentStore
             '%s/%d/%s-%s%s',
             $folder,
             $owner->getId(),
-            (new DateTime('now', new DateTimeZone('Europe/Kyiv')))->format('Ymd-His'),
+            new DateTime('now', new DateTimeZone('Europe/Kyiv'))->format('Ymd-His'),
             bin2hex(random_bytes(8)),
             $extension !== '' ? '.' . $extension : '',
         );

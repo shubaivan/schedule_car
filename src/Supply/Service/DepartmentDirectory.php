@@ -52,7 +52,7 @@ class DepartmentDirectory
             throw new SupplyException(sprintf('Підрозділ «%s» уже є у списку.', $existing->getName()));
         }
 
-        $department = (new Department())->setName($name);
+        $department = new Department()->setName($name);
 
         $this->em->persist($department);
         $this->em->flush();

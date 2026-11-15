@@ -79,7 +79,7 @@ class RecordMovementTest extends KernelTestCase
         $this->em->getConnection()->executeStatement('UPDATE wh_item SET current_site_id = ? WHERE id = ?', [$site->getId(), $item->getId()]);
 
         $this->expectException(WarehouseException::class);
-        $this->expectExceptionMessage('щойно перемістили');
+        $this->expectExceptionMessageIsOrContains('щойно перемістили');
 
         ($this->record)(MovementType::Shipment, new DateTime('2026-09-10'), $warehouse, $site, [['item' => $item, 'quantity' => 1]], $manager);
     }
@@ -92,7 +92,7 @@ class RecordMovementTest extends KernelTestCase
         $item = $this->item();
 
         $this->expectException(WarehouseException::class);
-        $this->expectExceptionMessage('не там');
+        $this->expectExceptionMessageIsOrContains('не там');
 
         ($this->record)(MovementType::Shipment, new DateTime(), $warehouse, $site, [['item' => $item, 'quantity' => 1]], $manager);
     }
@@ -137,7 +137,7 @@ class RecordMovementTest extends KernelTestCase
         ($this->record)(MovementType::Shipment, new DateTime(), $warehouse, $site, [['item' => $locks, 'quantity' => 40]], $manager);
 
         $this->expectException(WarehouseException::class);
-        $this->expectExceptionMessage('є 40');
+        $this->expectExceptionMessageIsOrContains('є 40');
 
         ($this->record)(MovementType::Return, new DateTime(), $site, $warehouse, [['item' => $locks, 'quantity' => 41]], $manager);
     }

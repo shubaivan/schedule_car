@@ -40,17 +40,17 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 #[AsCommand(name: 'demo:samples', description: 'Зразки для складу й автопарку (--remove — прибрати)')]
 class DemoSamplesCommand extends Command
 {
-    private const CLIENT = 'ТОВ «Зразок-Буд»';
-    private const SITE = 'ЖК «Зразковий», секція 1';
-    private const SUPPLIER = 'ТОВ «Постачальник-Зразок»';
-    private const NOTE = 'ЗРАЗОК — для прикладу, можна видалити.';
-    private const CARS = [
+    private const string CLIENT = 'ТОВ «Зразок-Буд»';
+    private const string SITE = 'ЖК «Зразковий», секція 1';
+    private const string SUPPLIER = 'ТОВ «Постачальник-Зразок»';
+    private const string NOTE = 'ЗРАЗОК — для прикладу, можна видалити.';
+    private const array CARS = [
         ['ЗРАЗОК-1', 'Самоскид MAN (зразок)'],
         ['ЗРАЗОК-2', 'Маніпулятор DAF (зразок)'],
     ];
 
     /** назва, категорія, облік, одиниця, ціна, оренда/доба, кількість на прихід, характеристики */
-    private const ITEMS = [
+    private const array ITEMS = [
         ['Ригель 2,0 м (зразок)', 'Опалубка', Tracking::Bulk, 'шт', '420.00', '3.00', 400, ['Довжина' => '2,0 м', 'Вага' => '8 кг']],
         ['Фанера ламінована 18 мм (зразок)', 'Опалубка', Tracking::Bulk, 'лист', '1650.00', '12.00', 120, ['Товщина' => '18 мм', 'Розмір' => '1250×2500 мм']],
         ['Стійка телескопічна 3,1 м (зразок)', 'Опалубка', Tracking::Bulk, 'шт', '980.00', '5.00', 300, ['Висота' => '1,8–3,1 м', 'Навантаження' => 'до 2 т']],
@@ -107,14 +107,14 @@ class DemoSamplesCommand extends Command
         $store = $this->em->getRepository(WhSite::class)->findOneBy(['kind' => SiteKind::Warehouse], ['id' => 'ASC']);
         $category = fn (CategoryScope $scope, string $name) => $this->em->getRepository(WhCategory::class)->findOneBy(['scope' => $scope, 'name' => $name]);
 
-        $client = (new WhClient())
+        $client = new WhClient()
             ->setName(self::CLIENT)
             ->setCategory($category(CategoryScope::Client, 'Забудовник'))
             ->setEdrpou('12345678')
             ->setPhone('+380 00 000 00 00')
             ->setContactPerson('Прораб (зразок)')
             ->setNote(self::NOTE);
-        $site = (new WhSite())
+        $site = new WhSite()
             ->setName(self::SITE)
             ->setClient($client)
             ->setCategory($category(CategoryScope::Site, 'Житловий комплекс'))
@@ -126,7 +126,7 @@ class DemoSamplesCommand extends Command
         $items = [];
 
         foreach (self::ITEMS as $i => [$name, $cat, $tracking, $unit, $price, $rate, , $attributes]) {
-            $item = (new WhItem())
+            $item = new WhItem()
                 ->setInventoryNumber(sprintf('ЗР-%04d', $i + 1))
                 ->setName($name)
                 ->setCategory($category(CategoryScope::Item, $cat))
@@ -185,7 +185,7 @@ class DemoSamplesCommand extends Command
 
         foreach (self::CARS as [$number, $model]) {
             $car = $this->em->getRepository(Car::class)->findOneBy(['carNumber' => $number])
-                ?? (new Car())->setCarNumber($number)->setModel($model)->setActive(true);
+                ?? new Car()->setCarNumber($number)->setModel($model)->setActive(true);
             $this->em->persist($car);
             $cars[] = $car;
         }
@@ -206,9 +206,9 @@ class DemoSamplesCommand extends Command
         ];
 
         foreach ($trips as [$car, $day, $hour, $destination, $task]) {
-            $when = (new DateTime($day, new DateTimeZone('Europe/Kyiv')))->setTime($hour, 0);
+            $when = new DateTime($day, new DateTimeZone('Europe/Kyiv'))->setTime($hour, 0);
             $this->em->persist(
-                (new ScheduledSet())
+                new ScheduledSet()
                     ->setCar($car)
                     ->setTelegramUserId($admin)
                     ->setYear((int) $when->format('Y'))

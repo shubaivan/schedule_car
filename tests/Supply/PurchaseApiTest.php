@@ -19,7 +19,7 @@ use Symfony\Component\HttpFoundation\Response;
 /** API закупівель: як менеджер із CRM закриває заявку покупкою. */
 class PurchaseApiTest extends WebTestCase
 {
-    private const MARKER = 'Тест-Закупівля';
+    private const string MARKER = 'Тест-Закупівля';
 
     private KernelBrowser $client;
     private EntityManagerInterface $em;
@@ -195,7 +195,7 @@ class PurchaseApiTest extends WebTestCase
 
     private function user(SupplyRole $role): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId('purchase-api-' . uniqid())
             ->setFirstName(self::MARKER)
             ->setSupplyRole($role);

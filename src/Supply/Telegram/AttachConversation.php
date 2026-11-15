@@ -9,6 +9,7 @@ use App\Supply\Exception\SupplyException;
 use App\Supply\Repository\SupplyRequestRepository;
 use App\Supply\Service\AttachFile;
 use App\Supply\Service\RequestFormatter;
+use Override;
 use SergiX44\Nutgram\Conversations\Conversation;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Types\Message\Message;
@@ -25,6 +26,7 @@ class AttachConversation extends Conversation
 {
     use CancelsToRequest;
 
+    #[Override]
     protected ?string $step = 'ask';
 
     public ?int $requestId = null;

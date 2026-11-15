@@ -10,6 +10,7 @@ use App\Plan\Drive\DrivePaths;
 use App\Plan\Drive\DriveSync;
 use App\Plan\Drive\DriveSyncResult;
 use App\Plan\Drive\FakeDriveClient;
+use App\Plan\Drive\Source\TaskFiles;
 use App\Plan\Share\FileType;
 use App\Supply\Dto\CreateRequestInput;
 use App\Supply\Enum\Unit;
@@ -18,9 +19,13 @@ use App\Supply\Service\AttachFile;
 use App\Supply\Service\CreateRequest;
 use App\Supply\Service\GoogleDriveMirror;
 use App\Tasks\Enum\WorkRole;
+use App\Warehouse\Repository\WhDocumentRepository;
+use App\Warehouse\Service\DocumentStore;
+use App\Warehouse\Service\WarehouseDriveMirror;
 use DateTimeImmutable;
 use DateTimeZone;
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\DriverManager;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -103,7 +108,7 @@ class DriveSyncTest extends KernelTestCase
     {
         $author = $this->person(WorkRole::Manager, 'mgr');
         $file = $this->taskFile($this->task($author, 'Збої'), $author);
-        $drive = (new FakeDriveClient())->failNext(DriveException::transient('Google 500'), 6);
+        $drive = new FakeDriveClient()->failNext(DriveException::transient('Google 500'), 6);
         $now = new DateTimeImmutable('2030-01-01 10:00:00', new DateTimeZone('Europe/Kyiv'));
 
         for ($attempt = 1; $attempt <= 6; ++$attempt) {
@@ -140,7 +145,7 @@ class DriveSyncTest extends KernelTestCase
         $file = $this->taskFile($this->task($author, 'Токен'), $author);
         $this->taskFile($this->task($author, 'Токен 2'), $author);
         $before = $this->maxEventId();
-        $drive = (new FakeDriveClient())->failNext(DriveException::auth('invalid_grant'));
+        $drive = new FakeDriveClient()->failNext(DriveException::auth('invalid_grant'));
 
         $first = $this->sync->run($drive, 50);
         $second = $this->sync->run($drive, 50);
@@ -166,7 +171,7 @@ class DriveSyncTest extends KernelTestCase
         $author = $this->person(WorkRole::Manager, 'mgr');
         $file = $this->taskFile($this->task($author, 'Квота'), $author);
         $now = new DateTimeImmutable('2030-01-01 10:00:00', new DateTimeZone('Europe/Kyiv'));
-        $drive = (new FakeDriveClient())->failNext(DriveException::quota('rateLimitExceeded'));
+        $drive = new FakeDriveClient()->failNext(DriveException::quota('rateLimitExceeded'));
 
         self::assertSame(DriveSyncResult::STOP_QUOTA, $this->sync->run($drive, 50, $now)->stopped);
         self::assertSame(0, (int) $this->row('task_attachment', (int) $file->getId())['drive_attempts']);
@@ -178,7 +183,7 @@ class DriveSyncTest extends KernelTestCase
     {
         $author = $this->person(WorkRole::Manager, 'mgr');
         $this->taskFile($this->task($author, 'Паралельно'), $author);
-        $other = \Doctrine\DBAL\DriverManager::getConnection($this->db->getParams());
+        $other = DriverManager::getConnection($this->db->getParams());
         $other->fetchOne('SELECT pg_advisory_lock(7201151400)');
 
         try {
@@ -275,7 +280,7 @@ class DriveSyncTest extends KernelTestCase
         $tester->execute([]);
         self::assertStringContainsString('supply:drive-sync', $tester->getDisplay());
 
-        $legacy = new CommandTester((new Application(self::$kernel))->find('supply:drive-sync'));
+        $legacy = new CommandTester(new Application(self::$kernel)->find('supply:drive-sync'));
         $legacy->execute([]);
         self::assertStringNotContainsString('plan:drive-sync', $legacy->getDisplay(), 'дефолт — стенд, стара команда працює як була');
 
@@ -283,9 +288,9 @@ class DriveSyncTest extends KernelTestCase
             self::getContainer()->get(SupplyAttachmentRepository::class),
             self::getContainer()->get(GoogleDriveMirror::class),
             self::getContainer()->get(AttachFile::class),
-            self::getContainer()->get(\App\Warehouse\Repository\WhDocumentRepository::class),
-            self::getContainer()->get(\App\Warehouse\Service\WarehouseDriveMirror::class),
-            self::getContainer()->get(\App\Warehouse\Service\DocumentStore::class),
+            self::getContainer()->get(WhDocumentRepository::class),
+            self::getContainer()->get(WarehouseDriveMirror::class),
+            self::getContainer()->get(DocumentStore::class),
             'plan',
         );
         $tester = new CommandTester($planLegacy);
@@ -298,7 +303,7 @@ class DriveSyncTest extends KernelTestCase
         $author = $this->person(WorkRole::Manager, 'mgr');
         $file = $this->taskFile($this->task($author, 'Сухий прогін'), $author);
         $factory = new DriveClientFactory('', '', '', '', 'plan');
-        $tester = new CommandTester(new PlanDriveSyncCommand($this->sync, $factory, $this->db, [self::getContainer()->get(\App\Plan\Drive\Source\TaskFiles::class)]));
+        $tester = new CommandTester(new PlanDriveSyncCommand($this->sync, $factory, $this->db, [self::getContainer()->get(TaskFiles::class)]));
 
         $tester->execute(['--dry-run' => true]);
 

@@ -8,7 +8,7 @@ use Doctrine\ORM\EntityManagerInterface;
 
 class TelegramUserService
 {
-    private ?TelegramUser $currentUser;
+    private ?TelegramUser $currentUser = null;
 
     public function __construct(
         private TelegramUserRepository $telegramUserRepository,

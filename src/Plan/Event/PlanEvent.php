@@ -147,7 +147,7 @@ abstract class PlanEvent
         }
 
         $names = [];
-        $constructor = (new ReflectionClass(static::class))->getConstructor();
+        $constructor = new ReflectionClass(static::class)->getConstructor();
 
         foreach ($constructor?->getParameters() ?? [] as $parameter) {
             if (in_array($parameter->getName(), self::ENVELOPE, true)) {

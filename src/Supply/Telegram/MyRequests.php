@@ -12,7 +12,7 @@ use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
 /** «📋 Мої заявки» — список заявок робітника зі статусами. */
 class MyRequests
 {
-    private const LIMIT = 15;
+    private const int LIMIT = 15;
 
     public function __construct(
         private SupplyRequestRepository $repository,

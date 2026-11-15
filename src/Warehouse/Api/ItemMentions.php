@@ -21,7 +21,7 @@ use Doctrine\DBAL\Connection;
  */
 final class ItemMentions
 {
-    private const LIMIT = 8;
+    private const int LIMIT = 8;
 
     public function __construct(
         private readonly Connection $connection,

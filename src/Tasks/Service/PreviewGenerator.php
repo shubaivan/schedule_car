@@ -20,9 +20,9 @@ use Throwable;
  */
 class PreviewGenerator
 {
-    private const THUMB = 640;
-    private const VIEW = 1920;
-    private const PAGE = 1600;
+    private const int THUMB = 640;
+    private const int VIEW = 1920;
+    private const int PAGE = 1600;
 
     public function __construct(
         private AttachmentStorage $storage,

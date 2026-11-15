@@ -85,13 +85,7 @@ final class FakeDriveClient implements DriveClient
     {
         $this->maybeFail();
 
-        foreach ($this->files as $file) {
-            if ($file['name'] === $name && $file['parent'] === $parentId) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any($this->files, fn ($file) => $file['name'] === $name && $file['parent'] === $parentId);
     }
 
     public function upload(string $name, string $mime, string $contents, string $parentId, string $planKey): DriveUpload

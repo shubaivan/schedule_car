@@ -41,7 +41,7 @@ class SupplierDirectory
             throw new SupplyException(sprintf('Постачальник «%s» вже є у довіднику.', $duplicate->getName()));
         }
 
-        $supplier = (new Supplier())
+        $supplier = new Supplier()
             ->setName($name)
             ->setCreatedBy($by);
 

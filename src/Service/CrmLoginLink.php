@@ -32,7 +32,7 @@ class CrmLoginLink
 
         $token = bin2hex(random_bytes(32));
 
-        $loginToken = (new LoginToken())
+        $loginToken = new LoginToken()
             ->setUser($user)
             ->setTokenHash($this->hash($token));
 

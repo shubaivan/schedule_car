@@ -57,7 +57,7 @@ class SupplierDirectoryTest extends KernelTestCase
         $this->directory->create('ФОП Петренко О.П.');
 
         $this->expectException(SupplyException::class);
-        $this->expectExceptionMessage('вже є у довіднику');
+        $this->expectExceptionMessageIsOrContains('вже є у довіднику');
 
         $this->directory->create($second);
     }
@@ -84,7 +84,7 @@ class SupplierDirectoryTest extends KernelTestCase
         $this->directory->create('ФОП Петренко О.П.', null, ['edrpou' => '1234567890']);
 
         $this->expectException(SupplyException::class);
-        $this->expectExceptionMessage('той самий контрагент');
+        $this->expectExceptionMessageIsOrContains('той самий контрагент');
 
         $this->directory->create('Петренко (пісок)', null, ['edrpou' => '1234567890']);
     }

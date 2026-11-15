@@ -56,7 +56,7 @@ class PurchaseFlowTest extends KernelTestCase
         ($this->changeStatus)($request, SupplyStatus::InProgress, $manager);
 
         $this->expectException(SupplyException::class);
-        $this->expectExceptionMessage('у кого купили');
+        $this->expectExceptionMessageIsOrContains('у кого купили');
 
         ($this->changeStatus)($request, SupplyStatus::Approval, $manager);
     }
@@ -70,7 +70,7 @@ class PurchaseFlowTest extends KernelTestCase
         ($this->changeStatus)($request, SupplyStatus::InProgress, $manager);
 
         $this->expectException(SupplyException::class);
-        $this->expectExceptionMessage('Не можна перевести заявку');
+        $this->expectExceptionMessageIsOrContains('Не можна перевести заявку');
 
         ($this->changeStatus)($request, SupplyStatus::InStock, $manager);
     }
@@ -123,7 +123,7 @@ class PurchaseFlowTest extends KernelTestCase
         ($this->changeStatus)($request, SupplyStatus::Approval, $manager);
 
         $this->expectException(SupplyException::class);
-        $this->expectExceptionMessage('директор');
+        $this->expectExceptionMessageIsOrContains('директор');
 
         ($this->changeStatus)($request, SupplyStatus::Approved, $manager);
     }
@@ -147,7 +147,7 @@ class PurchaseFlowTest extends KernelTestCase
         ($this->changeStatus)($request, SupplyStatus::Approval, $manager);
 
         $this->expectException(SupplyException::class);
-        $this->expectExceptionMessage('директор');
+        $this->expectExceptionMessageIsOrContains('директор');
 
         ($this->changeStatus)($request, SupplyStatus::Rejected, $manager, 'Знайшли дешевше');
     }
@@ -200,7 +200,7 @@ class PurchaseFlowTest extends KernelTestCase
         $request = $this->request($worker);
 
         $this->expectException(SupplyException::class);
-        $this->expectExceptionMessage('Вкажіть суму');
+        $this->expectExceptionMessageIsOrContains('Вкажіть суму');
 
         ($this->recordPurchase)($request, $manager, new PurchaseInput(supplier: $this->supplier()));
     }
@@ -211,7 +211,7 @@ class PurchaseFlowTest extends KernelTestCase
         $request = $this->request($worker);
 
         $this->expectException(SupplyException::class);
-        $this->expectExceptionMessage('лише менеджер');
+        $this->expectExceptionMessageIsOrContains('лише менеджер');
 
         ($this->recordPurchase)($request, $worker, new PurchaseInput(
             supplier: $this->supplier(),
@@ -252,7 +252,7 @@ class PurchaseFlowTest extends KernelTestCase
         ($this->changeStatus)($request, SupplyStatus::Paid, $manager);
 
         $this->expectException(SupplyException::class);
-        $this->expectExceptionMessage('не може лишитись без закупівлі');
+        $this->expectExceptionMessageIsOrContains('не може лишитись без закупівлі');
 
         $this->recordPurchase->remove($purchase, $manager);
     }
@@ -353,17 +353,17 @@ class PurchaseFlowTest extends KernelTestCase
     /** @return array{0: TelegramUser, 1: TelegramUser, 2: TelegramUser} робітник, менеджер, директор */
     private function users(): array
     {
-        $worker = (new TelegramUser())
+        $worker = new TelegramUser()
             ->setTelegramId('purchase-worker-' . uniqid())
             ->setFirstName('Робітник')
             ->setSupplyRole(SupplyRole::Worker);
 
-        $manager = (new TelegramUser())
+        $manager = new TelegramUser()
             ->setTelegramId('purchase-manager-' . uniqid())
             ->setFirstName('Менеджер')
             ->setSupplyRole(SupplyRole::Manager);
 
-        $director = (new TelegramUser())
+        $director = new TelegramUser()
             ->setTelegramId('purchase-director-' . uniqid())
             ->setFirstName('Директор')
             ->setSupplyRole(SupplyRole::Director);

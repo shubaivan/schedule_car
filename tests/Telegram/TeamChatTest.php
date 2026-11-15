@@ -42,7 +42,7 @@ class TeamChatTest extends KernelTestCase
     {
         $bot = Nutgram::fake();
 
-        (new TeamChat($bot, new NullLogger(), '', '3', '4', '7'))->post(TeamChat::SUPPLY, 'заявка');
+        new TeamChat($bot, new NullLogger(), '', '3', '4', '7')->post(TeamChat::SUPPLY, 'заявка');
 
         self::assertSame([], $this->sent($bot));
     }
@@ -51,7 +51,7 @@ class TeamChatTest extends KernelTestCase
     {
         $bot = Nutgram::fake();
 
-        (new TeamChat($bot, new NullLogger(), '-100', 'abc', '', ''))->post(TeamChat::SUPPLY, 'заявка');
+        new TeamChat($bot, new NullLogger(), '-100', 'abc', '', '')->post(TeamChat::SUPPLY, 'заявка');
 
         $sent = $this->sent($bot);
         self::assertCount(1, $sent);
@@ -65,7 +65,7 @@ class TeamChatTest extends KernelTestCase
         $em->beginTransaction();
 
         try {
-            $user = (new TelegramUser())->setTelegramId('team-' . uniqid())->setFirstName('Іван')->setChatId('555');
+            $user = new TelegramUser()->setTelegramId('team-' . uniqid())->setFirstName('Іван')->setChatId('555');
             $em->persist($user);
             $em->flush();
 

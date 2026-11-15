@@ -101,7 +101,7 @@ class StatusRoleSplitTest extends KernelTestCase
         ($this->changeStatus)($request, SupplyStatus::Approved, $director);
 
         $this->expectException(SupplyException::class);
-        $this->expectExceptionMessage('менеджер');
+        $this->expectExceptionMessageIsOrContains('менеджер');
 
         ($this->changeStatus)($request, SupplyStatus::Paid, $director);
     }
@@ -130,7 +130,7 @@ class StatusRoleSplitTest extends KernelTestCase
         ($this->changeStatus)($request, SupplyStatus::Waiting, $director);
 
         $this->expectException(SupplyException::class);
-        $this->expectExceptionMessage('директор');
+        $this->expectExceptionMessageIsOrContains('директор');
 
         ($this->changeStatus)($request, SupplyStatus::Approval, $manager);
     }
@@ -158,7 +158,7 @@ class StatusRoleSplitTest extends KernelTestCase
         ($this->changeStatus)($request, SupplyStatus::InProgress, $manager);
 
         $this->expectException(SupplyException::class);
-        $this->expectExceptionMessage('Не можна перевести заявку');
+        $this->expectExceptionMessageIsOrContains('Не можна перевести заявку');
 
         ($this->changeStatus)($request, SupplyStatus::Paid, $manager);
     }
@@ -197,7 +197,7 @@ class StatusRoleSplitTest extends KernelTestCase
         $users = [];
 
         foreach ([SupplyRole::Worker, SupplyRole::Manager, SupplyRole::Director] as $role) {
-            $user = (new TelegramUser())
+            $user = new TelegramUser()
                 ->setTelegramId('roles-' . $role->value . '-' . uniqid())
                 ->setFirstName($role->label())
                 ->setSupplyRole($role);

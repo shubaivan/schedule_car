@@ -8,6 +8,7 @@ use App\Service\TelegramUserService;
 use App\Supply\Telegram\SupplyCallback;
 use App\Warehouse\Service\WarehouseSection;
 use App\Warehouse\Telegram\WarehouseCallback;
+use Override;
 use SergiX44\Nutgram\Handlers\Type\Command;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
@@ -22,7 +23,9 @@ class StartCommand extends Command
     public const MAIN_MENU = 'main-menu';
     public const FLEET_MENU = 'fleet-menu';
 
+    #[Override]
     protected string $command = 'start';
+    #[Override]
     protected ?string $description = 'Початок спілкування';
 
     /**

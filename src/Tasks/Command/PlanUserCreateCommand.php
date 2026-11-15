@@ -221,8 +221,8 @@ class PlanUserCreateCommand extends Command
                 return null;
             }
 
-            $password = (string) $io->askQuestion((new Question('Пароль (не відображається)'))->setHidden(true)->setHiddenFallback(false));
-            $again = (string) $io->askQuestion((new Question('Ще раз'))->setHidden(true)->setHiddenFallback(false));
+            $password = (string) $io->askQuestion(new Question('Пароль (не відображається)')->setHidden(true)->setHiddenFallback(false));
+            $again = (string) $io->askQuestion(new Question('Ще раз')->setHidden(true)->setHiddenFallback(false));
 
             if ($password !== $again) {
                 $io->error('Паролі не збігаються.');

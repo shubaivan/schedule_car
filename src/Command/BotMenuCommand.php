@@ -21,7 +21,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 #[AsCommand(name: 'bot:menu', description: 'Оновити меню команд бота в Telegram')]
 class BotMenuCommand extends Command
 {
-    private const COMMANDS = [
+    private const array COMMANDS = [
         'start' => 'Головне меню',
         'postachannia' => 'Постачання: заявки на матеріали',
         'avtopark' => 'Автопарк: розклад машин і бронювання',

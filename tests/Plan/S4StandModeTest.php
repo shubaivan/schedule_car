@@ -16,7 +16,7 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
  */
 class S4StandModeTest extends WebTestCase
 {
-    private const ENV = ['TASKS_ENABLED' => '0', 'WAREHOUSE_ENABLED' => '0', 'CRM_HOME' => 'requests', 'PLAN_EVENTS_TRANSPORT' => 'sync://'];
+    private const array ENV = ['TASKS_ENABLED' => '0', 'WAREHOUSE_ENABLED' => '0', 'CRM_HOME' => 'requests', 'PLAN_EVENTS_TRANSPORT' => 'sync://'];
 
     private KernelBrowser $client;
     private EntityManagerInterface $em;
@@ -66,7 +66,7 @@ class S4StandModeTest extends WebTestCase
 
     public function testStandKeepsNoPlanIndexAndClosesPlanApi(): void
     {
-        $user = (new TelegramUser())->setTelegramId('s4-stand-' . uniqid())->setFirstName('Тест-S4-Стенд')->setSupplyRole(SupplyRole::Manager);
+        $user = new TelegramUser()->setTelegramId('s4-stand-' . uniqid())->setFirstName('Тест-S4-Стенд')->setSupplyRole(SupplyRole::Manager);
         $user->decideAccess(AccessStatus::Approved, null);
         $this->em->persist($user);
         $this->em->flush();

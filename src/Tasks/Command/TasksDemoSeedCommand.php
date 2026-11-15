@@ -7,6 +7,7 @@ use App\Enum\AccessStatus;
 use App\Plan\Drive\DriveSync;
 use App\Plan\EventStore\PlanEventRecorder;
 use App\Supply\Entity\Department;
+use App\Supply\Enum\SupplyRole;
 use App\Supply\Repository\DepartmentRepository;
 use App\Supply\Repository\SupplierRepository;
 use App\Supply\Repository\SupplyRequestRepository;
@@ -189,12 +190,12 @@ class TasksDemoSeedCommand extends Command
             $this->seedTasks();
             // Заявки — в тій самій оболонці «Плану», тож і в демо вони мають бути.
             if ($this->supplyRequests !== null && $this->suppliers !== null && $this->attachFile !== null) {
-                $requests = (new DemoSupply($this->em, $this->supplyRequests, $this->suppliers, $this->attachFile, $this->files))
+                $requests = new DemoSupply($this->em, $this->supplyRequests, $this->suppliers, $this->attachFile, $this->files)
                     ->seed($this->people, $this->departments);
             }
             // Склад — теж частина «Плану»: позиції, залишки й місяць рухів.
             if ($this->recordMovement !== null && $this->warehouseLog !== null && $this->warehouseDocuments !== null) {
-                $warehouse = (new DemoWarehouse($this->em, $this->recordMovement, $this->warehouseLog, $this->warehouseDocuments, $this->files))
+                $warehouse = new DemoWarehouse($this->em, $this->recordMovement, $this->warehouseLog, $this->warehouseDocuments, $this->files)
                     ->seed($this->people);
             }
             // Демо — не робота: жоден засіяний файл не йде на Диск. У тій самій транзакції,
@@ -318,7 +319,7 @@ class TasksDemoSeedCommand extends Command
     private function seedDirectories(string $password, string $domain): void
     {
         foreach (self::DEPARTMENTS as $name) {
-            $department = $this->departmentRepository->findOneByName($name) ?? (new Department())->setName($name);
+            $department = $this->departmentRepository->findOneByName($name) ?? new Department()->setName($name);
             $department->setActive(true);
             $this->em->persist($department);
             $this->departments[$name] = $department;
@@ -333,7 +334,7 @@ class TasksDemoSeedCommand extends Command
 
         foreach (self::PEOPLE as $login => [$first, $last, $position, $role, $department]) {
             ++$n;
-            $user = (new TelegramUser())
+            $user = new TelegramUser()
                 ->setTelegramId('demo-' . $login)
                 ->setFirstName($first)
                 ->setLastName($last)
@@ -344,9 +345,9 @@ class TasksDemoSeedCommand extends Command
                 ->setPhoneNumber(sprintf('3800000000%02d', $n))
                 ->setLanguageCode('uk');
             $user->setSupplyRole(match ($role) {
-                WorkRole::Admin => \App\Supply\Enum\SupplyRole::Admin,
-                WorkRole::Director => \App\Supply\Enum\SupplyRole::Director,
-                default => \App\Supply\Enum\SupplyRole::Worker,
+                WorkRole::Admin => SupplyRole::Admin,
+                WorkRole::Director => SupplyRole::Director,
+                default => SupplyRole::Worker,
             });
             $user->decideAccess(AccessStatus::Approved, null);
             $user->setPassword($this->hasher->hashPassword($user, $password));
@@ -367,7 +368,7 @@ class TasksDemoSeedCommand extends Command
         $files = new DemoFiles();
         $generated = DemoDeals::generated();
         $tmp = sys_get_temp_dir() . '/plan-demo-' . bin2hex(random_bytes(4));
-        (new Filesystem())->mkdir($tmp);
+        new Filesystem()->mkdir($tmp);
 
         try {
             foreach (DemoDeals::all() as $i => $deal) {
@@ -419,7 +420,7 @@ class TasksDemoSeedCommand extends Command
             $this->em->flush();
             $this->enliven();
         } finally {
-            (new Filesystem())->remove($tmp);
+            new Filesystem()->remove($tmp);
         }
     }
 
@@ -563,7 +564,7 @@ class TasksDemoSeedCommand extends Command
 
         $created = $this->at($daysAgo * 24);
         $task->setCreatedAt($created)->touch($created)->setStatus($status);
-        $task->setDueAt($due === null ? null : (new DateTime('today 17:00', new DateTimeZone('Europe/Kyiv')))->modify($due));
+        $task->setDueAt($due === null ? null : new DateTime('today 17:00', new DateTimeZone('Europe/Kyiv'))->modify($due));
 
         foreach ($this->em->getRepository(TaskMessage::class)->findBy(['task' => $task]) as $message) {
             $message->setCreatedAt($created);

@@ -2,6 +2,7 @@
 
 namespace App\Tests\Warehouse;
 
+use App\Entity\TelegramUser;
 use App\Plan\Subject\Provider\WarehouseSubjects;
 use App\Plan\Subject\SubjectRef;
 use App\Plan\Subject\SubjectType;
@@ -17,10 +18,12 @@ use App\Warehouse\Entity\WhMovement;
 use App\Warehouse\Enum\ActivityAction;
 use App\Warehouse\Enum\MovementType;
 use App\Warehouse\Enum\Tracking;
+use App\Warehouse\Service\ActivityLog;
 use App\Warehouse\Service\RecordMovement;
 use App\Warehouse\Service\WarehouseStock;
 use DateTime;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -75,7 +78,7 @@ class WarehouseApiTest extends WebTestCase
         yield 'адмін' => [SupplyRole::Admin, true];
     }
 
-    #[\PHPUnit\Framework\Attributes\DataProvider('roles')]
+    #[DataProvider('roles')]
     public function testOnlyThoseWhoRunTheWarehouseGetIn(SupplyRole $role, bool $allowed): void
     {
         $item = $this->item();
@@ -243,9 +246,9 @@ class WarehouseApiTest extends WebTestCase
 
         $this->postJson('/api/warehouse/movements', ['type' => 'receipt', 'occurredAt' => '2026-11-01', 'toId' => $warehouse->getId(), 'documentNumber' => 'П-9', 'lines' => [['itemId' => $item->getId(), 'quantity' => 12]]]);
         $this->browser->request('POST', '/api/warehouse/items/' . $item->getId() . '/viewed');
-        $log = self::getContainer()->get(\App\Warehouse\Service\ActivityLog::class);
+        $log = self::getContainer()->get(ActivityLog::class);
         // Після запитів кернел скидає EntityManager — беремо свіжі сутності, як бот у своєму запиті.
-        $log->record(ActivityAction::Scan, $this->em->find(WhItem::class, $item->getId()), $this->em->find(\App\Entity\TelegramUser::class, $manager->getId()), WhActivity::CHANNEL_BOT, 'наклейка');
+        $log->record(ActivityAction::Scan, $this->em->find(WhItem::class, $item->getId()), $this->em->find(TelegramUser::class, $manager->getId()), WhActivity::CHANNEL_BOT, 'наклейка');
 
         $this->browser->request('GET', '/api/warehouse/items/' . $item->getId() . '/feed');
         $feed = $this->body();
@@ -335,7 +338,7 @@ class WarehouseApiTest extends WebTestCase
         $added = $this->events($events);
         self::assertSame(['file_added'], array_column($added, 'type'), 'два файли одним надсиланням — одна подія');
         self::assertSame(['Фото: щит.jpg, щит-2.jpg'], json_decode((string) $added[0]['payload'], true)['names']);
-        $document = array_values(array_filter($this->body()['documents'], static fn ($d) => $d['name'] === 'щит.jpg'))[0];
+        $document = array_first(array_filter($this->body()['documents'], static fn ($d) => $d['name'] === 'щит.jpg'));
 
         $this->browser->request('GET', $document['url']);
         self::assertResponseIsSuccessful();

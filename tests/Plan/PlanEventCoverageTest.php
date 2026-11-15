@@ -283,7 +283,7 @@ class PlanEventCoverageTest extends KernelTestCase
 
     private function worker(WorkRole $role): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId('plan-' . uniqid('', true))
             ->setFirstName('Тест-План')
             ->setWorkRole($role);

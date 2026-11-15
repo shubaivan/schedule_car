@@ -155,7 +155,7 @@ class ScheduleTest extends KernelTestCase
     public function testBookingWithoutTaskIsValid(): void
     {
         $car = $this->fleet->saveCar(null, ['carNumber' => 'AB3030BB']);
-        $at = (new DateTime('tomorrow', new DateTimeZone('Europe/Kyiv')))->setTime(9, 0);
+        $at = new DateTime('tomorrow', new DateTimeZone('Europe/Kyiv'))->setTime(9, 0);
 
         $set = $this->set($car, $this->user(), $at, 'з завданням')->setTask(null);
 
@@ -168,7 +168,7 @@ class ScheduleTest extends KernelTestCase
     {
         $car = $this->fleet->saveCar(null, ['carNumber' => $carNumber, 'model' => 'Renault Master']);
 
-        $at = (new DateTime('now', new DateTimeZone('Europe/Kyiv')))->modify($when);
+        $at = new DateTime('now', new DateTimeZone('Europe/Kyiv'))->modify($when);
         $at->setTime((int) $at->format('H'), 0);
 
         $set = $this->set($car, $this->user(), $at, $task);
@@ -181,7 +181,7 @@ class ScheduleTest extends KernelTestCase
 
     private function user(): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId('trip-' . uniqid())
             ->setFirstName('Іван')
             ->setPhoneNumber('380631112299');
@@ -194,7 +194,7 @@ class ScheduleTest extends KernelTestCase
 
     private function set(Car $car, TelegramUser $user, DateTime $at, string $task): ScheduledSet
     {
-        return (new ScheduledSet())
+        return new ScheduledSet()
             ->setCar($car)
             ->setTelegramUserId($user)
             ->setYear((int) $at->format('Y'))

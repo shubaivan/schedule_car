@@ -7,6 +7,7 @@ use App\Plan\Drive\GoogleDriveClient;
 use App\Plan\Share\Entity\ShareLink;
 use App\Plan\Share\ShareService;
 use App\Supply\Enum\SupplyRole;
+use App\Tasks\Entity\TaskAttachment;
 use App\Tasks\Enum\WorkRole;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
@@ -247,7 +248,7 @@ class ShareApiTest extends WebTestCase
         self::assertStringStartsWith('attachment', (string) $this->client->getResponse()->headers->get('Content-Disposition'));
     }
 
-    private function legacy(\App\Tasks\Entity\TaskAttachment $file, string $name, string $mime): \App\Tasks\Entity\TaskAttachment
+    private function legacy(TaskAttachment $file, string $name, string $mime): TaskAttachment
     {
         $this->db->executeStatement('UPDATE task_attachment SET original_name = ?, mime = ? WHERE id = ?', [$name, $mime, $file->getId()]);
         $em = self::getContainer()->get(EntityManagerInterface::class);

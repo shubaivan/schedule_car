@@ -19,7 +19,7 @@ use Symfony\Component\Routing\Attribute\Route;
 class TaskFileController extends TasksController
 {
     /** Типи, які безпечно показати в браузері «як є». HTML/SVG — лише скачуванням. */
-    private const INLINE_SAFE = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'text/plain'];
+    private const array INLINE_SAFE = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'text/plain'];
 
     public function __construct(
         private AttachmentStorage $storage,

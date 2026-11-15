@@ -72,7 +72,7 @@ class ReportsTest extends KernelTestCase
     public function testDepartmentSpending(): void
     {
         [$worker, $manager] = $this->users();
-        $department = (new Department())->setName('Цех №7 ' . uniqid());
+        $department = new Department()->setName('Цех №7 ' . uniqid());
         $this->em->persist($department);
         $worker->setDepartment($department);
         $this->em->flush();
@@ -184,7 +184,7 @@ class ReportsTest extends KernelTestCase
 
     private function director(): TelegramUser
     {
-        $director = (new TelegramUser())
+        $director = new TelegramUser()
             ->setTelegramId('report-director-' . uniqid())
             ->setFirstName('Тест-Звіт')
             ->setSupplyRole(SupplyRole::Director);
@@ -198,12 +198,12 @@ class ReportsTest extends KernelTestCase
     /** @return TelegramUser[] */
     private function users(): array
     {
-        $worker = (new TelegramUser())
+        $worker = new TelegramUser()
             ->setTelegramId('report-worker-' . uniqid())
             ->setFirstName('Тест-Звіт')
             ->setSupplyRole(SupplyRole::Worker);
 
-        $manager = (new TelegramUser())
+        $manager = new TelegramUser()
             ->setTelegramId('report-manager-' . uniqid())
             ->setFirstName('Тест-Звіт')
             ->setSupplyRole(SupplyRole::Manager);

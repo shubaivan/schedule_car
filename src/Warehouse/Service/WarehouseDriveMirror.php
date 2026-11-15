@@ -30,8 +30,8 @@ use Throwable;
  */
 class WarehouseDriveMirror
 {
-    private const ROOT_FOLDER = 'Склад';
-    private const FOLDER_MIME = 'application/vnd.google-apps.folder';
+    private const string ROOT_FOLDER = 'Склад';
+    private const string FOLDER_MIME = 'application/vnd.google-apps.folder';
 
     private ?Drive $drive = null;
 

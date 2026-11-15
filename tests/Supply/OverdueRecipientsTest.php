@@ -94,7 +94,7 @@ class OverdueRecipientsTest extends KernelTestCase
 
     private function person(SupplyRole $role): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId('overdue-to-' . $role->value . '-' . uniqid())
             ->setFirstName($role->label())
             ->setSupplyRole($role);

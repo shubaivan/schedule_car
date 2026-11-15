@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\LoginToken;
 use App\Entity\TelegramUser;
 use App\Plan\Login\TelegramLogin;
+use App\Plan\Telegram\PlanBotMode;
 use App\Warehouse\Service\WarehouseSection;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -35,7 +36,7 @@ class LoginController extends AbstractController
         #[Autowire('%tasks_enabled%')]
         private bool $tasks = false,
         private ?TelegramLogin $telegramLogin = null,
-        private ?\App\Plan\Telegram\PlanBotMode $planBot = null,
+        private ?PlanBotMode $planBot = null,
     ) {
     }
 

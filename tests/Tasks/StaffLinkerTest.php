@@ -59,7 +59,7 @@ class StaffLinkerTest extends KernelTestCase
         $cardId = $card->getId();
         $email = $card->getEmail();
 
-        $bot = (new TelegramUser())->setTelegramId((string) random_int(100000000, 899999999))->setFirstName('Serhii');
+        $bot = new TelegramUser()->setTelegramId((string) random_int(100000000, 899999999))->setFirstName('Serhii');
         $this->em->persist($bot);
         $this->em->flush();
         $this->ids[] = (int) $bot->getId();
@@ -86,7 +86,7 @@ class StaffLinkerTest extends KernelTestCase
     {
         $admin = $this->admin();
         $phone = '38050' . random_int(1000000, 9999999);
-        $existing = (new TelegramUser())->setTelegramId((string) random_int(100000000, 899999999))->setPhoneNumber($phone)->setFirstName('Вже є');
+        $existing = new TelegramUser()->setTelegramId((string) random_int(100000000, 899999999))->setPhoneNumber($phone)->setFirstName('Вже є');
         $this->em->persist($existing);
         $this->em->flush();
         $this->ids[] = (int) $existing->getId();
@@ -97,7 +97,7 @@ class StaffLinkerTest extends KernelTestCase
 
     private function admin(): TelegramUser
     {
-        $admin = (new TelegramUser())->setTelegramId('linker-admin-' . uniqid())->setFirstName('Адмін')->setWorkRole(WorkRole::Admin);
+        $admin = new TelegramUser()->setTelegramId('linker-admin-' . uniqid())->setFirstName('Адмін')->setWorkRole(WorkRole::Admin);
         $this->em->persist($admin);
         $this->em->flush();
         $this->ids[] = (int) $admin->getId();

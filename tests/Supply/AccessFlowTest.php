@@ -4,8 +4,12 @@ namespace App\Tests\Supply;
 
 use App\Entity\TelegramUser;
 use App\Enum\AccessStatus;
+use App\Service\AccessNotifier;
 use App\Service\AccessService;
+use App\Service\FleetDirectory;
 use App\Supply\Enum\SupplyRole;
+use App\Supply\Service\StaffDirectory;
+use App\Tasks\Service\StaffLinker;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -72,11 +76,11 @@ class AccessFlowTest extends KernelTestCase
 
         return new AccessService(
             $this->em,
-            $c->get(\App\Service\AccessNotifier::class),
+            $c->get(AccessNotifier::class),
             $c->get('logger'),
-            $c->get(\App\Supply\Service\StaffDirectory::class),
-            $c->get(\App\Service\FleetDirectory::class),
-            $c->get(\App\Tasks\Service\StaffLinker::class),
+            $c->get(StaffDirectory::class),
+            $c->get(FleetDirectory::class),
+            $c->get(StaffLinker::class),
             (string) $c->getParameter('supply_manager_phones'),
             (string) $c->getParameter('supply_director_phones'),
             true,
@@ -145,7 +149,7 @@ class AccessFlowTest extends KernelTestCase
 
     private function user(): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId('acc-' . uniqid())
             ->setFirstName('Новачок');
 

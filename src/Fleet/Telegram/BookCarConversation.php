@@ -12,6 +12,7 @@ use App\Service\TelegramUserService;
 use DateTime;
 use DateTimeZone;
 use Doctrine\ORM\EntityManagerInterface;
+use Override;
 use SergiX44\Nutgram\Conversations\Conversation;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
@@ -32,19 +33,20 @@ use Throwable;
  */
 class BookCarConversation extends Conversation
 {
-    private const CAR_PREFIX = 'c:';
-    private const DAY_PREFIX = 'd:';
-    private const HOUR_PREFIX = 'h:';
-    private const SKIP = 'skip';
+    private const string CAR_PREFIX = 'c:';
+    private const string DAY_PREFIX = 'd:';
+    private const string HOUR_PREFIX = 'h:';
+    private const string SKIP = 'skip';
 
     /** Скільки днів пропонуємо: два тижні вперед вистачає для планування. */
-    private const DAYS_OFFERED = 14;
-    private const DAYS_PER_ROW = 3;
-    private const HOURS_PER_ROW = 4;
+    private const int DAYS_OFFERED = 14;
+    private const int DAYS_PER_ROW = 3;
+    private const int HOURS_PER_ROW = 4;
     /** Робочий діапазон, у який пропонуємо машину. */
-    private const FIRST_HOUR = 6;
-    private const LAST_HOUR = 21;
+    private const int FIRST_HOUR = 6;
+    private const int LAST_HOUR = 21;
 
+    #[Override]
     protected ?string $step = 'askCar';
 
     public ?int $carId = null;
@@ -268,7 +270,7 @@ class BookCarConversation extends Conversation
             return;
         }
 
-        $set = (new ScheduledSet())
+        $set = new ScheduledSet()
             ->setCar($car)
             ->setTelegramUserId($user)
             ->setYear((int) $when->format('Y'))
@@ -434,13 +436,7 @@ class BookCarConversation extends Conversation
             return false;
         }
 
-        foreach ($this->sets->findBetween($slot, (clone $slot)->modify('+1 hour')) as $set) {
-            if ($set->getCar()->getId() === $carId) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any($this->sets->findBetween($slot, (clone $slot)->modify('+1 hour')), fn ($set) => $set->getCar()->getId() === $carId);
     }
 
     /** Форма перемальовує екран, тож «Скасувати» є на кожному кроці. */

@@ -183,7 +183,7 @@ class ShareService
             );
 
             if ($recent === false) {
-                $this->events->record((new FileDownloaded($file->subject, null, $file->id, $file->type->value, $file->name, $link->getId()))->via('web', $ip));
+                $this->events->record(new FileDownloaded($file->subject, null, $file->id, $file->type->value, $file->name, $link->getId())->via('web', $ip));
             }
         });
     }

@@ -5,8 +5,8 @@ namespace App\Telegram\Access;
 /** callback_data кнопок підтвердження реєстрації. */
 final class AccessCallback
 {
-    public const APPROVE_PREFIX = 'access:approve:';
-    public const REJECT_PREFIX = 'access:reject:';
+    public const string APPROVE_PREFIX = 'access:approve:';
+    public const string REJECT_PREFIX = 'access:reject:';
 
     public static function approve(int $userId): string
     {

@@ -20,7 +20,7 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
  */
 class PlanShellS2Test extends WebTestCase
 {
-    private const PREFIX = 'plan-s2-test-';
+    private const string PREFIX = 'plan-s2-test-';
 
     private KernelBrowser $client;
     private EntityManagerInterface $em;
@@ -63,7 +63,7 @@ class PlanShellS2Test extends WebTestCase
         ];
         $found = [];
 
-        foreach ((new Finder())->files()->in($root)->name(['*.vue', '*.ts']) as $file) {
+        foreach (new Finder()->files()->in($root)->name(['*.vue', '*.ts']) as $file) {
             foreach ($forbidden as $pattern => $what) {
                 if (preg_match($pattern, $file->getContents())) {
                     $found[] = $file->getRelativePathname() . ': ' . $what;
@@ -152,7 +152,7 @@ class PlanShellS2Test extends WebTestCase
 
     private function user(WorkRole $role, string $name): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId(self::PREFIX . $name . '-' . uniqid())
             ->setFirstName(ucfirst($name))
             ->setLastName('Тестовий')

@@ -6,8 +6,12 @@ use App\Entity\TelegramUser;
 use App\Enum\AccessStatus;
 use App\Security\LoginIdentity;
 use App\Supply\Entity\Department;
+use App\Tasks\Entity\Task;
+use App\Tasks\Enum\TaskStatus;
 use App\Tasks\Enum\WorkRole;
+use App\Tasks\Exception\TaskException;
 use App\Tasks\Service\PreviewGenerator;
+use App\Tasks\Service\TaskService;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -21,8 +25,8 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  */
 class TasksApiTest extends WebTestCase
 {
-    private const PREFIX = 'tasks-test-';
-    private const PASSWORD = 'correct-horse-42';
+    private const string PREFIX = 'tasks-test-';
+    private const string PASSWORD = 'correct-horse-42';
 
     private KernelBrowser $client;
     private EntityManagerInterface $em;
@@ -124,7 +128,7 @@ class TasksApiTest extends WebTestCase
 
     public function testDepartmentAddsAllItsPeopleAndOutsidersSeeNothing(): void
     {
-        $department = (new Department())->setName('Тест-відділ ' . uniqid());
+        $department = new Department()->setName('Тест-відділ ' . uniqid());
         $this->em->persist($department);
         $manager = $this->user(WorkRole::Manager, 'mgr');
         $worker1 = $this->user(WorkRole::Production, 'w1', $department);
@@ -188,7 +192,7 @@ class TasksApiTest extends WebTestCase
         $director = $this->user(WorkRole::Director, 'ovd');
 
         $this->login($manager);
-        $yesterday = (new DateTimeImmutable('yesterday'))->format('Y-m-d');
+        $yesterday = new DateTimeImmutable('yesterday')->format('Y-m-d');
         $a = $this->send('POST', '/api/tasks', ['title' => 'Огляд: на погодженні й прострочена', 'dueAt' => $yesterday, 'memberIds' => [$director->getId()]]);
         $this->send('POST', '/api/tasks/' . $a['id'] . '/status', ['to' => 'in_work']);
         $this->send('POST', '/api/tasks/' . $a['id'] . '/status', ['to' => 'approval']);
@@ -341,16 +345,16 @@ class TasksApiTest extends WebTestCase
         $this->send('POST', '/api/tasks/' . $id . '/status', ['to' => 'approval']);
         self::assertResponseIsSuccessful();
 
-        $task = $this->em->find(\App\Tasks\Entity\Task::class, $id);
+        $task = $this->em->find(Task::class, $id);
         self::assertSame('approval', $task->getStatus()->value);
         // Інший директор уже відхилив (інший запит): у базі rejected, у пам'яті — approval.
         $this->em->getConnection()->executeStatement("UPDATE task SET status = 'rejected' WHERE id = ?", [$id]);
         $events = (int) $this->em->getConnection()->fetchOne("SELECT COUNT(*) FROM plan_event WHERE subject_type = 'task' AND subject_id = ?", [$id]);
 
         try {
-            self::getContainer()->get(\App\Tasks\Service\TaskService::class)->changeStatus($task, $director, \App\Tasks\Enum\TaskStatus::from('approved'));
+            self::getContainer()->get(TaskService::class)->changeStatus($task, $director, TaskStatus::from('approved'));
             self::fail('другий перехід з того самого «from» має відмовити');
-        } catch (\App\Tasks\Exception\TaskException $e) {
+        } catch (TaskException $e) {
             self::assertStringContainsString('щойно змінили', $e->getMessage());
         }
 
@@ -436,7 +440,7 @@ class TasksApiTest extends WebTestCase
 
     private function user(WorkRole $role, string $name, ?Department $department = null): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId(self::PREFIX . $name . '-' . uniqid())
             ->setFirstName(ucfirst($name))
             ->setLastName('Тестовий')

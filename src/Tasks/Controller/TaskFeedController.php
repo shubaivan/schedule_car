@@ -32,7 +32,7 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/api/tasks')]
 class TaskFeedController extends TasksController
 {
-    private const PAGE = 30;
+    private const int PAGE = 30;
 
     public function __construct(
         private TaskFeedRepository $feed,
@@ -305,13 +305,7 @@ class TaskFeedController extends TasksController
     /** @param list<string> $terms */
     private static function hits(string $text, array $terms): bool
     {
-        foreach ($terms as $term) {
-            if (mb_stripos($text, $term) !== false) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any($terms, fn ($term) => mb_stripos($text, $term) !== false);
     }
 
     /**
@@ -358,6 +352,6 @@ class TaskFeedController extends TasksController
     /** Час із бази (стіна Києва, без поясу) → ISO з поясом, як решта API. */
     private static function atom(string $value): string
     {
-        return (new DateTime($value, new DateTimeZone('Europe/Kyiv')))->format(DateTimeInterface::ATOM);
+        return new DateTime($value, new DateTimeZone('Europe/Kyiv'))->format(DateTimeInterface::ATOM);
     }
 }

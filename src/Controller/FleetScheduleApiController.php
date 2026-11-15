@@ -25,9 +25,9 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class FleetScheduleApiController extends AbstractController
 {
     /** Скільки днів віддаємо за раз, якщо не попросили інакше. */
-    private const DEFAULT_DAYS = 7;
+    private const int DEFAULT_DAYS = 7;
     /** Стеля вікна: рік сіткою ніхто не читає, а вибірка була б важкою. */
-    private const MAX_DAYS = 31;
+    private const int MAX_DAYS = 31;
 
     public function __construct(
         private ScheduleBoard $board,

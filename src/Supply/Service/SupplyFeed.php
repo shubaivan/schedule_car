@@ -87,7 +87,7 @@ class SupplyFeed
             ],
             // «Хто прочитав» у заявок немає — поле лишаємо, щоб формат збігався з задачею.
             'reads' => [],
-            'now' => (new DateTimeImmutable())->format(DateTimeInterface::ATOM),
+            'now' => new DateTimeImmutable()->format(DateTimeInterface::ATOM),
         ];
     }
 

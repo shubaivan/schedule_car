@@ -17,7 +17,7 @@ use Doctrine\Migrations\AbstractMigration;
  */
 final class Version20260928150000 extends AbstractMigration
 {
-    private const COLUMNS = [
+    private const array COLUMNS = [
         // таблиця => старий рядковий стовпець
         'wh_item' => 'supplier',
         'wh_movement' => 'counterparty',

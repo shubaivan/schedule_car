@@ -46,7 +46,7 @@ class DriveEnqueueTest extends KernelTestCase
             $this->db->rollBack();
         }
 
-        (new Filesystem())->remove($this->dir);
+        new Filesystem()->remove($this->dir);
         parent::tearDown();
     }
 
@@ -61,14 +61,14 @@ class DriveEnqueueTest extends KernelTestCase
         // «Воркер async»: шина одразу віддає повідомлення обробнику.
         $bus = new SpyBus(static fn (object $m) => $m instanceof SyncDriveFiles ? $handler($m) : null);
 
-        (new DriveEnqueue($bus, $planFactory, $this->recorder('sync://')))->consume($event);
+        new DriveEnqueue($bus, $planFactory, $this->recorder('sync://'))->consume($event);
         self::assertSame([], $bus->messages, 'sync-режим: Google не смикаємо, лише черга');
 
-        (new DriveEnqueue($bus, new DriveClientFactory('', '', '', '', 'stand', $this->dir), $this->recorder('doctrine://default?queue_name=plan')))->consume($event);
+        new DriveEnqueue($bus, new DriveClientFactory('', '', '', '', 'stand', $this->dir), $this->recorder('doctrine://default?queue_name=plan'))->consume($event);
         self::assertSame([], $bus->messages, 'стенд заявок: дерево «План» не створюємо');
         self::assertSame('pending', $this->state((int) $file->getId()));
 
-        (new DriveEnqueue($bus, $planFactory, $this->recorder('doctrine://default?queue_name=plan')))->consume($event);
+        new DriveEnqueue($bus, $planFactory, $this->recorder('doctrine://default?queue_name=plan'))->consume($event);
         self::assertCount(1, $bus->messages);
         self::assertSame('done', $this->state((int) $file->getId()));
         self::assertFileExists($this->dir . '/index.json');

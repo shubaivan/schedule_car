@@ -68,7 +68,7 @@ class SupplyDepartmentCommand extends Command
                 continue;
             }
 
-            $this->em->persist((new Department())->setName($name));
+            $this->em->persist(new Department()->setName($name));
             $io->writeln(sprintf('+ «%s»', $name));
         }
 

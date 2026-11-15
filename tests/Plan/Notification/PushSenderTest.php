@@ -60,7 +60,7 @@ class PushSenderTest extends KernelTestCase
 
         self::assertSame(1, $delivered);
         self::assertCount(2, $requests);
-        $alive = array_values(array_filter($requests, static fn ($r) => str_ends_with($r['url'], '/alive')))[0];
+        $alive = array_first(array_filter($requests, static fn ($r) => str_ends_with($r['url'], '/alive')));
         self::assertSame('POST', $alive['method']);
         self::assertStringStartsWith('Authorization: vapid t=', $alive['headers']['authorization'][0] ?? '', 'VAPID-підпис');
         self::assertSame('aes128gcm', explode(': ', $alive['headers']['content-encoding'][0])[1] ?? null);

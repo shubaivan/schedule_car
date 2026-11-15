@@ -41,7 +41,7 @@ class WarehouseLinksTest extends TestCase
 
     public function testStickerIsScalableSvg(): void
     {
-        $svg = (new WarehouseLinks('testbot'))->qrSvg($this->item(7));
+        $svg = new WarehouseLinks('testbot')->qrSvg($this->item(7));
 
         self::assertStringStartsWith('<svg', $svg);
         self::assertStringContainsString('viewBox', $svg);
@@ -61,8 +61,8 @@ class WarehouseLinksTest extends TestCase
 
     private function item(int $id): WhItem
     {
-        $item = (new WhItem())->setName('Щит')->setInventoryNumber('ОП-0007');
-        (new ReflectionProperty(WhItem::class, 'id'))->setValue($item, $id);
+        $item = new WhItem()->setName('Щит')->setInventoryNumber('ОП-0007');
+        new ReflectionProperty(WhItem::class, 'id')->setValue($item, $id);
 
         return $item;
     }

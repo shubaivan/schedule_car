@@ -140,9 +140,9 @@ class AudienceResolverTest extends KernelTestCase
         $member = $this->person();
         $director = $this->person(WorkRole::Director);
         $accountant = $this->person(WorkRole::Accountant);
-        $this->em->persist((new NotificationSetting($director))->setScope(NotificationSetting::SCOPE_ALL));
+        $this->em->persist(new NotificationSetting($director)->setScope(NotificationSetting::SCOPE_ALL));
         // Бухгалтер теж «увімкнув Усе» в обхід UI — права бачити все в нього немає.
-        $this->em->persist((new NotificationSetting($accountant))->setScope(NotificationSetting::SCOPE_ALL));
+        $this->em->persist(new NotificationSetting($accountant)->setScope(NotificationSetting::SCOPE_ALL));
         $this->em->flush();
 
         $task = $this->tasks->create($creator, ['title' => 'Чужа для директора', 'memberIds' => [$member->getId()]]);

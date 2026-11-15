@@ -5,18 +5,18 @@ namespace App\Fleet\Telegram;
 /** Спільні callback_data автопарку — тримаємо в одному місці, як і в постачанні. */
 final class FleetCallback
 {
-    public const MENU = 'fleet:menu';
-    public const SCHEDULE = 'fleet:schedule';
-    public const MY_TRIPS = 'fleet:my';
-    public const DRIVER_TRIPS = 'fleet:driver';
-    public const BOOK = 'fleet:book';
+    public const string MENU = 'fleet:menu';
+    public const string SCHEDULE = 'fleet:schedule';
+    public const string MY_TRIPS = 'fleet:my';
+    public const string DRIVER_TRIPS = 'fleet:driver';
+    public const string BOOK = 'fleet:book';
     /** Вихід із форми бронювання; поза розмовою веде в розділ. */
-    public const FORM_CANCEL = 'fleet:form-cancel';
+    public const string FORM_CANCEL = 'fleet:form-cancel';
 
     /** fleet:schedule:<зсув у днях> — гортання розкладу вперед і назад. */
-    public const SCHEDULE_PREFIX = 'fleet:schedule:';
+    public const string SCHEDULE_PREFIX = 'fleet:schedule:';
     /** fleet:cancel:<id> — зняти своє бронювання. */
-    public const CANCEL_PREFIX = 'fleet:cancel:';
+    public const string CANCEL_PREFIX = 'fleet:cancel:';
 
     public static function schedule(int $offsetDays): string
     {

@@ -111,12 +111,12 @@ class PlanSuperadminCommand extends Command
         $this->events->transactional(function () use ($user, $grant): void {
             $user->setSuperadmin($grant);
             $this->em->flush();
-            $this->events->record((new SubjectUpdated(
+            $this->events->record(new SubjectUpdated(
                 SubjectRef::user((int) $user->getId()),
                 null,
                 fields: ['is_superadmin'],
                 summary: sprintf('роль суперадміна %s (plan:superadmin, користувач ОС: %s)', $grant ? 'видано' : 'знято', self::osUser()),
-            ))->via('cli'));
+            )->via('cli'));
         });
 
         $io->success(sprintf('%s: роль суперадміна %s.', $who, $grant ? 'видано' : 'знято'));

@@ -129,7 +129,7 @@ class CrmAuthFlowTest extends WebTestCase
 
     private function user(SupplyRole $role): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId('crm-' . uniqid())
             ->setFirstName('Тест-CRM')
             ->setSupplyRole($role);

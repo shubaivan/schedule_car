@@ -301,7 +301,7 @@ class PlanChronicle
 
     public static function cursor(string $lastAt, int $eventId): string
     {
-        return (new DateTime($lastAt, new DateTimeZone('Europe/Kyiv')))->format('Y-m-d H:i:s') . '|' . $eventId;
+        return new DateTime($lastAt, new DateTimeZone('Europe/Kyiv'))->format('Y-m-d H:i:s') . '|' . $eventId;
     }
 
     /** @return array{0: string, 1: int} */

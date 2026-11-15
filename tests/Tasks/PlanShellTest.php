@@ -2,13 +2,19 @@
 
 namespace App\Tests\Tasks;
 
+use App\Controller\HomeController;
 use App\Entity\TelegramUser;
 use App\Enum\AccessStatus;
+use App\Plan\EventStore\PlanEventRecorder;
 use App\Supply\Entity\Department;
+use App\Supply\Repository\DepartmentRepository;
 use App\Tasks\Command\TasksDemoSeedCommand;
 use App\Tasks\Demo\DemoDeals;
 use App\Tasks\Demo\DemoFiles;
 use App\Tasks\Enum\WorkRole;
+use App\Tasks\Service\DeferredPreviews;
+use App\Tasks\Service\TaskService;
+use App\Tasks\Service\TasksSection;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -16,6 +22,7 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Process\ExecutableFinder;
 use Symfony\Component\Process\Process;
 
@@ -25,7 +32,7 @@ use Symfony\Component\Process\Process;
  */
 class PlanShellTest extends WebTestCase
 {
-    private const PREFIX = 'plan-shell-test-';
+    private const string PREFIX = 'plan-shell-test-';
 
     private KernelBrowser $client;
     private EntityManagerInterface $em;
@@ -70,8 +77,8 @@ class PlanShellTest extends WebTestCase
 
     public function testBoardCardCarriesDepartmentsAndFileStats(): void
     {
-        $sales = (new Department())->setName('Шел-відділ 3. Продажі ' . uniqid());
-        $plant = (new Department())->setName('Шел-відділ 7. Виробництво ' . uniqid());
+        $sales = new Department()->setName('Шел-відділ 3. Продажі ' . uniqid());
+        $plant = new Department()->setName('Шел-відділ 7. Виробництво ' . uniqid());
         $this->em->persist($sales);
         $this->em->persist($plant);
         $manager = $this->user(WorkRole::Manager, 'mgr', $sales);
@@ -106,15 +113,15 @@ class PlanShellTest extends WebTestCase
 
     public function testRootOpensThePlanWhenItIsTheHome(): void
     {
-        $home = self::getContainer()->get(\App\Controller\HomeController::class);
+        $home = self::getContainer()->get(HomeController::class);
 
-        $plan = $home->index('testbot', new \App\Tasks\Service\TasksSection(true, 'tasks'));
+        $plan = $home->index('testbot', new TasksSection(true, 'tasks'));
         self::assertSame(302, $plan->getStatusCode());
         self::assertSame('/crm/tasks', $plan->headers->get('Location'));
 
         // Стенд заявок (CRM_HOME=requests) і вимкнений План — як і було, титулка заявок.
-        self::assertSame(200, $home->index('testbot', new \App\Tasks\Service\TasksSection(true, 'requests'))->getStatusCode());
-        self::assertSame(200, $home->index('testbot', new \App\Tasks\Service\TasksSection(false, 'tasks'))->getStatusCode());
+        self::assertSame(200, $home->index('testbot', new TasksSection(true, 'requests'))->getStatusCode());
+        self::assertSame(200, $home->index('testbot', new TasksSection(false, 'tasks'))->getStatusCode());
     }
 
     public function testDemoSeedRefusesOnDatabaseWithLivePeople(): void
@@ -134,11 +141,11 @@ class PlanShellTest extends WebTestCase
     {
         $prod = new TasksDemoSeedCommand(
             self::getContainer()->get(EntityManagerInterface::class),
-            self::getContainer()->get(\App\Supply\Repository\DepartmentRepository::class),
-            self::getContainer()->get(\App\Tasks\Service\TaskService::class),
-            self::getContainer()->get(\App\Plan\EventStore\PlanEventRecorder::class),
-            self::getContainer()->get(\App\Tasks\Service\DeferredPreviews::class),
-            self::getContainer()->get(\Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface::class),
+            self::getContainer()->get(DepartmentRepository::class),
+            self::getContainer()->get(TaskService::class),
+            self::getContainer()->get(PlanEventRecorder::class),
+            self::getContainer()->get(DeferredPreviews::class),
+            self::getContainer()->get(UserPasswordHasherInterface::class),
             '/nonexistent',
             'prod',
             null,
@@ -215,7 +222,7 @@ class PlanShellTest extends WebTestCase
             self::assertSame(2, substr_count($pdf, '/Type /Page '));
             self::assertStringEndsWith("%%EOF\n", $pdf);
 
-            $pdfinfo = (new ExecutableFinder())->find('pdfinfo');
+            $pdfinfo = new ExecutableFinder()->find('pdfinfo');
 
             if ($pdfinfo !== null) {
                 $process = new Process([$pdfinfo, $dir . '/doc.pdf']);
@@ -249,7 +256,7 @@ class PlanShellTest extends WebTestCase
 
     private function user(WorkRole $role, string $name, ?Department $department = null): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId(self::PREFIX . $name . '-' . uniqid())
             ->setFirstName(ucfirst($name))
             ->setLastName('Тестовий')

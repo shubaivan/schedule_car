@@ -21,7 +21,7 @@ use SergiX44\Nutgram\Testing\FakeNutgram;
  */
 class FleetSwitchTest extends TestCase
 {
-    private const CHAT_ID = 471925876;
+    private const int CHAT_ID = 471925876;
 
     public function testSectionWorksWhenEnabled(): void
     {

@@ -29,7 +29,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class SupplyFeedTest extends WebTestCase
 {
-    private const MARKER = 'Тест-Стрічка';
+    private const string MARKER = 'Тест-Стрічка';
 
     private KernelBrowser $client;
     private EntityManagerInterface $em;
@@ -71,7 +71,7 @@ class SupplyFeedTest extends WebTestCase
         $manager = $this->user(SupplyRole::Manager);
         $request = $this->request($worker);
         self::getContainer()->get(AddComment::class)($request, $manager, 'Уточню ціну');
-        $supplier = (new Supplier())->setName(self::MARKER . ' постачальник');
+        $supplier = new Supplier()->setName(self::MARKER . ' постачальник');
         $this->em->persist($supplier);
         $this->em->flush();
         self::getContainer()->get(RecordPurchase::class)($request, $manager, new PurchaseInput(supplier: $supplier, totalAmount: '1200', quantity: null, pricePerUnit: null, payment: PaymentType::Bank, vatIncluded: true, invoiceNumber: 'Н-7', purchasedAt: null));
@@ -250,7 +250,7 @@ class SupplyFeedTest extends WebTestCase
 
     private function user(SupplyRole $role): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId('feed-' . uniqid())
             ->setFirstName(self::MARKER)
             ->setSupplyRole($role);

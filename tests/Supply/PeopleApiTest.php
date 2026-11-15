@@ -22,7 +22,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class PeopleApiTest extends WebTestCase
 {
-    private const PREFIX = 'people-test-';
+    private const string PREFIX = 'people-test-';
 
     private KernelBrowser $client;
     private EntityManagerInterface $em;
@@ -190,7 +190,7 @@ class PeopleApiTest extends WebTestCase
 
     private function department(): Department
     {
-        $department = (new Department())->setName('Дільниця ' . uniqid());
+        $department = new Department()->setName('Дільниця ' . uniqid());
 
         $this->em->persist($department);
         $this->em->flush();
@@ -200,7 +200,7 @@ class PeopleApiTest extends WebTestCase
 
     private function user(SupplyRole $role): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId(self::PREFIX . uniqid())
             ->setFirstName('Тест-Люди')
             ->setPhoneNumber('38050' . random_int(1000000, 9999999))

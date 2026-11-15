@@ -84,7 +84,7 @@ class StaffDirectoryTest extends KernelTestCase
         $manager = $this->user(SupplyRole::Manager);
 
         $this->expectException(SupplyException::class);
-        $this->expectExceptionMessage('адміністратор');
+        $this->expectExceptionMessageIsOrContains('адміністратор');
 
         $this->directory->save('0671112233', SupplyRole::Admin, by: $manager);
     }
@@ -92,14 +92,14 @@ class StaffDirectoryTest extends KernelTestCase
     public function testShortNumberIsRefused(): void
     {
         $this->expectException(SupplyException::class);
-        $this->expectExceptionMessage('щонайменше 9 цифр');
+        $this->expectExceptionMessageIsOrContains('щонайменше 9 цифр');
 
         $this->directory->save('12345', SupplyRole::Worker);
     }
 
     private function user(SupplyRole $role = SupplyRole::Worker): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId('staff-' . uniqid())
             ->setFirstName('Тест-Довідник')
             ->setSupplyRole($role);

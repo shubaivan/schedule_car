@@ -7,6 +7,7 @@ use Google\Http\MediaFileUpload;
 use Google\Service\Drive;
 use Google\Service\Drive\DriveFile;
 use Google\Service\Exception as GoogleException;
+use Psr\Http\Message\RequestInterface;
 use Throwable;
 
 /**
@@ -110,7 +111,7 @@ final class GoogleDriveClient implements DriveClient
             $client->setDefer(true);
 
             try {
-                /** @var \Psr\Http\Message\RequestInterface $request */
+                /** @var RequestInterface $request */
                 $request = $drive->files->create($meta, ['fields' => 'id,webViewLink']);
                 $media = new MediaFileUpload($client, $request, $mime, '', true, self::CHUNK);
                 $media->setFileSize(strlen($contents));

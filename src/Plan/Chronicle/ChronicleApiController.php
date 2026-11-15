@@ -407,6 +407,6 @@ final class ChronicleApiController extends TasksController
 
     private static function atom(string $value): string
     {
-        return (new DateTime($value, new DateTimeZone('Europe/Kyiv')))->format(DateTimeInterface::ATOM);
+        return new DateTime($value, new DateTimeZone('Europe/Kyiv'))->format(DateTimeInterface::ATOM);
     }
 }

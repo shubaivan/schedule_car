@@ -24,7 +24,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class ScheduleApiTest extends WebTestCase
 {
-    private const MARKER = 'Тест-Календар';
+    private const string MARKER = 'Тест-Календар';
 
     private KernelBrowser $client;
     private EntityManagerInterface $em;
@@ -75,7 +75,7 @@ class ScheduleApiTest extends WebTestCase
     /** Довідник автопарку менеджеру закритий, а календар — ні. */
     public function testWorkerSeesLoadOfEveryCar(): void
     {
-        $car = (new Car())->setCarNumber('КАЛ0001')->setModel('Renault Master');
+        $car = new Car()->setCarNumber('КАЛ0001')->setModel('Renault Master');
         $this->em->persist($car);
 
         $driver = $this->person('Петро');
@@ -86,9 +86,9 @@ class ScheduleApiTest extends WebTestCase
         $link->setDriver($driver);
         $this->em->persist($link);
 
-        $at = (new DateTime('tomorrow', new DateTimeZone('Europe/Kyiv')))->setTime(8, 0);
+        $at = new DateTime('tomorrow', new DateTimeZone('Europe/Kyiv'))->setTime(8, 0);
         $this->em->persist(
-            (new ScheduledSet())
+            new ScheduledSet()
                 ->setCar($car)
                 ->setTelegramUserId($author)
                 ->setYear((int) $at->format('Y'))
@@ -121,7 +121,7 @@ class ScheduleApiTest extends WebTestCase
     /** Вільна машина теж у відповіді: «на чому поїхати» — те саме питання. */
     public function testFreeCarStaysInTheBoardWithoutTrips(): void
     {
-        $this->em->persist((new Car())->setCarNumber('КАЛ0002'));
+        $this->em->persist(new Car()->setCarNumber('КАЛ0002'));
         $this->em->flush();
 
         $this->login(SupplyRole::Worker);
@@ -145,7 +145,7 @@ class ScheduleApiTest extends WebTestCase
 
     private function person(string $name): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId('board-' . uniqid())
             ->setFirstName($name . ' ' . self::MARKER)
             ->setPhoneNumber('380631110000');
@@ -157,7 +157,7 @@ class ScheduleApiTest extends WebTestCase
 
     private function login(SupplyRole $role): void
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId('board-login-' . uniqid())
             ->setFirstName(self::MARKER)
             ->setSupplyRole($role);

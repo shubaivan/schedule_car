@@ -60,7 +60,7 @@ class OverdueCommandTest extends KernelTestCase
         $container->set(SupplyNotifier::class, $this->notifier);
 
         $this->em = $container->get(EntityManagerInterface::class);
-        $this->command = new CommandTester((new Application(self::$kernel))->find('supply:overdue'));
+        $this->command = new CommandTester(new Application(self::$kernel)->find('supply:overdue'));
         $this->em->beginTransaction();
     }
 
@@ -185,7 +185,7 @@ class OverdueCommandTest extends KernelTestCase
 
     private function person(SupplyRole $role = SupplyRole::Worker): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId('overdue-' . $role->value . '-' . uniqid())
             ->setFirstName($role->label())
             ->setSupplyRole($role);

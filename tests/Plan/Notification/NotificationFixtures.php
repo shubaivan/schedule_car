@@ -23,7 +23,7 @@ trait NotificationFixtures
      */
     private function person(WorkRole $role = WorkRole::Production, SupplyRole $supply = SupplyRole::Worker, bool $approved = true, string $name = 'Тест-Сповіщ', bool $bellAll = true): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId((string) random_int(100_000_000, 999_999_999))
             ->setFirstName($name)
             ->setWorkRole($role)

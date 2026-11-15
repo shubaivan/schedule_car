@@ -268,7 +268,7 @@ class PlanEventRecorderTest extends KernelTestCase
         $this->db->executeStatement('DELETE FROM plan_event_consumed WHERE event_id = ? AND consumer = ?', [$id, $chronicle]);
         $others = (int) $this->db->fetchOne('SELECT COUNT(*) FROM plan_event_consumed WHERE event_id = ?', [$id]);
 
-        $tester = new CommandTester((new Application(self::$kernel))->find('plan:projections:reconcile'));
+        $tester = new CommandTester(new Application(self::$kernel)->find('plan:projections:reconcile'));
         self::assertSame(0, $tester->execute(['--min-age' => '0', '--dry-run' => true]));
         self::assertFalse($activity(), 'dry-run нічого не пише');
 

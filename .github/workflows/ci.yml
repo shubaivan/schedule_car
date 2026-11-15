@@ -80,6 +80,44 @@ jobs:
             -   name: Check formatting
                 run: composer cs-check
 
+    rector:
+        name: Rector (dry-run)
+        needs: composer
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+
+        steps:
+            -   name: Checkout repository
+                uses: actions/checkout@v4.2.2
+
+            -   name: Setup php
+                uses: shivammathur/setup-php@2.35.5
+                with:
+                    php-version: ${{ env.PHP_VERSION }}
+                    extensions: ${{ env.PHP_EXTENSIONS }}
+                    ini-values: memory_limit=1G
+                    coverage: none
+                    tools: composer:v2
+
+            -   name: Composer cache directory
+                id: composer-cache
+                run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+            -   name: Cache composer downloads
+                uses: actions/cache@v4.2.3
+                with:
+                    path: ${{ steps.composer-cache.outputs.dir }}
+                    key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+                    restore-keys: composer-${{ runner.os }}-
+
+            -   name: Install dependencies
+                run: composer install ${{ env.COMPOSER_FLAGS }}
+
+            # phpstan-symfony reads the compiled container and the doctrine extension
+            # a real EntityManager, so the dev cache must be warm first (no DB needed).
+            -   name: Rector dry-run
+                run: composer rector
+
     phpstan:
         name: PHPStan
         needs: composer

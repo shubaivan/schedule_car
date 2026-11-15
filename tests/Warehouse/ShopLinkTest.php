@@ -44,7 +44,7 @@ class ShopLinkTest extends WebTestCase
     public function testPassIsSignedShortLivedAndCarriesTheTelegramAccount(): void
     {
         $user = $this->person();
-        $url = (new ShopLink('https://shop.test/', 'secret'))->url($user, '/admin/products', 1_000_000);
+        $url = new ShopLink('https://shop.test/', 'secret')->url($user, '/admin/products', 1_000_000);
 
         self::assertStringStartsWith('https://shop.test/admin/sso?t=', $url);
 

@@ -21,7 +21,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 /** Склад: позиції, рухи, клієнти, об'єкти, категорії. Ведуть менеджер, адмін, директор. */
 final class WarehouseSubjects implements SubjectProvider
 {
-    private const ENTITIES = [
+    private const array ENTITIES = [
         'wh_item' => WhItem::class,
         'wh_movement' => WhMovement::class,
         'wh_client' => WhClient::class,

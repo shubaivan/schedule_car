@@ -9,6 +9,7 @@ use App\Plan\Telegram\PlanBotMode;
 use App\Repository\TelegramUserRepository;
 use App\Supply\Repository\DepartmentRepository;
 use App\Tasks\Entity\Task;
+use App\Tasks\Entity\TaskAttachment;
 use App\Tasks\Entity\TaskMessage;
 use App\Tasks\Enum\TaskStatus;
 use App\Tasks\Enum\WorkRole;
@@ -272,7 +273,7 @@ class TaskApiController extends TasksController
         $updated = [];
 
         foreach ($pending as $id) {
-            $attachment = $this->em->find(\App\Tasks\Entity\TaskAttachment::class, $id);
+            $attachment = $this->em->find(TaskAttachment::class, $id);
 
             if ($attachment !== null && $attachment->getTask()->getId() === $task->getId()) {
                 $updated[] = $this->presenter->attachment($attachment);

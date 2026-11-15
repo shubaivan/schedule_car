@@ -8,6 +8,7 @@ use DateTime;
 use DateTimeZone;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\ParameterType;
 use InvalidArgumentException;
 
 /**
@@ -184,7 +185,7 @@ class TaskFeedRepository
         return array_map('intval', $this->db->fetchFirstColumn(
             'SELECT message_id FROM task_message_star WHERE user_id = ? AND message_id IN (?)',
             [$viewer->getId(), $messageIds],
-            [\Doctrine\DBAL\ParameterType::INTEGER, ArrayParameterType::INTEGER],
+            [ParameterType::INTEGER, ArrayParameterType::INTEGER],
         ));
     }
 
@@ -198,6 +199,6 @@ class TaskFeedRepository
 
     public static function cursor(string $lastActivityAt, int $id): string
     {
-        return (new DateTime($lastActivityAt, new DateTimeZone('Europe/Kyiv')))->format('Y-m-d H:i:s') . '|' . $id;
+        return new DateTime($lastActivityAt, new DateTimeZone('Europe/Kyiv'))->format('Y-m-d H:i:s') . '|' . $id;
     }
 }

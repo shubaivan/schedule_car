@@ -20,7 +20,7 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
  */
 class StandModeTest extends WebTestCase
 {
-    private const ENV = [
+    private const array ENV = [
         'TASKS_ENABLED' => '0',
         'WAREHOUSE_ENABLED' => '0',
         'CRM_HOME' => 'requests',
@@ -175,7 +175,7 @@ class StandModeTest extends WebTestCase
 
     private function person(SupplyRole $role): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId((string) random_int(100_000_000, 999_999_999))
             ->setFirstName('Тест-Стенд')
             ->setSupplyRole($role);

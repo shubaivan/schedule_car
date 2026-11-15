@@ -9,6 +9,7 @@ use App\Supply\Exception\SupplyException;
 use App\Supply\Repository\SupplyRequestRepository;
 use App\Supply\Service\ChangeStatus;
 use App\Supply\Service\RequestFormatter;
+use Override;
 use SergiX44\Nutgram\Conversations\Conversation;
 use SergiX44\Nutgram\Nutgram;
 
@@ -17,6 +18,7 @@ class RejectConversation extends Conversation
 {
     use CancelsToRequest;
 
+    #[Override]
     protected ?string $step = 'askReason';
 
     public ?int $requestId = null;

@@ -31,7 +31,7 @@ use function strlen;
  */
 class GoogleDriveMirror
 {
-    private const FOLDER_MIME = 'application/vnd.google-apps.folder';
+    private const string FOLDER_MIME = 'application/vnd.google-apps.folder';
 
     private ?Drive $drive = null;
 

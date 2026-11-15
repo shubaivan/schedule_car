@@ -33,7 +33,7 @@ class PhoneFormatTest extends KernelTestCase
     {
         self::bootKernel();
         $presenter = self::getContainer()->get(TaskPresenter::class);
-        $user = (new TelegramUser())->setId(140)->setTelegramId('staff-x')->setFirstName('Олександр')->setLastName('Чигрин')->setPhoneNumber('0933504442');
+        $user = new TelegramUser()->setId(140)->setTelegramId('staff-x')->setFirstName('Олександр')->setLastName('Чигрин')->setPhoneNumber('0933504442');
         $person = $presenter->person($user);
         self::assertSame('093 350 44 42', $person['phone'] ?? null);
         self::assertSame('+380933504442', $person['tel'] ?? null);

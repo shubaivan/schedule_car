@@ -8,6 +8,7 @@ use App\Supply\Exception\SupplyException;
 use App\Supply\Repository\SupplyRequestRepository;
 use App\Supply\Service\AddComment;
 use App\Supply\Service\RequestFormatter;
+use Override;
 use SergiX44\Nutgram\Conversations\Conversation;
 use SergiX44\Nutgram\Nutgram;
 
@@ -16,6 +17,7 @@ class CommentConversation extends Conversation
 {
     use CancelsToRequest;
 
+    #[Override]
     protected ?string $step = 'askText';
 
     public ?int $requestId = null;

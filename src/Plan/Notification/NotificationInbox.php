@@ -176,8 +176,8 @@ final class NotificationInbox
                 'headline' => $text['headline'],
                 'detail' => $text['detail'],
                 'actor' => $actor !== null ? ['id' => (int) $actor->getId(), 'name' => $actor->shortName()] : null,
-                'createdAt' => (new DateTimeImmutable((string) $row['n_created'], $kyiv))->format(DateTimeInterface::ATOM),
-                'readAt' => $row['n_read'] !== null ? (new DateTimeImmutable((string) $row['n_read'], $kyiv))->format(DateTimeInterface::ATOM) : null,
+                'createdAt' => new DateTimeImmutable((string) $row['n_created'], $kyiv)->format(DateTimeInterface::ATOM),
+                'readAt' => $row['n_read'] !== null ? new DateTimeImmutable((string) $row['n_read'], $kyiv)->format(DateTimeInterface::ATOM) : null,
             ];
         }
 

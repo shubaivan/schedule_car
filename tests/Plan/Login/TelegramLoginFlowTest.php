@@ -7,6 +7,7 @@ use App\Enum\AccessStatus;
 use App\Plan\Login\Entity\JoinRequest;
 use App\Plan\Login\JoinRequests;
 use App\Plan\Login\JoinRequestStatus;
+use App\Plan\Login\JoinSubmit;
 use App\Plan\Login\PlanLoginBot;
 use App\Plan\Login\TelegramLogin;
 use App\Plan\Notification\NotificationPreferences;
@@ -16,6 +17,7 @@ use App\Plan\Telegram\PlanBotMode;
 use App\Plan\Telegram\TelegramLink;
 use App\Service\TelegramUserService;
 use App\Tasks\Enum\WorkRole;
+use App\Tasks\Exception\TaskException;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use SergiX44\Nutgram\Nutgram;
@@ -294,9 +296,9 @@ class TelegramLoginFlowTest extends KernelTestCase
         self::assertSame('Не наш працівник', $request->getReason());
 
         [$again] = $joins->submit($from, '380501112233');
-        self::assertSame(\App\Plan\Login\JoinSubmit::Limited, $again, 'Після відмови — не раніше ніж за добу');
+        self::assertSame(JoinSubmit::Limited, $again, 'Після відмови — не раніше ніж за добу');
 
-        $this->expectException(\App\Tasks\Exception\TaskException::class);
+        $this->expectException(TaskException::class);
         $joins->approve($request, $admin);
     }
 
@@ -363,7 +365,7 @@ class TelegramLoginFlowTest extends KernelTestCase
 
     private function staff(string $phone, ?string $telegramId = null, bool $superadmin = false): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId($telegramId ?? 'staff-' . bin2hex(random_bytes(6)))
             ->setChatId($telegramId)
             ->setFirstName('Тест-Вхід')

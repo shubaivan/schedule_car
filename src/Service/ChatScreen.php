@@ -30,7 +30,7 @@ use Throwable;
  */
 class ChatScreen
 {
-    private const KEY = 'screen_message_id';
+    private const string KEY = 'screen_message_id';
 
     /**
      * Показати екран. Повертає id повідомлення, у якому він тепер живе.

@@ -8,6 +8,7 @@ use App\Enum\AccessStatus;
 use App\Plan\Audit\AuditCatalog;
 use App\Plan\Event\CommentAdded;
 use App\Plan\Event\FileDownloaded;
+use App\Plan\Event\LoginFailed;
 use App\Plan\Event\PlanEventTypes;
 use App\Plan\Event\StaffChanged;
 use App\Plan\Event\StatusChanged;
@@ -124,7 +125,7 @@ class AuditCommandsTest extends KernelTestCase
     {
         $user = $this->human('old', email: 'audit-cmd-' . uniqid() . '@example.test');
         $kyiv = new DateTimeZone('Europe/Kyiv');
-        $ago = static fn (string $modify) => (new DateTimeImmutable('now', $kyiv))->modify($modify);
+        $ago = static fn (string $modify) => new DateTimeImmutable('now', $kyiv)->modify($modify);
         $recorder = self::getContainer()->get(PlanEventRecorder::class);
         $ref = SubjectRef::task(900000010);
         $me = SubjectRef::user((int) $user->getId());
@@ -199,7 +200,7 @@ class AuditCommandsTest extends KernelTestCase
         $conn->executeStatement("UPDATE crm_login SET at = '2020-01-01 10:00:00' WHERE id = ?", [$failed->getId()]);
 
         // Живий журнал: невдалий вхід на впізнану людину (user-N); crm_login її не знає (user_id NULL).
-        self::getContainer()->get(PlanEventRecorder::class)->import(new \App\Plan\Event\LoginFailed(
+        self::getContainer()->get(PlanEventRecorder::class)->import(new LoginFailed(
             SubjectRef::user((int) $user->getId()),
             null,
             reason: 'Invalid credentials.',
@@ -264,7 +265,7 @@ class AuditCommandsTest extends KernelTestCase
 
     private function human(string $name, string $email, ?string $phone = null): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId('audit-cmd-' . $name . '-' . uniqid())
             ->setFirstName(ucfirst($name))
             ->setEmail($email)

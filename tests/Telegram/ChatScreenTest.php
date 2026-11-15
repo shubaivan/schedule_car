@@ -24,8 +24,8 @@ use SergiX44\Nutgram\Testing\FakeNutgram;
  */
 class ChatScreenTest extends TestCase
 {
-    private const CHAT_ID = 471925876;
-    private const MENU_MESSAGE = 100;
+    private const int CHAT_ID = 471925876;
+    private const int MENU_MESSAGE = 100;
 
     /** id повідомлення, у якому живе екран після останнього рендера. */
     private ?int $screenId = null;

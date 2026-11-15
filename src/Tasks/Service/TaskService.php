@@ -74,7 +74,7 @@ class TaskService
         $task->addMember($author);
 
         $this->em->persist($task);
-        $created = (new TaskMessage($task, $author, $this->membersLine('задачу створено', $task), TaskMessage::KIND_EVENT))
+        $created = new TaskMessage($task, $author, $this->membersLine('задачу створено', $task), TaskMessage::KIND_EVENT)
             ->setEventType(TaskMessage::EVENT_CREATED);
         $this->em->persist($created);
 
@@ -545,7 +545,7 @@ class TaskService
 
     private function event(Task $task, TelegramUser $user, string $text, ?string $type = null): TaskMessage
     {
-        $message = (new TaskMessage($task, $user, $text, TaskMessage::KIND_EVENT))->setEventType($type);
+        $message = new TaskMessage($task, $user, $text, TaskMessage::KIND_EVENT)->setEventType($type);
         $this->em->persist($message);
         $task->touch();
 

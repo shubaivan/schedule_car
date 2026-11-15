@@ -16,7 +16,7 @@ class PlanChronicleTest extends WebTestCase
 {
     use S4Fixtures;
 
-    private const PREFIX = 's4-chron-';
+    private const string PREFIX = 's4-chron-';
 
     public function testDirectorSeesEverythingWorkerOnlyOwn(): void
     {

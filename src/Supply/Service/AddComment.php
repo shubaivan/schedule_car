@@ -34,7 +34,7 @@ class AddComment
             );
         }
 
-        $comment = (new SupplyComment())
+        $comment = new SupplyComment()
             ->setAuthor($author)
             ->setText($text);
 

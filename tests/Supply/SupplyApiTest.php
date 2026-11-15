@@ -19,7 +19,7 @@ use Symfony\Component\HttpFoundation\Response;
 /** API столу заявок: доступ, фільтри, зміна статусу, коментарі. */
 class SupplyApiTest extends WebTestCase
 {
-    private const MARKER = 'Тест-API';
+    private const string MARKER = 'Тест-API';
 
     private KernelBrowser $client;
     private EntityManagerInterface $em;
@@ -190,7 +190,7 @@ class SupplyApiTest extends WebTestCase
     {
         $worker = $this->user(SupplyRole::Worker);
 
-        $department = (new Department())->setName('Дільниця ' . uniqid());
+        $department = new Department()->setName('Дільниця ' . uniqid());
         $this->em->persist($department);
         $this->em->flush();
 
@@ -294,7 +294,7 @@ class SupplyApiTest extends WebTestCase
 
     private function user(SupplyRole $role): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId('api-' . uniqid())
             ->setFirstName(self::MARKER)
             ->setSupplyRole($role);

@@ -17,7 +17,7 @@ use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
 class AllRequests
 {
     /** Стільки заявок читається одним екраном; глибше — у CRM. */
-    private const LIMIT = 15;
+    private const int LIMIT = 15;
 
     public function __construct(
         private SupplyRequestRepository $repository,

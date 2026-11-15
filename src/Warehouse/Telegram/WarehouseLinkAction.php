@@ -35,7 +35,7 @@ use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardMarkup;
  */
 class WarehouseLinkAction
 {
-    private const CLASSES = [
+    private const array CLASSES = [
         WarehouseLinks::KIND_SCAN => WhItem::class,
         WarehouseLinks::KIND_ITEM => WhItem::class,
         WarehouseLinks::KIND_CLIENT => WhClient::class,

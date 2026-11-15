@@ -87,7 +87,7 @@ class AttachFile
 
         $this->supplyStorage->write($path, $contents);
 
-        $attachment = (new SupplyAttachment())
+        $attachment = new SupplyAttachment()
             ->setType($type)
             ->setOriginalName($originalName)
             ->setStoragePath($path)
@@ -178,7 +178,7 @@ class AttachFile
             '%s/%s/%s-%s%s',
             $request->getCreatedAt()->format('Y'),
             str_replace('/', '-', $request->getNumber()),
-            (new DateTime('now', new DateTimeZone('Europe/Kyiv')))->format('Ymd-His'),
+            new DateTime('now', new DateTimeZone('Europe/Kyiv'))->format('Ymd-His'),
             bin2hex(random_bytes(8)),
             $extension !== '' ? '.' . $extension : '',
         );

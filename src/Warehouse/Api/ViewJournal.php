@@ -43,7 +43,7 @@ final class ViewJournal
                 'id' => $subject->getId(),
                 'user' => $user->getId(),
                 'action' => ActivityAction::View->value,
-                'since' => (new DateTime(sprintf('-%d minutes', self::THROTTLE_MINUTES)))->format('Y-m-d H:i:s'),
+                'since' => new DateTime(sprintf('-%d minutes', self::THROTTLE_MINUTES))->format('Y-m-d H:i:s'),
             ],
         );
 

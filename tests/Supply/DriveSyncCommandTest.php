@@ -36,7 +36,7 @@ class DriveSyncCommandTest extends KernelTestCase
         self::bootKernel();
         $this->em = self::getContainer()->get(EntityManagerInterface::class);
         $this->attachFile = self::getContainer()->get(AttachFile::class);
-        $this->command = new CommandTester((new Application(self::$kernel))->find('supply:drive-sync'));
+        $this->command = new CommandTester(new Application(self::$kernel)->find('supply:drive-sync'));
         $this->em->beginTransaction();
         // Чужі документи з інших тестів зробили б «тишу» недосяжною.
         $this->em->createQuery('DELETE FROM ' . SupplyAttachment::class)->execute();
@@ -89,7 +89,7 @@ class DriveSyncCommandTest extends KernelTestCase
         $users = [];
 
         foreach ([SupplyRole::Worker, SupplyRole::Manager] as $role) {
-            $user = (new TelegramUser())
+            $user = new TelegramUser()
                 ->setTelegramId('drive-' . $role->value . '-' . uniqid())
                 ->setFirstName($role->label())
                 ->setSupplyRole($role);

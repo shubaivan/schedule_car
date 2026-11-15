@@ -25,13 +25,13 @@ use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardMarkup;
 class FleetSchedule
 {
     /** Скільки днів показуємо за раз: тиждень читається без гортання. */
-    private const DAYS = 7;
+    private const int DAYS = 7;
     /**
      * Стеля броней у повідомленні. Ліміт Telegram — 4096 символів, а бронь із
      * маршрутом, іменем, телефоном і завданням тягне під три сотні; без стелі
      * тиждень великого парку просто не намалювався б.
      */
-    private const MAX_SLOTS = 20;
+    private const int MAX_SLOTS = 20;
 
     public function __construct(
         private ScheduleBoard $board,

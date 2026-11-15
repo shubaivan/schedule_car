@@ -17,7 +17,7 @@ use DateTimeInterface;
 class TaskPresenter
 {
     /** Палітра аватарок — колір стабільний для людини (за id). */
-    private const PALETTE = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#ec4899', '#84cc16', '#f97316', '#06b6d4', '#a855f7'];
+    private const array PALETTE = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#ec4899', '#84cc16', '#f97316', '#06b6d4', '#a855f7'];
 
     public function __construct(private TaskPolicy $policy, private TaskFeedRepository $feed)
     {

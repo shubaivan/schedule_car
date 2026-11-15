@@ -4,7 +4,9 @@ namespace App\Tests\Tasks;
 
 use App\Entity\TelegramUser;
 use App\Enum\AccessStatus;
+use App\Tasks\Entity\Task;
 use App\Tasks\Enum\WorkRole;
+use App\Tasks\Service\TaskService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -17,7 +19,7 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
  */
 class TaskFeedTest extends WebTestCase
 {
-    private const PREFIX = 'feed-test-';
+    private const string PREFIX = 'feed-test-';
 
     private KernelBrowser $client;
     private EntityManagerInterface $em;
@@ -115,8 +117,8 @@ class TaskFeedTest extends WebTestCase
         $first = $this->send('POST', '/api/tasks/' . $created['id'] . '/messages', ['text' => 'Перше']);
         $second = $this->send('POST', '/api/tasks/' . $created['id'] . '/messages', ['text' => 'Друге']);
 
-        $service = self::getContainer()->get(\App\Tasks\Service\TaskService::class);
-        $task = $this->em->find(\App\Tasks\Entity\Task::class, $created['id']);
+        $service = self::getContainer()->get(TaskService::class);
+        $task = $this->em->find(Task::class, $created['id']);
         $user = $this->em->find(TelegramUser::class, $manager->getId());
         $conn = $this->em->getConnection();
         $conn->executeStatement('DELETE FROM task_read WHERE task_id = ?', [$created['id']]);
@@ -411,7 +413,7 @@ class TaskFeedTest extends WebTestCase
 
     private function user(WorkRole $role, string $name): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId(self::PREFIX . $name . '-' . uniqid())
             ->setFirstName(ucfirst($name))
             ->setLastName('Стрічка')

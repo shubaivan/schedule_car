@@ -21,7 +21,7 @@ trait WarehouseFixtures
 
     protected function person(SupplyRole $role = SupplyRole::Manager): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId('wh-' . uniqid('', true))
             ->setFirstName('Тест-Склад')
             ->setSupplyRole($role);
@@ -35,7 +35,7 @@ trait WarehouseFixtures
 
     protected function category(string $name = 'Опалубка', string $prefix = 'ТСТ'): WhCategory
     {
-        $category = (new WhCategory())
+        $category = new WhCategory()
             ->setScope(CategoryScope::Item)
             ->setName($name . ' ' . uniqid())
             ->setPrefix($prefix);
@@ -48,7 +48,7 @@ trait WarehouseFixtures
 
     protected function warehouse(string $name = 'Тест-склад'): WhSite
     {
-        $site = (new WhSite())->setKind(SiteKind::Warehouse)->setName($name);
+        $site = new WhSite()->setKind(SiteKind::Warehouse)->setName($name);
         $this->em()->persist($site);
         $this->em()->flush();
 
@@ -57,7 +57,7 @@ trait WarehouseFixtures
 
     protected function site(?WhClient $client = null, string $name = 'ЖК Тестовий'): WhSite
     {
-        $site = (new WhSite())->setKind(SiteKind::Site)->setName($name)->setClient($client);
+        $site = new WhSite()->setKind(SiteKind::Site)->setName($name)->setClient($client);
         $this->em()->persist($site);
         $this->em()->flush();
 
@@ -66,7 +66,7 @@ trait WarehouseFixtures
 
     protected function client(string $name = 'ТОВ Тест-Клієнт'): WhClient
     {
-        $client = (new WhClient())->setName($name);
+        $client = new WhClient()->setName($name);
         $this->em()->persist($client);
         $this->em()->flush();
 
@@ -75,7 +75,7 @@ trait WarehouseFixtures
 
     protected function item(Tracking $tracking = Tracking::Unit, string $name = 'Щит 1200×600', ?string $rate = null): WhItem
     {
-        $item = (new WhItem())
+        $item = new WhItem()
             ->setInventoryNumber('T-' . uniqid())
             ->setName($name)
             ->setCategory($this->category())

@@ -11,7 +11,7 @@ use DateTimeZone;
  */
 final class KyivTime
 {
-    public const ZONE = 'Europe/Kyiv';
+    public const string ZONE = 'Europe/Kyiv';
 
     public static function now(): DateTime
     {

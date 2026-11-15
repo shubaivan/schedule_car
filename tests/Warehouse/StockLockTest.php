@@ -7,6 +7,7 @@ use App\Warehouse\Enum\Tracking;
 use App\Warehouse\Exception\WarehouseException;
 use App\Warehouse\Service\RecordMovement;
 use DateTime;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\ORM\EntityManagerInterface;
@@ -41,7 +42,7 @@ final class StockLockTest extends KernelTestCase
         $db = $this->em->getConnection();
         $db->executeStatement('SET lock_timeout = 0');
         $items = $this->created['item'] ?: [0];
-        $movements = array_map('intval', $db->fetchFirstColumn('SELECT DISTINCT movement_id FROM wh_movement_line WHERE item_id IN (?)', [$items], [\Doctrine\DBAL\ArrayParameterType::INTEGER])) ?: [0];
+        $movements = array_map('intval', $db->fetchFirstColumn('SELECT DISTINCT movement_id FROM wh_movement_line WHERE item_id IN (?)', [$items], [ArrayParameterType::INTEGER])) ?: [0];
         $in = static fn (array $ids) => implode(',', array_map('intval', $ids ?: [0]));
 
         $db->executeStatement("DELETE FROM plan_event WHERE (subject_type = 'wh_movement' AND subject_id IN ({$in($movements)})) OR (subject_type = 'wh_item' AND subject_id IN ({$in($items)}))");

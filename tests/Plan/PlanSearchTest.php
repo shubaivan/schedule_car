@@ -12,7 +12,9 @@ use App\Warehouse\Enum\ActivityAction;
 use App\Warehouse\Enum\CategoryScope;
 use App\Warehouse\Enum\Tracking;
 use App\Warehouse\Service\ActivityLog;
+use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 /**
@@ -25,7 +27,7 @@ class PlanSearchTest extends WebTestCase
 {
     use S4Fixtures;
 
-    private const PREFIX = 's4-search-';
+    private const string PREFIX = 's4-search-';
 
     public function testExecutorSeesOnlyOwnTasksAndTheirCommentsAndFiles(): void
     {
@@ -125,9 +127,9 @@ class PlanSearchTest extends WebTestCase
         $worker = $this->user(WorkRole::Production, 'wh-wrk');
         $keeper = $this->user(WorkRole::Manager, 'wh-mgr', SupplyRole::Manager);
 
-        $category = $this->em->getRepository(WhCategory::class)->findOneBy(['scope' => CategoryScope::Item]) ?? (new WhCategory())->setScope(CategoryScope::Item)->setName('Тест ' . $token)->setPrefix('ТТ');
+        $category = $this->em->getRepository(WhCategory::class)->findOneBy(['scope' => CategoryScope::Item]) ?? new WhCategory()->setScope(CategoryScope::Item)->setName('Тест ' . $token)->setPrefix('ТТ');
         $this->em->persist($category);
-        $item = (new WhItem())->setInventoryNumber('S4-' . $token)->setName('Перфоратор ' . $token)->setCategory($category)->setTracking(Tracking::Unit)->setUnit('шт');
+        $item = new WhItem()->setInventoryNumber('S4-' . $token)->setName('Перфоратор ' . $token)->setCategory($category)->setTracking(Tracking::Unit)->setUnit('шт');
         $this->em->persist($item);
         $this->em->flush();
         // Так само, як картка зі складу: запис у журнал → подія → індекс.
@@ -231,8 +233,8 @@ class PlanSearchTest extends WebTestCase
 
         // Команда: пробний запуск нічого не міняє, звичайний — успішний.
         $this->client->getKernel()->boot();
-        $app = new \Symfony\Bundle\FrameworkBundle\Console\Application($this->client->getKernel());
-        $tester = new \Symfony\Component\Console\Tester\CommandTester($app->find('plan:search:reindex'));
+        $app = new Application($this->client->getKernel());
+        $tester = new CommandTester($app->find('plan:search:reindex'));
         self::assertSame(0, $tester->execute(['--dry-run' => true, '--type' => ['task']]));
         self::assertStringContainsString('Пробний запуск', $tester->getDisplay());
         self::assertSame(2, $tester->execute(['--type' => ['nope']]));

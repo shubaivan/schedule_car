@@ -9,6 +9,7 @@ use App\Supply\Dto\CreateRequestInput;
 use App\Supply\Dto\PurchaseInput;
 use App\Supply\Entity\Department;
 use App\Supply\Entity\Supplier;
+use App\Supply\Entity\SupplyRequest;
 use App\Supply\Enum\SupplyRole;
 use App\Supply\Enum\SupplyStatus;
 use App\Supply\Enum\Unit;
@@ -32,7 +33,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 #[AsCommand(name: 'supply:demo', description: 'Демо-дані для стенда постачання')]
 class SupplyDemoCommand extends Command
 {
-    private const DEPARTMENTS = ['Цех №1', 'Цех №2', 'Дільниця благоустрою', 'Транспортний відділ'];
+    private const array DEPARTMENTS = ['Цех №1', 'Цех №2', 'Дільниця благоустрою', 'Транспортний відділ'];
 
     public function __construct(
         private EntityManagerInterface $em,
@@ -53,7 +54,7 @@ class SupplyDemoCommand extends Command
 
         foreach (self::DEPARTMENTS as $name) {
             if ($this->departments->findOneBy(['name' => $name]) === null) {
-                $this->em->persist((new Department())->setName($name));
+                $this->em->persist(new Department()->setName($name));
             }
         }
         $this->em->flush();
@@ -69,12 +70,12 @@ class SupplyDemoCommand extends Command
         $supplier = $this->suppliers->findOneBy(['name' => 'ТОВ «Демо-Постач»']);
 
         if ($supplier === null) {
-            $supplier = (new Supplier())->setName('ТОВ «Демо-Постач»')->setCreatedBy($manager);
+            $supplier = new Supplier()->setName('ТОВ «Демо-Постач»')->setCreatedBy($manager);
             $this->em->persist($supplier);
             $this->em->flush();
         }
 
-        if (! $this->em->getRepository(\App\Supply\Entity\SupplyRequest::class)->count([])) {
+        if (! $this->em->getRepository(SupplyRequest::class)->count([])) {
             $samples = [
                 ['Арматура 12 А500С', '2.5', Unit::Ton, true, SupplyStatus::InProgress],
                 ['Цемент М400', '40', Unit::Pack, false, SupplyStatus::Paid],
@@ -134,7 +135,7 @@ class SupplyDemoCommand extends Command
         $user = $this->users->getByTelegramId($telegramId);
 
         if ($user === null) {
-            $user = (new TelegramUser())->setTelegramId($telegramId);
+            $user = new TelegramUser()->setTelegramId($telegramId);
             $this->em->persist($user);
         }
 

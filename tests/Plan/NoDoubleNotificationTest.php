@@ -36,7 +36,7 @@ use Symfony\Component\Messenger\Transport\Serialization\PhpSerializer;
 class NoDoubleNotificationTest extends KernelTestCase
 {
     /** Хто, крім самих нотифаєрів, має право їх викликати. */
-    private const ALLOWED = [
+    private const array ALLOWED = [
         'SupplyNotifier' => [
             'src/Supply/Service/SupplyNotifier.php',
             'src/Supply/Listener/SupplyNotificationListener.php',
@@ -246,7 +246,7 @@ class NoDoubleNotificationTest extends KernelTestCase
 
     private function person(WorkRole $role, SupplyRole $supply = SupplyRole::Worker): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId((string) random_int(100_000_000, 999_999_999))
             ->setFirstName('Тест-Дубль')
             ->setWorkRole($role)

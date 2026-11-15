@@ -100,7 +100,7 @@ class PlanEventsBackfillCommandTest extends KernelTestCase
     /** @param array<string, mixed> $options */
     private function backfill(array $options = []): string
     {
-        $tester = new CommandTester((new Application(self::$kernel))->find('plan:events:backfill'));
+        $tester = new CommandTester(new Application(self::$kernel)->find('plan:events:backfill'));
         $tester->execute($options);
         $tester->assertCommandIsSuccessful();
 
@@ -115,7 +115,7 @@ class PlanEventsBackfillCommandTest extends KernelTestCase
 
     private function person(WorkRole $role, SupplyRole $supply): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId('bf-' . uniqid('', true))
             ->setFirstName('Тест-Історія')
             ->setWorkRole($role)

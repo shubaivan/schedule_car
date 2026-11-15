@@ -16,7 +16,7 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/sklad/logins')]
 class LoginLogController extends AbstractWarehouseController
 {
-    private const SHOWN = 300;
+    private const int SHOWN = 300;
 
     public function __construct(
         private CrmLoginRepository $logins,

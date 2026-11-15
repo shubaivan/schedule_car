@@ -90,7 +90,7 @@ class ChangeStatus
             ? new DateTime('now', new DateTimeZone('Europe/Kyiv'))
             : null);
 
-        $log = (new SupplyStatusLog())
+        $log = new SupplyStatusLog()
             ->setStatusFrom($from)
             ->setStatusTo($to)
             ->setAuthor($by)

@@ -11,6 +11,7 @@ use App\Supply\Service\CreateRequest;
 use App\Supply\Service\RequestFormatter;
 use DateTime;
 use DateTimeZone;
+use Override;
 use SergiX44\Nutgram\Conversations\Conversation;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
@@ -26,15 +27,16 @@ use Throwable;
  */
 class NewRequestConversation extends Conversation
 {
-    private const UNIT_PREFIX = 'u:';
-    private const DATE_PREFIX = 'd:';
-    private const NO_DATE = 'd:none';
-    private const SKIP = 'skip';
-    private const DAYS_OFFERED = 12;
-    private const DAYS_PER_ROW = 3;
+    private const string UNIT_PREFIX = 'u:';
+    private const string DATE_PREFIX = 'd:';
+    private const string NO_DATE = 'd:none';
+    private const string SKIP = 'skip';
+    private const int DAYS_OFFERED = 12;
+    private const int DAYS_PER_ROW = 3;
 
-    private const WEEKDAYS = [1 => 'пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'нд'];
+    private const array WEEKDAYS = [1 => 'пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'нд'];
 
+    #[Override]
     protected ?string $step = 'askItem';
 
     public ?string $item = null;

@@ -18,8 +18,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class FleetApiTest extends WebTestCase
 {
-    private const MARKER = 'Тест-Автопарк';
-    private const CAR = 'ТЕСТ0001';
+    private const string MARKER = 'Тест-Автопарк';
+    private const string CAR = 'ТЕСТ0001';
 
     private KernelBrowser $client;
     private EntityManagerInterface $em;
@@ -154,7 +154,7 @@ class FleetApiTest extends WebTestCase
 
     private function login(SupplyRole $role): void
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId('fleet-api-' . uniqid())
             ->setFirstName(self::MARKER)
             ->setSupplyRole($role);

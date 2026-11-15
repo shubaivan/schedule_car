@@ -44,7 +44,7 @@ use RuntimeException;
  */
 final class DemoWarehouse
 {
-    public const CATEGORIES = [
+    public const array CATEGORIES = [
         // [назва, emoji, префікс, характеристики]
         ['Залізобетонні вироби', '🏗️', 'ЗБВ', ['Марка бетону', 'Вага, кг', 'Розміри']],
         ['Матеріали', '🪨', 'МАТ', ['Фасування', 'ГОСТ/ДСТУ']],
@@ -57,29 +57,29 @@ final class DemoWarehouse
      * Назви попередніх засівів (з «(демо)») — щоб --reset прибрав і їх на стенді,
      * засіяному старою версією.
      */
-    public const LEGACY_CATEGORIES = ['Залізобетонні вироби (демо)', 'Матеріали (демо)', 'Опалубка і форми (демо)', 'Техніка (демо)', 'Інструмент (демо)'];
-    public const LEGACY_SITES = ['Склад готової продукції (демо)', 'Склад матеріалів (демо)', 'Цех ЗБВ (демо)', 'ЖК «Лісовий», секція 2 (демо)', 'Каналізаційна мережа, вул. Польова (демо)', 'Приватний будинок, с. Демо (демо)'];
-    public const LEGACY_CLIENTS = ['ТОВ «Будінвест» (демо)', 'КП «Водоканал» (демо)', 'ФОП Гриценко О. В. (демо)'];
+    public const array LEGACY_CATEGORIES = ['Залізобетонні вироби (демо)', 'Матеріали (демо)', 'Опалубка і форми (демо)', 'Техніка (демо)', 'Інструмент (демо)'];
+    public const array LEGACY_SITES = ['Склад готової продукції (демо)', 'Склад матеріалів (демо)', 'Цех ЗБВ (демо)', 'ЖК «Лісовий», секція 2 (демо)', 'Каналізаційна мережа, вул. Польова (демо)', 'Приватний будинок, с. Демо (демо)'];
+    public const array LEGACY_CLIENTS = ['ТОВ «Будінвест» (демо)', 'КП «Водоканал» (демо)', 'ФОП Гриценко О. В. (демо)'];
 
     /** Базові категорії позицій із міграції — засів їх використовує, але ніколи не видаляє. */
-    public const BASE_CATEGORIES = ['Опалубка', 'Техніка', 'Обладнання', 'Риштування', 'Інструмент', 'Інше'];
+    public const array BASE_CATEGORIES = ['Опалубка', 'Техніка', 'Обладнання', 'Риштування', 'Інструмент', 'Інше'];
 
-    public const WAREHOUSES = ['Склад готової продукції', 'Склад матеріалів'];
+    public const array WAREHOUSES = ['Склад готової продукції', 'Склад матеріалів'];
 
     /** [клієнт, ЄДРПОУ, об'єкт, адреса] */
-    public const CLIENTS = [
+    public const array CLIENTS = [
         ['ТОВ «Будінвест»', null, 'ЖК «Лісовий», секція 2', 'вул. Заводська, 5'],
         ['КП «Міськшляхбуд»', null, 'Реконструкція вул. Польової', 'вул. Польова'],
         ['ФОП Мельник О. В.', null, 'Приватний будинок, с. Ракове', 'с. Ракове, вул. Садова, 12'],
     ];
 
     /** Власний об'єкт без клієнта — цех, куди матеріали йдуть у виробництво. */
-    public const WORKSHOP = 'Цех ЗБВ';
+    public const string WORKSHOP = 'Цех ЗБВ';
 
     /**
      * [інв. №, назва, категорія (індекс), облік, одиниця, ціна, ставка оренди/добу, характеристики, стан, фото].
      */
-    public const ITEMS = [
+    public const array ITEMS = [
         ['ЗБВ-0001', 'Кільце колодязне КС 10-9', 0, Tracking::Bulk, 'шт', '1450.00', null, ['Марка бетону' => 'В25', 'Вага, кг' => '600', 'Розміри' => 'Ø1000×890'], ItemState::Active, null],
         ['ЗБВ-0002', 'Кільце колодязне КС 15-9', 0, Tracking::Bulk, 'шт', '2350.00', null, ['Марка бетону' => 'В25', 'Вага, кг' => '1100', 'Розміри' => 'Ø1500×890'], ItemState::Active, null],
         ['ЗБВ-0003', 'Плита перекриття ПК 60-12-8', 0, Tracking::Bulk, 'шт', '9800.00', null, ['Марка бетону' => 'В20', 'Вага, кг' => '2400', 'Розміри' => '5980×1190×220'], ItemState::Active, 'Плити_склад.jpg'],
@@ -106,7 +106,7 @@ final class DemoWarehouse
      * Рухи: [днів тому, тип, звідки, куди, хто, № документа, постачальник, примітка, [[інв. №, кількість, ставка?]…]].
      * Місця: 'gp' / 'mat' — склади, 'c0'…'c2' — об'єкти клієнтів, 'shop' — цех.
      */
-    public const MOVEMENTS = [
+    public const array MOVEMENTS = [
         [30, MovementType::Receipt, null, 'mat', 'olha.petrenko', 'БС-4410', 'ТОВ «Будмаркет-Схід»', null, [['МАТ-0001', 400], ['МАТ-0004', 120], ['МАТ-0005', 80]]],
         [29, MovementType::Receipt, null, 'mat', 'olha.petrenko', null, null, 'Обладнання цеху — облік із запуску складу', [['ТХ-0001', 1], ['ТХ-0002', 1], ['ІН-0001', 1], ['ОП-0001', 1], ['ОП-0002', 1], ['ОП-0003', 1]]],
         [28, MovementType::Receipt, null, 'mat', 'olha.petrenko', 'МП-2190', 'ТОВ «Металопрокат Плюс»', null, [['МАТ-0002', 2400], ['МАТ-0003', 900], ['МАТ-0006', 150]]],
@@ -127,7 +127,7 @@ final class DemoWarehouse
     ];
 
     /** Скани наклейок із бота: [інв. №, хто, днів тому]. */
-    public const SCANS = [
+    public const array SCANS = [
         ['ОП-0001', 'mykola.rudenko', 25],
         ['ТХ-0001', 'bohdan.zakharchenko', 17],
         ['ТХ-0001', 'bohdan.zakharchenko', 9],
@@ -209,20 +209,20 @@ final class DemoWarehouse
                 continue;
             }
 
-            $categories[$i] = (new WhCategory())->setScope(CategoryScope::Item)->setName($name)->setEmoji($emoji)->setPrefix($prefix)->setAttributes($attributes)->setPosition($i);
+            $categories[$i] = new WhCategory()->setScope(CategoryScope::Item)->setName($name)->setEmoji($emoji)->setPrefix($prefix)->setAttributes($attributes)->setPosition($i);
             $this->em->persist($categories[$i]);
         }
 
         $sites = [
-            'gp' => (new WhSite())->setKind(SiteKind::Warehouse)->setName(self::WAREHOUSES[0])->setAddress('вул. Заводська, 1'),
-            'mat' => (new WhSite())->setKind(SiteKind::Warehouse)->setName(self::WAREHOUSES[1])->setAddress('вул. Заводська, 1'),
-            'shop' => (new WhSite())->setKind(SiteKind::Site)->setName(self::WORKSHOP)->setNote('Власний цех — сюди матеріали йдуть у виробництво.'),
+            'gp' => new WhSite()->setKind(SiteKind::Warehouse)->setName(self::WAREHOUSES[0])->setAddress('вул. Заводська, 1'),
+            'mat' => new WhSite()->setKind(SiteKind::Warehouse)->setName(self::WAREHOUSES[1])->setAddress('вул. Заводська, 1'),
+            'shop' => new WhSite()->setKind(SiteKind::Site)->setName(self::WORKSHOP)->setNote('Власний цех — сюди матеріали йдуть у виробництво.'),
         ];
 
         foreach (self::CLIENTS as $i => [$name, $edrpou, $site, $address]) {
-            $client = (new WhClient())->setName($name)->setEdrpou($edrpou);
+            $client = new WhClient()->setName($name)->setEdrpou($edrpou);
             $this->em->persist($client);
-            $sites['c' . $i] = (new WhSite())->setKind(SiteKind::Site)->setName($site)->setAddress($address)->setClient($client);
+            $sites['c' . $i] = new WhSite()->setKind(SiteKind::Site)->setName($site)->setAddress($address)->setClient($client);
         }
 
         foreach ($sites as $site) {
@@ -244,7 +244,7 @@ final class DemoWarehouse
         $items = [];
 
         foreach (self::ITEMS as [$number, $name, $category, $tracking, $unit, $price, $rate, $attributes, $state, $photo]) {
-            $item = (new WhItem())
+            $item = new WhItem()
                 ->setInventoryNumber($number)
                 ->setName($name)
                 ->setCategory($categories[$category])

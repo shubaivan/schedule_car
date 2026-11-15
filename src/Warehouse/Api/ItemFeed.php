@@ -33,7 +33,7 @@ use Doctrine\ORM\EntityManagerInterface;
  */
 final class ItemFeed
 {
-    private const LIMIT = 200;
+    private const int LIMIT = 200;
 
     public function __construct(
         private readonly Connection $connection,
@@ -93,7 +93,7 @@ final class ItemFeed
                 'author' => $this->presenter->person($actor),
                 'text' => $text,
                 'mentions' => [],
-                'createdAt' => (new DateTimeImmutable((string) $row['occurred_at']))->format(DateTimeInterface::ATOM),
+                'createdAt' => new DateTimeImmutable((string) $row['occurred_at'])->format(DateTimeInterface::ATOM),
                 'deleted' => false,
                 'mine' => $actor !== null && $actor->getId() === $viewer->getId(),
                 'attachments' => [],
@@ -112,7 +112,7 @@ final class ItemFeed
             'files' => [],
             'reads' => [],
             'readUpTo' => null,
-            'now' => (new DateTimeImmutable())->format(DateTimeInterface::ATOM),
+            'now' => new DateTimeImmutable()->format(DateTimeInterface::ATOM),
             'can' => ['comment' => false, 'attach' => false],
         ];
     }

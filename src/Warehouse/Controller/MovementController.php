@@ -4,6 +4,7 @@ namespace App\Warehouse\Controller;
 
 use App\Plan\EventStore\PlanEventRecorder;
 use App\Supply\Repository\SupplierRepository;
+use App\Warehouse\Entity\WhItem;
 use App\Warehouse\Entity\WhMovement;
 use App\Warehouse\Entity\WhSite;
 use App\Warehouse\Enum\ActivityAction;
@@ -136,7 +137,7 @@ class MovementController extends AbstractWarehouseController
             'clients' => $this->clients->findBy(['active' => true], ['name' => 'ASC']),
             'supplierChoice' => $this->choice($values['supplierId'] ?? null, fn (int $id) => $this->suppliers->find($id)?->getName()),
             'toClientChoice' => $this->choice($values['toClientId'] ?? null, fn (int $id) => $this->clients->find($id)?->getName()),
-            'today' => (new DateTime('today'))->format('Y-m-d'),
+            'today' => new DateTime('today')->format('Y-m-d'),
         ]);
     }
 
@@ -175,7 +176,7 @@ class MovementController extends AbstractWarehouseController
      *
      * @param array<string, mixed> $values
      *
-     * @return list<array{item: \App\Warehouse\Entity\WhItem, quantity: int, rate: ?string}>
+     * @return list<array{item: WhItem, quantity: int, rate: ?string}>
      */
     private function lines(array $values): array
     {

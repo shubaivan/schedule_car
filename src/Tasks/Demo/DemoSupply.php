@@ -20,6 +20,7 @@ use App\Supply\Repository\SupplyRequestRepository;
 use App\Supply\Service\AttachFile;
 use DateTime;
 use DateTimeZone;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -32,7 +33,7 @@ use Doctrine\ORM\EntityManagerInterface;
  */
 final class DemoSupply
 {
-    public const SUPPLIERS = [
+    public const array SUPPLIERS = [
         ['ТОВ «Будмаркет-Схід»', null, 'Олена'],
         ['ФОП Кравчук В. П.', null, 'Василь'],
         ['ТОВ «Металопрокат Плюс»', null, 'Андрій'],
@@ -43,7 +44,7 @@ final class DemoSupply
      * [автор, відділ, що, кількість, одиниця, обʼєкт, термін (днів від сьогодні), терміново, примітка, днів тому, мітка, кроки].
      * Крок: [дія, хто, …, годин після подачі].
      */
-    public const REQUESTS = [
+    public const array REQUESTS = [
         ['vyrobnytstvo', '7. Виробництво', 'Цемент М500 у мішках', '40', Unit::Pack, 'Цех ЗБВ', 2, true, 'Мішки по 25 кг, бажано з однієї партії.', 1, SupplyAccent::Red, [
             ['comment', 'olha.petrenko', 'Прийняла. Уточню наявність у двох постачальників і повернусь із цінами.', 1],
             ['status', 'olha.petrenko', SupplyStatus::InProgress, null, 2],
@@ -118,7 +119,7 @@ final class DemoSupply
         $conn->executeStatement("DELETE FROM supply_request WHERE author_id IN (SELECT id FROM telegram_user WHERE telegram_id LIKE 'demo-%')");
         // + назви попередніх засівів із «(демо)».
         $names = [...array_map(static fn (array $s) => $s[0], self::SUPPLIERS), 'ТОВ «Будмаркет-Схід» (демо)', 'ФОП Мельник В. П. (демо)', 'ТОВ «Металопрокат Плюс» (демо)', 'ТОВ «Деревпром» (демо)'];
-        $conn->executeStatement('DELETE FROM supply_supplier WHERE name IN (?)', [$names], [\Doctrine\DBAL\ArrayParameterType::STRING]);
+        $conn->executeStatement('DELETE FROM supply_supplier WHERE name IN (?)', [$names], [ArrayParameterType::STRING]);
     }
 
     /**
@@ -134,30 +135,30 @@ final class DemoSupply
 
         foreach (self::SUPPLIERS as [$name, $edrpou, $contact]) {
             // Засів іде лише на демо-стенді (живих людей немає) — постачальника з тією ж назвою беремо як є.
-            $supplier = $this->suppliers->findOneBy(['name' => $name]) ?? (new Supplier())->setName($name)->setEdrpou($edrpou)->setContactPerson($contact);
+            $supplier = $this->suppliers->findOneBy(['name' => $name]) ?? new Supplier()->setName($name)->setEdrpou($edrpou)->setContactPerson($contact);
             $this->em->persist($supplier);
             $suppliers[$name] = $supplier;
         }
 
         $this->em->flush();
-        $year = (int) (new DateTime('now', new DateTimeZone('Europe/Kyiv')))->format('Y');
+        $year = (int) new DateTime('now', new DateTimeZone('Europe/Kyiv'))->format('Y');
 
         foreach (self::REQUESTS as [$author, $dep, $item, $qty, $unit, $site, $due, $urgent, $note, $daysAgo, $accent, $steps]) {
-            $request = (new SupplyRequest())
+            $request = new SupplyRequest()
                 ->setAuthor($people[$author])
                 ->setDepartment($departments[$dep])
                 ->setItem($item)
                 ->setQuantity($qty)
                 ->setUnit($unit)
                 ->setSite($site)
-                ->setNeedBy((new DateTime('today', new DateTimeZone('Europe/Kyiv')))->modify(sprintf('%+d days', $due)))
+                ->setNeedBy(new DateTime('today', new DateTimeZone('Europe/Kyiv'))->modify(sprintf('%+d days', $due)))
                 ->setUrgent($urgent)
                 ->setNote($note)
                 ->setAccent($accent)
                 ->setStatus(SupplyStatus::New)
                 ->setNumber($this->requests->nextNumber($year));
             $created = $daysAgo * 24 + 9;
-            $first = (new SupplyStatusLog())->setStatusFrom(null)->setStatusTo(SupplyStatus::New)->setAuthor($people[$author]);
+            $first = new SupplyStatusLog()->setStatusFrom(null)->setStatusTo(SupplyStatus::New)->setAuthor($people[$author]);
             $request->addStatusLog($first);
             $this->em->persist($request);
             $this->em->persist($first);
@@ -197,21 +198,21 @@ final class DemoSupply
 
         switch ($step[0]) {
             case 'status':
-                $log = (new SupplyStatusLog())->setStatusFrom($request->getStatus())->setStatusTo($step[2])->setAuthor($who)->setComment($step[3]);
+                $log = new SupplyStatusLog()->setStatusFrom($request->getStatus())->setStatusTo($step[2])->setAuthor($who)->setComment($step[3]);
                 $request->setStatus($step[2])->addStatusLog($log);
                 $this->em->persist($log);
                 $this->em->flush();
                 $this->backdate[] = ['supply_status_log', (int) $log->getId(), $at];
                 break;
             case 'comment':
-                $comment = (new SupplyComment())->setAuthor($who)->setText($step[2]);
+                $comment = new SupplyComment()->setAuthor($who)->setText($step[2]);
                 $request->addComment($comment);
                 $this->em->persist($comment);
                 $this->em->flush();
                 $this->backdate[] = ['supply_comment', (int) $comment->getId(), $at];
                 break;
             case 'purchase':
-                $purchase = (new SupplyPurchase())
+                $purchase = new SupplyPurchase()
                     ->setSupplier($suppliers[$step[2]])
                     ->setTotalAmount($step[3])
                     ->setInvoiceNumber($step[4])

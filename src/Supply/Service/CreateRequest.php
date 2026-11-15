@@ -24,7 +24,7 @@ use Psr\Log\LoggerInterface;
 class CreateRequest
 {
     /** Довільний сталий ключ advisory-локу на видачу номера заявки. */
-    private const NUMBER_LOCK_KEY = 848_201_001;
+    private const int NUMBER_LOCK_KEY = 848_201_001;
 
     public function __construct(
         private EntityManagerInterface $em,
@@ -45,7 +45,7 @@ class CreateRequest
             throw new SupplyException('Кількість має бути числом більшим за нуль.');
         }
 
-        $request = (new SupplyRequest())
+        $request = new SupplyRequest()
             ->setAuthor($author)
             ->setDepartment($input->department ?? $author->getDepartment())
             ->setItem($item)
@@ -57,7 +57,7 @@ class CreateRequest
             ->setNote($input->note !== null ? trim($input->note) : null)
             ->setStatus(SupplyStatus::New);
 
-        $log = (new SupplyStatusLog())
+        $log = new SupplyStatusLog()
             ->setStatusFrom(null)
             ->setStatusTo(SupplyStatus::New)
             ->setAuthor($author);
@@ -89,7 +89,7 @@ class CreateRequest
      */
     private function saveWithNumber(SupplyRequest $request, SupplyStatusLog $log): void
     {
-        $year = (int) (new DateTime('now', new DateTimeZone('Europe/Kyiv')))->format('Y');
+        $year = (int) new DateTime('now', new DateTimeZone('Europe/Kyiv'))->format('Y');
 
         $this->events->transactional(function () use ($request, $log, $year): void {
             $this->em->getConnection()->executeStatement(

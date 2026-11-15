@@ -44,7 +44,7 @@ class RequestSubscriber implements EventSubscriberInterface
 
         try {
             $content = json_decode($content, true, 512, JSON_BIGINT_AS_STRING | JSON_THROW_ON_ERROR);
-        } catch (JsonException $e) {
+        } catch (JsonException) {
             return;
         }
 

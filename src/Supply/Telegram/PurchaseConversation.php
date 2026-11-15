@@ -16,6 +16,7 @@ use App\Supply\Service\ChangeStatus;
 use App\Supply\Service\RecordPurchase;
 use App\Supply\Service\RequestFormatter;
 use App\Supply\Service\SupplierDirectory;
+use Override;
 use SergiX44\Nutgram\Conversations\Conversation;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
@@ -35,13 +36,14 @@ use Throwable;
  */
 class PurchaseConversation extends Conversation
 {
-    private const SUPPLIER_PREFIX = 'b:s:';
-    private const NEW_SUPPLIER = 'b:new';
-    private const FIND_SUPPLIER = 'b:find';
-    private const SKIP = 'b:skip';
-    private const CANCEL = 'b:cancel';
-    private const SUGGESTED = 6;
+    private const string SUPPLIER_PREFIX = 'b:s:';
+    private const string NEW_SUPPLIER = 'b:new';
+    private const string FIND_SUPPLIER = 'b:find';
+    private const string SKIP = 'b:skip';
+    private const string CANCEL = 'b:cancel';
+    private const int SUGGESTED = 6;
 
+    #[Override]
     protected ?string $step = 'askSupplier';
 
     public ?int $requestId = null;

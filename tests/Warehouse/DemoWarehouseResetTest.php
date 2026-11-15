@@ -31,10 +31,10 @@ class DemoWarehouseResetTest extends KernelTestCase
 
     public function testResetAlsoRemovesSitesAddedToDemoClients(): void
     {
-        $client = (new WhClient())->setName(DemoWarehouse::CLIENTS[0][0])->setEdrpou('00000000')->setPhone('380000000109');
+        $client = new WhClient()->setName(DemoWarehouse::CLIENTS[0][0])->setEdrpou('00000000')->setPhone('380000000109');
         $this->em->persist($client);
-        $this->em->persist((new WhSite())->setKind(SiteKind::Site)->setName(DemoWarehouse::CLIENTS[0][2])->setClient($client));
-        $this->em->persist((new WhSite())->setKind(SiteKind::Site)->setName('Склад клієнта (е2е)')->setClient($client));
+        $this->em->persist(new WhSite()->setKind(SiteKind::Site)->setName(DemoWarehouse::CLIENTS[0][2])->setClient($client));
+        $this->em->persist(new WhSite()->setKind(SiteKind::Site)->setName('Склад клієнта (е2е)')->setClient($client));
         $this->em->flush();
         $clientId = $client->getId();
 

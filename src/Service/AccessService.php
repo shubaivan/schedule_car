@@ -167,13 +167,7 @@ class AccessService
 
     private function listed(string $phones, string $tail): bool
     {
-        foreach (explode(',', $phones) as $candidate) {
-            if ($this->tail($candidate) === $tail) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any(explode(',', $phones), fn ($candidate) => $this->tail($candidate) === $tail);
     }
 
     /**

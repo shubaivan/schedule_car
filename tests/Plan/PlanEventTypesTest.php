@@ -2,6 +2,7 @@
 
 namespace App\Tests\Plan;
 
+use App\Plan\Event\CommentAdded;
 use App\Plan\Event\PlanEvent;
 use App\Plan\Event\PlanEventTypes;
 use App\Plan\EventStore\PlanEventRecorder;
@@ -13,9 +14,11 @@ use DateTimeZone;
 use Doctrine\DBAL\Connection;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Psr\Log\NullLogger;
 use ReflectionClass;
 use ReflectionNamedType;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
  * Кожен тип події: зареєстрований, з унікальним коротким TYPE, і без втрат
@@ -79,8 +82,8 @@ class PlanEventTypesTest extends KernelTestCase
         $recorder = new PlanEventRecorder(
             $this->db,
             new SpyBus(),
-            new \Symfony\Component\HttpFoundation\RequestStack(),
-            new \Psr\Log\NullLogger(),
+            new RequestStack(),
+            new NullLogger(),
             'sync://',
         );
 
@@ -109,7 +112,7 @@ class PlanEventTypesTest extends KernelTestCase
         $id = (int) $this->db->lastInsertId();
         $event = self::getContainer()->get(PlanEventStore::class)->load($id);
 
-        self::assertInstanceOf(\App\Plan\Event\CommentAdded::class, $event);
+        self::assertInstanceOf(CommentAdded::class, $event);
         self::assertSame(9, $event->refId);
         self::assertSame([], $event->mentions, 'відсутнє поле → значення за замовчуванням');
     }
@@ -131,7 +134,7 @@ class PlanEventTypesTest extends KernelTestCase
     {
         $args = ['subject' => SubjectRef::task(41), 'actorId' => null, 'at' => $at];
 
-        foreach ((new ReflectionClass($class))->getConstructor()?->getParameters() ?? [] as $parameter) {
+        foreach (new ReflectionClass($class)->getConstructor()?->getParameters() ?? [] as $parameter) {
             $name = $parameter->getName();
 
             if (isset($args[$name]) || $name === 'actorId') {

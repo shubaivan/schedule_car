@@ -14,7 +14,7 @@ use Symfony\Component\HttpFoundation\Response;
 /** API довідника постачальників. */
 class SupplierApiTest extends WebTestCase
 {
-    private const MARKER = 'Тест-Постачальник';
+    private const string MARKER = 'Тест-Постачальник';
 
     private KernelBrowser $client;
     private EntityManagerInterface $em;
@@ -143,7 +143,7 @@ class SupplierApiTest extends WebTestCase
 
     private function login(): void
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId('supplier-api-' . uniqid())
             ->setFirstName(self::MARKER)
             ->setSupplyRole(SupplyRole::Manager);

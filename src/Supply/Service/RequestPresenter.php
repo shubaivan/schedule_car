@@ -7,6 +7,7 @@ use App\Supply\Entity\Supplier;
 use App\Supply\Entity\SupplyAttachment;
 use App\Supply\Entity\SupplyPurchase;
 use App\Supply\Entity\SupplyRequest;
+use App\Supply\Enum\SupplyStatus;
 
 /**
  * Перетворення сутностей у масиви для API.
@@ -69,7 +70,7 @@ class RequestPresenter
     /**
      * Переходи, доступні саме цьому користувачу.
      *
-     * @return \App\Supply\Enum\SupplyStatus[]
+     * @return SupplyStatus[]
      */
     private function transitionsFor(SupplyRequest $request, ?TelegramUser $viewer): array
     {

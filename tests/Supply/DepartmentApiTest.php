@@ -19,7 +19,7 @@ use Symfony\Component\HttpFoundation\Response;
 /** Вкладка «Підрозділи»: менеджер веде список сам, без консолі. */
 class DepartmentApiTest extends WebTestCase
 {
-    private const PREFIX = 'depts-test-';
+    private const string PREFIX = 'depts-test-';
 
     private KernelBrowser $client;
     private EntityManagerInterface $em;
@@ -87,7 +87,7 @@ class DepartmentApiTest extends WebTestCase
     /** Історію не стираємо: підрозділ із заявками лише зникає зі списку вибору. */
     public function testDepartmentWithRequestsIsHiddenNotDeleted(): void
     {
-        $department = (new Department())->setName('Тест-цех ' . uniqid());
+        $department = new Department()->setName('Тест-цех ' . uniqid());
         $this->em->persist($department);
         $this->em->flush();
 
@@ -140,7 +140,7 @@ class DepartmentApiTest extends WebTestCase
 
     private function user(SupplyRole $role): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId(self::PREFIX . uniqid())
             ->setFirstName('Тест-Підрозділи')
             ->setSupplyRole($role);

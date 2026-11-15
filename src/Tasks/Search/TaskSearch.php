@@ -23,7 +23,7 @@ class TaskSearch
     public const GROUPS = ['tasks', 'comments', 'files', 'people'];
 
     /** Вкладка → тип документа в індексі. */
-    private const DOC_TYPES = ['tasks' => 'task', 'comments' => 'comment', 'files' => 'file'];
+    private const array DOC_TYPES = ['tasks' => 'task', 'comments' => 'comment', 'files' => 'file'];
 
     public function __construct(private Connection $db, private TelegramUserRepository $users, private PlanSearch $search)
     {

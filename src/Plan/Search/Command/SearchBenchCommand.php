@@ -34,7 +34,7 @@ use Symfony\Component\HttpFoundation\Request;
 #[AsCommand(name: 'plan:search:bench', description: 'Бенчмарк пошуку на синтетичних документах (p50/p95)')]
 final class SearchBenchCommand extends Command
 {
-    private const WORDS = [
+    private const array WORDS = [
         'плита', 'плити', 'перекриття', 'цемент', 'пц-500', 'пц-400', 'бетон', 'розчин', 'арматура', 'а500с', 'щебінь', 'пісок',
         'палі', 'ригель', 'колона', 'кільце', 'фбс', 'блок', 'сходовий', 'марш', 'тротуарна', 'плитка', 'бордюр', 'опалубка',
         'щит', 'стійка', 'вібратор', 'перфоратор', 'доставка', 'відвантаження', 'рахунок', 'оплата', 'знижка', 'рекламація', 'скол', 'креслення',
@@ -55,7 +55,7 @@ final class SearchBenchCommand extends Command
         'одеса', 'дніпро', 'харків', 'вінниця', 'житомир', 'полтава', 'черкаси', 'суми', 'рівне', 'луцьк',
     ];
 
-    private const SCENARIOS = [
+    private const array SCENARIOS = [
         'часте слово «плит»' => ['q' => 'плит'],
         'код «пк 60»' => ['q' => 'пк 60'],
         'два слова «цемент пц»' => ['q' => 'цемент пц'],
@@ -124,8 +124,8 @@ final class SearchBenchCommand extends Command
         $values = [
             '@user' => (string) $userIds[intdiv(count($userIds), 2)],
             '@department' => (string) $departments[0],
-            '@from' => (new DateTimeImmutable('-90 days'))->format('Y-m-d'),
-            '@to' => (new DateTimeImmutable())->format('Y-m-d'),
+            '@from' => new DateTimeImmutable('-90 days')->format('Y-m-d'),
+            '@to' => new DateTimeImmutable()->format('Y-m-d'),
         ];
 
         $all = [];

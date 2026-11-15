@@ -6,6 +6,8 @@ use App\Tasks\Entity\Task;
 use App\Tasks\Entity\TaskMessage;
 use DateTimeInterface;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\ArrayParameterType;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\Persistence\ManagerRegistry;
 use SortDirection;
 
@@ -47,7 +49,7 @@ class TaskMessageRepository extends ServiceEntityRepository
             ->andWhere('m.changedAt >= :since')
             ->setParameter('task', $task)
             ->setParameter('upTo', $upToId)
-            ->setParameter('since', $since, \Doctrine\DBAL\Types\Types::DATETIME_MUTABLE)
+            ->setParameter('since', $since, Types::DATETIME_MUTABLE)
             ->orderBy('m.id', SortDirection::Ascending)
             ->getQuery()
             ->getResult();
@@ -79,7 +81,7 @@ class TaskMessageRepository extends ServiceEntityRepository
         $ids = $this->getEntityManager()->getConnection()->fetchFirstColumn(
             "SELECT MAX(id) FROM task_message WHERE kind = 'comment' AND deleted_at IS NULL AND task_id IN (?) GROUP BY task_id",
             [$taskIds],
-            [\Doctrine\DBAL\ArrayParameterType::INTEGER],
+            [ArrayParameterType::INTEGER],
         );
 
         $result = [];

@@ -21,7 +21,7 @@ trait S5Fixtures
 
     private function person(WorkRole $role, string $name, SupplyRole $supply = SupplyRole::Worker, bool $superadmin = false): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId('s5-' . $name . '-' . uniqid())
             ->setFirstName(ucfirst($name))
             ->setLastName('S5')

@@ -136,6 +136,12 @@
         ],
         "fix-changed": [
             "files=$(git diff --name-only --diff-filter=d \"${BASE:-origin/master}\"...HEAD | grep \"\\.php$\"); if [ -n \"$files\" ]; then php vendor/bin/php-cs-fixer fix --config=.php-cs-fixer.dist.php --path-mode=intersection $files; else echo \"No changed PHP files vs ${BASE:-origin/master}\"; fi"
+        ],
+        "rector": [
+            "php vendor/bin/rector process --dry-run --no-progress-bar"
+        ],
+        "rector-fix": [
+            "php vendor/bin/rector process --no-progress-bar"
         ]
     },
     "conflict": {
@@ -154,6 +160,7 @@
         "phpstan/phpstan-doctrine": "^2.0",
         "phpstan/phpstan-symfony": "^2.1",
         "phpunit/phpunit": "^13.4",
+        "rector/rector": "^2.8",
         "symfony/browser-kit": "8.1.*",
         "symfony/css-selector": "8.1.*",
         "symfony/debug-bundle": "8.1.*",
@@ -165,6 +172,7 @@
     "scripts-descriptions": {
         "install-git-hooks": "Link .git-tools/hooks/pre-commit (cs-fixer + PHPStan on staged files)",
         "analyze-changed": "PHPStan on PHP files changed vs $BASE (default origin/master)",
-        "fix-changed": "PHP-CS-Fixer on PHP files changed vs $BASE (default origin/master)"
+        "fix-changed": "PHP-CS-Fixer on PHP files changed vs $BASE (default origin/master)",
+        "rector": "Rector dry-run (PHP 8.5 + Symfony/Doctrine/PHPUnit sets, see rector.php)"
     }
 }

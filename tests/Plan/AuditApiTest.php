@@ -28,8 +28,8 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  */
 class AuditApiTest extends WebTestCase
 {
-    private const PREFIX = 'audit-test-';
-    private const PASSWORD = 'correct-horse-42';
+    private const string PREFIX = 'audit-test-';
+    private const string PASSWORD = 'correct-horse-42';
 
     private KernelBrowser $client;
     private EntityManagerInterface $em;
@@ -312,7 +312,7 @@ class AuditApiTest extends WebTestCase
 
     private function user(WorkRole $role, string $name, bool $superadmin = false): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId(self::PREFIX . $name . '-' . uniqid())
             ->setFirstName(ucfirst($name))
             ->setLastName('Аудит')

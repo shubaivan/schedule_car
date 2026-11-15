@@ -47,7 +47,7 @@ class RecordPurchase
     ): SupplyPurchase {
         $this->assertManager($by);
 
-        $purchase = (new SupplyPurchase())->setCreatedBy($by);
+        $purchase = new SupplyPurchase()->setCreatedBy($by);
         $request->addPurchase($purchase);
 
         $this->fill($purchase, $input);

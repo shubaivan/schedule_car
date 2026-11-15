@@ -16,14 +16,14 @@ use RuntimeException;
  */
 class DemoFiles
 {
-    private const FONT_CANDIDATES = [
+    private const array FONT_CANDIDATES = [
         '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
         '/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf',
         '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
         '/usr/share/fonts/TTF/DejaVuSans.ttf',
     ];
 
-    private const BOLD_CANDIDATES = [
+    private const array BOLD_CANDIDATES = [
         '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
         '/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf',
         '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
@@ -31,8 +31,8 @@ class DemoFiles
     ];
 
     /** A4 при ~150 dpi. */
-    private const PAGE_W = 1240;
-    private const PAGE_H = 1754;
+    private const int PAGE_W = 1240;
+    private const int PAGE_H = 1754;
 
     private ?string $font;
     private ?string $bold;

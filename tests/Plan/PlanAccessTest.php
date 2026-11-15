@@ -36,7 +36,7 @@ class PlanAccessTest extends TestCase
         self::assertContains('ROLE_PLAN_SUPERADMIN', $super->getRoles());
         self::assertNotContains('ROLE_PLAN_SUPERADMIN', $worker->getRoles());
 
-        $pending = (new TelegramUser())->setTelegramId('p')->setWorkRole(WorkRole::Director);
+        $pending = new TelegramUser()->setTelegramId('p')->setWorkRole(WorkRole::Director);
         self::assertFalse($access->can($pending, PlanCapability::TasksSeeAll), 'Не допущений — нічого');
         self::assertFalse($access->can(null, PlanCapability::TasksSeeAll));
     }
@@ -58,7 +58,7 @@ class PlanAccessTest extends TestCase
 
     private function user(WorkRole $work, SupplyRole $supply): TelegramUser
     {
-        $user = (new TelegramUser())->setTelegramId('acc-' . uniqid())->setWorkRole($work)->setSupplyRole($supply);
+        $user = new TelegramUser()->setTelegramId('acc-' . uniqid())->setWorkRole($work)->setSupplyRole($supply);
         $user->decideAccess(AccessStatus::Approved, null);
 
         return $user;

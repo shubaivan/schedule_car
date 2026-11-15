@@ -32,7 +32,7 @@ class SearchProjector
     /** Синтетичні документи `plan:search:bench` — ref_id від цього числа; бекфіл їх не чіпає. */
     public const int BENCH_REF_BASE = 1_500_000_000;
 
-    private const COLUMNS = [
+    private const array COLUMNS = [
         'doc_type', 'subject_type', 'subject_id', 'ref_id', 'title', 'body', 'client', 'search_text',
         'author_id', 'manager_id', 'executor_ids', 'department_ids', 'status',
         'visible_all', 'visible_to', 'capability', 'created_at', 'updated_at',

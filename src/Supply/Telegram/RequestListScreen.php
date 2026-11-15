@@ -18,7 +18,7 @@ use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardMarkup;
 class RequestListScreen
 {
     /** Номери заявок трицифрові, тож три кнопки в ряд читаються без переносів. */
-    private const BUTTONS_PER_ROW = 3;
+    private const int BUTTONS_PER_ROW = 3;
 
     public function __construct(
         private RequestFormatter $formatter,

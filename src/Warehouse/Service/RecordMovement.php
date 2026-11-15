@@ -82,7 +82,7 @@ class RecordMovement
     ): WhMovement {
         $this->lock($lines);
 
-        $movement = (new WhMovement())
+        $movement = new WhMovement()
             ->setType($type)
             ->setOccurredAt($occurredAt)
             ->setFromSite($from)
@@ -108,7 +108,7 @@ class RecordMovement
             $this->checkLine($item, $quantity, $from, $type);
 
             $movement->addLine(
-                (new WhMovementLine())
+                new WhMovementLine()
                     ->setItem($item)
                     ->setQuantity($quantity)
                     ->setRentalRate($this->rate($line['rate'] ?? null, $item, $to)),
@@ -250,7 +250,7 @@ class RecordMovement
                 throw new WarehouseException(sprintf(
                     '%s зараз не там: %s.',
                     $item->getLabel(),
-                    $here !== null ? $here->getLabel() : 'ще не надійшло на склад',
+                    $here?->getLabel() ?? 'ще не надійшло на склад',
                 ));
             }
 

@@ -19,7 +19,7 @@ use Symfony\Component\Console\Tester\CommandTester;
  */
 class AccessCommandTest extends KernelTestCase
 {
-    private const MARKER = 'Тест-Доступ';
+    private const string MARKER = 'Тест-Доступ';
 
     private EntityManagerInterface $em;
     private CommandTester $command;
@@ -28,7 +28,7 @@ class AccessCommandTest extends KernelTestCase
     {
         self::bootKernel();
         $this->em = self::getContainer()->get(EntityManagerInterface::class);
-        $this->command = new CommandTester((new Application(self::$kernel))->find('supply:access'));
+        $this->command = new CommandTester(new Application(self::$kernel)->find('supply:access'));
         $this->em->beginTransaction();
     }
 
@@ -84,7 +84,7 @@ class AccessCommandTest extends KernelTestCase
 
     private function person(string $username, SupplyRole $role, AccessStatus $status): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId('access-cmd-' . uniqid())
             ->setFirstName(self::MARKER)
             ->setUsername($username)

@@ -187,7 +187,7 @@ class SupplyRequestFlowTest extends KernelTestCase
     #[DataProvider('quantityLabels')]
     public function testQuantityLabel(string $stored, string $expected): void
     {
-        $request = (new SupplyRequest())->setQuantity($stored)->setUnit(Unit::Piece);
+        $request = new SupplyRequest()->setQuantity($stored)->setUnit(Unit::Piece);
 
         self::assertSame($expected, $request->getQuantityLabel());
     }
@@ -207,7 +207,7 @@ class SupplyRequestFlowTest extends KernelTestCase
     /** @return TelegramUser[] */
     private function users(): array
     {
-        $department = (new Department())->setName('Цех №2 ' . uniqid());
+        $department = new Department()->setName('Цех №2 ' . uniqid());
         $this->em->persist($department);
 
         $worker = $this->user('worker', SupplyRole::Worker)->setDepartment($department);
@@ -220,7 +220,7 @@ class SupplyRequestFlowTest extends KernelTestCase
 
     private function user(string $prefix, SupplyRole $role): TelegramUser
     {
-        $user = (new TelegramUser())
+        $user = new TelegramUser()
             ->setTelegramId($prefix . '-' . uniqid())
             ->setFirstName(ucfirst($prefix))
             ->setLanguageCode('uk')

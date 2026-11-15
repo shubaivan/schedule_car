@@ -66,7 +66,7 @@ class WarehouseApiController extends AbstractWarehouseApiController
             'actions' => array_map(static fn (ActivityAction $a) => ['value' => $a->value, 'label' => $a->label(), 'emoji' => $a->emoji()], ActivityAction::cases()),
             'subjectTypes' => ActivityLog::TYPES,
             'can' => ['edit' => $this->isGranted('PLAN_WAREHOUSE_EDIT')],
-            'today' => (new DateTime('today'))->format('Y-m-d'),
+            'today' => new DateTime('today')->format('Y-m-d'),
         ]);
     }
 

@@ -87,7 +87,7 @@ class WarehouseLinks
             margin: 0,
         );
 
-        return (new SvgWriter())->write($qr, options: [
+        return new SvgWriter()->write($qr, options: [
             SvgWriter::WRITER_OPTION_EXCLUDE_XML_DECLARATION => true,
             // Розмір задає сторінка друку, а не сам код.
             SvgWriter::WRITER_OPTION_EXCLUDE_SVG_WIDTH_AND_HEIGHT => true,

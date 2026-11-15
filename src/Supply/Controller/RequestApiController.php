@@ -40,7 +40,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[Route('/api/supply/requests')]
 class RequestApiController extends AbstractController
 {
-    private const PAGE_SIZE = 25;
+    private const int PAGE_SIZE = 25;
 
     public function __construct(
         private SupplyRequestRepository $repository,

@@ -93,7 +93,7 @@ final class TelegramLoginController extends AbstractController
     /** QR того самого посилання — з комп'ютера зручно відсканувати телефоном. */
     private static function qr(string $url): string
     {
-        $svg = (new SvgWriter())->write(new QrCode(data: $url, errorCorrectionLevel: ErrorCorrectionLevel::Medium, size: 220, margin: 8), options: [
+        $svg = new SvgWriter()->write(new QrCode(data: $url, errorCorrectionLevel: ErrorCorrectionLevel::Medium, size: 220, margin: 8), options: [
             SvgWriter::WRITER_OPTION_EXCLUDE_XML_DECLARATION => true,
         ])->getString();
 

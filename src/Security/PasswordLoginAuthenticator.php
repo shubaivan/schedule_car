@@ -6,6 +6,7 @@ use App\Controller\LoginController;
 use App\Entity\TelegramUser;
 use App\Plan\Telegram\PlanBotMode;
 use App\Repository\TelegramUserRepository;
+use App\Service\CrmLoginLink;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -98,7 +99,7 @@ class PasswordLoginAuthenticator extends AbstractAuthenticator
 
         $next = $request->hasSession() ? $request->getSession()->remove(LoginEntryPoint::TARGET) : null;
 
-        return new RedirectResponse(\App\Service\CrmLoginLink::safeNext($next) ?? $this->urlGenerator->generate('crm_index'));
+        return new RedirectResponse(CrmLoginLink::safeNext($next) ?? $this->urlGenerator->generate('crm_index'));
     }
 
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): ?Response
