@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import PersonName from '../../plan/PersonName.vue'
+import { formatPhone } from '../../plan/people'
 import { people, plural, sortByName } from '../../plan/uk'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -185,10 +187,10 @@ onMounted(load)
                 <tbody>
                     <tr v-for="r in filtered" :key="r.id">
                         <td class="av"><Avatar :person="r" :size="36" /></td>
-                        <td><a :href="'/crm/staff/' + r.id" class="p-staff-name" :class="{ sel: editing !== 'new' && editing?.id === r.id }" @click.prevent="open(r)"><b>{{ r.name }}</b></a> <span v-if="r.telegram" title="Підключений до Telegram-бота: отримує сповіщення">✈️</span><div class="t-hint" style="padding: 0">{{ r.position ?? '—' }}</div></td>
+                        <td><a :href="'/crm/staff/' + r.id" class="p-staff-name" :class="{ sel: editing !== 'new' && editing?.id === r.id }" @click.prevent="open(r)"><PersonName :person="r" bold :link="false" /></a> <span v-if="r.telegram" title="Підключений до Telegram-бота: отримує сповіщення">✈️</span><div class="t-hint" style="padding: 0">{{ r.position ?? '—' }}</div></td>
                         <td>{{ r.department ?? '—' }}</td>
                         <td><span class="t-status tone-slate">{{ r.roleLabel }}</span></td>
-                        <td class="hide-sm" style="font-size: .85rem">{{ r.email ?? '' }}<div class="t-hint" style="padding: 0">{{ r.phone ? '+' + r.phone : '' }}</div></td>
+                        <td class="hide-sm" style="font-size: .85rem">{{ r.email ?? '' }}<div class="t-hint" style="padding: 0"><a v-if="formatPhone(r.phone)" :href="'tel:' + formatPhone(r.phone)!.tel">{{ formatPhone(r.phone)!.phone }}</a></div></td>
                         <td class="hide-sm" style="font-size: .85rem; color: var(--text-muted)">{{ r.lastSeenAt ? ago(r.lastSeenAt) : 'входів ще не було' }}</td>
                         <td v-if="isAdmin" style="white-space: nowrap; text-align: right">
                             <button type="button" class="t-btn small ghost" @click="open(r)">✏️</button>
@@ -211,7 +213,7 @@ onMounted(load)
                     <div class="t-people">
                         <div v-for="p in d.people" :key="p.id" class="t-person">
                             <Avatar :person="p" :size="28" />
-                            <div style="min-width: 0"><div class="n">{{ p.name }}</div><div class="p">{{ p.position ?? p.roleLabel }}</div></div>
+                            <div style="min-width: 0"><div class="n"><PersonName :person="p" /></div><div class="p">{{ p.position ?? p.roleLabel }}</div></div>
                         </div>
                         <div v-if="!d.people.length" class="t-hint" style="padding: 0">Поки нікого.</div>
                     </div>
@@ -224,7 +226,7 @@ onMounted(load)
                 <div class="top">
                     <div v-for="p in direction?.people ?? []" :key="p.id" class="t-person">
                         <Avatar :person="p" :size="40" />
-                        <div><div class="n">{{ p.name }}</div><div class="p">{{ p.position }}</div></div>
+                        <div><div class="n"><PersonName :person="p" /></div><div class="p">{{ p.position }}</div></div>
                     </div>
                     <div v-if="!direction" class="t-hint">Дирекція</div>
                 </div>
@@ -235,7 +237,7 @@ onMounted(load)
                         <div class="t-people">
                             <div v-for="p in d.people" :key="p.id" class="t-person">
                                 <Avatar :person="p" :size="26" />
-                                <div style="min-width: 0"><div class="n" style="font-size: .85rem">{{ p.name }}</div><div class="p">{{ p.position }}</div></div>
+                                <div style="min-width: 0"><div class="n" style="font-size: .85rem"><PersonName :person="p" /></div><div class="p">{{ p.position }}</div></div>
                             </div>
                             <div v-if="!d.people.length" class="t-hint" style="padding: 0">вакансія</div>
                         </div>
@@ -251,9 +253,9 @@ onMounted(load)
                 <tbody>
                     <tr v-for="r in trash" :key="r.id">
                         <td class="av"><Avatar :person="r" :size="34" /></td>
-                        <td><b>{{ r.name }}</b><div class="t-hint" style="padding: 0">{{ r.position }}</div></td>
+                        <td><PersonName :person="r" bold /><div class="t-hint" style="padding: 0">{{ r.position }}</div></td>
                         <td>{{ r.roleLabel }}</td>
-                        <td>{{ r.archivedBy ?? '—' }}</td>
+                        <td><PersonName v-if="r.archivedBy" :name="r.archivedBy" /><template v-else>—</template></td>
                         <td>{{ r.archivedAt ? new Date(r.archivedAt).toLocaleString('uk-UA', { dateStyle: 'short', timeStyle: 'short' }) : '' }}</td>
                         <td style="text-align: right"><button type="button" class="t-btn small" @click="restore(r)">↩ Відновити</button></td>
                     </tr>

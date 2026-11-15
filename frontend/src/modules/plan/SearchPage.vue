@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import PersonName from '../../plan/PersonName.vue'
+import { withPhone } from '../../plan/people'
 import { sortByName } from '../../plan/uk'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter, type LocationQueryRaw } from 'vue-router'
@@ -449,7 +451,7 @@ onBeforeUnmount(() => {
                         <div class="s-person">
                             <select class="t-select" aria-label="Людина" :value="state.person?.id ?? ''" @change="onPersonSelect">
                                 <option value="">Будь-хто</option>
-                                <option v-for="p in meta?.people ?? []" :key="p.id" :value="p.id">{{ p.name }}</option>
+                                <option v-for="p in meta?.people ?? []" :key="p.id" :value="p.id">{{ withPhone(p.name, p.phone) }}</option>
                             </select>
                             <select class="t-select" aria-label="Роль" :value="state.person?.role ?? 'person'" :disabled="!state.person" @change="onRoleSelect">
                                 <option v-for="r in ROLES" :key="r.key" :value="r.key">{{ r.label }}</option>
@@ -458,13 +460,13 @@ onBeforeUnmount(() => {
                         <template v-if="result?.facets.author.length">
                             <h4>Автори</h4>
                             <button v-for="a in result.facets.author.slice(0, 6)" :key="'a' + a.id" type="button" class="s-row" :class="{ on: state.person?.role === 'author' && state.person.id === a.id }" @click="setPerson(state.person?.role === 'author' && state.person.id === a.id ? null : a.id, 'author')">
-                                <Avatar :person="a.person" :size="18" /><span class="l">{{ a.name }}</span><span class="n">{{ a.count }}</span>
+                                <Avatar :person="a.person" :size="18" /><span class="l"><PersonName :person="a.person ?? { id: a.id, name: a.name }" :link="false" /></span><span class="n">{{ a.count }}</span>
                             </button>
                         </template>
                         <template v-if="result?.facets.executor.length">
                             <h4>Виконавці</h4>
                             <button v-for="a in result.facets.executor.slice(0, 6)" :key="'e' + a.id" type="button" class="s-row" :class="{ on: state.person?.role === 'executor' && state.person.id === a.id }" @click="setPerson(state.person?.role === 'executor' && state.person.id === a.id ? null : a.id, 'executor')">
-                                <Avatar :person="a.person" :size="18" /><span class="l">{{ a.name }}</span><span class="n">{{ a.count }}</span>
+                                <Avatar :person="a.person" :size="18" /><span class="l"><PersonName :person="a.person ?? { id: a.id, name: a.name }" :link="false" /></span><span class="n">{{ a.count }}</span>
                             </button>
                         </template>
                     </section>
@@ -558,7 +560,7 @@ onBeforeUnmount(() => {
                                     <td class="t"><a :href="hitHref(h)" @click.stop="onClick($event, h, i)"><template v-for="(p, k) in h.title" :key="k"><mark v-if="p.m">{{ p.t }}</mark><template v-else>{{ p.t }}</template></template></a></td>
                                     <td>{{ h.client ?? '' }}</td>
                                     <td><span v-if="h.statusLabel" class="s-status" :class="{ closed: h.closed }">{{ h.statusLabel }}</span></td>
-                                    <td>{{ h.author?.name ?? '' }}</td>
+                                    <td><PersonName v-if="h.author" :person="h.author" :link="false" /></td>
                                     <td class="d">{{ fmt(h.at) }}</td>
                                 </tr>
                             </tbody>
@@ -581,7 +583,7 @@ onBeforeUnmount(() => {
                                 <span class="s-ttl" :class="{ closed: h.closed && h.group !== 'comment' && h.group !== 'file' }"><template v-for="(p, k) in h.title" :key="k"><mark v-if="p.m">{{ p.t }}</mark><template v-else>{{ p.t }}</template></template></span>
                                 <span v-if="h.snippet.length" class="s-snip"><template v-for="(p, k) in h.snippet" :key="k"><mark v-if="p.m">{{ p.t }}</mark><template v-else>{{ p.t }}</template></template></span>
                                 <span v-if="h.author || h.client || (h.departments.length && h.group !== 'person')" class="s-meta">
-                                    <template v-if="h.author"><Avatar :person="h.author" :size="16" />{{ h.author.name }}</template>
+                                    <template v-if="h.author"><Avatar :person="h.author" :size="16" /><PersonName :person="h.author" :link="false" /></template>
                                     <template v-if="h.client"><span v-if="h.author" class="dot">·</span>{{ h.client }}</template>
                                     <span v-if="h.departments.length && h.group !== 'person'" class="s-deps"><span v-if="h.author || h.client" class="dot">·</span>{{ h.departments.join(', ') }}</span>
                                 </span>

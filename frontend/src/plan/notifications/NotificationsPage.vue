@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PersonName from '../PersonName.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { notificationsApi, type PlanNotification } from './api'
@@ -91,7 +92,7 @@ onBeforeUnmount(() => controller?.abort())
                 <button type="button" class="p-notif-row" :class="{ unread: !item.readAt, important: item.important }" @click="open(item)">
                     <span class="p-notif-ico" :data-group="item.group" aria-hidden="true">{{ ICONS[item.group] ?? '•' }}</span>
                     <span class="p-notif-body">
-                        <span class="p-notif-head"><b>{{ item.headline }}</b><time :datetime="item.createdAt">{{ when(item.createdAt) }}</time></span>
+                        <span class="p-notif-head"><b><template v-if="item.actor && item.headline.startsWith(item.actor.name)"><PersonName :person="item.actor" :link="false" />{{ item.headline.slice(item.actor.name.length) }}</template><template v-else>{{ item.headline }}</template></b><time :datetime="item.createdAt">{{ when(item.createdAt) }}</time></span>
                         <span class="p-notif-title">{{ item.title }}</span>
                         <span v-if="item.detail" class="p-notif-detail">{{ item.detail }}</span>
                     </span>

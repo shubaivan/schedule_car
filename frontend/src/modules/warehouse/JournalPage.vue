@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import PersonName from '../../plan/PersonName.vue'
+import { usePhoneBook, withPhone } from '../../plan/people'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSession } from '../../app/store'
@@ -12,6 +14,7 @@ import '../supply/supply.css'
 import './warehouse.css'
 
 /** Журнал складу — хто що сканував, відкривав і міняв. Той самий wh_activity, що й /sklad/journal. */
+const phones = usePhoneBook()
 const session = useSession()
 const route = useRoute()
 const router = useRouter()
@@ -77,7 +80,7 @@ onMounted(async () => {
         <div class="p-supply-filters">
             <select :value="filters.user" aria-label="Хто" @change="setQuery({ user: ($event.target as HTMLSelectElement).value })">
                 <option value="">Усі люди</option>
-                <option v-for="p in people" :key="p.id" :value="String(p.id)">{{ p.name }}</option>
+                <option v-for="p in people" :key="p.id" :value="String(p.id)">{{ withPhone(p.name, phones.lookup(p.id, p.name)?.phone) }}</option>
             </select>
             <select :value="filters.action" aria-label="Дія" @change="setQuery({ action: ($event.target as HTMLSelectElement).value })">
                 <option value="">Усі дії</option>
@@ -94,7 +97,7 @@ onMounted(async () => {
         <div class="t-panel w-journal-list" :aria-busy="loading">
             <div v-for="e in entries" :key="e.id" class="w-journal-row">
                 <span>
-                    {{ e.emoji }} <b>{{ e.user?.name ?? 'Система' }}</b> {{ e.actionLabel.toLowerCase() }} ·
+                    {{ e.emoji }} <PersonName v-if="e.user" :person="e.user" bold /><b v-else>Система</b> {{ e.actionLabel.toLowerCase() }} ·
                     <router-link v-if="link(e)" :to="link(e)!">{{ e.subjectLabel }}</router-link><template v-else>{{ e.subjectLabel }}</template>
                     <template v-if="e.details"> · <span class="p-muted">{{ e.details }}</span></template>
                 </span>

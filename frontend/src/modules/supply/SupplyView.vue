@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PersonName from '../../plan/PersonName.vue'
 import { money, quantity } from '../../plan/uk'
 import { vStickyHead } from '../../plan/stickyHead'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
@@ -283,7 +284,7 @@ onMounted(load)
                         </div>
                         <span v-if="request.urgent" class="p-urgent">терміново</span>
                         <span v-if="request.needBy" class="p-due" :class="{ over: request.overdue }"><Icon name="clock" :size="14" :stroke="2" />{{ request.overdue ? 'прострочено · ' : 'до ' }}{{ formatDate(request.needBy) }}</span>
-                        <span class="p-muted">{{ request.author.name }}</span>
+                        <span class="p-muted"><PersonName :person="request.author" /></span>
                     </div>
 
                     <!-- Переходи менеджера — рядком у шапці (не спливаюче меню). -->
@@ -396,7 +397,7 @@ onMounted(load)
                             </button>
                             <div class="p-doc-info">
                                 <button type="button" class="p-doc-name" @click="openFile(f.id)">{{ f.name }}</button>
-                                <div class="p-muted p-small">{{ f.typeLabel }} · {{ f.sizeLabel }}<template v-if="f.uploadedBy"> · {{ f.uploadedBy }}</template></div>
+                                <div class="p-muted p-small">{{ f.typeLabel }} · {{ f.sizeLabel }}<template v-if="f.uploadedBy"> · <PersonName :name="f.uploadedBy" /></template></div>
                                 <div class="p-small">
                                     <a v-if="f.driveUrl" :href="f.driveUrl" target="_blank" rel="noopener">Google Drive</a>
                                     <span v-else class="p-muted">Drive: у черзі</span>

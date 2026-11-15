@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PersonName from '../../plan/PersonName.vue'
 import { quantity } from '../../plan/uk'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useLiveRefresh } from '../../plan/live'
@@ -221,7 +222,7 @@ onBeforeUnmount(() => {
                             <span class="when" :title="'Подано: ' + new Date(r.createdAt).toLocaleString('uk-UA')">{{ ago(r.createdAt) }}</span>
                         </span>
                         <span class="title">{{ r.item }} — {{ quantity(r) }}</span>
-                        <span class="client">{{ r.author.name }}<template v-if="r.department"> · [{{ r.department }}]</template><template v-if="r.site"> · {{ r.site }}</template></span>
+                        <span class="client"><PersonName :person="r.author" :link="false" /><template v-if="r.department"> · [{{ r.department }}]</template><template v-if="r.site"> · {{ r.site }}</template></span>
                         <span class="row foot">
                             <span class="st" :class="tone(r.status)">{{ r.statusLabel }}</span>
                             <span v-if="r.needBy" class="due" :class="{ over: r.overdue }" :title="'Потрібно до ' + formatDate(r.needBy)">

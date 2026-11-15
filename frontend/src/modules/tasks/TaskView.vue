@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PersonName from '../../plan/PersonName.vue'
 import { vStickyHead } from '../../plan/stickyHead'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -166,7 +167,7 @@ onMounted(load)
                     <dl class="t-dl">
                         <dt>Контрагент</dt><dd>{{ task.client ?? '—' }}</dd>
                         <dt>Термін</dt><dd><span :class="{ 't-due over': task.overdue }">{{ task.dueAt ? new Date(task.dueAt).toLocaleDateString('uk-UA') + ' · ' + dueLabel(task.dueAt) : '—' }}</span></dd>
-                        <dt>Постановник</dt><dd class="t-person"><Avatar :person="task.creator" :size="22" /> {{ task.creator.name }}</dd>
+                        <dt>Постановник</dt><dd class="t-person"><Avatar :person="task.creator" :size="22" /> <PersonName :person="task.creator" /></dd>
                         <dt>Створено</dt><dd>{{ new Date(task.createdAt).toLocaleDateString('uk-UA') }}</dd>
                         <dt v-if="task.departments.length">Відділи</dt>
                         <dd v-if="task.departments.length" class="p-deps-dd"><span v-for="d in task.departments" :key="d.id" class="p-dep">[{{ d.name }}]</span></dd>
@@ -182,7 +183,7 @@ onMounted(load)
                         <div v-for="p in task.members" :key="p.id" class="t-person">
                             <Avatar :person="p" :size="32" />
                             <div style="min-width: 0">
-                                <div class="n">{{ p.name }}</div>
+                                <div class="n"><PersonName :person="p" /></div>
                                 <div class="p">{{ p.position ?? p.roleLabel }}<template v-if="p.via"> · через «{{ p.via }}»</template></div>
                             </div>
                         </div>

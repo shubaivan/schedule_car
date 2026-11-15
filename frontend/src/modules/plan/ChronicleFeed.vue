@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PersonName from '../../plan/PersonName.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter, type LocationQueryRaw } from 'vue-router'
 import Avatar from '../tasks/Avatar.vue'
@@ -318,7 +319,7 @@ onBeforeUnmount(() => {
                     >
                         <Avatar :person="item.event.author ?? item.owner" :size="36" />
                         <div>
-                            <div class="who">{{ item.event.author?.name ?? 'Система' }}</div>
+                            <div class="who"><PersonName v-if="item.event.author" :person="item.event.author" :link="false" /><template v-else>Система</template></div>
                             <div class="at">{{ stamp(item.event.at) }}</div>
                         </div>
                         <span class="plus" :title="item.unread ? item.unread + ' ' + plural(item.unread, 'нова подія', 'нові події', 'нових подій') : ''">{{ item.unread ? '+' + item.unread : '' }}</span>

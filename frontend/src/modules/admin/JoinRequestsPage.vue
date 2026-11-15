@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PersonName from '../../plan/PersonName.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSession } from '../../app/store'
@@ -132,7 +133,7 @@ onMounted(() => {
                         <td style="white-space: nowrap">{{ auditStamp(r.createdAt) }}</td>
                         <td>
                             <span class="t-status" :class="r.status === 'pending' ? 'tone-amber' : r.status === 'approved' ? 'tone-green' : 'tone-slate'">{{ r.statusLabel }}</span>
-                            <div v-if="r.decidedBy" class="t-hint" style="padding: 0">{{ r.decidedBy }}</div>
+                            <div v-if="r.decidedBy" class="t-hint" style="padding: 0"><PersonName :name="r.decidedBy" /></div>
                         </td>
                     </tr>
                     <tr v-if="data && !rows.length"><td colspan="4" class="t-empty">Немає заявок, що чекають рішення.</td></tr>

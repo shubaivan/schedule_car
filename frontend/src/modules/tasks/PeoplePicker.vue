@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PersonName from '../../plan/PersonName.vue'
 import { people as peopleLabel } from '../../plan/uk'
 import { computed, ref } from 'vue'
 import Avatar from './Avatar.vue'
@@ -43,7 +44,7 @@ function toggleDep(id: number) {
                 <button type="button" aria-label="Прибрати" @click="toggleDep(d.id)">✕</button>
             </span>
             <span v-for="p in chosenPeople" :key="p.id" class="c">
-                <Avatar :person="p" :size="20" /> {{ p.name }}
+                <Avatar :person="p" :size="20" /> <PersonName :person="p" :link="false" />
                 <button type="button" aria-label="Прибрати" @click="togglePerson(p.id)">✕</button>
             </span>
         </div>
@@ -63,7 +64,7 @@ function toggleDep(id: number) {
                     @click="togglePerson(p.id)"
                 >
                     <Avatar :person="p" :size="30" />
-                    <span class="grow">{{ p.name }}<small>{{ p.position ?? p.roleLabel }} · {{ p.department ?? 'без відділу' }}</small></span>
+                    <span class="grow"><PersonName :person="p" :link="false" /><small>{{ p.position ?? p.roleLabel }} · {{ p.department ?? 'без відділу' }}</small></span>
                     <span v-if="members.includes(p.id)">✓</span>
                     <small v-else-if="viaDeps.has(p.id)">через відділ</small>
                 </button>

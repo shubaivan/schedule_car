@@ -18,7 +18,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 /**
  * «Увійти через Telegram» через HTTP: сторінка /vhid, CSRF і ліміти JSON-маршрутів,
  * вхід підтвердженою спробою (і лише тією сесією, що її почала), «Це був не я»,
- * заявки на приєднання в API, пароль лише для суперадмінів.
+ * заявки на приєднання в API, пароля на «Плані» немає зовсім.
  */
 class TelegramLoginWebTest extends WebTestCase
 {
@@ -32,7 +32,7 @@ class TelegramLoginWebTest extends WebTestCase
 
     protected function setUp(): void
     {
-        foreach (['PLAN_TELEGRAM_BOT' => '1', 'PASSWORD_LOGIN_SUPERADMIN_ONLY' => '1'] as $key => $value) {
+        foreach (['PLAN_TELEGRAM_BOT' => '1'] as $key => $value) {
             $_SERVER[$key] = $_ENV[$key] = $value;
         }
 
@@ -58,7 +58,7 @@ class TelegramLoginWebTest extends WebTestCase
             $conn->executeStatement("DELETE FROM telegram_user WHERE id IN ($list)");
         }
 
-        foreach (['PLAN_TELEGRAM_BOT', 'PASSWORD_LOGIN_SUPERADMIN_ONLY'] as $key) {
+        foreach (['PLAN_TELEGRAM_BOT'] as $key) {
             unset($_SERVER[$key], $_ENV[$key]);
         }
 
@@ -71,7 +71,7 @@ class TelegramLoginWebTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('#tg-go', 'Увійти через Telegram');
         self::assertNotEmpty($crawler->filter('#tg-login')->attr('data-csrf'));
-        self::assertCount(1, $crawler->filter('details.pw-fallback form.pw'), 'Пароль — згорнутий запасний варіант');
+        self::assertCount(0, $crawler->filter('form.pw, input[type=password]'), 'Пароля на «Плані» немає зовсім');
         self::assertCount(1, $crawler->filter('script[src^="/plan-login.js"]'));
     }
 
@@ -159,15 +159,13 @@ class TelegramLoginWebTest extends WebTestCase
         self::assertResponseStatusCodeSame(422, 'Двічі не вирішити');
     }
 
-    public function testPasswordIsOnlyForSuperadminsWhenTelegramIsTheMainLogin(): void
+    public function testPasswordIsUnreachableEvenForSuperadmins(): void
     {
-        $manager = $this->staff(telegramId: '700400406', password: true);
-        $this->client->request('POST', '/vhid', ['login' => $manager->getEmail(), 'password' => self::PASSWORD, '_csrf_token' => $this->csrf('login')]);
-        self::assertResponseStatusCodeSame(401, 'Менеджер входить через Telegram');
-
         $super = $this->staff(telegramId: '700400407', superadmin: true, password: true);
-        $this->client->request('POST', '/vhid', ['login' => $super->getEmail(), 'password' => self::PASSWORD, '_csrf_token' => $this->csrf('login')]);
-        self::assertResponseRedirects('/crm');
+        $this->client->request('POST', '/vhid', ['login' => $super->getEmail(), 'password' => self::PASSWORD, '_csrf_token' => 'x']);
+        self::assertResponseIsSuccessful('Просто сторінка входу — автентифікатор пароля вимкнено');
+        $this->client->request('GET', '/api/me');
+        self::assertResponseStatusCodeSame(401);
     }
 
     /** @return array{url: string, code: string, qr: string} */
@@ -205,9 +203,7 @@ class TelegramLoginWebTest extends WebTestCase
     {
         $crawler = $this->client->request('GET', '/vhid');
 
-        return (string) ($id === 'tg_login'
-            ? $crawler->filter('#tg-login')->attr('data-csrf')
-            : $crawler->filter('form.pw input[name=_csrf_token]')->attr('value'));
+        return (string) $crawler->filter('#tg-login')->attr('data-csrf');
     }
 
     private function staff(string $telegramId, bool $superadmin = false, bool $password = false): TelegramUser

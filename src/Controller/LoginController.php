@@ -15,8 +15,8 @@ use Symfony\Component\Routing\Attribute\Route;
 /**
  * Сторінка входу — сюди веде будь-яка закрита сторінка без сесії.
  *
- * На «Плані» тут кнопка «Увійти через Telegram» (TelegramLoginController + /plan-login.js),
- * пароль — згорнутий запасний варіант. На стендах заявок вхід — за посиланням із бота
+ * На «Плані» тут лише кнопка «Увійти через Telegram» (TelegramLoginController + /plan-login.js),
+ * без пароля. На стендах заявок вхід — за посиланням із бота
  * (/crm/auth/<токен>), а сторінка пояснює, де його взяти, і чому попереднє не спрацювало.
  */
 class LoginController extends AbstractController
@@ -35,8 +35,6 @@ class LoginController extends AbstractController
         #[Autowire('%tasks_enabled%')]
         private bool $tasks = false,
         private ?TelegramLogin $telegramLogin = null,
-        #[Autowire('%env(bool:default::PASSWORD_LOGIN_SUPERADMIN_ONLY)%')]
-        private bool $passwordSuperadminOnly = false,
     ) {
     }
 
@@ -68,11 +66,9 @@ class LoginController extends AbstractController
             'error' => $error,
             'loggedOut' => $loggedOut && $user === null,
             'warehouse' => $user instanceof TelegramUser && $this->warehouse->inMenuFor($user),
-            'password_login' => $this->passwordLogin,
-            // «План»: головне — кнопка «Увійти через Telegram»; пароль — згорнутий запасний варіант.
-            'telegram_login' => $this->telegramLogin?->enabled() ?? false,
-            'password_superadmin_only' => $this->passwordSuperadminOnly,
-            'password_tried' => $this->lastLogin() !== '' && $error !== null,
+            // «План»: один вхід — «Увійти через Telegram»; форми пароля там немає зовсім.
+            'telegram_login' => $telegram = $this->telegramLogin?->enabled() ?? false,
+            'password_login' => $this->passwordLogin && ! $telegram,
             'tasks' => $this->tasks,
             'last_login' => $this->lastLogin(),
         ], new Response(status: $status));

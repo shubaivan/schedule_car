@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PersonName from '../../plan/PersonName.vue'
 import { quantity } from '../../plan/uk'
 import { computed, onMounted, ref } from 'vue'
 import TaskRow from './TaskRow.vue'
@@ -85,7 +86,7 @@ useLiveRefresh(() => load(), { pollMs: 30000, debounceMs: 1000 })
                             <span>Заявка № {{ r.number }}</span>
                             <span class="t-status" :class="tone(r.status)">{{ r.statusLabel }}</span>
                             <span v-if="r.needBy" class="t-due" :class="{ over: r.overdue }">⏰ {{ dueLabel(r.needBy) }}</span>
-                            <span>{{ r.author.name }}</span>
+                            <PersonName :person="r.author" :link="false" />
                         </span>
                     </router-link>
                 </div>

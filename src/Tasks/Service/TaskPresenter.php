@@ -3,6 +3,7 @@
 namespace App\Tasks\Service;
 
 use App\Entity\TelegramUser;
+use App\Plan\People\PhoneFormat;
 use App\Supply\Entity\Department;
 use App\Tasks\Entity\Task;
 use App\Tasks\Entity\TaskAttachment;
@@ -39,6 +40,9 @@ class TaskPresenter
             'initials' => $initials !== '' ? $initials : '?',
             'color' => self::PALETTE[(int) $user->getId() % count(self::PALETTE)],
             'position' => $user->getPosition(),
+            // Телефон поруч з іменем скрізь у Плані (PersonName на фронті); немає — null.
+            'phone' => PhoneFormat::display($user->getPhoneNumber()),
+            'tel' => PhoneFormat::tel($user->getPhoneNumber()),
             'role' => $user->getWorkRole()->value,
             'roleLabel' => $user->getWorkRole()->label(),
             'department' => $user->getDepartment()?->getName(),

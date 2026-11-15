@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PersonName from '../../plan/PersonName.vue'
 import { computed, onMounted, ref } from 'vue'
 import { api, ATTACHMENT_TYPES, type ApiSupplier, type PurchasePayload, type SupplyRequest } from '../../app/api'
 import { useSession } from '../../app/store'
@@ -359,7 +360,7 @@ onMounted(load)
                         <td>{{ file.typeLabel }}</td>
                         <td>{{ file.sizeLabel }}</td>
                         <td class="wrap">
-                            {{ file.uploadedBy ?? '—' }}<br>
+                            <PersonName v-if="file.uploadedBy" :name="file.uploadedBy" /><template v-else>—</template><br>
                             <span class="muted">{{ formatDateTime(file.uploadedAt) }}</span>
                         </td>
                         <td>
@@ -410,7 +411,7 @@ onMounted(load)
                         <template v-else>💬 {{ event.text }}</template>
                     </div>
                     <div class="meta">
-                        {{ formatDateTime(event.at) }}<span v-if="event.author"> · {{ event.author.name }}</span>
+                        {{ formatDateTime(event.at) }}<span v-if="event.author"> · <PersonName :person="event.author" /></span>
                     </div>
                 </li>
             </ul>

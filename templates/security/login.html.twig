@@ -9,7 +9,7 @@
 {#
     Сторінка входу. На «Плані» (telegram_login) — велика кнопка «Увійти через Telegram»:
     /plan-login.js готує одноразову спробу, відкриває бота і чекає підтвердження; пароль —
-    згорнутий запасний варіант. На стендах заявок — три кроки й кнопка «Відкрити бота».
+    пароля немає. На стендах заявок — три кроки й кнопка «Відкрити бота».
 
     Відкривають її частіше з телефона, ніж із комп'ютера: картка на всю ширину,
     кнопка під великий палець, текст 16px і жодного горизонтального скролу.
@@ -81,10 +81,6 @@
   @media (min-width: 720px) and (hover: hover) { .desk-only { display: inline; } }
   .tg-msg { display: none; }
   .tg-msg.on { display: block; }
-  details.pw-fallback { margin-top: 18px; border-top: 1px solid var(--rule); padding-top: 12px; }
-  details.pw-fallback summary { cursor: pointer; color: var(--muted); font-size: 14px; text-align: center; list-style: none; }
-  details.pw-fallback summary::-webkit-details-marker { display: none; }
-  details.pw-fallback[open] summary { margin-bottom: 12px; }
   .link-btn { background: none; border: 0; color: var(--muted); text-decoration: underline; font: inherit; font-size: 14px; cursor: pointer; padding: 6px; }
 </style>
 </head>
@@ -135,21 +131,6 @@
       <li>Поверніться сюди — План відкриється сам.</li>
     </ol>
 
-    {% if password_login %}
-    <details class="pw-fallback"{% if password_tried %} open{% endif %}>
-      <summary>Вхід за паролем{% if password_superadmin_only %} (для адміністраторів){% endif %}</summary>
-      <form class="pw" method="post" action="{{ path('app_login_password') }}">
-        <label>Email або телефон
-          <input name="login" value="{{ last_login }}" autocomplete="username" inputmode="email" required>
-        </label>
-        <label>Пароль
-          <input name="password" type="password" autocomplete="current-password" required>
-        </label>
-        <input type="hidden" name="_csrf_token" value="{{ csrf_token('login') }}">
-        <button class="btn primary" type="submit">Увійти</button>
-      </form>
-    </details>
-    {% endif %}
     <script src="/plan-login.js?v=2" defer></script>
   {% else %}
     {% if password_login %}

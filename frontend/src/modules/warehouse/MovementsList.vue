@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PersonName from '../../plan/PersonName.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSession } from '../../app/store'
@@ -172,7 +173,7 @@ onBeforeUnmount(() => {
                                 <span class="when">{{ formatDate(m.occurredAt) }}</span>
                             </span>
                             <span class="title">{{ m.route }}</span>
-                            <span class="client">{{ m.client ?? m.supplier ?? '' }}<template v-if="m.createdBy"> · {{ m.createdBy.name }}</template></span>
+                            <span class="client">{{ m.client ?? m.supplier ?? '' }}<template v-if="m.createdBy"> · <PersonName :person="m.createdBy" :link="false" /></template></span>
                             <span class="row foot"><span class="w-total">{{ m.lines }} поз. · {{ m.units.toLocaleString('uk-UA') }} од.</span></span>
                         </span>
                     </a>

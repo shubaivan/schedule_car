@@ -7,6 +7,10 @@ export interface Person {
     initials: string
     color: string
     position: string | null
+    /** «093 350 44 42» — показуємо поруч з іменем (PersonName); null — номера немає. */
+    phone?: string | null
+    /** «+380933504442» для посилання tel:. */
+    tel?: string | null
     role: string
     roleLabel: string
     department: string | null

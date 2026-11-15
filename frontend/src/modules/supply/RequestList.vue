@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PersonName from '../../plan/PersonName.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { api, type NewRequestPayload, type RequestListResponse } from '../../app/api'
@@ -235,7 +236,7 @@ onMounted(load)
                         {{ item.needBy ? formatDate(item.needBy) : '—' }}
                         <span v-if="item.overdue" class="flag">прострочено</span>
                     </td>
-                    <td>{{ item.author.name }}</td>
+                    <td><PersonName :person="item.author" /></td>
                     <td>{{ item.department ?? '—' }}</td>
                     <td><StatusBadge :status="item.status" :label="item.statusLabel" /></td>
                 </tr>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PersonName from '../../plan/PersonName.vue'
 import { money } from '../../plan/uk'
 import { vStickyHead } from '../../plan/stickyHead'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
@@ -290,7 +291,7 @@ watch(tab, (t) => {
                         <div v-for="d in files" :key="d.id" class="p-doc">
                             <div class="p-doc-info">
                                 <a :href="d.url" target="_blank" rel="noopener" class="p-doc-name">{{ d.name }}</a>
-                                <div class="p-muted p-small">{{ d.typeLabel }} · {{ d.sizeLabel }}<template v-if="d.uploadedBy"> · {{ d.uploadedBy }}</template></div>
+                                <div class="p-muted p-small">{{ d.typeLabel }} · {{ d.sizeLabel }}<template v-if="d.uploadedBy"> · <PersonName :name="d.uploadedBy" /></template></div>
                                 <div class="p-small">
                                     <a :href="d.download">Скачати</a>
                                     <template v-if="d.driveUrl"> · <a :href="d.driveUrl" target="_blank" rel="noopener">Google Drive</a></template>

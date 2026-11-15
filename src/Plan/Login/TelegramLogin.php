@@ -4,6 +4,7 @@ namespace App\Plan\Login;
 
 use App\Entity\TelegramUser;
 use App\Plan\Login\Entity\LoginNonce;
+use App\Plan\People\PhoneFormat;
 use App\Plan\Telegram\PlanBotMode;
 use App\Plan\Telegram\TelegramLink;
 use App\Repository\TelegramUserRepository;
@@ -254,20 +255,10 @@ final class TelegramLogin
         return $live !== [] ? $live : $same;
     }
 
-    /**
-     * Номер до повного вигляду цифрами: 0631234567 → 380631234567, 631234567 → 380631234567;
-     * з кодом країни — як є. null — замало цифр.
-     */
+    /** Номер до повного вигляду цифрами (PhoneFormat::e164). */
     public static function e164(string $phone): ?string
     {
-        $digits = (string) preg_replace('/\D+/', '', $phone);
-
-        return match (true) {
-            strlen($digits) === 9 => '380' . $digits,
-            strlen($digits) === 10 && str_starts_with($digits, '0') => '38' . $digits,
-            strlen($digits) >= 11 => $digits,
-            default => null,
-        };
+        return PhoneFormat::e164($phone);
     }
 
     /** Чи пускати людину: підтверджена, не в кошику. */

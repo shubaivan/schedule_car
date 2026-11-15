@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PersonName from '../../plan/PersonName.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { Attachment } from './api'
 import { extClass, pagesLabel } from './files'
@@ -92,7 +93,7 @@ onBeforeUnmount(() => {
                 <div class="meta">
                     {{ file.sizeLabel }}
                     <template v-if="file.pages"> · {{ pagesLabel(file.pages) }}</template>
-                    <template v-if="file.uploadedBy"> · {{ file.uploadedBy }}</template>
+                    <template v-if="file.uploadedBy"> · <PersonName :name="file.uploadedBy" /></template>
                     <template v-if="files.length > 1"> · {{ index + 1 }} з {{ files.length }}</template>
                 </div>
             </div>

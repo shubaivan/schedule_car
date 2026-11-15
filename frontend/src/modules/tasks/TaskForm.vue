@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PersonName from '../../plan/PersonName.vue'
 import { autogrow } from '../../plan/autogrow'
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import Avatar from './Avatar.vue'
@@ -202,7 +203,7 @@ onMounted(async () => {
                     <span class="k"><Icon name="users" :size="16" />Виконавці</span>
                     <div class="v">
                         <span v-for="d in chosen.deps" :key="'d' + d.id" class="p-dep">[{{ d.name }}]</span>
-                        <span v-for="p in chosen.people" :key="p.id" class="p-person-chip"><Avatar :person="p" :size="18" />{{ p.name }}</span>
+                        <span v-for="p in chosen.people" :key="p.id" class="p-person-chip"><Avatar :person="p" :size="18" /><PersonName :person="p" :link="false" /></span>
                         <button type="button" class="p-link" @click="picking = !picking">{{ chosen.deps.length || chosen.people.length ? (picking ? 'Готово' : 'Змінити') : 'Додати відділ або людей' }}</button>
                     </div>
                 </div>

@@ -1,8 +1,8 @@
 security:
     # Основний вхід у CRM — через Telegram-бота: на «Плані» кнопка «Увійти через Telegram»
     # (TelegramLoginAuthenticator), на стендах заявок — одноразове посилання з бота.
-    # Де ввімкнено PASSWORD_LOGIN_ENABLED, поруч є вхід за логіном і паролем
-    # (PASSWORD_LOGIN_SUPERADMIN_ONLY=1 — лише для суперадмінів, запасний ключ).
+    # На стендах заявок, де ввімкнено PASSWORD_LOGIN_ENABLED, поруч є вхід за паролем;
+    # на «Плані» пароля немає зовсім (PasswordLoginAuthenticator вимикається).
     password_hashers:
         App\Entity\TelegramUser: auto
 

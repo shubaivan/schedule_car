@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import PersonName from '../../plan/PersonName.vue'
+import { usePhoneBook, withPhone } from '../../plan/people'
 import { plural, sortByName } from '../../plan/uk'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter, type LocationQuery } from 'vue-router'
@@ -17,6 +19,7 @@ import './audit.css'
  * посилання можна переслати), подія — окремий маршрут /admin/audit/:id
  * (десктоп — праворуч від списку, телефон — на весь екран).
  */
+const phones = usePhoneBook()
 const session = useSession()
 const route = useRoute()
 const router = useRouter()
@@ -264,7 +267,7 @@ onBeforeUnmount(() => {
                     <span>Хто</span>
                     <select :value="filters.actor ?? ''" @change="setFilter({ actor: ($event.target as HTMLSelectElement).value })">
                         <option value="">Усі</option>
-                        <option v-for="a in meta?.actors ?? []" :key="a.id" :value="String(a.id)">{{ a.name }}</option>
+                        <option v-for="a in meta?.actors ?? []" :key="a.id" :value="String(a.id)">{{ withPhone(a.name, phones.lookup(a.id, a.name)?.phone) }}</option>
                         <option v-if="filters.actor && !actorName" :value="filters.actor">#{{ filters.actor }}</option>
                     </select>
                 </label>
@@ -327,7 +330,7 @@ onBeforeUnmount(() => {
                         @keydown.enter="open(item)"
                     >
                         <span class="a-at">{{ auditStamp(item.at).slice(-5) }}</span>
-                        <span class="a-who">{{ item.actor?.name ?? (item.channel === 'cli' ? 'Система' : '—') }}</span>
+                        <span class="a-who"><PersonName v-if="item.actor" :person="item.actor" :link="false" /><template v-else>{{ item.channel === 'cli' ? 'Система' : '—' }}</template></span>
                         <span class="a-type"><i class="a-badge" :class="'tone-' + (GROUP_TONE[item.group ?? ''] ?? 'slate')">{{ item.typeLabel }}</i></span>
                         <span class="a-subj">
                             <small>{{ item.subject.kindLabel }}</small>

@@ -84,9 +84,9 @@ RAM: Mercure ≈ 20–30 МБ, воркер ≈ 60–128 МБ.
 підтверджений вхід POST-ом /vhid/telegram/complete (CSRF). «🚫 Це був не я» у боті завершує ту сесію.
 
 - Міграція `Version20261116150000` (plan_login_nonce, plan_join_request) — лише нові таблиці.
-- `.env.local`: потрібні вже наявні PLAN_TELEGRAM_BOT=1 + TELEGRAM_BOT_USERNAME; нове —
-  `PASSWORD_LOGIN_SUPERADMIN_ONLY=1` (пароль — згорнутий запасний вхід лише для суперадмінів;
-  на демо-стенді PLAN_DEMO_STAND=1 демо-люди теж входять паролем). Після зміни — cache:clear.
+- `.env.local`: потрібні вже наявні PLAN_TELEGRAM_BOT=1 + TELEGRAM_BOT_USERNAME. Пароля на «Плані» немає
+  зовсім (рішення Івана 15.11): PasswordLoginAuthenticator вимикається, форми немає; PASSWORD_LOGIN_ENABLED
+  на сервері = 0. Демо-люди (demo-…) увійти не можуть — це лише дані для показу.
 - Людей заздалегідь заводять у «Співробітники → Новий» з телефоном (або plan:user:create --phone);
   далі людина просто входить через Telegram.
 - Аудит: «Журнал аудиту» → фільтр «Входи»: user_logged_in (method telegram), login_failed

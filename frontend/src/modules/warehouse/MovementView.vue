@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PersonName from '../../plan/PersonName.vue'
 import { money } from '../../plan/uk'
 import { onMounted, ref, watch } from 'vue'
 import { useSession } from '../../app/store'
@@ -109,7 +110,7 @@ onMounted(() => {
                 <section class="t-panel">
                     <h2>Журнал</h2>
                     <div v-for="j in movement.journal" :key="j.id" class="w-journal-row">
-                        <span>{{ j.emoji }} <b>{{ j.user?.name ?? 'Система' }}</b> {{ j.actionLabel.toLowerCase() }}<template v-if="j.details"> · {{ j.details }}</template></span>
+                        <span>{{ j.emoji }} <PersonName v-if="j.user" :person="j.user" bold /><b v-else>Система</b> {{ j.actionLabel.toLowerCase() }}<template v-if="j.details"> · {{ j.details }}</template></span>
                         <small class="p-muted">{{ formatDateTime(j.at) }} · {{ j.channelLabel }}</small>
                     </div>
                 </section>

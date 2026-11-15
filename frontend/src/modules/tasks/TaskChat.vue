@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PersonName from '../../plan/PersonName.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import Avatar from './Avatar.vue'
@@ -499,7 +500,7 @@ defineExpose({ scrollDown, remove, removingFile })
         <span class="ic">📌</span>
         <span class="body">
             <b>Закріплено<template v-if="pinned.length > 1"> · {{ (pinIndex % pinned.length) + 1 }} з {{ pinned.length }}</template></b>
-            <span>{{ pinnedNow.author?.name }}: {{ pinnedNow.text || (pinnedNow.attachments.length ? '📎 ' + pinnedNow.attachments[0].name : '') }}</span>
+            <span><PersonName v-if="pinnedNow.author" :person="pinnedNow.author" :link="false" />: {{ pinnedNow.text || (pinnedNow.attachments.length ? '📎 ' + pinnedNow.attachments[0].name : '') }}</span>
         </span>
     </button>
 
@@ -517,7 +518,7 @@ defineExpose({ scrollDown, remove, removingFile })
             <div v-if="row.type === 'day'" class="t-day">{{ row.label }}</div>
             <div v-else-if="row.type === 'unread'" class="f-unread"><span>Нові повідомлення</span></div>
             <div v-else-if="row.m.kind === 'event'" :id="'msg-' + row.m.id" class="t-event">
-                <b>{{ row.m.author?.name ?? 'Система' }}</b>: {{ row.m.text }} · {{ time(row.m.createdAt) }}
+                <PersonName v-if="row.m.author" :person="row.m.author" bold :link="false" /><b v-else>Система</b>: {{ row.m.text }} · {{ time(row.m.createdAt) }}
             </div>
             <MessageBubble
                 v-else
@@ -540,7 +541,7 @@ defineExpose({ scrollDown, remove, removingFile })
     <form v-if="task.can.comment" class="t-composer" :class="{ 't-main-hide-mobile': hidden }" @submit.prevent="send">
         <div v-if="mentionList.length" class="t-mentions">
             <button v-for="(p, i) in mentionList" :key="p.id" type="button" :class="{ on: i === mentionIndex }" @mousedown.prevent="chooseMention(p)">
-                <Avatar :person="p" :size="26" /> <span>{{ p.name }} <small>· {{ p.position ?? p.roleLabel }}</small></span>
+                <Avatar :person="p" :size="26" /> <span><PersonName :person="p" :link="false" /> <small>· {{ p.position ?? p.roleLabel }}</small></span>
             </button>
         </div>
         <div v-if="error" class="t-error">{{ error }}</div>

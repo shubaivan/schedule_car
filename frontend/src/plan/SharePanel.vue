@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PersonName from './PersonName.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useSession } from '../app/store'
 import {
@@ -186,12 +187,12 @@ function date(iso: string): string {
                     <label>
                         <input type="checkbox" :checked="picked.includes(p.id)" @change="toggle(p.id)" />
                         <span class="av" :style="{ background: p.color }">{{ p.initials }}</span>
-                        <span class="nm">{{ p.name }}<small v-if="p.position || p.roleLabel">{{ p.position || p.roleLabel }}</small></span>
+                        <span class="nm"><PersonName :person="p" :link="false" /><small v-if="p.position || p.roleLabel">{{ p.position || p.roleLabel }}</small></span>
                     </label>
                 </li>
                 <li v-for="p in blocked" :key="'b' + p.id" class="off" :title="'Немає доступу до ' + (meta?.subject.label ?? 'файлу')">
                     <span class="av" :style="{ background: p.color }">{{ p.initials }}</span>
-                    <span class="nm">{{ p.name }}<small>немає доступу</small></span>
+                    <span class="nm"><PersonName :person="p" :link="false" /><small>немає доступу</small></span>
                 </li>
                 <li v-if="!people.length && !busy" class="empty">Нікого не знайдено.</li>
             </ul>

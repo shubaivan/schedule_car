@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PersonName from '../../plan/PersonName.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useSession } from '../../app/store'
 import { auditApi, type AuditDetail, type AuditFilters } from './api'
@@ -78,7 +79,7 @@ onMounted(async () => {
 
                 <template v-if="event.people.length">
                     <dt>Люди</dt>
-                    <dd>{{ event.people.map((p) => p.name).join(', ') }}</dd>
+                    <dd><template v-for="(p, i) in event.people" :key="p.id"><template v-if="i">, </template><PersonName :person="p" /></template></dd>
                 </template>
 
                 <dt>Звідки</dt>
@@ -113,7 +114,7 @@ onMounted(async () => {
                     <span class="a-at">{{ auditStamp(a.at) }}</span>
                     <i class="a-badge" :class="'tone-' + (GROUP_TONE[a.group ?? ''] ?? 'slate')">{{ a.typeLabel }}</i>
                     <span class="a-around-text">
-                        {{ a.actor?.name ?? '—' }}<template v-if="a.summary"> · {{ a.summary }}</template>
+                        <PersonName v-if="a.actor" :person="a.actor" :link="false" /><template v-else>—</template><template v-if="a.summary"> · {{ a.summary }}</template>
                         <template v-if="a.comment"> · 💬 {{ a.comment }}</template>
                     </span>
                 </router-link>

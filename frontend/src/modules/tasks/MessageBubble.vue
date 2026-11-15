@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PersonName from '../../plan/PersonName.vue'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import Avatar from './Avatar.vue'
 import AttachmentPreview from './AttachmentPreview.vue'
@@ -52,7 +53,9 @@ const html = computed(() => {
     let out = escape(props.m.text)
     for (const id of props.m.mentions) {
         const p = store.person(id)
-        if (p) out = out.split('@' + escape(p.name)).join(`<span class="mention">@${escape(p.name)}</span>`)
+        // Згадка з телефоном (як скрізь у Плані): «@Ім'я (093 …)», номер — посилання tel:.
+        const phone = p?.phone && p.tel ? ` <a class="p-person-phone" href="tel:${escape(p.tel)}">(${escape(p.phone)})</a>` : ''
+        if (p) out = out.split('@' + escape(p.name)).join(`<span class="mention">@${escape(p.name)}</span>${phone}`)
     }
     return out
 })
@@ -96,9 +99,9 @@ onMounted(measure)
         <Avatar :person="m.author" :size="32" />
         <div class="t-bubble" :class="{ deleted: m.deleted }">
             <div v-if="!m.mine && !cont" class="who" :style="{ color: m.author?.color }">
-                {{ m.author?.name }}<small>{{ m.author?.position }}</small>
+                <PersonName v-if="m.author" :person="m.author" /><small>{{ m.author?.position }}</small>
             </div>
-            <div v-if="m.pinned && !m.deleted" class="f-pinmark">📌 Закріплено<template v-if="m.pinned.by"> · {{ m.pinned.by }}</template></div>
+            <div v-if="m.pinned && !m.deleted" class="f-pinmark">📌 Закріплено<template v-if="m.pinned.by"> · <PersonName :name="m.pinned.by" /></template></div>
             <button v-if="m.replyTo && !m.deleted" type="button" class="f-quote" :style="{ borderColor: m.replyTo.authorColor ?? undefined }" @click="emit('jump', m.replyTo.id)">
                 <b :style="{ color: m.replyTo.authorColor ?? undefined }">{{ m.replyTo.author ?? 'Система' }}</b>
                 <span v-if="m.replyTo.deleted" class="muted">Повідомлення видалено</span>
@@ -130,7 +133,7 @@ onMounted(measure)
             <!-- Хто прочитав — розкривається під повідомленням, а не спливає поверх. -->
             <div v-if="readList" class="f-readlist inline">
                 <div class="h">Прочитали <button type="button" class="f-inline-x" aria-label="Згорнути" @click="readList = false">✕</button></div>
-                <div v-for="p in readers" :key="p.id" class="r"><Avatar :person="p" :size="20" /> {{ p.name }}</div>
+                <div v-for="p in readers" :key="p.id" class="r"><Avatar :person="p" :size="20" /> <PersonName :person="p" /></div>
             </div>
             <!-- Телефон: дії з повідомленням рядком під ним (без шторки й затемнення). -->
             <div v-if="sheet && !m.deleted" class="f-inline-actions" role="toolbar" aria-label="Дії з повідомленням">
