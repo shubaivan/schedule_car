@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import PersonName from '../../plan/PersonName.vue'
 import { num, plural } from '../../plan/uk'
+import { vocative } from '../../plan/vocative'
 import { computed, onMounted, ref } from 'vue'
 import TaskRow from './TaskRow.vue'
 import { tasksApi } from './api'
@@ -105,7 +106,7 @@ useLiveRefresh(() => load(), { pollMs: 30000, debounceMs: 1000 })
     <div class="t-page p-home ov">
         <div class="t-head">
             <div>
-                <h1>{{ hello() }}, {{ store.meta?.me.name.split(' ')[0] ?? session.user?.firstName }}</h1>
+                <h1>{{ hello() }}, {{ vocative(store.meta?.me.name.split(' ')[0] ?? session.user?.firstName) }}</h1>
                 <div class="t-sub">
                     {{ today() }} · {{ store.meta?.me.position ?? store.meta?.me.roleLabel }}
                     <template v-if="store.meta?.me.department">· {{ store.meta?.me.department }}</template>
@@ -191,7 +192,7 @@ useLiveRefresh(() => load(), { pollMs: 30000, debounceMs: 1000 })
                                         <span v-if="d.due" class="t-due" :class="{ over: d.overdue }">⏰ {{ dueLabel(d.due) }}</span>
                                         <b v-if="d.amount !== null">{{ uah(d.amount) }}</b>
                                         <span v-if="d.detail">{{ d.detail }}</span>
-                                        <PersonName v-if="d.person" :person="d.person" :link="false" />
+                                        <PersonName v-if="d.person" :person="d.person" :link="false" tel />
                                     </span>
                                 </router-link>
                                 <div v-if="rejecting === key(d)" class="ov-reason">
