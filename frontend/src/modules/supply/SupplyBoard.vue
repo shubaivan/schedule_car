@@ -242,7 +242,7 @@ onBeforeUnmount(() => {
         </div>
 
         <div v-if="openId !== null" class="p-board-right">
-            <SupplyView :key="openId" :id="String(openId)" embedded @close="close" @changed="changed" />
+            <SupplyView :id="String(openId)" :key="openId" embedded @close="close" @changed="changed" />
         </div>
     </div>
 </template>

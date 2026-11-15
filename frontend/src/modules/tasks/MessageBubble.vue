@@ -115,6 +115,7 @@ onMounted(measure)
             <div v-if="m.deleted" class="txt">Повідомлення видалено</div>
             <template v-else>
                 <div v-if="m.text" class="f-txtwrap" :class="{ clamp: collapsed }" :style="collapsed ? { maxHeight: LIMIT_PX + 'px' } : undefined">
+                    <!-- eslint-disable-next-line vue/no-v-html -- html = текст після escape() + розмітка згадок (див. computed html) -->
                     <div ref="txt" class="txt" v-html="html" />
                 </div>
                 <button v-if="long" type="button" class="f-more" @click="collapsed = !collapsed">{{ collapsed ? 'Розгорнути ▾' : 'Згорнути ▴' }}</button>

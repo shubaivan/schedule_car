@@ -276,7 +276,7 @@ onBeforeUnmount(() => {
 
         <div v-if="openId !== null" class="p-board-right">
             <!-- key: при переході на іншу задачу — чистий стан (поле вводу, опитування, нотатка рішення). -->
-            <TaskView :key="openId" :id="String(openId)" embedded @close="close" />
+            <TaskView :id="String(openId)" :key="openId" embedded @close="close" />
         </div>
 
     </div>

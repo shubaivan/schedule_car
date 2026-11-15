@@ -173,6 +173,7 @@ function replace(updated: Message) {
             m.replyTo = { ...m.replyTo, text: updated.deleted ? '' : updated.text.slice(0, 160), deleted: updated.deleted, files: updated.deleted ? 0 : updated.attachments.length }
         }
     }
+    // eslint-disable-next-line vue/no-mutating-props -- задача — спільний обʼєкт сторінки: файли оновлюємо на місці, як і раніше
     if (updated.deleted) props.task.files = props.task.files.filter((f) => f.messageId !== updated.id)
 }
 
@@ -224,6 +225,7 @@ function replaceAttachment(a: Attachment) {
         if (i >= 0) m.attachments[i] = a
     }
     const j = props.task.files.findIndex((x) => x.id === a.id)
+    // eslint-disable-next-line vue/no-mutating-props -- задача — спільний обʼєкт сторінки: файли оновлюємо на місці, як і раніше
     if (j >= 0) props.task.files[j] = a
 }
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { call } from '../../app/api'
 import { useSession } from '../../app/store'
 
@@ -24,7 +24,6 @@ interface Status {
 }
 
 const route = useRoute()
-const router = useRouter()
 const session = useSession()
 const data = ref<Status | null>(null)
 const error = ref('')

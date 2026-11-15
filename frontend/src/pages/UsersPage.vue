@@ -250,7 +250,7 @@ onMounted(load)
             Якщо вона вже зареєстрована, роль видається одразу.
         </p>
 
-        <div class="table-wrap" v-if="staff.length">
+        <div v-if="staff.length" class="table-wrap">
             <table>
                 <thead>
                 <tr>

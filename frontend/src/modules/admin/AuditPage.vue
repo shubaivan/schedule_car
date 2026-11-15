@@ -367,7 +367,7 @@ onBeforeUnmount(() => {
         </div>
 
         <div v-if="openId !== null" class="p-split-right a-detail-pane">
-            <AuditEventView :key="openId" :id="openId" @close="close" @filter="applyFromDetail" />
+            <AuditEventView :id="openId" :key="openId" @close="close" @filter="applyFromDetail" />
         </div>
     </div>
 </template>

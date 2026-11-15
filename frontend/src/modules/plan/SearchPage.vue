@@ -596,7 +596,7 @@ onBeforeUnmount(() => {
             </div>
         </div>
         <div v-if="openId !== null" class="p-split-right p-board-right">
-            <TaskView :key="openId + ':' + (route.query.m ?? '') + ':' + (route.query.f ?? '')" :id="String(openId)" embedded @close="close" />
+            <TaskView :id="String(openId)" :key="openId + ':' + (route.query.m ?? '') + ':' + (route.query.f ?? '')" embedded @close="close" />
         </div>
     </div>
 </template>

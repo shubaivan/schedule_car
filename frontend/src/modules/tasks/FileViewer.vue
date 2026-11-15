@@ -136,9 +136,9 @@ onBeforeUnmount(() => {
         </div>
         <SharePanel
             v-if="sharing"
+            :id="file.id"
             :key="'s' + file.id"
             :type="fileTypeOf(file)"
-            :id="file.id"
             :name="file.name"
             :mime="file.mime"
             :fetch-url="file.urls.inline"

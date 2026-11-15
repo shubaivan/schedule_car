@@ -187,7 +187,7 @@ onBeforeUnmount(() => {
         </div>
 
         <div v-if="openId !== null" class="p-board-right">
-            <MovementView :key="openId" :id="String(openId)" embedded @close="close" />
+            <MovementView :id="String(openId)" :key="openId" embedded @close="close" />
         </div>
     </div>
 </template>

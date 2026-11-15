@@ -2,7 +2,7 @@
 import Avatar from './Avatar.vue'
 import type { Person } from './api'
 
-withDefaults(defineProps<{ people: Person[]; total?: number; max?: number; size?: number }>(), { max: 4, size: 26 })
+withDefaults(defineProps<{ people: Person[]; total?: number; max?: number; size?: number }>(), { total: undefined, max: 4, size: 26 })
 </script>
 
 <template>

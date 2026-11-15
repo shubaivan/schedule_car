@@ -344,7 +344,7 @@ onBeforeUnmount(() => {
             </div>
         </div>
         <div v-if="openId !== null" class="p-split-right p-board-right">
-            <TaskView :key="openId" :id="String(openId)" embedded @close="close" />
+            <TaskView :id="String(openId)" :key="openId" embedded @close="close" />
         </div>
     </div>
 </template>
