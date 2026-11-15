@@ -58,9 +58,7 @@ class TripFormatter
             return $heading . "\n    водій: не закріплений";
         }
 
-        $names = array_map(function (TelegramUser $driver): string {
-            return $this->escape(PhoneFormat::named($driver->displayName(), $driver->getPhoneNumber()));
-        }, $drivers);
+        $names = array_map(fn (TelegramUser $driver): string => $this->escape(PhoneFormat::named($driver->displayName(), $driver->getPhoneNumber())), $drivers);
 
         return $heading . "\n    " . (count($names) > 1 ? 'водії: ' : 'водій: ') . implode(', ', $names);
     }
