@@ -1822,6 +1822,37 @@ body.p-noscroll {
 .p-staff.split .t-table {
     table-layout: auto;
 }
+/* Планшет у портреті (761–899): повна таблиця вилазила за екран — рядки-картки, як на телефоні. */
+@media (max-width: 899px) and (min-width: 761px) {
+    .p-staff .t-table.responsive thead {
+        display: none;
+    }
+    .p-staff .t-table.responsive tr {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 0.2rem 0.7rem;
+        padding: 0.7rem;
+        border-bottom: 1px solid var(--border);
+    }
+    .p-staff .t-table.responsive td {
+        border: 0;
+        padding: 0;
+    }
+    .p-staff .t-table.responsive td.av {
+        grid-row: span 3;
+    }
+    .p-staff .t-table.responsive td.hide-sm {
+        display: none;
+    }
+}
+/* Планшет у альбомній / малий ноутбук (900–1180): контакти й активність — у картці людини. */
+@media (max-width: 1180px) and (min-width: 900px) {
+    .p-staff .t-table .hide-sm,
+    .p-staff .t-table th:nth-child(5),
+    .p-staff .t-table th:nth-child(6) {
+        display: none;
+    }
+}
 
 /* Порожній / недоступний розділ (склад без прав тощо) — картка посередині. */
 .p-placeholder {
