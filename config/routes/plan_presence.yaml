@@ -1,0 +1,6 @@
+# «Хто зараз у Плані» — heartbeat і список для шапки (/api/plan/presence).
+plan_presence:
+    resource:
+        path: ../../src/Plan/Presence/
+        namespace: App\Plan\Presence
+    type: attribute

@@ -150,7 +150,7 @@ class StandModeTest extends WebTestCase
         $this->em->flush();
         $this->client->loginUser($admin);
 
-        foreach (['GET /api/plan/audit', 'GET /api/plan/audit/meta', 'GET /api/plan/audit.csv', 'GET /api/plan/drive', 'POST /api/plan/drive/retry', 'POST /api/plan/drive/resume', 'GET /api/plan/notifications'] as $call) {
+        foreach (['GET /api/plan/audit', 'GET /api/plan/audit/meta', 'GET /api/plan/audit.csv', 'GET /api/plan/drive', 'POST /api/plan/drive/retry', 'POST /api/plan/drive/resume', 'GET /api/plan/notifications', 'GET /api/plan/presence', 'POST /api/plan/presence'] as $call) {
             [$method, $url] = explode(' ', $call);
             $this->client->request($method, $url);
             self::assertResponseStatusCodeSame(404, $call);
