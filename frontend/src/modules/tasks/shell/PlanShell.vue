@@ -89,13 +89,7 @@ const newTarget = computed(() =>
             : { name: 'tasks-new' },
 )
 const newLabel = computed(() =>
-    onSupply.value
-        ? 'Заявка на постачання ( N )'
-        : newOnWarehouse.value
-          ? 'Новий рух ( N )'
-          : onCounterparties.value
-            ? 'Новий контрагент ( N )'
-            : 'Нова задача ( N )',
+    onSupply.value ? 'Заявка на постачання ( N )' : newOnWarehouse.value ? 'Новий рух ( N )' : onCounterparties.value ? 'Новий контрагент ( N )' : 'Нова задача ( N )',
 )
 
 function search() {

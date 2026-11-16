@@ -14,6 +14,7 @@ enum PresenceSection: string
     case Tasks = 'tasks';
     case Supply = 'supply';
     case Warehouse = 'warehouse';
+    case Counterparties = 'counterparties';
     case Search = 'search';
     case Notifications = 'notifications';
     case Staff = 'staff';
@@ -34,8 +35,9 @@ enum PresenceSection: string
             self::Overview => 'Огляд',
             self::Chronicle => 'Хроніка',
             self::Tasks => 'Задачі',
-            self::Supply => 'Заявки',
+            self::Supply => 'Постачання',
             self::Warehouse => 'Склад',
+            self::Counterparties => 'Контрагенти',
             self::Search => 'Пошук',
             self::Notifications => 'Сповіщення',
             self::Staff => 'Люди',

@@ -11,6 +11,8 @@ final class PresenceSectionTest extends TestCase
     public function testKnownKeysMapToThemselvesAndAnythingElseIsOther(): void
     {
         self::assertSame(PresenceSection::Warehouse, PresenceSection::fromClient('warehouse'));
+        self::assertSame(PresenceSection::Counterparties, PresenceSection::fromClient('counterparties'));
+        self::assertSame('Постачання', PresenceSection::Supply->label());
         self::assertSame(PresenceSection::Other, PresenceSection::fromClient('task-42'));
         self::assertSame(PresenceSection::Other, PresenceSection::fromClient(''));
         self::assertSame(PresenceSection::Other, PresenceSection::fromClient(null));

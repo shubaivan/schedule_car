@@ -32,7 +32,7 @@ export interface PresenceResponse {
 }
 
 export type PresenceSectionKey =
-    'overview' | 'chronicle' | 'tasks' | 'supply' | 'warehouse' | 'search' | 'notifications' | 'staff' | 'files' | 'fleet' | 'admin' | 'profile' | 'other'
+    'overview' | 'chronicle' | 'tasks' | 'supply' | 'warehouse' | 'counterparties' | 'search' | 'notifications' | 'staff' | 'files' | 'fleet' | 'admin' | 'profile' | 'other'
 
 /** Розділ за маршрутом — та сама логіка, що підсвічує рейку в PlanShell. Лише розділ, без id. */
 export function presenceSection(name: string, query: Record<string, unknown> = {}): PresenceSectionKey {
@@ -43,6 +43,7 @@ export function presenceSection(name: string, query: Record<string, unknown> = {
     if (name.startsWith('task')) return 'tasks'
     if (name.startsWith('supply-')) return 'supply'
     if (name.startsWith('warehouse')) return 'warehouse'
+    if (name.startsWith('counterpart')) return 'counterparties'
     if (name.startsWith('notifications')) return 'notifications'
     if (name.startsWith('staff')) return 'staff'
     if (name.startsWith('admin')) return 'admin'
