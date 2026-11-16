@@ -453,6 +453,8 @@ class TaskService
             $task->setDescription($description !== '' ? $description : null);
         }
 
+        $clientBefore = $task->getClient();
+
         if (array_key_exists('client', $data)) {
             $client = trim((string) $data['client']);
             $task->setClient($client !== '' ? mb_substr($client, 0, 255) : null);
@@ -460,9 +462,9 @@ class TaskService
 
         if (array_key_exists('counterpartyId', $data)) {
             $this->linkCounterparty($task, $data['counterpartyId'], $actor);
-        } elseif (array_key_exists('client', $data) && $task->getCounterparty() !== null &&
-            ! in_array($task->getClient(), [$task->getCounterparty()->getName(), $task->getCounterparty()->getShortName()], true)) {
-            // Клієнта переписали рядком (старий клієнт API, бот) — картка вже не про нього.
+        } elseif ($task->getCounterparty() !== null && $task->getClient() !== $clientBefore) {
+            // Клієнта справді переписали рядком (той, хто довідника не бачить; бот) — картка
+            // вже не про нього. Той самий рядок (правили лише назву чи термін) привʼязку не чіпає.
             $task->setCounterparty(null);
         }
 

@@ -20,6 +20,8 @@ use App\Plan\People\PhoneFormat;
 use App\Plan\Subject\SubjectRef;
 use App\Plan\Subject\SubjectType;
 use App\Tasks\Enum\WorkRole;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -85,7 +87,7 @@ class CounterpartyService
         $this->apply($counterparty, $author, $data, creating: true);
         $this->em->persist($counterparty);
 
-        $this->events->transactional(function () use ($counterparty, $author): void {
+        $this->save(function () use ($counterparty, $author): void {
             $this->em->flush();
             $this->events->record(new SubjectCreated($this->ref($counterparty), $author->getId(), title: $counterparty->getName()));
         });
@@ -98,33 +100,62 @@ class CounterpartyService
     {
         $this->guard($user, PlanCapability::CounterpartiesEdit);
 
-        if ($counterparty->isArchived()) {
-            throw new CounterpartyException('Контрагент в архіві — спершу поверніть його з архіву.');
+        // Уся правка — під блокуванням рядка картки: два одночасні збереження йдуть по черзі,
+        // а форма, відкрита до чужої правки (інша version), отримує 409, а не тихо затирає її
+        // (разом із контактом, якого в старій формі ще не було).
+        try {
+            $this->save(function () use ($counterparty, $user, $data): void {
+                $this->em->refresh($counterparty, LockMode::PESSIMISTIC_WRITE);
+
+                if ($counterparty->isArchived()) {
+                    throw new CounterpartyException('Контрагент в архіві — спершу поверніть його з архіву.');
+                }
+
+                if (isset($data['version']) && is_numeric($data['version']) && (int) $data['version'] !== $counterparty->getVersion()) {
+                    throw new CounterpartyException('Картку щойно змінив хтось інший — оновіть сторінку, щоб не затерти його правки.', 'version', conflict: true);
+                }
+
+                $before = $this->snapshot($counterparty);
+                $this->apply($counterparty, $user, $data, creating: false);
+                $after = $this->snapshot($counterparty);
+                $changed = array_keys(array_diff_assoc($after, $before));
+
+                if ($changed === []) {
+                    return;
+                }
+
+                $summary = implode('; ', array_map(
+                    fn (string $field) => match ($field) {
+                        'contacts', 'note' => self::LABELS[$field] . ' змінено',
+                        default => sprintf('%s: %s → %s', self::LABELS[$field], $this->shown($field, $before[$field]), $this->shown($field, $after[$field])),
+                    },
+                    $changed,
+                ));
+
+                $counterparty->bumpVersion();
+                $this->em->flush();
+                $this->events->record(new SubjectUpdated($this->ref($counterparty), $user->getId(), fields: $changed, summary: mb_substr($summary, 0, 1000)));
+            });
+        } catch (CounterpartyException $e) {
+            // Відкат — у БД; сутність теж повертаємо, щоб у цьому запиті ніхто не зберіг напівправку.
+            if ($this->em->isOpen() && $this->em->contains($counterparty)) {
+                $this->em->refresh($counterparty);
+            }
+
+            throw $e;
         }
-
-        $before = $this->snapshot($counterparty);
-        $this->apply($counterparty, $user, $data, creating: false);
-        $after = $this->snapshot($counterparty);
-
-        $changed = array_keys(array_diff_assoc($after, $before));
-
-        if ($changed === []) {
-            return $counterparty;
-        }
-
-        $summary = implode('; ', array_map(
-            static fn (string $field) => $field === 'contacts' || $field === 'note'
-                ? self::LABELS[$field] . ' змінено'
-                : sprintf('%s: %s → %s', self::LABELS[$field], $before[$field] !== '' ? $before[$field] : '—', $after[$field] !== '' ? $after[$field] : '—'),
-            $changed,
-        ));
-
-        $this->events->transactional(function () use ($counterparty, $user, $changed, $summary): void {
-            $this->em->flush();
-            $this->events->record(new SubjectUpdated($this->ref($counterparty), $user->getId(), fields: $changed, summary: mb_substr($summary, 0, 1000)));
-        });
 
         return $counterparty;
+    }
+
+    /** Значення поля для summary журналу: «—» замість порожнього, менеджер — без id. */
+    private function shown(string $field, string $value): string
+    {
+        if ($field === 'manager') {
+            $value = (string) preg_replace('/#\d+$/', '', $value);
+        }
+
+        return $value !== '' ? $value : '—';
     }
 
     public function archive(Counterparty $counterparty, TelegramUser $user): Counterparty
@@ -516,7 +547,7 @@ class CounterpartyService
     private function snapshot(Counterparty $c): array
     {
         $contacts = array_map(
-            static fn (CounterpartyContact $x) => implode('|', [$x->getName(), $x->getRole(), $x->getPhone(), $x->getEmail(), $x->isPrimary() ? '1' : '0']),
+            static fn (CounterpartyContact $x) => implode('|', [$x->getPosition(), $x->getName(), $x->getRole(), $x->getPhone(), $x->getEmail(), $x->isPrimary() ? '1' : '0']),
             $c->getContacts()->toArray(),
         );
 
@@ -537,11 +568,33 @@ class CounterpartyService
             'paymentTerms' => (string) $c->getPaymentTerms()?->label(),
             'deferralDays' => (string) $c->getDeferralDays(),
             'creditLimit' => (string) $c->getCreditLimit(),
-            'manager' => (string) $c->getManager()?->shortName(),
+            // За id: два працівники з однаковим імʼям — теж зміна (у summary — лише імʼя, див. shown()).
+            'manager' => $c->getManager() === null ? '' : $c->getManager()->shortName() . '#' . $c->getManager()->getId(),
             'note' => md5((string) $c->getNote()),
             'externalCode' => (string) $c->getExternalCode(),
             'contacts' => md5(implode("\n", $contacts)),
         ];
+    }
+
+    /**
+     * Запис + подія однією транзакцією. Двоє одночасно завели той самий ЄДРПОУ чи код 1С —
+     * перевірка дублів обох пропустила, унікальний індекс зупинив другого: людська помилка, не 500.
+     */
+    private function save(callable $work): void
+    {
+        try {
+            $this->events->transactional($work);
+        } catch (UniqueConstraintViolationException $e) {
+            $external = str_contains($e->getMessage(), 'uniq_counterparty_external_code');
+
+            throw new CounterpartyException(
+                $external
+                    ? 'Контрагент з таким кодом 1С щойно зʼявився — оновіть сторінку й знайдіть його в списку.'
+                    : 'Контрагент з таким ЄДРПОУ / РНОКПП щойно зʼявився — оновіть сторінку й знайдіть його в списку.',
+                $external ? 'externalCode' : 'code',
+                conflict: true,
+            );
+        }
     }
 
     private function guard(TelegramUser $user, PlanCapability $capability, string $message = 'Контрагентів ведуть продажі, бухгалтерія, постачання й керівництво.'): void

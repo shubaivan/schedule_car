@@ -66,6 +66,8 @@ export interface CpCard extends CpRow {
     deferralDays: number | null
     note: string | null
     externalCode: string | null
+    /** Номер правки — форма повертає його, щоб не затерти чужу правку (409). */
+    version: number
     contacts: CpContact[]
     createdAt: string
     createdBy: CpPerson | null
@@ -97,6 +99,7 @@ export interface CpPayload {
     managerId: number | null
     note: string
     externalCode: string
+    version?: number
     contacts: { id: number | null; name: string; role: string; phone: string; email: string; primary: boolean }[]
 }
 

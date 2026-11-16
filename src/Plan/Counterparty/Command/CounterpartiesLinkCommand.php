@@ -45,9 +45,13 @@ final class CounterpartiesLinkCommand extends Command
         $byCode = [];
         $byName = [];
 
-        foreach ($this->db->fetchAllAssociative('SELECT id, code, name_normalized FROM counterparty') as $c) {
+        $codeOf = [];
+
+        // Архівні картки не привʼязуємо: їх прибрали свідомо.
+        foreach ($this->db->fetchAllAssociative('SELECT id, code, name_normalized FROM counterparty WHERE archived_at IS NULL') as $c) {
             if ($c['code'] !== null) {
                 $byCode[(string) $c['code']] = (int) $c['id'];
+                $codeOf[(int) $c['id']] = (string) $c['code'];
             }
 
             $byName[(string) $c['name_normalized']][] = (int) $c['id'];
@@ -60,8 +64,11 @@ final class CounterpartiesLinkCommand extends Command
             foreach ($this->db->fetchAllAssociative(sprintf('SELECT id, name, edrpou FROM %s WHERE counterparty_id IS NULL ORDER BY id', $table)) as $r) {
                 $code = (string) preg_replace('/\D+/', '', (string) $r['edrpou']);
                 $names = $byName[Counterparty::normalize((string) $r['name'])] ?? [];
+                // За назвою — лише коли коди не суперечать: в обох різні ЄДРПОУ — це різні юрособи.
+                $conflict = count($names) === 1 && $code !== '' && isset($codeOf[$names[0]]) && $codeOf[$names[0]] !== $code;
                 [$target, $how] = match (true) {
                     $code !== '' && isset($byCode[$code]) => [$byCode[$code], 'код'],
+                    $conflict => [null, 'та сама назва, інший код — вручну'],
                     count($names) === 1 => [$names[0], 'назва'],
                     default => [null, count($names) > 1 ? 'кілька збігів за назвою — вручну' : 'немає картки'],
                 };

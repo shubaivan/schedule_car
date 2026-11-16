@@ -70,6 +70,7 @@ final readonly class CounterpartyPresenter
             'deferralDays' => $c->getDeferralDays(),
             'note' => $c->getNote(),
             'externalCode' => $c->getExternalCode(),
+            'version' => $c->getVersion(),
             'contacts' => array_map($this->contact(...), $c->getContacts()->toArray()),
             'createdAt' => $this->date($c->getCreatedAt()),
             'createdBy' => $this->person($c->getCreatedBy()),

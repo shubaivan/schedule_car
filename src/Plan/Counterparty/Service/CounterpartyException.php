@@ -15,6 +15,8 @@ final class CounterpartyException extends RuntimeException
         public readonly ?string $field = null,
         public readonly ?int $existingId = null,
         public readonly bool $forbidden = false,
+        /** Картку змінили паралельно (стара форма) або код щойно зайняли — 409. */
+        public readonly bool $conflict = false,
     ) {
         parent::__construct($message);
     }

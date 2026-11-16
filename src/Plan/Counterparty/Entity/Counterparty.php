@@ -128,6 +128,10 @@ class Counterparty
     #[ORM\JoinColumn(name: 'created_by_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
     private ?TelegramUser $createdBy = null;
 
+    /** Номер правки: форма надсилає той, з яким відкрилась, — стара форма не затре чужу правку. */
+    #[ORM\Column(type: 'integer', options: ['default' => 1])]
+    private int $version = 1;
+
     /** @var Collection<int, CounterpartyContact> */
     #[ORM\OneToMany(targetEntity: CounterpartyContact::class, mappedBy: 'counterparty', cascade: ['persist'], orphanRemoval: true)]
     #[ORM\OrderBy(['position' => SortDirection::Ascending, 'id' => SortDirection::Ascending])]
@@ -419,6 +423,18 @@ class Counterparty
     {
         $this->archivedAt = null;
         $this->archivedBy = null;
+
+        return $this;
+    }
+
+    public function getVersion(): int
+    {
+        return $this->version;
+    }
+
+    public function bumpVersion(): self
+    {
+        ++$this->version;
 
         return $this;
     }

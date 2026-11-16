@@ -129,6 +129,7 @@ onMounted(async () => {
                 managerId: c.manager?.id ?? null,
                 note: c.note ?? '',
                 externalCode: c.externalCode ?? '',
+                version: c.version,
                 contacts: c.contacts.length
                     ? c.contacts.map((x) => ({ id: x.id, name: x.name, role: x.role ?? '', phone: x.phone ?? '', email: x.email ?? '', primary: x.primary }))
                     : [blankContact()],

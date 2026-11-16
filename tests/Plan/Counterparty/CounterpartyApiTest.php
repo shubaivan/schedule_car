@@ -309,6 +309,52 @@ class CounterpartyApiTest extends WebTestCase
         self::assertNull($this->em->find(Task::class, $task['id'])?->getCounterparty());
     }
 
+    /** Ревʼю 16.11: правка назви тим, хто довідника не бачить, не знімала привʼязку лише тоді, коли рядок = назві картки. */
+    public function testLinkSurvivesEditsByPeopleWithoutDirectoryAndCardRename(): void
+    {
+        $c = $this->counterparty('ТОВ «Еко-Квартал»');
+        $author = $this->person(WorkRole::Production);
+        $manager = $this->person(WorkRole::Manager);
+        $this->browser->loginUser($author);
+        $task = $this->send('POST', '/api/tasks', ['title' => 'Плити', 'client' => 'Еко-квартал, секція 3', 'memberIds' => [$manager->getId()]]);
+
+        $this->browser->loginUser($manager);
+        $linked = $this->send('PATCH', '/api/tasks/' . $task['id'], ['client' => 'Еко-квартал, секція 3', 'counterpartyId' => $c->getId()]);
+        self::assertSame($c->getId(), $linked['counterparty']['id'], 'Свій рядок клієнта лишається, картка — привʼязана');
+
+        $c->setName('ТОВ «Еко-Квартал Плюс»');
+        $this->em->flush();
+
+        // Автор-виробничник (форма шле client без counterpartyId) править лише назву.
+        $this->browser->loginUser($author);
+        $same = $this->send('PATCH', '/api/tasks/' . $task['id'], ['title' => 'Плити ПК', 'client' => 'Еко-квартал, секція 3']);
+        self::assertSame($c->getId(), $same['counterparty']['id'] ?? null, 'Рядок не змінився — привʼязка на місці');
+
+        $changed = $this->send('PATCH', '/api/tasks/' . $task['id'], ['client' => 'Інший замовник']);
+        self::assertNull($changed['counterparty']);
+    }
+
+    public function testStaleFormGetsConflictInsteadOfOverwriting(): void
+    {
+        $c = $this->counterparty('ТОВ «Будінвест»');
+        $this->browser->loginUser($this->person(WorkRole::Accountant));
+        $opened = $this->send('GET', self::API . '/' . $c->getId())['version'];
+
+        $first = $this->send('PATCH', self::API . '/' . $c->getId(), ['note' => 'Оплата лише з рахунку', 'version' => $opened]);
+        self::assertResponseIsSuccessful();
+        self::assertSame($opened + 1, $first['version']);
+
+        // Друга людина відкрила форму ще до цієї правки.
+        $this->send('PATCH', self::API . '/' . $c->getId(), ['note' => 'Інше', 'version' => $opened]);
+        self::assertResponseStatusCodeSame(409);
+        self::assertSame('version', $this->json()['field']);
+        self::assertSame('Оплата лише з рахунку', $this->send('GET', self::API . '/' . $c->getId())['note']);
+
+        // Без змін — номер правки не росте.
+        $this->send('PATCH', self::API . '/' . $c->getId(), ['note' => 'Оплата лише з рахунку', 'version' => $first['version']]);
+        self::assertSame($first['version'], $this->json()['version']);
+    }
+
     public function testLinkCommandMatchesByCodeThenByName(): void
     {
         $alpha = $this->counterparty('ТОВ «Альфа-Бетон»', self::EDRPOU);
@@ -316,7 +362,13 @@ class CounterpartyApiTest extends WebTestCase
         $byCode = new Supplier()->setName('Альфа Бетон (стара назва)')->setEdrpou(self::EDRPOU);
         $byName = new WhClient()->setName('тов бета');
         $none = new Supplier()->setName('ФОП Невідомий');
-        foreach ([$byCode, $byName, $none] as $e) {
+        // Та сама назва, що в картки з кодом, але свій інший код — інша юрособа.
+        $this->counterparty('ТОВ «Гамма»', self::EDRPOU_2);
+        $otherCode = new Supplier()->setName('ТОВ Гамма')->setEdrpou('14360570');
+        // Архівна картка не привʼязується.
+        $this->counterparty('ТОВ «Дельта»')->archive(null);
+        $archived = new WhClient()->setName('ТОВ Дельта');
+        foreach ([$byCode, $byName, $none, $otherCode, $archived] as $e) {
             $this->em->persist($e);
         }
         $this->em->flush();
@@ -330,6 +382,9 @@ class CounterpartyApiTest extends WebTestCase
         self::assertSame($alpha->getId(), (int) $this->db()->fetchOne('SELECT counterparty_id FROM supply_supplier WHERE id = ?', [$byCode->getId()]));
         self::assertSame($beta->getId(), (int) $this->db()->fetchOne('SELECT counterparty_id FROM wh_client WHERE id = ?', [$byName->getId()]));
         self::assertNull($this->db()->fetchOne('SELECT counterparty_id FROM supply_supplier WHERE id = ?', [$none->getId()]));
+        self::assertNull($this->db()->fetchOne('SELECT counterparty_id FROM supply_supplier WHERE id = ?', [$otherCode->getId()]), 'Різні коди — не звʼязуємо за назвою');
+        self::assertNull($this->db()->fetchOne('SELECT counterparty_id FROM wh_client WHERE id = ?', [$archived->getId()]), 'Архівна картка');
+        self::assertStringContainsString('інший код', $tester->getDisplay());
 
         $this->browser->loginUser($this->person(WorkRole::Director, SupplyRole::Director));
         $card = $this->send('GET', self::API . '/' . $alpha->getId());

@@ -132,7 +132,7 @@ final class CounterpartyApiController extends AbstractController
                 ['error' => $e->getMessage(), 'field' => $e->field, 'existingId' => $e->existingId],
                 match (true) {
                     $e->forbidden => Response::HTTP_FORBIDDEN,
-                    $e->existingId !== null => Response::HTTP_CONFLICT,
+                    $e->existingId !== null, $e->conflict => Response::HTTP_CONFLICT,
                     default => Response::HTTP_UNPROCESSABLE_ENTITY,
                 },
             );

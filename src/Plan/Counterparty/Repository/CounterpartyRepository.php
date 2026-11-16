@@ -54,13 +54,27 @@ class CounterpartyRepository extends ServiceEntityRepository
     /** @return list<Counterparty> */
     public function search(CounterpartyFilter $filter, int $limit = self::PAGE): array
     {
-        $qb = $this->filtered($filter, withKind: true)
-            ->leftJoin('c.manager', 'm')->addSelect('m')
+        // Два кроки: сторінка id за фільтром (LIMIT по картках, не по рядках join-у),
+        // потім ці картки разом із менеджером і контактами — без запиту на кожен рядок списку.
+        $ids = array_map('intval', array_column($this->filtered($filter, withKind: true)
+            ->select('c.id', 'c.nameNormalized')
             ->orderBy('c.nameNormalized', SortDirection::Ascending)
             ->addOrderBy('c.id', SortDirection::Ascending)
-            ->setMaxResults($limit);
+            ->setMaxResults($limit)
+            ->getQuery()->getScalarResult(), 'id'));
 
-        return $qb->getQuery()->getResult();
+        if ($ids === []) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('c')
+            ->leftJoin('c.manager', 'm')->addSelect('m')
+            ->leftJoin('c.contacts', 'ct')->addSelect('ct')
+            ->andWhere('c.id IN (:ids)')->setParameter('ids', $ids)
+            ->orderBy('c.nameNormalized', SortDirection::Ascending)
+            ->addOrderBy('c.id', SortDirection::Ascending)
+            ->addOrderBy('ct.position', SortDirection::Ascending)
+            ->getQuery()->getResult();
     }
 
     /**

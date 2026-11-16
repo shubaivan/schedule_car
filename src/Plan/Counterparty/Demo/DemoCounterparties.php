@@ -19,7 +19,8 @@ use Doctrine\ORM\EntityManagerInterface;
 /**
  * Демо-контрагенти для tasks:demo-seed: клієнти з демо-угод (ті самі назви, тож
  * задачі привʼязуються до карток) і кілька постачальників. Коди — вигадані, але
- * з правильною контрольною цифрою. Лише для демо-стенду.
+ * з правильною контрольною цифрою. Лише для демо-стенду. Демо-картки позначені
+ * кодом 1С «DEMO-…»: reset прибирає лише їх.
  */
 final readonly class DemoCounterparties
 {
@@ -37,6 +38,9 @@ final readonly class DemoCounterparties
         ['ТОВ «Логістик-Парк»', null, 'both', 'company', '48219935', 'payer', 'on_delivery', null, null, 'bohdan.zakharchenko', []],
     ];
 
+    /** Префікс коду 1С демо-карток. */
+    public const string MARK = 'DEMO-';
+
     public function __construct(
         private EntityManagerInterface $em,
         private PlanEventRecorder $events,
@@ -50,10 +54,13 @@ final readonly class DemoCounterparties
      */
     public function seed(array $people): int
     {
+        // Повторний засів без --reset не падає на унікальному коді: старі демо-картки — геть.
+        self::reset($this->em);
         $created = [];
 
-        foreach (self::ROWS as [$name, $short, $kind, $form, $code, $vat, $terms, $days, $limit, $manager, $contacts]) {
+        foreach (self::ROWS as $n => [$name, $short, $kind, $form, $code, $vat, $terms, $days, $limit, $manager, $contacts]) {
             $c = new Counterparty()
+                ->setExternalCode(self::MARK . ($n + 1))
                 ->setName($name)
                 ->setShortName($short)
                 ->setKind(CounterpartyKind::from($kind))
@@ -87,12 +94,11 @@ final readonly class DemoCounterparties
         return count($created);
     }
 
-    /** Лише демо-картки (за назвами з ROWS): справжніх контрагентів, якщо вони є, не чіпаємо. */
+    /** Лише демо-картки (код 1С «DEMO-…»): справжніх контрагентів, якщо вони є, не чіпаємо. */
     public static function reset(EntityManagerInterface $em): void
     {
         $conn = $em->getConnection();
-        $names = array_map(static fn (array $row): string => $row[0], self::ROWS);
-        $ids = array_map('intval', $conn->fetchFirstColumn('SELECT id FROM counterparty WHERE name IN (?)', [$names], [ArrayParameterType::STRING]));
+        $ids = array_map('intval', $conn->fetchFirstColumn('SELECT id FROM counterparty WHERE external_code LIKE ?', [self::MARK . '%']));
 
         if ($ids === []) {
             return;

@@ -59,7 +59,7 @@ function draft(): typeof empty | null {
     if (props.task) return null
     try {
         const raw = localStorage.getItem(DRAFT)
-        return raw ? { ...empty, ...(JSON.parse(raw) as Partial<typeof empty>) } : null
+        return raw ? { ...empty, ...(JSON.parse(raw) as Partial<typeof empty>), counterpartyId: null } : null
     } catch {
         return null
     }
@@ -86,7 +86,7 @@ watch(
     (value) => {
         if (props.task) return
         try {
-            localStorage.setItem(DRAFT, JSON.stringify(value))
+            localStorage.setItem(DRAFT, JSON.stringify({ ...value, counterpartyId: null }))
         } catch {
             /* приватне вікно — без чернетки */
         }
@@ -108,14 +108,15 @@ function dropDraft() {
  * привʼязка знімається, рядок лишається.
  */
 const canPickCounterparty = computed(() => canSeeCounterparties(session.user))
-const linkedName = ref(props.task?.counterparty?.name ?? '')
+/** Рядок клієнта, з яким задачу привʼязано: змінився він — привʼязку знято. */
+const linkedName = ref(props.task?.counterparty ? (props.task.client ?? '') : '')
 const suggestions = ref<CpRow[]>([])
 let suggestTimer: number | undefined
 let suggestSeq = 0
 watch(
     () => form.client,
     (value) => {
-        if (form.counterpartyId !== null && value.trim() !== linkedName.value && value.trim() !== (props.task?.client ?? '')) form.counterpartyId = null
+        if (form.counterpartyId !== null && value.trim() !== linkedName.value.trim()) form.counterpartyId = null
         window.clearTimeout(suggestTimer)
         const q = value.trim()
         if (!canPickCounterparty.value || form.counterpartyId !== null || q.length < 2) {

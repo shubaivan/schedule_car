@@ -39,7 +39,8 @@ final class SearchIndexConsumer implements IdempotentConsumer
 
         $ref = $event->subject;
 
-        if ($ref->type === SubjectType::Lead || $ref->type === SubjectType::WhCategory || $ref->id < 1) {
+        // Контрагентів у глобальному пошуку поки немає (джерела search_document для них ще не зроблено).
+        if ($ref->type === SubjectType::Lead || $ref->type === SubjectType::WhCategory || $ref->type === SubjectType::Counterparty || $ref->id < 1) {
             return;
         }
 

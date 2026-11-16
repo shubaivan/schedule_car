@@ -4,6 +4,7 @@ namespace App\Tasks\Command;
 
 use App\Entity\TelegramUser;
 use App\Enum\AccessStatus;
+use App\Plan\Counterparty\Demo\DemoCounterparties;
 use App\Plan\Drive\DriveSync;
 use App\Plan\EventStore\PlanEventRecorder;
 use App\Supply\Entity\Department;
@@ -24,7 +25,6 @@ use App\Tasks\Enum\WorkRole;
 use App\Tasks\Service\DeferredPreviews;
 use App\Tasks\Service\TaskService;
 use App\Warehouse\Demo\DemoWarehouse;
-use App\Plan\Counterparty\Demo\DemoCounterparties;
 use App\Warehouse\Service\ActivityLog;
 use App\Warehouse\Service\DocumentStore;
 use App\Warehouse\Service\RecordMovement;

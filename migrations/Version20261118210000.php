@@ -25,7 +25,7 @@ final class Version20261118210000 extends AbstractMigration
     {
         $this->addSql('CREATE SEQUENCE counterparty_id_seq INCREMENT BY 1 MINVALUE 1 START 1');
         $this->addSql('CREATE SEQUENCE counterparty_contact_id_seq INCREMENT BY 1 MINVALUE 1 START 1');
-        $this->addSql('CREATE TABLE counterparty (id INT NOT NULL, kind VARCHAR(8) DEFAULT \'client\' NOT NULL, legal_form VARCHAR(8) DEFAULT \'company\' NOT NULL, name VARCHAR(255) NOT NULL, short_name VARCHAR(120) DEFAULT NULL, name_normalized VARCHAR(255) NOT NULL, code VARCHAR(10) DEFAULT NULL, vat_status VARCHAR(12) DEFAULT NULL, vat_number VARCHAR(12) DEFAULT NULL, legal_address TEXT DEFAULT NULL, actual_address TEXT DEFAULT NULL, phone VARCHAR(32) DEFAULT NULL, email VARCHAR(180) DEFAULT NULL, iban VARCHAR(34) DEFAULT NULL, bank_name VARCHAR(255) DEFAULT NULL, payment_terms VARCHAR(16) DEFAULT NULL, deferral_days SMALLINT DEFAULT NULL, credit_limit NUMERIC(14, 2) DEFAULT NULL, note TEXT DEFAULT NULL, external_code VARCHAR(64) DEFAULT NULL, archived_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL, created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, updated_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL, manager_id INT DEFAULT NULL, archived_by_id INT DEFAULT NULL, created_by_id INT DEFAULT NULL, PRIMARY KEY (id))');
+        $this->addSql('CREATE TABLE counterparty (id INT NOT NULL, kind VARCHAR(8) DEFAULT \'client\' NOT NULL, legal_form VARCHAR(8) DEFAULT \'company\' NOT NULL, name VARCHAR(255) NOT NULL, short_name VARCHAR(120) DEFAULT NULL, name_normalized VARCHAR(255) NOT NULL, code VARCHAR(10) DEFAULT NULL, vat_status VARCHAR(12) DEFAULT NULL, vat_number VARCHAR(12) DEFAULT NULL, legal_address TEXT DEFAULT NULL, actual_address TEXT DEFAULT NULL, phone VARCHAR(32) DEFAULT NULL, email VARCHAR(180) DEFAULT NULL, iban VARCHAR(34) DEFAULT NULL, bank_name VARCHAR(255) DEFAULT NULL, payment_terms VARCHAR(16) DEFAULT NULL, deferral_days SMALLINT DEFAULT NULL, credit_limit NUMERIC(14, 2) DEFAULT NULL, note TEXT DEFAULT NULL, external_code VARCHAR(64) DEFAULT NULL, archived_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL, version INT DEFAULT 1 NOT NULL, created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, updated_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL, manager_id INT DEFAULT NULL, archived_by_id INT DEFAULT NULL, created_by_id INT DEFAULT NULL, PRIMARY KEY (id))');
         $this->addSql('CREATE INDEX idx_counterparty_name_normalized ON counterparty (name_normalized)');
         $this->addSql('CREATE INDEX idx_counterparty_manager ON counterparty (manager_id)');
         $this->addSql('CREATE UNIQUE INDEX uniq_counterparty_code ON counterparty (code)');
@@ -52,7 +52,11 @@ final class Version20261118210000 extends AbstractMigration
 
     public function down(Schema $schema): void
     {
-        // Спершу посилання на контрагентів, потім самі таблиці.
+        // Спершу посилання на контрагентів і їхні сліди в журналі (старий код не знає типу
+        // суб'єкта «counterparty» і впав би на сторінці аудиту), потім самі таблиці.
+        $this->addSql("DELETE FROM plan_event WHERE subject_type = 'counterparty'");
+        $this->addSql("DELETE FROM plan_read WHERE subject_type = 'counterparty'");
+        $this->addSql("DELETE FROM search_document WHERE subject_type = 'counterparty'");
         $this->addSql('ALTER TABLE supply_supplier DROP counterparty_id');
         $this->addSql('ALTER TABLE task DROP counterparty_id');
         $this->addSql('ALTER TABLE wh_client DROP counterparty_id');
