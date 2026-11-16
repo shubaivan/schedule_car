@@ -38,6 +38,13 @@ class PlanAccessTest extends TestCase
         $keeper = $this->user(WorkRole::Production, SupplyRole::Manager);
         self::assertTrue($access->can($keeper, PlanCapability::WarehouseEdit), 'менеджер постачання веде склад');
 
+        self::assertTrue($access->can($director, PlanCapability::CounterpartiesFinance));
+        $sales = $this->user(WorkRole::Manager, SupplyRole::Worker);
+        self::assertTrue($access->can($sales, PlanCapability::CounterpartiesEdit));
+        self::assertFalse($access->can($sales, PlanCapability::CounterpartiesFinance), 'Кредитний ліміт — не менеджеру');
+        self::assertTrue($access->can($this->user(WorkRole::Accountant, SupplyRole::Worker), PlanCapability::CounterpartiesFinance));
+        self::assertTrue($access->can($this->user(WorkRole::Production, SupplyRole::Manager), PlanCapability::CounterpartiesView), 'Постачання веде постачальників');
+
         $worker = $this->user(WorkRole::Production, SupplyRole::Worker);
         self::assertSame(array_fill_keys(array_map(static fn ($c) => $c->value, PlanCapability::cases()), false), $access->matrix($worker));
 

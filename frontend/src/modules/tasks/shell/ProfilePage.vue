@@ -6,6 +6,7 @@ import { applyTheme, theme, type Theme } from './theme'
 import { useTasks } from '../store'
 import { useSession } from '../../../app/store'
 import { canSeeAdmin, canSeeDrive, canSeeWarehouse } from '../../admin/access'
+import { canSeeCounterparties } from '../../counterparties/access'
 
 /** «Я»: хто я в Плані, тема оформлення, інші розділи й вихід. */
 const session = useSession()
@@ -67,6 +68,10 @@ const THEMES: { value: Theme; label: string; icon: string }[] = [
             <router-link v-if="canSeeWarehouse(session.user)" :to="{ name: 'warehouse' }">
                 <Icon name="warehouse" />
                 Склад
+            </router-link>
+            <router-link v-if="canSeeCounterparties(session.user)" :to="{ name: 'counterparties' }">
+                <Icon name="building" />
+                Контрагенти
             </router-link>
             <router-link v-if="session.user?.fleet" :to="{ name: 'schedule' }">
                 <Icon name="truck" />

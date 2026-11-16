@@ -12,6 +12,8 @@ import { presenceSection, usePresence } from '../../../plan/presence'
 import { typing } from '../../../plan/layers'
 import { canEditWarehouse, canSeeAdmin, canSeeWarehouse } from '../../admin/access'
 import { WAREHOUSE_FULLSCREEN, WAREHOUSE_SPLIT } from '../../warehouse/routes'
+import { COUNTERPARTY_FORMS, COUNTERPARTY_FULLSCREEN, COUNTERPARTY_SPLIT } from '../../counterparties/routes'
+import { canSeeCounterparties } from '../../counterparties/access'
 
 /**
  * Оболонка «Плану» — один продукт: задачі, заявки, склад, люди.
@@ -43,13 +45,26 @@ const canAdmin = computed(() => canSeeAdmin(me.value))
 const canWarehouse = computed(() => canSeeWarehouse(me.value))
 /** Склад на читання (продажі, бухгалтерія): «＋» там — задача, а не новий рух. */
 const writesWarehouse = computed(() => canEditWarehouse(me.value))
+const canCounterparties = computed(() => canSeeCounterparties(me.value))
 
 const name = computed(() => String(route.name))
 /** Сторінки-вікна (форма, файл) і відкрита праворуч картка — на телефоні на весь екран. */
-const FULLSCREEN = ['tasks-new', 'task-edit', 'supply-new', 'staff-new', 'staff-card', 'file', 'task-full', 'supply-full', 'file-typed', ...WAREHOUSE_FULLSCREEN]
-const SPLIT = ['tasks-board', 'tasks-list', CHRONICLE_ROUTE, SEARCH_ROUTE, 'supply-board', 'admin-join', ...WAREHOUSE_SPLIT]
+const FULLSCREEN = [
+    'tasks-new',
+    'task-edit',
+    'supply-new',
+    'staff-new',
+    'staff-card',
+    'file',
+    'task-full',
+    'supply-full',
+    'file-typed',
+    ...WAREHOUSE_FULLSCREEN,
+    ...COUNTERPARTY_FULLSCREEN,
+]
+const SPLIT = ['tasks-board', 'tasks-list', CHRONICLE_ROUTE, SEARCH_ROUTE, 'supply-board', 'admin-join', ...WAREHOUSE_SPLIT, ...COUNTERPARTY_SPLIT]
 /** Сторінки-форми: «N» на них не відкриває ще одну форму. */
-const FORM_ROUTES = ['tasks-new', 'task-edit', 'supply-new', 'staff-new', 'warehouse-item-new', 'warehouse-item-edit', 'warehouse-movement-new']
+const FORM_ROUTES = ['tasks-new', 'task-edit', 'supply-new', 'staff-new', 'warehouse-item-new', 'warehouse-item-edit', 'warehouse-movement-new', ...COUNTERPARTY_FORMS]
 const fullscreen = computed(() => FULLSCREEN.includes(name.value) || (SPLIT.includes(name.value) && !!route.params.id))
 
 const onChronicle = computed(() => name.value === CHRONICLE_ROUTE || (name.value === 'tasks-board' && route.query.view === 'chronicle'))
@@ -59,12 +74,29 @@ const onSupply = computed(() => name.value.startsWith('supply-'))
 const onStaff = computed(() => name.value.startsWith('staff'))
 const onAdmin = computed(() => name.value.startsWith('admin'))
 const onWarehouse = computed(() => name.value.startsWith('warehouse'))
-const onMore = computed(() => onWarehouse.value || name.value === 'tasks-profile' || onNotifications.value || onAdmin.value || onStaff.value)
+const onCounterparties = computed(() => name.value.startsWith('counterpart'))
+const onMore = computed(() => onWarehouse.value || onCounterparties.value || name.value === 'tasks-profile' || onNotifications.value || onAdmin.value || onStaff.value)
 
-/** «＋» створює те, де людина зараз: у постачанні — заявку, на складі — рух (хто веде склад), деінде — задачу. */
+/** «＋» створює те, де людина зараз: у постачанні — заявку, на складі — рух (хто веде склад), у контрагентах — контрагента, деінде — задачу. */
 const newOnWarehouse = computed(() => onWarehouse.value && writesWarehouse.value)
-const newTarget = computed(() => (onSupply.value ? { name: 'supply-new' } : newOnWarehouse.value ? { name: 'warehouse-movement-new' } : { name: 'tasks-new' }))
-const newLabel = computed(() => (onSupply.value ? 'Заявка на постачання ( N )' : newOnWarehouse.value ? 'Новий рух ( N )' : 'Нова задача ( N )'))
+const newTarget = computed(() =>
+    onSupply.value
+        ? { name: 'supply-new' }
+        : newOnWarehouse.value
+          ? { name: 'warehouse-movement-new' }
+          : onCounterparties.value
+            ? { name: 'counterparty-new' }
+            : { name: 'tasks-new' },
+)
+const newLabel = computed(() =>
+    onSupply.value
+        ? 'Заявка на постачання ( N )'
+        : newOnWarehouse.value
+          ? 'Новий рух ( N )'
+          : onCounterparties.value
+            ? 'Новий контрагент ( N )'
+            : 'Нова задача ( N )',
+)
 
 function search() {
     router.push(searchTarget(router, q.value.trim()))
@@ -124,6 +156,17 @@ onBeforeUnmount(() => {
             <router-link v-if="canWarehouse" :to="{ name: 'warehouse' }" class="p-rail-btn" :class="{ on: onWarehouse }" title="Склад">
                 <Icon name="warehouse" />
                 <span>Склад</span>
+            </router-link>
+            <router-link
+                v-if="canCounterparties"
+                :to="{ name: 'counterparties' }"
+                class="p-rail-btn"
+                :class="{ on: onCounterparties }"
+                title="Контрагенти"
+                data-testid="rail-counterparties"
+            >
+                <Icon name="building" />
+                <span>Контраг.</span>
             </router-link>
             <router-link v-if="me?.fleet" :to="{ name: 'schedule' }" class="p-rail-btn" title="Автопарк">
                 <Icon name="truck" />

@@ -4,6 +4,7 @@ namespace App\Tasks\Command;
 
 use App\Entity\TelegramUser;
 use App\Enum\AccessStatus;
+use App\Plan\Counterparty\Demo\DemoCounterparties;
 use App\Plan\Drive\DriveSync;
 use App\Plan\EventStore\PlanEventRecorder;
 use App\Supply\Entity\Department;
@@ -184,10 +185,13 @@ class TasksDemoSeedCommand extends Command
         $mark = (int) $conn->fetchOne('SELECT COALESCE(MAX(id), 0) FROM plan_event');
         $driveMarks = $this->drive?->marks() ?? [];
         $offDrive = 0;
-        $this->events->transactional(function () use ($input, $password, &$requests, &$warehouse, $driveMarks, &$offDrive): void {
+        $counterparties = 0;
+        $this->events->transactional(function () use ($input, $password, &$requests, &$warehouse, $driveMarks, &$offDrive, &$counterparties): void {
             $this->reset($input->getOption('reset') === true);
             $this->seedDirectories($password, (string) $input->getOption('domain'));
             $this->seedTasks();
+            // Контрагенти з тими самими назвами, що в угодах, — задачі привʼязуються до карток.
+            $counterparties = new DemoCounterparties($this->em, $this->events)->seed($this->people);
             // Заявки — в тій самій оболонці «Плану», тож і в демо вони мають бути.
             if ($this->supplyRequests !== null && $this->suppliers !== null && $this->attachFile !== null) {
                 $requests = new DemoSupply($this->em, $this->supplyRequests, $this->suppliers, $this->attachFile, $this->files)
@@ -207,7 +211,7 @@ class TasksDemoSeedCommand extends Command
         $this->deferred->flush();
         $this->alignEventTimes($mark);
 
-        $output->writeln(sprintf('Готово: людей — %d, відділів — %d, міток — %d, угод — %d, заявок — %d, позицій складу — %d, рухів — %d, файлів поза Диском — %d.', count($this->people), count($this->departments), count($this->labels), count(DemoDeals::all()), $requests, $warehouse['items'], $warehouse['movements'], $offDrive));
+        $output->writeln(sprintf('Готово: людей — %d, відділів — %d, міток — %d, угод — %d, заявок — %d, позицій складу — %d, рухів — %d, контрагентів — %d, файлів поза Диском — %d.', count($this->people), count($this->departments), count($this->labels), count(DemoDeals::all()), $requests, $warehouse['items'], $warehouse['movements'], $counterparties, $offDrive));
 
         return Command::SUCCESS;
     }
@@ -279,6 +283,7 @@ class TasksDemoSeedCommand extends Command
         $conn = $this->em->getConnection();
 
         if ($reset) {
+            DemoCounterparties::reset($this->em);
             $conn->executeStatement('DELETE FROM task');
             $conn->executeStatement('DELETE FROM task_label');
             // Склад — до людей: рухи й журнал складу прив'язані до демо-людей.
@@ -312,7 +317,8 @@ class TasksDemoSeedCommand extends Command
             "DELETE FROM plan_event e WHERE
                 (e.subject_type = 'task' AND NOT EXISTS (SELECT 1 FROM task t WHERE t.id = e.subject_id))
              OR (e.subject_type = 'supply' AND NOT EXISTS (SELECT 1 FROM supply_request r WHERE r.id = e.subject_id))
-             OR (e.subject_type = 'user' AND NOT EXISTS (SELECT 1 FROM telegram_user u WHERE u.id = e.subject_id))",
+             OR (e.subject_type = 'user' AND NOT EXISTS (SELECT 1 FROM telegram_user u WHERE u.id = e.subject_id))
+             OR (e.subject_type = 'counterparty' AND NOT EXISTS (SELECT 1 FROM counterparty c WHERE c.id = e.subject_id))",
         );
     }
 

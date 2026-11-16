@@ -3,6 +3,9 @@
 namespace App\Tasks\Service;
 
 use App\Entity\TelegramUser;
+use App\Plan\Access\PlanAccess;
+use App\Plan\Access\PlanCapability;
+use App\Plan\Counterparty\Entity\Counterparty;
 use App\Plan\Event\CommentAdded;
 use App\Plan\Event\CommentDeleted;
 use App\Plan\Event\CommentEdited;
@@ -40,7 +43,7 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 class TaskService
 {
     /** Поля задачі, зміна яких — SubjectUpdated::$fields. */
-    private const array FIELDS = ['title', 'description', 'client', 'dueAt', 'labelIds', 'departmentIds', 'memberIds'];
+    private const array FIELDS = ['title', 'description', 'client', 'counterpartyId', 'dueAt', 'labelIds', 'departmentIds', 'memberIds'];
 
     public function __construct(
         private EntityManagerInterface $em,
@@ -54,6 +57,7 @@ class TaskService
         private DeferredPreviews $deferred,
         private PlanEventRecorder $events,
         private LoggerInterface $logger,
+        private PlanAccess $access,
     ) {
     }
 
@@ -69,7 +73,7 @@ class TaskService
         }
 
         $task = new Task(mb_substr($title, 0, 255), $author);
-        $this->fill($task, $data);
+        $this->fill($task, $data, actor: $author);
         // Автор завжди в задачі — інакше він сам її не побачить, якщо не директор.
         $task->addMember($author);
 
@@ -112,7 +116,7 @@ class TaskService
             $task->setTitle(mb_substr($title, 0, 255));
         }
 
-        $this->fill($task, $data, replaceMembers: true);
+        $this->fill($task, $data, replaceMembers: true, actor: $user);
         $task->addMember($task->getCreator());
 
         $added = array_filter(
@@ -442,16 +446,26 @@ class TaskService
     }
 
     /** @param array<string, mixed> $data */
-    private function fill(Task $task, array $data, bool $replaceMembers = false): void
+    private function fill(Task $task, array $data, bool $replaceMembers = false, ?TelegramUser $actor = null): void
     {
         if (array_key_exists('description', $data)) {
             $description = trim((string) $data['description']);
             $task->setDescription($description !== '' ? $description : null);
         }
 
+        $clientBefore = $task->getClient();
+
         if (array_key_exists('client', $data)) {
             $client = trim((string) $data['client']);
             $task->setClient($client !== '' ? mb_substr($client, 0, 255) : null);
+        }
+
+        if (array_key_exists('counterpartyId', $data)) {
+            $this->linkCounterparty($task, $data['counterpartyId'], $actor);
+        } elseif ($task->getCounterparty() !== null && $task->getClient() !== $clientBefore) {
+            // Клієнта справді переписали рядком (той, хто довідника не бачить; бот) — картка
+            // вже не про нього. Той самий рядок (правили лише назву чи термін) привʼязку не чіпає.
+            $task->setCounterparty(null);
         }
 
         if (array_key_exists('dueAt', $data)) {
@@ -515,6 +529,40 @@ class TaskService
             $this->users->findBy(['department' => $department]),
             static fn (TelegramUser $user) => ! $user->isArchived(),
         );
+    }
+
+    /**
+     * Привʼязати задачу до картки контрагента (або відвʼязати: null / порожньо). Рядок
+     * client лишається запасним: якщо його не передали, беремо назву з картки.
+     * Обрати з довідника може лише той, хто його бачить (counterparties.view).
+     */
+    private function linkCounterparty(Task $task, mixed $id, ?TelegramUser $actor): void
+    {
+        if ($id === null || $id === '' || (int) $id === 0) {
+            $task->setCounterparty(null);
+
+            return;
+        }
+
+        if ($task->getCounterparty()?->getId() === (int) $id) {
+            return;
+        }
+
+        if ($actor === null || ! $this->access->can($actor, PlanCapability::CounterpartiesView)) {
+            throw new TaskException('Обирати контрагента з довідника можуть продажі, бухгалтерія й керівництво.');
+        }
+
+        $counterparty = $this->em->find(Counterparty::class, (int) $id);
+
+        if ($counterparty === null || $counterparty->isArchived()) {
+            throw new TaskException('Такого контрагента немає або його прибрано в архів.');
+        }
+
+        $task->setCounterparty($counterparty);
+
+        if ($task->getClient() === null) {
+            $task->setClient(mb_substr($counterparty->getName(), 0, 255));
+        }
     }
 
     private function date(mixed $value): ?DateTime

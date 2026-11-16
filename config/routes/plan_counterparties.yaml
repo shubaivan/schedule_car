@@ -1,0 +1,6 @@
+# Довідник «Контрагенти» (/api/plan/counterparties).
+plan_counterparties:
+    resource:
+        path: ../../src/Plan/Counterparty/Controller/
+        namespace: App\Plan\Counterparty\Controller
+    type: attribute

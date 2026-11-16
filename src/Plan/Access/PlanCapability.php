@@ -18,6 +18,11 @@ enum PlanCapability: string
     /** Заявки на приєднання (вхід через Telegram) — розглядає суперадмін. */
     case StaffJoin = 'staff.join';
     case LeadsReceive = 'leads.receive';
+    /** Контрагенти: бачити картки й заводити нові / правити реквізити й контакти. */
+    case CounterpartiesView = 'counterparties.view';
+    case CounterpartiesEdit = 'counterparties.edit';
+    /** Гроші контрагента: умови оплати, відстрочка, кредитний ліміт; архів. */
+    case CounterpartiesFinance = 'counterparties.finance';
 
     /** `warehouse.view` → `PLAN_WAREHOUSE_VIEW`. */
     public function attribute(): string

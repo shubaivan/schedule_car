@@ -3,6 +3,7 @@
 namespace App\Tasks\Entity;
 
 use App\Entity\TelegramUser;
+use App\Plan\Counterparty\Entity\Counterparty;
 use App\Supply\Entity\Department;
 use App\Tasks\Enum\TaskStatus;
 use App\Tasks\Repository\TaskRepository;
@@ -38,9 +39,18 @@ class Task
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $description = null;
 
-    /** Контрагент: клієнт, обʼєкт, замовник. Поки рядком — довідник контактів буде окремо. */
+    /**
+     * Контрагент рядком: клієнт, обʼєкт, замовник — як його записали. Лишається й тоді,
+     * коли задачу привʼязано до картки контрагента (counterparty): запасний варіант
+     * для старих задач і для тих, хто довідника контрагентів не бачить.
+     */
     #[ORM\Column(type: 'string', length: 255, nullable: true)]
     private ?string $client = null;
+
+    /** Картка контрагента (довідник «Контрагенти»), якщо клієнта обрали з нього. */
+    #[ORM\ManyToOne(targetEntity: Counterparty::class)]
+    #[ORM\JoinColumn(name: 'counterparty_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+    private ?Counterparty $counterparty = null;
 
     #[ORM\Column(type: 'string', length: 16, enumType: TaskStatus::class, options: ['default' => 'new'])]
     private TaskStatus $status = TaskStatus::New;
@@ -133,6 +143,18 @@ class Task
     public function setClient(?string $client): self
     {
         $this->client = $client;
+
+        return $this;
+    }
+
+    public function getCounterparty(): ?Counterparty
+    {
+        return $this->counterparty;
+    }
+
+    public function setCounterparty(?Counterparty $counterparty): self
+    {
+        $this->counterparty = $counterparty;
 
         return $this;
     }

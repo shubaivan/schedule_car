@@ -34,6 +34,11 @@ final class PlanAccess
             PlanCapability::WarehouseEdit => WarehouseSection::canManage($user),
             PlanCapability::AuditView, PlanCapability::StaffJoin => $user->isSuperadmin(),
             PlanCapability::LeadsReceive => in_array($work, [WorkRole::Manager, WorkRole::Director, WorkRole::Admin], true),
+            // Контрагенти — комерційна інформація: продажі, бухгалтерія, керівництво й постачання
+            // (менеджер заявок працює з постачальниками). Виробництву й робітникам — ні.
+            PlanCapability::CounterpartiesView, PlanCapability::CounterpartiesEdit => in_array($work, [WorkRole::Admin, WorkRole::Director, WorkRole::Manager, WorkRole::Accountant], true) || $supply->canManage(),
+            // Кредитний ліміт, відстрочка й архів — рішення про гроші: бухгалтер і керівництво.
+            PlanCapability::CounterpartiesFinance => in_array($work, [WorkRole::Admin, WorkRole::Director, WorkRole::Accountant], true),
         };
     }
 

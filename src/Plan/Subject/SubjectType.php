@@ -21,6 +21,7 @@ enum SubjectType: string
     case WhCategory = 'wh_category';
     case Lead = 'lead';
     case User = 'user';
+    case Counterparty = 'counterparty';
 
     /** Тип складу з журналу wh_activity (item, movement, client, site, category). */
     public static function fromWarehouse(string $type): self
