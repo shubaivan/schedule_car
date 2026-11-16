@@ -119,6 +119,21 @@ class StandModeTest extends WebTestCase
         self::assertNotNull($this->em->find(SupplyRequest::class, $id));
     }
 
+    /** Стенди заявок (TASKS_ENABLED=0) — заявки відкриті всім допущеним, як і було (рішення 13.08). */
+    public function testForeignRequestStaysVisibleOnTheStand(): void
+    {
+        $author = $this->person(SupplyRole::Worker);
+        $other = $this->person(SupplyRole::Worker);
+
+        $this->client->loginUser($author);
+        $id = (int) $this->json('POST', '/api/supply/requests', ['item' => 'Пісок', 'quantity' => '1', 'unit' => 'ton'])['id'];
+        $this->sent();
+
+        $this->client->loginUser($other);
+        self::assertContains($id, array_column($this->json('GET', '/api/supply/requests')['items'], 'id'));
+        self::assertSame($id, (int) $this->json('GET', '/api/supply/requests/' . $id)['id']);
+    }
+
     public function testTasksApiIsOffOnTheStand(): void
     {
         $this->client->loginUser($this->person(SupplyRole::Manager));

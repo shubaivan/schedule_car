@@ -7,6 +7,7 @@ use App\Plan\Access\PlanAccess;
 use App\Plan\Access\PlanCapability;
 use App\Supply\Enum\SupplyStatus;
 use App\Supply\Repository\SupplyRequestRepository;
+use App\Supply\Repository\SupplyVisibility;
 use App\Supply\Service\RequestPresenter;
 use App\Warehouse\Service\WarehouseSection;
 use DateTimeImmutable;
@@ -29,6 +30,7 @@ final class PlanOverview
         private readonly SupplyRequestRepository $requests,
         private readonly RequestPresenter $presenter,
         private readonly WarehouseSection $warehouse,
+        private readonly SupplyVisibility $visibility,
     ) {
     }
 
@@ -57,7 +59,8 @@ final class PlanOverview
     }
 
     /**
-     * Лічильники заявок одним запитом (заявки бачить кожен — як стіл заявок).
+     * Лічильники заявок одним запитом — лише по заявках, які людині видно (SupplyVisibility):
+     * директор, адмін і постачання — усі, решта — де вони автор або писали.
      *
      * @return array{open: int, new: int, overdue: int, decide: int, mine: int}
      */
@@ -65,14 +68,15 @@ final class PlanOverview
     {
         $open = array_map(static fn (SupplyStatus $s) => $s->value, SupplyStatus::openCases());
         $decide = [SupplyStatus::Approval->value, SupplyStatus::Waiting->value];
+        [$visible, $visibleParams] = $this->visibility->sql($me, 'supply_request.id');
         $row = $this->db->fetchAssociative(
             'SELECT COUNT(*) FILTER (WHERE status IN (:open)) AS open,
                     COUNT(*) FILTER (WHERE status = :new) AS new,
                     COUNT(*) FILTER (WHERE status IN (:open) AND need_by IS NOT NULL AND need_by < CAST(:today AS date)) AS overdue,
                     COUNT(*) FILTER (WHERE status IN (:decide)) AS decide,
                     COUNT(*) FILTER (WHERE status IN (:open) AND author_id = :me) AS mine
-               FROM supply_request',
-            ['open' => $open, 'new' => SupplyStatus::New->value, 'decide' => $decide, 'me' => (int) $me->getId(), 'today' => self::today()],
+               FROM supply_request WHERE ' . $visible,
+            ['open' => $open, 'new' => SupplyStatus::New->value, 'decide' => $decide, 'me' => (int) $me->getId(), 'today' => self::today(), ...$visibleParams],
             ['open' => ArrayParameterType::STRING, 'decide' => ArrayParameterType::STRING],
         ) ?: [];
 

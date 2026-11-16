@@ -69,6 +69,31 @@ class PlanSearchTest extends WebTestCase
         self::assertSame(0, $this->search(['q' => $token])['total']);
     }
 
+    /** «План» (Олександр, 16.11): чужа заявка, її коментар — не в пошуку того, хто в ній не присутній. */
+    public function testOutsiderDoesNotFindForeignSupplyRequest(): void
+    {
+        $token = 'щбн' . substr(md5(uniqid()), 0, 6);
+        $author = $this->user(WorkRole::Production, 'sup-author');
+        $sales = $this->user(WorkRole::Manager, 'sup-sales');
+        $director = $this->user(WorkRole::Director, 'sup-dir');
+        $supplyManager = $this->user(WorkRole::Production, 'sup-sm', SupplyRole::Manager);
+
+        $this->login($author);
+        $request = $this->supply('Щебінь ' . $token, 'Цех 7');
+        $this->login($supplyManager);
+        $this->send('POST', '/api/supply/requests/' . $request['id'] . '/comments', ['text' => 'Щебінь ' . $token . ' замовлено']);
+
+        $this->login($sales);
+        self::assertSame(0, $this->search(['q' => $token])['total'], 'Продажі не присутні в заявці — не бачать ні заявки, ні коментаря');
+
+        $this->login($author);
+        self::assertSame(2, $this->search(['q' => $token])['total']);
+        $this->login($director);
+        self::assertSame(2, $this->search(['q' => $token])['total']);
+        $this->login($supplyManager);
+        self::assertSame(2, $this->search(['q' => $token])['total']);
+    }
+
     public function testFacetsCountWithoutOwnFilterAndPrecedentsOfAPersonWithoutQuery(): void
     {
         $token = 'цмн' . substr(md5(uniqid()), 0, 6);

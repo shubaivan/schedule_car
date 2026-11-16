@@ -4,6 +4,7 @@ namespace App\Supply\Repository;
 
 use App\Entity\TelegramUser;
 use App\Supply\Entity\Department;
+use App\Supply\Entity\SupplyComment;
 use App\Supply\Entity\SupplyRequest;
 use App\Supply\Enum\SupplyStatus;
 use DateTime;
@@ -187,6 +188,12 @@ class SupplyRequestRepository extends ServiceEntityRepository
                 ->andWhere('r.status IN (:openForOverdue)')
                 ->setParameter('today', new DateTime('today', new DateTimeZone('Europe/Kyiv')))
                 ->setParameter('openForOverdue', SupplyStatus::openCases());
+        }
+
+        // Видимість «Плану» (SupplyVisibility): лише заявки, де людина автор або писала коментар.
+        if (! empty($filters['visibleTo'])) {
+            $qb->andWhere('(IDENTITY(r.author) = :visibleTo OR EXISTS (SELECT 1 FROM ' . SupplyComment::class . ' vc WHERE vc.request = r AND IDENTITY(vc.author) = :visibleTo))')
+                ->setParameter('visibleTo', (int) $filters['visibleTo']);
         }
 
         if (! empty($filters['query'])) {

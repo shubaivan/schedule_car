@@ -92,42 +92,41 @@ class SupplyApiTest extends WebTestCase
      * Заради цієї видимості поріг /api знижено до ROLE_SUPPLY_WORKER, тож
      * межу тримають самі ендпоінти — перевіряємо кожен, який має бути закритий.
      */
-    public function testWorkerSeesForeignRequestsButCannotManageThem(): void
+    /**
+     * «План» (Олександр, 16.11.2026): робітник/продажі не бачать чужих заявок ніде — ні в
+     * списку, ні за посиланням (404, як неіснуюча), ні дій над ними. Свою — бачить.
+     */
+    public function testWorkerDoesNotSeeForeignRequestsButSeesOwn(): void
     {
         $request = $this->request($this->user(SupplyRole::Worker));
 
-        $this->login($this->user(SupplyRole::Worker));
+        $stranger = $this->user(SupplyRole::Worker);
+        $own = $this->request($stranger);
+        $this->login($stranger);
 
         $numbers = array_column($this->get('/api/supply/requests')['items'], 'number');
-        self::assertContains($request->getNumber(), $numbers);
+        self::assertNotContains($request->getNumber(), $numbers);
+        self::assertContains($own->getNumber(), $numbers);
+        self::assertSame($own->getNumber(), $this->get('/api/supply/requests/' . $own->getId())['number']);
 
-        $detail = $this->get('/api/supply/requests/' . $request->getId());
-        self::assertSame($request->getNumber(), $detail['number']);
+        foreach ([
+            ['GET', '/api/supply/requests/' . $request->getId(), null],
+            ['GET', '/api/supply/requests/' . $request->getId() . '/feed', null],
+            ['POST', '/api/supply/requests/' . $request->getId() . '/status', ['to' => SupplyStatus::InProgress->value]],
+            ['POST', '/api/supply/requests/' . $request->getId() . '/comments', ['text' => 'А мені теж таке треба']],
+        ] as [$method, $url, $body]) {
+            $this->client->request($method, $url, server: ['CONTENT_TYPE' => 'application/json'], content: $body === null ? null : json_encode($body));
+            self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND, $method . ' ' . $url);
+        }
 
+        // Своя заявка: статус рухає лише менеджер, коментар — діалог автора з менеджером.
         $this->client->request(
             'POST',
-            '/api/supply/requests/' . $request->getId() . '/status',
-            server: ['CONTENT_TYPE' => 'application/json'],
-            content: json_encode(['to' => SupplyStatus::InProgress->value]),
-        );
-        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
-
-        $this->client->request(
-            'POST',
-            '/api/supply/requests/' . $request->getId() . '/purchases',
+            '/api/supply/requests/' . $own->getId() . '/purchases',
             server: ['CONTENT_TYPE' => 'application/json'],
             content: json_encode(['supplierId' => 1, 'totalAmount' => '100']),
         );
         self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
-
-        // Стрічка заявки лишається діалогом автора з менеджером.
-        $this->client->request(
-            'POST',
-            '/api/supply/requests/' . $request->getId() . '/comments',
-            server: ['CONTENT_TYPE' => 'application/json'],
-            content: json_encode(['text' => 'А мені теж таке треба']),
-        );
-        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
 
         foreach (['/api/supply/reports', '/api/supply/suppliers', '/api/supply/users'] as $url) {
             $this->client->request('GET', $url);

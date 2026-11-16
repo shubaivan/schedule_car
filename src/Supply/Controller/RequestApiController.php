@@ -15,6 +15,7 @@ use App\Supply\Exception\SupplyException;
 use App\Supply\Repository\DepartmentRepository;
 use App\Supply\Repository\SupplierRepository;
 use App\Supply\Repository\SupplyRequestRepository;
+use App\Supply\Repository\SupplyVisibility;
 use App\Supply\Service\AddComment;
 use App\Supply\Service\ChangeStatus;
 use App\Supply\Service\CreateRequest;
@@ -45,6 +46,7 @@ class RequestApiController extends AbstractController
     public function __construct(
         private SupplyRequestRepository $repository,
         private RequestPresenter $presenter,
+        private SupplyVisibility $visibility,
     ) {
     }
 
@@ -65,6 +67,8 @@ class RequestApiController extends AbstractController
             'overdue' => $request->query->getBoolean('overdue') ?: null,
             'open' => $request->query->getBoolean('open') ?: null,
             'query' => $request->query->get('q') ?: null,
+            // Хто не веде й не погоджує постачання — лише заявки, де він присутній.
+            'visibleTo' => $this->visibility->seesAll($this->manager()) ? null : (int) $this->manager()->getId(),
         ];
 
         $page = max(1, $request->query->getInt('page', 1));

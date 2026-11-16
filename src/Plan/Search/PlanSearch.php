@@ -5,6 +5,7 @@ namespace App\Plan\Search;
 use App\Entity\TelegramUser;
 use App\Plan\Access\PlanAccess;
 use App\Plan\Access\PlanCapability;
+use App\Supply\Repository\SupplyVisibility;
 use App\Warehouse\Service\WarehouseSection;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
@@ -34,6 +35,7 @@ class PlanSearch
         private readonly Connection $db,
         private readonly PlanAccess $access,
         private readonly WarehouseSection $warehouse,
+        private readonly ?SupplyVisibility $supplyVisibility = null,
     ) {
     }
 
@@ -238,6 +240,16 @@ class PlanSearch
         $params['meJson'] = json_encode([(int) $viewer->getId()]);
         $seesAllTasks = $this->access->can($viewer, PlanCapability::TasksSeeAll);
         $out[] = '(d.visible_all OR d.visible_to @> CAST(:meJson AS jsonb)' . ($seesAllTasks ? " OR d.subject_type = 'task'" : '') . ')';
+
+        // Заявки (і їхні коментарі/файли) — лише тим, кому заявку видно (SupplyVisibility).
+        if ($this->supplyVisibility !== null) {
+            [$supplyVisible, $supplyParams] = $this->supplyVisibility->sql($viewer, 'd.subject_id');
+
+            if ($supplyVisible !== 'TRUE') {
+                $params = [...$params, ...$supplyParams];
+                $out[] = "(d.subject_type <> 'supply' OR {$supplyVisible})";
+            }
+        }
 
         // Синтетика бенчмарка видна лише бенчмарку.
         if (! $bench) {

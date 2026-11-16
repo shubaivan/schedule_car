@@ -150,6 +150,43 @@ class OverviewApiTest extends WebTestCase
         self::assertSame([$mine->getId()], array_column($data['mine'], 'id'));
     }
 
+    /**
+     * Скарга Олександра 16.11.2026: продажник бачив на «Огляді» прострочену заявку, до якої
+     * не має стосунку. Лічильники заявок — лише по видимих: свої (автор); директор,
+     * постачання — усі.
+     */
+    public function testSupplyCountsOnlyRequestsImPresentIn(): void
+    {
+        $director = $this->user(WorkRole::Director, SupplyRole::Director);
+        $worker = $this->user(WorkRole::Production, SupplyRole::Worker, $this->department('Виробництво'));
+        $sales = $this->user(WorkRole::Manager, SupplyRole::Worker, $this->department('Продажі'));
+        $create = self::getContainer()->get(CreateRequest::class);
+
+        $foreign = $create($worker, new CreateRequestInput(item: 'Пісок митий', quantity: '5', unit: Unit::CubicMeter));
+        $this->em->getConnection()->executeStatement('UPDATE supply_request SET need_by = CURRENT_DATE - 2 WHERE id = ?', [$foreign->getId()]);
+
+        $this->client->loginUser($director);
+        $boss = $this->get('/api/plan/overview');
+        self::assertGreaterThanOrEqual(1, $boss['kpi']['supplyOverdue'], 'директор бачить прострочену заявку заводу');
+
+        $this->client->loginUser($sales);
+        $data = $this->get('/api/plan/overview');
+        self::assertSame(0, $data['kpi']['supplyOverdue'], 'чужа прострочена заявка — не на моєму «Огляді»');
+        self::assertSame(['open' => 0, 'new' => 0, 'overdue' => 0, 'decide' => 0, 'mine' => 0], $data['supply']['counts']);
+        self::assertSame([], $this->get('/api/supply/requests?overdue=1')['items'], 'плитка веде на дошку — там теж порожньо');
+
+        // Своя заявка — рахується (після запитів — свіжа сутність).
+        $sales = $this->em->find(TelegramUser::class, $sales->getId());
+        self::assertNotNull($sales);
+        $own = $create($sales, new CreateRequestInput(item: 'Каталоги', quantity: '100', unit: Unit::Piece));
+        $this->em->getConnection()->executeStatement('UPDATE supply_request SET need_by = CURRENT_DATE - 1 WHERE id = ?', [$own->getId()]);
+
+        $data = $this->get('/api/plan/overview');
+        self::assertSame(1, $data['kpi']['supplyOverdue']);
+        self::assertSame(['open' => 1, 'new' => 1, 'overdue' => 1, 'decide' => 0, 'mine' => 1], $data['supply']['counts']);
+        self::assertSame([$own->getId()], array_column($this->get('/api/supply/requests')['items'], 'id'));
+    }
+
     public function testAwaitingMyReplyListsMentionsUntilIAnswer(): void
     {
         $director = $this->user(WorkRole::Director, SupplyRole::Director);

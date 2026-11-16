@@ -8,6 +8,7 @@ use App\Plan\Subject\SubjectRef;
 use App\Plan\Subject\SubjectType;
 use App\Repository\TelegramUserRepository;
 use App\Supply\Entity\SupplyRequest;
+use App\Supply\Repository\SupplyVisibility;
 use App\Tasks\Service\TasksSection;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -15,7 +16,8 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 /**
  * Заявки: «в темі» — автор і менеджери постачання. Директори долучаються на
  * погодженні — це вже правило сповіщень (ApprovalRequested), не суб'єкта.
- * Бачать заявку всі допущені до CRM (рішення клієнта 13.08: заявки відкриті).
+ * Бачать заявку на стендах заявок усі допущені до CRM (рішення клієнта 13.08: заявки
+ * відкриті); у «Плані» — за SupplyVisibility (хто не присутній — не бачить).
  */
 final class SupplySubjects implements SubjectProvider
 {
@@ -24,6 +26,7 @@ final class SupplySubjects implements SubjectProvider
         private readonly TelegramUserRepository $users,
         private readonly UrlGeneratorInterface $urls,
         private readonly ?TasksSection $plan = null,
+        private readonly ?SupplyVisibility $visibility = null,
     ) {
     }
 
@@ -68,6 +71,12 @@ final class SupplySubjects implements SubjectProvider
 
     public function visibleTo(SubjectRef $ref, TelegramUser $user): bool
     {
-        return $user->isApproved() && ! $user->isArchived() && $this->em->find(SupplyRequest::class, $ref->id) !== null;
+        if (! $user->isApproved() || $user->isArchived()) {
+            return false;
+        }
+
+        $request = $this->em->find(SupplyRequest::class, $ref->id);
+
+        return $request !== null && ($this->visibility?->canView($request, $user) ?? true);
     }
 }

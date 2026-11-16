@@ -136,7 +136,8 @@ class SupplyFeedTest extends WebTestCase
 
         $this->client->request('POST', '/api/supply/requests/' . $request->getId() . '/feed', ['text' => 'чужий коментар'], ['files' => [$this->upload('x.jpg', "\xFF\xD8\xFFJPEG")]]);
 
-        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+        // «План»: чужа заявка для стороннього — як неіснуюча.
+        self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
         $conn = self::getContainer()->get(EntityManagerInterface::class)->getConnection();
         self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM supply_comment WHERE request_id = ?', [$request->getId()]));
         self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM supply_attachment WHERE request_id = ?', [$request->getId()]));

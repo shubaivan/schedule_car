@@ -75,7 +75,10 @@ class SubjectRegistryTest extends KernelTestCase
         self::assertSame('/crm/requests/' . $request->getId(), $registry->url($supply));
         self::assertContains($member->getId(), $registry->audience($supply));
         self::assertContains($author->getId(), $registry->audience($supply), 'Менеджер постачання в темі');
-        self::assertTrue($registry->visibleTo($supply, $outsider), 'Заявки відкриті всім допущеним');
+        self::assertTrue($registry->visibleTo($supply, $member), 'Автор бачить свою заявку');
+        self::assertTrue($registry->visibleTo($supply, $author), 'Менеджер постачання бачить усі заявки');
+        self::assertTrue($registry->visibleTo($supply, $director), 'Директор бачить усі заявки');
+        self::assertFalse($registry->visibleTo($supply, $outsider), '«План»: хто не присутній у заявці — не бачить її (Олександр, 16.11)');
 
         $item = $this->item();
         $whRef = SubjectRef::of(SubjectType::WhItem, (int) $item->getId());
