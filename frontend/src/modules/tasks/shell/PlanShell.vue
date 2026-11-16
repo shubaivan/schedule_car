@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Icon from './Icon.vue'
 import { chronicleTarget, CHRONICLE_ROUTE, searchTarget, SEARCH_ROUTE } from './nav'
@@ -7,6 +7,8 @@ import { useSession } from '../../../app/store'
 import { useChronicleCounts } from '../chronicle'
 import NotificationBell from '../../../plan/notifications/NotificationBell.vue'
 import NotificationsHost from '../../../plan/notifications/NotificationsHost.vue'
+import PresenceIndicator from '../../../plan/PresenceIndicator.vue'
+import { presenceSection, usePresence } from '../../../plan/presence'
 import { typing } from '../../../plan/layers'
 import { canSeeAdmin, canSeeWarehouse } from '../../admin/access'
 import { WAREHOUSE_FULLSCREEN, WAREHOUSE_SPLIT } from '../../warehouse/routes'
@@ -80,8 +82,19 @@ function onKey(e: KeyboardEvent) {
     }
 }
 
-onMounted(() => window.addEventListener('keydown', onKey))
-onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
+/** «Хто зараз у Плані»: heartbeat з розділом (лише назва розділу, без id) — один на вкладку. */
+const presence = usePresence()
+const section = computed(() => presenceSection(name.value, route.query))
+watch(section, (now) => presence.setSection(now))
+
+onMounted(() => {
+    window.addEventListener('keydown', onKey)
+    presence.start(section.value)
+})
+onBeforeUnmount(() => {
+    window.removeEventListener('keydown', onKey)
+    presence.stop()
+})
 </script>
 
 <template>
@@ -144,6 +157,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
                     <input ref="searchBox" v-model="q" type="search" placeholder="Пошук по всьому" aria-label="Пошук по всьому: задачі, заявки, склад, файли, люди" />
                     <kbd>/</kbd>
                 </form>
+                <PresenceIndicator />
                 <router-link :to="{ name: 'tasks-profile' }" class="p-me" title="Профіль">
                     <span class="p-me-ava">{{ initials }}</span>
                     <span class="p-me-text">
@@ -161,7 +175,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
                     </div>
                 </template>
                 <h1 v-else class="p-top-title">{{ title }}</h1>
-                <router-link :to="searchTarget(router)" class="p-icon-btn" title="Пошук" aria-label="Пошук"><Icon name="search" /></router-link>
+                <PresenceIndicator compact />
+                <router-link :to="searchTarget(router)" class="p-icon-btn p-mtop-search" title="Пошук" aria-label="Пошук"><Icon name="search" /></router-link>
                 <router-link
                     :to="{ name: 'notifications' }"
                     class="p-icon-btn p-mtop-2 p-mtop-bell"

@@ -1,0 +1,212 @@
+/* «Хто зараз у Плані» — кружечок біля пошуку й список (PresenceIndicator). Токени — з plan.css. */
+:root:has(.p-shell) {
+    --p-online: #22c55e;
+}
+/* Шапка — sticky з власним z-index (свій контекст накладання): поки список відкритий,
+   піднімаємо всю шапку над вмістом сторінки, інакше її z-index панелі не діє. */
+.p-top:has(.p-presence.open),
+.p-mtop:has(.p-presence.open) {
+    z-index: 41;
+}
+.p-presence {
+    position: relative;
+    flex: none;
+}
+.p-presence-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    min-width: 32px;
+    padding: 0 10px 0 9px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--surface-2);
+    color: var(--text);
+    font: 700 13px/1 var(--p-font);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+        background 0.12s,
+        border-color 0.12s;
+}
+.p-presence-btn:hover,
+.p-presence.open .p-presence-btn {
+    background: var(--surface);
+    border-color: var(--border-strong);
+}
+.p-presence-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+.p-presence-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--p-online);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--p-online) 22%, transparent);
+}
+.p-presence-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 30;
+    width: 340px;
+    max-height: min(70vh, 520px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--p-r);
+    box-shadow: var(--t-shadow-lg);
+}
+/* Місток між кнопкою й панеллю: миша не «падає» в проміжок і панель не зникає. */
+.p-presence-panel::before {
+    content: '';
+    position: absolute;
+    top: -9px;
+    left: 0;
+    right: 0;
+    height: 9px;
+}
+.p-presence-panel header {
+    position: sticky;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 14px 8px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+}
+.p-presence-panel header strong {
+    font-size: 14px;
+}
+.p-presence-panel header small,
+.p-presence-empty {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+.p-presence-empty {
+    margin: 0;
+    padding: 10px 14px 12px;
+}
+.p-presence-panel ul {
+    list-style: none;
+    margin: 0;
+    padding: 4px 0;
+}
+.p-presence-panel li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 14px;
+    min-height: 44px;
+    box-sizing: border-box;
+}
+.p-presence-panel li.me {
+    background: var(--surface-2);
+}
+.p-presence-ava {
+    position: relative;
+    width: 30px;
+    height: 30px;
+    flex: none;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font: 700 11.5px/1 var(--p-font);
+}
+.p-presence-ava::after {
+    content: '';
+    position: absolute;
+    right: -1px;
+    bottom: -1px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--p-online);
+    border: 2px solid var(--surface);
+}
+.p-presence-who {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.p-presence-name {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+.p-presence-name b {
+    font-size: 13.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.p-presence-me {
+    flex: none;
+    font: 700 10.5px/1 var(--p-font);
+    font-style: normal;
+    padding: 3px 6px;
+    border-radius: 8px;
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+.p-presence-who small {
+    font-size: 12px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.p-presence-section {
+    color: var(--text);
+    font-weight: 600;
+}
+.p-presence-phone {
+    flex: none;
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--link);
+    white-space: nowrap;
+    padding: 6px 0;
+}
+a.p-presence-phone:hover {
+    text-decoration: underline;
+}
+
+@media (max-width: 760px) {
+    .p-mtop .p-presence {
+        margin-left: auto;
+    }
+    .p-mtop .p-icon-btn.p-mtop-search {
+        margin-left: 0;
+    }
+    .p-presence-btn {
+        height: 34px;
+        padding: 0 10px;
+    }
+    /* На телефоні — на всю ширину під шапкою, з полями 8 px, над нижніми вкладками. */
+    .p-presence-panel {
+        position: fixed;
+        top: calc(48px + env(safe-area-inset-top) + 6px);
+        left: 8px;
+        right: 8px;
+        width: auto;
+        max-height: calc(100dvh - 48px - env(safe-area-inset-top) - var(--p-tabbar) - env(safe-area-inset-bottom) - 20px);
+    }
+    .p-presence-panel li {
+        min-height: 52px;
+    }
+    .p-presence-phone {
+        font-size: 13.5px;
+        padding: 10px 0;
+    }
+}
