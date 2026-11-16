@@ -107,6 +107,8 @@ class TaskPresenter
             'number' => $task->number(),
             'title' => $task->getTitle(),
             'client' => $task->getClient(),
+            // Лише id — без завантаження картки (дошка не робить N запитів).
+            'counterpartyId' => $task->getCounterparty()?->getId(),
             'status' => $task->getStatus()->value,
             'statusLabel' => $task->getStatus()->label(),
             'column' => $task->getStatus()->column(),
@@ -156,6 +158,11 @@ class TaskPresenter
         return [
             ...$this->listItem($task, brief: false),
             'description' => $task->getDescription(),
+            'counterparty' => $task->getCounterparty() === null ? null : [
+                'id' => $task->getCounterparty()->getId(),
+                'name' => $task->getCounterparty()->displayName(),
+                'archived' => $task->getCounterparty()->isArchived(),
+            ],
             'members' => array_map(fn ($m) => [
                 ...$this->person($m->getUser()),
                 'via' => $m->getVia()?->getName(),

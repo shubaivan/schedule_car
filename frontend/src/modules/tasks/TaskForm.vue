@@ -9,6 +9,9 @@ import { TASK_SAVED } from './shell/nav'
 import { tasksApi, type TaskDetail, type TasksMeta } from './api'
 import { useTasks } from './store'
 import { useSession } from '../../app/store'
+import { canSeeCounterparties } from '../counterparties/access'
+import { cpApi, type CpRow } from '../counterparties/api'
+import '../counterparties/counterparties.css'
 
 /**
  * Нова задача — коротка форма, як у ПланФіксі: назва, виконавці (люди або
@@ -41,7 +44,16 @@ function grow() {
     autogrow(el instanceof HTMLTextAreaElement ? el : null)
 }
 
-const empty = { title: '', client: '', description: '', dueAt: '', labelIds: [] as number[], memberIds: [] as number[], departmentIds: [] as number[] }
+const empty = {
+    title: '',
+    client: '',
+    counterpartyId: null as number | null,
+    description: '',
+    dueAt: '',
+    labelIds: [] as number[],
+    memberIds: [] as number[],
+    departmentIds: [] as number[],
+}
 
 function draft(): typeof empty | null {
     if (props.task) return null
@@ -58,6 +70,7 @@ const form = reactive(
         ? {
               title: props.task.title,
               client: props.task.client ?? '',
+              counterpartyId: props.task.counterparty?.id ?? null,
               description: props.task.description ?? '',
               dueAt: props.task.dueAt ? props.task.dueAt.slice(0, 10) : '',
               labelIds: props.task.labels.map((l) => l.id),
@@ -87,6 +100,48 @@ function dropDraft() {
     } catch {
         /* нічого */
     }
+}
+
+/**
+ * Контрагент: рядок, як і раніше, але з підказками з довідника «Контрагенти» (тим,
+ * хто його бачить). Обрали підказку — задача привʼязана до картки; переписали текст —
+ * привʼязка знімається, рядок лишається.
+ */
+const canPickCounterparty = computed(() => canSeeCounterparties(session.user))
+const linkedName = ref(props.task?.counterparty?.name ?? '')
+const suggestions = ref<CpRow[]>([])
+let suggestTimer: number | undefined
+let suggestSeq = 0
+watch(
+    () => form.client,
+    (value) => {
+        if (form.counterpartyId !== null && value.trim() !== linkedName.value && value.trim() !== (props.task?.client ?? '')) form.counterpartyId = null
+        window.clearTimeout(suggestTimer)
+        const q = value.trim()
+        if (!canPickCounterparty.value || form.counterpartyId !== null || q.length < 2) {
+            suggestions.value = []
+            return
+        }
+        suggestTimer = window.setTimeout(async () => {
+            const mine = ++suggestSeq
+            try {
+                const r = await cpApi.list({ q })
+                if (mine === suggestSeq) suggestions.value = r.items.slice(0, 6)
+            } catch {
+                suggestions.value = []
+            }
+        }, 250)
+    },
+)
+function pickCounterparty(c: CpRow) {
+    linkedName.value = c.name
+    form.counterpartyId = c.id
+    form.client = c.name
+    suggestions.value = []
+}
+function unlinkCounterparty() {
+    form.counterpartyId = null
+    linkedName.value = ''
 }
 
 const chosen = computed(() => {
@@ -131,7 +186,9 @@ async function save(go: boolean) {
     busy.value = true
     error.value = ''
     try {
-        const payload = { ...form }
+        // Хто довідника не бачить, привʼязку не надсилає (сервер зніме її сам, якщо змінили рядок).
+        const { counterpartyId, ...rest } = form
+        const payload = canPickCounterparty.value ? { ...rest, counterpartyId } : rest
         const saved = props.task ? await tasksApi.update(props.task.id, payload) : await tasksApi.create(payload)
         // Задача вже є: чернетку прибираємо одразу, щоб повтор не створив дубль.
         if (!props.task) dropDraft()
@@ -246,7 +303,19 @@ onMounted(async () => {
                     <Icon name="building" :size="16" />
                     Контрагент
                 </span>
-                <div class="v"><input v-model="form.client" class="p-inline-input" placeholder="Клієнт, обʼєкт" aria-label="Контрагент" /></div>
+                <div class="v p-cp-pick">
+                    <input v-model="form.client" class="p-inline-input" placeholder="Клієнт, обʼєкт" aria-label="Контрагент" autocomplete="off" data-testid="task-client" />
+                    <span v-if="form.counterpartyId" class="p-cp-linked" title="Привʼязано до картки контрагента">
+                        ✓ з довідника
+                        <button type="button" class="p-link" aria-label="Відвʼязати від картки" @click="unlinkCounterparty">✕</button>
+                    </span>
+                    <div v-if="suggestions.length" class="p-cp-suggest" role="listbox" aria-label="Контрагенти з довідника">
+                        <button v-for="c in suggestions" :key="c.id" type="button" role="option" @click="pickCounterparty(c)">
+                            <b>{{ c.displayName }}</b>
+                            <small class="p-muted">{{ c.code ? c.codeLabel + ' ' + c.code : c.kindLabel }}</small>
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <button v-if="!more" type="button" class="p-more" @click="more = true">

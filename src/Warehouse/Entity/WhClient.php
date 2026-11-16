@@ -3,6 +3,7 @@
 namespace App\Warehouse\Entity;
 
 use App\Entity\EntityTrait\CreatedUpdatedAtAwareTrait;
+use App\Plan\Counterparty\Entity\Counterparty;
 use App\Warehouse\Repository\WhClientRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -52,6 +53,14 @@ class WhClient
     /** Прибраний зникає зі списків вибору, але лишається в історії рухів. */
     #[ORM\Column(type: 'boolean', nullable: false, options: ['default' => true])]
     private bool $active = true;
+
+    /**
+     * Та сама юрособа в довіднику «Контрагенти» «Плану» (одна картка на клієнта й
+     * постачальника). Звʼязує plan:counterparties:link; на стендах заявок — завжди null.
+     */
+    #[ORM\ManyToOne(targetEntity: Counterparty::class)]
+    #[ORM\JoinColumn(name: 'counterparty_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+    private ?Counterparty $counterparty = null;
 
     /** @var Collection<int, WhSite> */
     #[ORM\OneToMany(targetEntity: WhSite::class, mappedBy: 'client')]
@@ -156,5 +165,17 @@ class WhClient
     public function getSites(): Collection
     {
         return $this->sites;
+    }
+
+    public function getCounterparty(): ?Counterparty
+    {
+        return $this->counterparty;
+    }
+
+    public function setCounterparty(?Counterparty $counterparty): self
+    {
+        $this->counterparty = $counterparty;
+
+        return $this;
     }
 }

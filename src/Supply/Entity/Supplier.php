@@ -4,6 +4,7 @@ namespace App\Supply\Entity;
 
 use App\Entity\EntityTrait\CreatedUpdatedAtAwareTrait;
 use App\Entity\TelegramUser;
+use App\Plan\Counterparty\Entity\Counterparty;
 use App\Supply\Repository\SupplierRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
@@ -59,6 +60,14 @@ class Supplier
     /** Прибираємо зі списку вибору, але не видаляємо: на нього посилаються закупівлі. */
     #[ORM\Column(type: 'boolean', nullable: false, options: ['default' => true])]
     private bool $active = true;
+
+    /**
+     * Та сама юрособа в довіднику «Контрагенти» «Плану» (одна картка на клієнта й
+     * постачальника). Звʼязує plan:counterparties:link; на стендах заявок — завжди null.
+     */
+    #[ORM\ManyToOne(targetEntity: Counterparty::class)]
+    #[ORM\JoinColumn(name: 'counterparty_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+    private ?Counterparty $counterparty = null;
 
     #[ORM\ManyToOne(targetEntity: TelegramUser::class)]
     #[ORM\JoinColumn(name: 'created_by_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
@@ -176,5 +185,17 @@ class Supplier
     public static function normalize(string $name): string
     {
         return (string) preg_replace('/[^\p{L}\p{N}]+/u', '', mb_strtolower(trim($name)));
+    }
+
+    public function getCounterparty(): ?Counterparty
+    {
+        return $this->counterparty;
+    }
+
+    public function setCounterparty(?Counterparty $counterparty): self
+    {
+        $this->counterparty = $counterparty;
+
+        return $this;
     }
 }

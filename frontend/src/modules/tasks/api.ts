@@ -82,6 +82,8 @@ export interface TaskItem {
     number: string
     title: string
     client: string | null
+    /** Картка контрагента, до якої привʼязано задачу (лише id; назва — у TaskDetail.counterparty). */
+    counterpartyId?: number | null
     status: string
     statusLabel: string
     column: string
@@ -103,6 +105,7 @@ export interface TaskItem {
 
 export interface TaskDetail extends TaskItem {
     description: string | null
+    counterparty?: { id: number; name: string; archived: boolean } | null
     departments: { id: number; name: string }[]
     closedAt: string | null
     can: { edit: boolean; comment: boolean; transitions: StatusInfo[] }
@@ -239,6 +242,7 @@ export interface TaskPayload {
     title?: string
     description?: string
     client?: string
+    counterpartyId?: number | null
     dueAt?: string
     labelIds?: number[]
     memberIds?: number[]
