@@ -8,13 +8,13 @@ import { useChronicleCounts } from '../chronicle'
 import NotificationBell from '../../../plan/notifications/NotificationBell.vue'
 import NotificationsHost from '../../../plan/notifications/NotificationsHost.vue'
 import { typing } from '../../../plan/layers'
-import { canSeeAdmin, canSeeWarehouse } from '../../admin/access'
+import { canEditWarehouse, canSeeAdmin, canSeeWarehouse } from '../../admin/access'
 import { WAREHOUSE_FULLSCREEN, WAREHOUSE_SPLIT } from '../../warehouse/routes'
 
 /**
  * Оболонка «Плану» — один продукт: задачі, заявки, склад, люди.
  * Десктоп: вузька ліва панель іконок і верхня смуга 48 px.
- * Телефон: компактна шапка й нижня панель вкладок (Хроніка · Задачі · Заявки · ＋ · Ще).
+ * Телефон: компактна шапка й нижня панель вкладок (Хроніка · Задачі · ＋ · Постачання · Ще).
  * Коли щось відкрито на телефоні (задача, заявка, форма, файл), обидві панелі
  * ховаються — сторінка займає весь екран, «Назад» повертає до списку.
  */
@@ -39,6 +39,8 @@ const roleLabel = computed(() => me.value?.position || me.value?.workRoleLabel |
 /** Адмін-розділ (журнал аудиту) — адміністраторам; суперадміна вводить окремий потік. */
 const canAdmin = computed(() => canSeeAdmin(me.value))
 const canWarehouse = computed(() => canSeeWarehouse(me.value))
+/** Склад на читання (продажі, бухгалтерія): «＋» там — задача, а не новий рух. */
+const writesWarehouse = computed(() => canEditWarehouse(me.value))
 
 const name = computed(() => String(route.name))
 /** Сторінки-вікна (форма, файл) і відкрита праворуч картка — на телефоні на весь екран. */
@@ -57,9 +59,10 @@ const onAdmin = computed(() => name.value.startsWith('admin'))
 const onWarehouse = computed(() => name.value.startsWith('warehouse'))
 const onMore = computed(() => onWarehouse.value || name.value === 'tasks-profile' || onNotifications.value || onAdmin.value || onStaff.value)
 
-/** «＋» створює те, де людина зараз: у заявках — заявку, на складі — рух, деінде — задачу. */
-const newTarget = computed(() => (onSupply.value ? { name: 'supply-new' } : onWarehouse.value ? { name: 'warehouse-movement-new' } : { name: 'tasks-new' }))
-const newLabel = computed(() => (onSupply.value ? 'Нова заявка ( N )' : onWarehouse.value ? 'Новий рух ( N )' : 'Нова задача ( N )'))
+/** «＋» створює те, де людина зараз: у постачанні — заявку, на складі — рух (хто веде склад), деінде — задачу. */
+const newOnWarehouse = computed(() => onWarehouse.value && writesWarehouse.value)
+const newTarget = computed(() => (onSupply.value ? { name: 'supply-new' } : newOnWarehouse.value ? { name: 'warehouse-movement-new' } : { name: 'tasks-new' }))
+const newLabel = computed(() => (onSupply.value ? 'Заявка на постачання ( N )' : newOnWarehouse.value ? 'Новий рух ( N )' : 'Нова задача ( N )'))
 
 function search() {
     router.push(searchTarget(router, q.value.trim()))
@@ -101,9 +104,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
                 <Icon name="board" />
                 <span>Задачі</span>
             </router-link>
-            <router-link :to="{ name: 'supply-board' }" class="p-rail-btn" :class="{ on: onSupply }" title="Заявки на постачання">
+            <router-link :to="{ name: 'supply-board' }" class="p-rail-btn" :class="{ on: onSupply }" title="Постачання">
                 <Icon name="clipboard" />
-                <span>Заявки</span>
+                <span>Постачання</span>
             </router-link>
             <router-link v-if="canWarehouse" :to="{ name: 'warehouse' }" class="p-rail-btn" :class="{ on: onWarehouse }" title="Склад">
                 <Icon name="warehouse" />
@@ -192,7 +195,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
             <router-link :to="newTarget" class="p-tab-new" :aria-label="newLabel"><Icon name="plus" :size="26" :stroke="2.2" /></router-link>
             <router-link :to="{ name: 'supply-board' }" :class="{ on: onSupply }">
                 <Icon name="clipboard" />
-                <span>Заявки</span>
+                <span>Постачання</span>
             </router-link>
             <router-link :to="{ name: 'tasks-profile' }" :class="{ on: onMore }">
                 <Icon name="menu" />

@@ -176,7 +176,7 @@ useLiveRefresh(() => load(), { pollMs: 30000, debounceMs: 1000 })
                 </router-link>
                 <router-link :to="{ name: 'supply-board', query: { v: 'overdue' } }" class="ov-tile" :class="{ alert: data.kpi.supplyOverdue }" data-testid="kpi-supply">
                     <span class="v">{{ data.kpi.supplyOverdue }}</span>
-                    <span class="k">Заявки прострочені</span>
+                    <span class="k">Прострочені заявки на постачання</span>
                 </router-link>
                 <router-link v-if="data.kpi.fleet" :to="{ name: 'schedule' }" class="ov-tile" data-testid="kpi-fleet">
                     <span class="v">{{ data.kpi.fleet.busy }} / {{ data.kpi.fleet.free }}</span>
@@ -241,7 +241,7 @@ useLiveRefresh(() => load(), { pollMs: 30000, debounceMs: 1000 })
                     <!-- (2б) Заявки на моєму рішенні (погодження оплати) -->
                     <section v-if="deciding" id="decide" class="t-panel ov-decide" :class="{ calm: !data.decisions.total }" data-testid="ov-decide">
                         <h2>
-                            ⚖️ Заявки на моєму рішенні
+                            ⚖️ Заявки на постачання на моєму рішенні
                             <span class="count">{{ data.decisions.total }}</span>
                         </h2>
                         <div v-if="data.decisions.items.length" class="ov-drows">

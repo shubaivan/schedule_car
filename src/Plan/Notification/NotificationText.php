@@ -41,7 +41,7 @@ final class NotificationText
         $headline = match (true) {
             $group === EventGroup::Mention => 'Вас згадали',
             $event instanceof ApprovalRequested => 'Потрібне ваше рішення',
-            $event instanceof SubjectCreated => $event->subject->type === SubjectType::Supply ? 'Нова заявка' : 'Нова задача',
+            $event instanceof SubjectCreated => $event->subject->type === SubjectType::Supply ? 'Нова заявка на постачання' : 'Нова задача',
             $event instanceof MemberAdded => 'Вас додали до задачі',
             $event instanceof CommentAdded => 'Новий коментар',
             $event instanceof FileAdded => 'Новий файл',

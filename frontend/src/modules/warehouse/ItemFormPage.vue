@@ -6,7 +6,7 @@ import { useSession } from '../../app/store'
 import Icon from '../tasks/shell/Icon.vue'
 import SupplierPicker from '../../shared/SupplierPicker.vue'
 import { whApi, type ItemPayload, type WhMeta } from './api'
-import { accessError } from './access'
+import { accessError, READ_ONLY } from './access'
 import { goBack } from '../../plan/layers'
 import './warehouse.css'
 
@@ -73,6 +73,10 @@ async function submit() {
 onMounted(async () => {
     try {
         meta.value = await whApi.meta()
+        if (!meta.value.can.edit) {
+            error.value = READ_ONLY
+            return
+        }
         if (props.id) {
             const i = await whApi.item(Number(props.id))
             draft.value = {

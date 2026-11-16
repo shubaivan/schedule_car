@@ -173,7 +173,7 @@ onBeforeUnmount(() => {
                     <Icon name="search" :size="16" />
                     <input v-model="q" data-board-filter type="search" placeholder="Назва, інв. №, марка, постачальник" aria-label="Пошук позицій" />
                 </label>
-                <router-link :to="{ name: 'warehouse-movement-new' }" class="p-btn primary p-new" title="Новий рух">
+                <router-link v-if="meta?.can.edit" :to="{ name: 'warehouse-movement-new' }" class="p-btn primary p-new" title="Новий рух">
                     <Icon name="plus" :size="18" :stroke="2.2" />
                     <span>Рух</span>
                 </router-link>

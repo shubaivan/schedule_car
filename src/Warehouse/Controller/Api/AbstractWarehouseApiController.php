@@ -13,8 +13,9 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  * без змін — тут ті самі сервіси (RecordMovement, WarehouseDirectory, DocumentStore,
  * ActivityLog), лише інший формат.
  *
- * Хто: PLAN_WAREHOUSE_VIEW (PlanAccess = WarehouseSection::canManage — менеджер,
- * адмін, директор, як і на /sklad); зміни — PLAN_WAREHOUSE_EDIT. Розділ вимкнено
+ * Хто: PLAN_WAREHOUSE_VIEW (WarehouseSection::canView — хто веде склад, а також
+ * продажі й бухгалтерія, на читання); зміни — PLAN_WAREHOUSE_EDIT
+ * (WarehouseSection::canManage — менеджер, адмін, директор постачання, як і на /sklad). Розділ вимкнено
  * (WAREHOUSE_ENABLED=0) — WarehouseGate віддає 404 ще до файрвола.
  *
  * #[IsGranted] — на КОЖНОМУ класі-нащадку: атрибут батьківського класу Symfony не успадковує.

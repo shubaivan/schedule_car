@@ -12,6 +12,8 @@ use App\Plan\Share\Entity\ShareLink;
 use App\Repository\TelegramUserRepository;
 use App\Supply\Enum\SupplyRole;
 use App\Tasks\Enum\WorkRole;
+use App\Warehouse\Entity\WhDocument;
+use App\Warehouse\Service\WarehouseSection;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use SortDirection;
@@ -99,6 +101,11 @@ class ShareService
     public function createLink(PlanFile $file, TelegramUser $actor, ?DateTimeImmutable $now = null): array
     {
         $this->assertCanView($actor, $file);
+
+        // Склад на читання (продажі, бухгалтерія): документ відкрити можна, а публічне посилання назовні — ні.
+        if ($file->entity instanceof WhDocument && ! WarehouseSection::canManage($actor)) {
+            throw new ShareException('Публічне посилання на документ складу створює той, хто веде склад.');
+        }
 
         $now ??= ShareLink::now();
         $token = self::newToken();

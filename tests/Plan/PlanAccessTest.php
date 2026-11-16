@@ -28,6 +28,16 @@ class PlanAccessTest extends TestCase
         self::assertTrue($access->can($director, PlanCapability::LeadsReceive));
         self::assertFalse($access->can($director, PlanCapability::AuditView), 'Аудит — лише суперадмін');
 
+        // Ревʼю UX №6: продажі й бухгалтерія бачать склад на читання, записують лише ті, хто його веде.
+        foreach ([WorkRole::Manager, WorkRole::Accountant] as $role) {
+            $reader = $this->user($role, SupplyRole::Worker);
+            self::assertTrue($access->can($reader, PlanCapability::WarehouseView), $role->value);
+            self::assertFalse($access->can($reader, PlanCapability::WarehouseEdit), $role->value);
+            self::assertFalse($access->can($reader, PlanCapability::SupplyManage), $role->value . ': склад не відкриває заявки');
+        }
+        $keeper = $this->user(WorkRole::Production, SupplyRole::Manager);
+        self::assertTrue($access->can($keeper, PlanCapability::WarehouseEdit), 'менеджер постачання веде склад');
+
         $worker = $this->user(WorkRole::Production, SupplyRole::Worker);
         self::assertSame(array_fill_keys(array_map(static fn ($c) => $c->value, PlanCapability::cases()), false), $access->matrix($worker));
 

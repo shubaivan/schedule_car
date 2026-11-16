@@ -16,10 +16,18 @@ export function canSeeDrive(user: ApiUser | null | undefined): boolean {
     return canSeeAdmin(user) || user?.workRole === 'admin'
 }
 
-/** Пункт «Склад» (рейка, «Ще») — лише з правом warehouse.view (інакше API складу відповідає 403). */
+/**
+ * Пункт «Склад» (рейка, «Ще») — з правом warehouse.view (інакше API складу відповідає 403):
+ * хто веде склад, а також продажі й бухгалтерія — на читання.
+ */
 export function canSeeWarehouse(user: ApiUser | null | undefined): boolean {
-    // warehouse — склад увімкнено (WAREHOUSE_ENABLED) і людина його веде; capabilities — право в «Плані».
-    return user?.capabilities?.['warehouse.view'] === true && user?.warehouse === true
+    // warehouseEnabled — розділ увімкнено (WAREHOUSE_ENABLED); capabilities — право в «Плані».
+    return user?.capabilities?.['warehouse.view'] === true && user?.warehouseEnabled === true
+}
+
+/** Записувати рухи й правити картки складу — лише тим, хто його веде (warehouse.edit). */
+export function canEditWarehouse(user: ApiUser | null | undefined): boolean {
+    return canSeeWarehouse(user) && user?.capabilities?.['warehouse.edit'] === true
 }
 
 /** Заявки на приєднання (вхід через Telegram) — лише суперадміну: `staff.join`. */

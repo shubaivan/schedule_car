@@ -195,7 +195,8 @@ class TasksApiTest extends WebTestCase
         self::assertGreaterThanOrEqual(2, $mine['stats']['mine']);
         self::assertArrayNotHasKey('decisions', $mine, 'Рішень директора в задачах немає');
         self::assertArrayHasKey('supply', $mine);
-        self::assertNull($mine['warehouse'], 'Склад вимкнено в тестовому оточенні — блоку немає');
+        // Ревʼю UX №6: менеджер з продажу бачить склад на читання — і смугу «Склад» на «Огляді».
+        self::assertIsArray($mine['warehouse'], 'Склад на читання продажам');
 
         $this->login($director);
         $dash = $this->get('/api/tasks/dashboard');

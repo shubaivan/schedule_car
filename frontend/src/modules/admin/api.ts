@@ -41,7 +41,11 @@ export interface AuditPage {
     items: AuditItem[]
     older: number | null
     newer: number | null
-    total: number
+}
+
+/** Ледачий лічильник журналу: total = null — сервер не встиг порахувати (задовгий запит). */
+export interface AuditCount {
+    total: number | null
     totalCapped: boolean
 }
 
@@ -78,6 +82,7 @@ export function filterQuery(filters: AuditFilters, extra: Record<string, string 
 export const auditApi = {
     meta: () => call<AuditMeta>('/api/plan/audit/meta'),
     page: (filters: AuditFilters, cursor: { before?: string; after?: string }) => call<AuditPage>('/api/plan/audit?' + filterQuery(filters, cursor)),
+    count: (filters: AuditFilters) => call<AuditCount>('/api/plan/audit/count?' + filterQuery(filters)),
     event: (id: number) => call<AuditDetail>(`/api/plan/audit/${id}`),
     csvUrl: (filters: AuditFilters) => '/api/plan/audit.csv?' + filterQuery(filters),
 }

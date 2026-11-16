@@ -17,6 +17,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * і людина активна). Решта отримує 403 на кожен маршрут, включно з CSV.
  *
  *     GET /api/plan/audit?actor=&group[]=&type[]=&kind=&subject=&from=&to=&ip=&q=&before=|after=&limit=
+ *     GET /api/plan/audit/count?…    — скільки подій під фільтром (ледачий лічильник, ≤ 10 000)
  *     GET /api/plan/audit/meta       — довідники фільтрів
  *     GET /api/plan/audit/{id}       — одна подія з payload і сусідами
  *     GET /api/plan/audit.csv?…      — ті самі фільтри, ≤ 50 000 рядків
@@ -45,14 +46,30 @@ final class AuditApiController extends AbstractController
         }
 
         $page = $this->log->page($filter);
-        $total = $this->log->count($filter);
 
+        // Лічильника тут немає: його рахує /count окремо й лише коли треба (не на кожну сторінку курсора).
         return $this->json([
             'items' => $this->presenter->rows($page['items']),
             'older' => $page['older'],
             'newer' => $page['newer'],
-            'total' => min($total, AuditLog::countCap()),
-            'totalCapped' => $total > AuditLog::countCap(),
+        ]);
+    }
+
+    /** Скільки подій під фільтром (курсор ігнорується). total = null — не встигли порахувати (задовгий запит). */
+    #[Route('/count', name: 'api_plan_audit_count', methods: ['GET'])]
+    public function count(Request $request): JsonResponse
+    {
+        try {
+            $filter = AuditFilter::fromQuery($request->query);
+        } catch (InvalidArgumentException $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+
+        $total = $this->log->count($filter);
+
+        return $this->json([
+            'total' => $total === null ? null : min($total, AuditLog::countCap()),
+            'totalCapped' => $total !== null && $total > AuditLog::countCap(),
         ]);
     }
 

@@ -16,7 +16,7 @@ const plan = { shell: 'plan' as const }
 export const tasksRoutes: RouteRecordRaw[] = [
     { path: '/tasks', name: 'tasks', component: TasksHome, meta: { ...plan, title: 'Огляд' } },
     // Розділений екран: дошка зліва, відкрита задача справа (на телефоні — на весь екран).
-    { path: '/tasks/board/:id(\\d+)?', name: 'tasks-board', component: TaskBoard, meta: { ...plan, title: 'Угоди й задачі' } },
+    { path: '/tasks/board/:id(\\d+)?', name: 'tasks-board', component: TaskBoard, meta: { ...plan, title: 'Задачі' } },
     // Список задач під фільтром — куди ведуть числа «Огляду» (?show=overdue&dep=3); задача праворуч.
     { path: '/tasks/list/:id(\\d+)?', name: 'tasks-list', component: TaskListPage, meta: { ...plan, title: 'Задачі' } },
     // Нова задача й правка — окремі сторінки, не модалки: «Назад» закриває форму.

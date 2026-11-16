@@ -139,7 +139,7 @@ class OverviewApiTest extends WebTestCase
         self::assertSame([], $data['decisions']['items']);
         self::assertSame(0, $data['decisions']['total']);
         self::assertNull($data['supply']['month'], 'гроші постачання — лише тим, хто веде або погоджує');
-        self::assertNull($data['warehouse'], 'склад — лише тим, хто його веде');
+        self::assertNull($data['warehouse'], 'склад — лише тим, хто його веде або бачить на читання (продажі, бухгалтерія)');
         self::assertSame(0, $data['kpi']['overdueTasks']);
 
         $ids = array_column($data['control']['rows'], 'id');

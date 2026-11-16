@@ -8,6 +8,7 @@ import MovementView from './MovementView.vue'
 import WarehouseNav from './WarehouseNav.vue'
 import { whApi, type WhMeta, type WhMovementRow } from './api'
 import { accessError } from './access'
+import { canEditWarehouse } from '../admin/access'
 import { formatDate } from '../../shared/format'
 import { useSplit } from '../../plan/useSplit'
 import { typing } from '../../plan/layers'
@@ -22,6 +23,8 @@ const session = useSession()
 const route = useRoute()
 const router = useRouter()
 const { openId, open, close } = useSplit('warehouse-movements')
+/** Склад на читання (продажі, бухгалтерія) — без кнопки «Новий рух». */
+const canEdit = computed(() => canEditWarehouse(session.user))
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '')
 const type = computed(() => str(route.query.t))
@@ -158,7 +161,7 @@ onBeforeUnmount(() => {
                     <Icon name="search" :size="16" />
                     <input v-model="q" data-board-filter type="search" placeholder="№ накладної, місце, постачальник" aria-label="Пошук рухів" />
                 </label>
-                <router-link :to="{ name: 'warehouse-movement-new', query: type ? { type } : {} }" class="p-btn primary p-new">
+                <router-link v-if="canEdit" :to="{ name: 'warehouse-movement-new', query: type ? { type } : {} }" class="p-btn primary p-new">
                     <Icon name="plus" :size="18" :stroke="2.2" />
                     <span>Новий рух</span>
                 </router-link>

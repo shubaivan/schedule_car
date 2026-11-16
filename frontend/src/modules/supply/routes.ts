@@ -20,8 +20,8 @@ export const supplyRoutes: RouteRecordRaw[] = [
     { path: '/users', name: 'users', component: UsersPage },
     { path: '/departments', name: 'departments', component: DepartmentsPage },
     // «План»: заявки в тій самій оболонці, що й задачі — список ліворуч, заявка праворуч.
-    { path: '/supply/board/:id(\\d+)?', name: 'supply-board', component: SupplyBoard, meta: { shell: 'plan', title: 'Заявки' } },
-    { path: '/supply/:id(\\d+)/full', name: 'supply-full', component: SupplyView, props: true, meta: { shell: 'plan', title: 'Заявка' } },
+    { path: '/supply/board/:id(\\d+)?', name: 'supply-board', component: SupplyBoard, meta: { shell: 'plan', title: 'Постачання' } },
+    { path: '/supply/:id(\\d+)/full', name: 'supply-full', component: SupplyView, props: true, meta: { shell: 'plan', title: 'Заявка на постачання' } },
     // Нова заявка — окрема сторінка (і на стенді заявок, і в «Плані»), а не форма над таблицею.
-    { path: '/supply/new', name: 'supply-new', component: SupplyFormPage, meta: { shell: 'auto', title: 'Нова заявка' } },
+    { path: '/supply/new', name: 'supply-new', component: SupplyFormPage, meta: { shell: 'auto', title: 'Заявка на постачання' } },
 ]

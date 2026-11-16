@@ -47,6 +47,10 @@ class PlanChronicleTest extends WebTestCase
         self::assertNotContains('supply-' . $request['id'], $keys, 'Чужа заявка робітника не в його Хроніці');
         self::assertNotContains('warehouse', array_column($this->get('/api/plan/chronicle')['modules'], 'key'));
 
+        // Менеджер з продажу бачить склад на читання (UX №6), але рухи складу в його Хроніці — шум.
+        $this->login($manager);
+        self::assertNotContains('warehouse', array_column($this->get('/api/plan/chronicle')['modules'], 'key'));
+
         // Фільтри: модуль і тип події.
         $this->login($director);
         $onlySupply = $this->get('/api/plan/chronicle', ['unread' => 0, 'module' => 'supply', 'limit' => 100]);

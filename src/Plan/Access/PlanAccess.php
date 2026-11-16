@@ -11,7 +11,7 @@ use App\Warehouse\Service\WarehouseSection;
  * WorkRole (задачі) і SupplyRole (заявки, склад) — плюс прапорця суперадміна.
  *
  * Правила навмисно повторюють ті, що вже діють у модулях (TaskPolicy,
- * SupplyRole::canManage/canApprovePayment, WarehouseSection::canManage), —
+ * SupplyRole::canManage/canApprovePayment, WarehouseSection::canView/canManage), —
  * матриця лише збирає їх в одне місце для меню, API та voter-а.
  */
 final class PlanAccess
@@ -29,7 +29,9 @@ final class PlanAccess
             PlanCapability::TasksSeeAll => $user->seesAllTasks(),
             PlanCapability::SupplyManage => $supply->canManage(),
             PlanCapability::SupplyApprove => $supply->canApprovePayment(),
-            PlanCapability::WarehouseView, PlanCapability::WarehouseEdit => WarehouseSection::canManage($user),
+            // Склад на читання — ще й продажам і бухгалтерії; записують лише ті, хто його веде.
+            PlanCapability::WarehouseView => WarehouseSection::canView($user),
+            PlanCapability::WarehouseEdit => WarehouseSection::canManage($user),
             PlanCapability::AuditView, PlanCapability::StaffJoin => $user->isSuperadmin(),
             PlanCapability::LeadsReceive => in_array($work, [WorkRole::Manager, WorkRole::Director, WorkRole::Admin], true),
         };

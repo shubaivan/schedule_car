@@ -32,7 +32,7 @@ const { openId, open: openTask, close } = useSplitTask('tasks-chronicle')
 
 const MODULES: { key: ChronicleModule; label: string }[] = [
     { key: 'task', label: 'Задачі' },
-    { key: 'supply', label: 'Заявки' },
+    { key: 'supply', label: 'Постачання' },
     { key: 'warehouse', label: 'Склад' },
 ]
 const EVENTS: { key: ChronicleEventFilter; label: string }[] = [

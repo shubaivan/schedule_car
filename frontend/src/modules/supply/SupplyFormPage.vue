@@ -83,7 +83,7 @@ onMounted(async () => {
         <form class="new-request t-formcard p-form p-form-page" aria-labelledby="new-request-title" @submit.prevent="submit" @keydown="onKey">
             <header>
                 <button type="button" class="p-icon-btn p-form-back" aria-label="Назад" title="Назад (Esc)" @click="cancel"><Icon name="back" /></button>
-                <h2 id="new-request-title">Нова заявка</h2>
+                <h2 id="new-request-title">Заявка на постачання</h2>
                 <button type="button" class="p-icon-btn p-form-x" aria-label="Закрити" title="Закрити (Esc)" @click="cancel"><Icon name="x" /></button>
             </header>
             <div class="body">
@@ -159,7 +159,7 @@ onMounted(async () => {
         <form class="new-request" :class="plan ? 't-formcard p-form p-form-page' : 'card'" aria-labelledby="new-request-title" @submit.prevent="submit" @keydown.esc="cancel">
             <header v-if="plan">
                 <button type="button" class="p-icon-btn p-form-back" aria-label="Назад" @click="cancel"><Icon name="back" /></button>
-                <h2 id="new-request-title">Нова заявка</h2>
+                <h2 id="new-request-title">Заявка на постачання</h2>
                 <button type="button" class="p-icon-btn p-form-x" aria-label="Закрити" title="Закрити (Esc)" @click="cancel"><Icon name="x" /></button>
             </header>
             <h2 v-else id="new-request-title">➕ Нова заявка</h2>

@@ -32,7 +32,7 @@ use RuntimeException;
  * Права — ті самі, що в модулів (нового правила тут немає):
  * - файл задачі — бачиш задачу (TaskPolicy::canView), повідомлення не видалене;
  * - документ заявки — бачиш заявку (SupplyVisibility: у «Плані» лише присутні, директор, адмін, постачання);
- * - документ складу — менеджер / адмін / директор постачання (WarehouseSection::canManage).
+ * - документ складу — усім, кому склад видно (WarehouseSection::canView, як GET /api/warehouse/documents/{id}).
  */
 class PlanFiles
 {
@@ -71,7 +71,7 @@ class PlanFiles
 
         return match (true) {
             $entity instanceof TaskAttachment => $this->tasks->enabled() && $entity->getMessage()->getDeletedAt() === null && $this->taskPolicy->canView($user, $entity->getTask()),
-            $entity instanceof WhDocument => $this->warehouse->isEnabled() && WarehouseSection::canManage($user),
+            $entity instanceof WhDocument => $this->warehouse->isEnabled() && WarehouseSection::canView($user),
             // Решта — документ заявки (SupplyAttachment).
             default => $this->supplyVisibility?->canView($entity->getRequest(), $user) ?? true,
         };

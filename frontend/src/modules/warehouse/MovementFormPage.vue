@@ -7,7 +7,7 @@ import { useSession } from '../../app/store'
 import Icon from '../tasks/shell/Icon.vue'
 import SupplierPicker from '../../shared/SupplierPicker.vue'
 import { qty, whApi, type MovementPayload, type WhItemRow, type WhMeta, type WhSite } from './api'
-import { accessError } from './access'
+import { accessError, READ_ONLY } from './access'
 import { goBack } from '../../plan/layers'
 import { useHistoryLayer } from '../../plan/useHistoryLayer'
 import './warehouse.css'
@@ -152,6 +152,10 @@ async function submit() {
 onMounted(async () => {
     try {
         const [m, list] = await Promise.all([whApi.meta(), whApi.items({})])
+        if (!m.can.edit) {
+            error.value = READ_ONLY
+            return
+        }
         meta.value = m
         items.value = list.items
         draft.value.occurredAt = m.today

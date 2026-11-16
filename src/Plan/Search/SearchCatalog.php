@@ -27,7 +27,7 @@ final class SearchCatalog
 
     public const array GROUP_LABELS = [
         'task' => 'Задачі',
-        'supply' => 'Заявки',
+        'supply' => 'Постачання',
         'warehouse' => 'Склад',
         'comment' => 'Коментарі',
         'file' => 'Файли',
@@ -38,7 +38,7 @@ final class SearchCatalog
         'task' => 'Задача',
         'comment' => 'Коментар',
         'file' => 'Файл',
-        'supply' => 'Заявка',
+        'supply' => 'Постачання',
         'supply_comment' => 'Коментар до заявки',
         'supply_file' => 'Файл заявки',
         'wh_item' => 'Позиція складу',
@@ -52,7 +52,7 @@ final class SearchCatalog
     /** Групи статусів у фасеті — за типом суб'єкта. */
     public const array STATUS_KINDS = [
         'task' => 'Задача',
-        'supply' => 'Заявка',
+        'supply' => 'Постачання',
         'wh_item' => 'Майно',
         'wh_movement' => 'Рух',
         'person' => 'Роль',

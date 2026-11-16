@@ -36,7 +36,8 @@ use InvalidArgumentException;
  * - задачі — TaskVisibility::chronicle (директор/адмін — усі, решта — де беруть участь або ★);
  * - заявки — директор/адмін, менеджери постачання й ті, хто погоджує, — усі;
  *   решта — свої (автор) і ті, де коментували;
- * - склад — лише з можливістю warehouse.view (коли склад увімкнено).
+ * - склад — лише тим, хто веде склад (warehouse.edit, коли склад увімкнено): продажам і
+ *   бухгалтерії склад відкрито на читання, але в їхній Хроніці його рухи — шум.
  *
  * «+N» (одне правило з дошкою й лічильником меню):
  * - задачі — як і раніше TaskFeedRepository::UNREAD по task_read, лише там, де людина
@@ -408,6 +409,6 @@ class PlanChronicle
 
     private function seesWarehouse(TelegramUser $viewer): bool
     {
-        return $this->warehouse->isEnabled() && $this->access->can($viewer, PlanCapability::WarehouseView);
+        return $this->warehouse->isEnabled() && $this->access->can($viewer, PlanCapability::WarehouseEdit);
     }
 }
