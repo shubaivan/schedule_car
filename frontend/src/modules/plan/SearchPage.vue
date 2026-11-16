@@ -62,7 +62,7 @@ const panelOpen = computed(() => route.query.panel === '1')
 const DATE = new Intl.DateTimeFormat('uk-UA', { day: '2-digit', month: '2-digit', year: '2-digit' })
 const fmt = (v: string) => DATE.format(new Date(v))
 
-const GROUP_ICON: Record<SearchGroup, string> = { task: 'З', supply: 'Зв', warehouse: 'Ск', comment: '💬', file: '📎', person: '👤' }
+const GROUP_ICON: Record<SearchGroup, string> = { task: 'З', supply: 'Пс', warehouse: 'Ск', comment: '💬', file: '📎', person: '👤' }
 
 /** Параметри, які не належать пошуку, — зберігаємо (відкрита задача ?m= ?f=, панель). */
 function extra(): Record<string, string> {

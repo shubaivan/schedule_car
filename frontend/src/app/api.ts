@@ -14,6 +14,8 @@ export interface ApiUser {
     archived?: boolean
     /** Лише в /api/me: чи веде ця людина склад — тоді в меню є перехід на /sklad. */
     warehouse?: boolean
+    /** Лише в /api/me: розділ «Склад» увімкнено (WAREHOUSE_ENABLED); хто його бачить — capabilities. */
+    warehouseEnabled?: boolean
     /** Лише в /api/me: чи є пункт «🛒 Магазин» (адмінка сайту через /shop). */
     shop?: boolean
     /** Лише в /api/me: розділ «Задачі» ввімкнено. */

@@ -30,8 +30,11 @@ const meta = ref<AuditMeta | null>(null)
 const items = ref<AuditItem[]>([])
 const older = ref<number | null>(null)
 const newer = ref<number | null>(null)
-const total = ref(0)
+/** Лічильник — окремим запитом, лише коли змінились фільтри (не курсор): null — ще не порахували. */
+const total = ref<number | null>(null)
 const totalCapped = ref(false)
+const counting = ref(false)
+const countFailed = ref(false)
 const loading = ref(false)
 const error = ref('')
 const filtersOpen = ref(false)
@@ -151,8 +154,6 @@ async function load() {
         items.value = result.items
         older.value = result.older
         newer.value = result.newer
-        total.value = result.total
-        totalCapped.value = result.totalCapped
         error.value = ''
     } catch (e) {
         if (mine === seq) error.value = session.handle(e)
@@ -160,6 +161,44 @@ async function load() {
         if (mine === seq) loading.value = false
     }
 }
+
+/**
+ * Скільки подій під фільтрами. Без тексту — одразу (дешево); з текстом у «q» — лише кнопкою
+ * «Порахувати»: такий лічильник проходить увесь журнал (ревʼю DB_PERF №9).
+ */
+let countSeq = 0
+async function count() {
+    if (!allowed.value) return
+    const mine = ++countSeq
+    counting.value = true
+    countFailed.value = false
+    try {
+        const result = await auditApi.count(filters.value)
+        if (mine !== countSeq) return
+        total.value = result.total
+        totalCapped.value = result.totalCapped
+        countFailed.value = result.total === null
+    } catch (e) {
+        // Мережа / 400 — не «багато подій»: лишаємо кнопку «Порахувати», щоб спробувати ще раз.
+        console.warn('audit count', e)
+    } finally {
+        if (mine === countSeq) counting.value = false
+    }
+}
+
+function resetCount() {
+    ++countSeq
+    total.value = null
+    totalCapped.value = false
+    counting.value = false
+    countFailed.value = false
+    if (!filters.value.q) count()
+}
+
+const filtersKey = computed(() => JSON.stringify(filters.value))
+watch(filtersKey, (now, before) => {
+    if (now !== before) resetCount()
+})
 
 const listKey = computed(() => JSON.stringify([filters.value, route.query.before ?? '', route.query.after ?? '']))
 watch(listKey, async (now, before) => {
@@ -176,6 +215,7 @@ watch(allowed, (ok) => {
 async function init() {
     if (!allowed.value) return
     load()
+    resetCount()
     try {
         const m = await auditApi.meta()
         meta.value = { ...m, actors: sortByName(m.actors) }
@@ -208,7 +248,11 @@ function dayLabel(day: string): string {
     )
 }
 
-const totalLabel = computed(() => (totalCapped.value ? `понад ${total.value.toLocaleString('uk-UA')}` : total.value.toLocaleString('uk-UA')))
+const totalLabel = computed(() => {
+    if (total.value === null) return ''
+    const n = total.value.toLocaleString('uk-UA')
+    return (totalCapped.value ? `понад ${n}` : n) + ' ' + plural(total.value, 'подія', 'події', 'подій')
+})
 const csvHref = computed(() => auditApi.csvUrl(filters.value))
 const actorName = computed(() => meta.value?.actors.find((a) => String(a.id) === filters.value.actor)?.name)
 
@@ -254,7 +298,15 @@ onBeforeUnmount(() => {
         <div class="p-split-left t-page a-list-pane">
             <div class="a-head">
                 <h1>Журнал аудиту</h1>
-                <span class="t-sub" aria-live="polite">{{ loading && !items.length ? 'Завантаження…' : totalLabel + ' ' + plural(total, 'подія', 'події', 'подій') }}</span>
+                <span class="t-sub" aria-live="polite" data-testid="audit-total">
+                    <template v-if="loading && !items.length">Завантаження…</template>
+                    <template v-else-if="total !== null">{{ totalLabel }}</template>
+                    <template v-else-if="counting">Рахую…</template>
+                    <template v-else>
+                        <span v-if="countFailed">Багато подій — звузьте період.</span>
+                        <button v-else type="button" class="p-link" title="Скільки подій під цими фільтрами" @click="count">Порахувати</button>
+                    </template>
+                </span>
                 <span class="sp" />
                 <button type="button" class="t-btn small ghost a-filters-btn" :aria-expanded="filtersOpen" @click="filtersOpen = !filtersOpen">
                     Фільтри

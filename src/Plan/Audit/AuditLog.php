@@ -7,6 +7,7 @@ use App\Plan\Event\StatusChanged;
 use App\Plan\Event\SubjectClosed;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Exception\DriverException;
 use Generator;
 
 /**
@@ -22,6 +23,8 @@ final class AuditLog
 {
     private const string COLUMNS = 'e.id, e.type, e.subject_type, e.subject_id, e.actor_id, e.occurred_at, e.payload, e.ip, e.channel';
     private const int COUNT_CAP = 10000;
+    /** Лічильник не важливіший за сторінку: довше — «багато», а не секунди очікування (ревʼю DB_PERF №8/№9). */
+    private const string COUNT_TIMEOUT = '3s';
 
     public function __construct(private readonly Connection $db)
     {
@@ -67,16 +70,31 @@ final class AuditLog
         ];
     }
 
-    /** Скільки подій під фільтром — до COUNT_CAP (далі «10 000+»): лічильник не має гальмувати сторінку. */
-    public function count(AuditFilter $filter): int
+    /**
+     * Скільки подій під фільтром — до COUNT_CAP (далі «10 000+»). Окремим ледачим запитом
+     * (/api/plan/audit/count), а не на кожній сторінці: з текстом у `q` він коштував 0,5–0,7 с.
+     * Не встиг за COUNT_TIMEOUT — null («багато, звузьте період»); сторінка від цього не чекає.
+     */
+    public function count(AuditFilter $filter): ?int
     {
         [$where, $params, $types] = $this->where($filter->withoutCursor());
+        $sql = sprintf('SELECT COUNT(*) FROM (SELECT 1 FROM plan_event e LEFT JOIN telegram_user u ON u.id = e.actor_id WHERE %s LIMIT %d) c', implode(' AND ', $where), self::COUNT_CAP + 1);
 
-        return (int) $this->db->fetchOne(
-            sprintf('SELECT COUNT(*) FROM (SELECT 1 FROM plan_event e LEFT JOIN telegram_user u ON u.id = e.actor_id WHERE %s LIMIT %d) c', implode(' AND ', $where), self::COUNT_CAP + 1),
-            $params,
-            $types,
-        );
+        try {
+            return $this->db->transactional(static function (Connection $db) use ($sql, $params, $types): int {
+                // SET LOCAL діє до кінця цієї транзакції: решта запитів з'єднання — без обмеження.
+                $db->executeStatement(sprintf("SET LOCAL statement_timeout = '%s'", self::COUNT_TIMEOUT));
+
+                return (int) $db->fetchOne($sql, $params, $types);
+            });
+        } catch (DriverException $e) {
+            // 57014 query_canceled — спрацював statement_timeout; решта помилок — справжні, хай летять далі.
+            if ($e->getSQLState() === '57014') {
+                return null;
+            }
+
+            throw $e;
+        }
     }
 
     public static function countCap(): int

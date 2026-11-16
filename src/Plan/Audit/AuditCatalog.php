@@ -90,7 +90,7 @@ final class AuditCatalog
 
     public const array SUBJECTS = [
         SubjectType::Task->value => 'Задача',
-        SubjectType::Supply->value => 'Заявка',
+        SubjectType::Supply->value => 'Постачання',
         SubjectType::WhItem->value => 'Склад · позиція',
         SubjectType::WhMovement->value => 'Склад · рух',
         SubjectType::WhClient->value => 'Склад · клієнт',

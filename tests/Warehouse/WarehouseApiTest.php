@@ -108,6 +108,53 @@ class WarehouseApiTest extends WebTestCase
         self::assertResponseIsSuccessful();
     }
 
+    /** @return iterable<string, array{WorkRole}> */
+    public static function readers(): iterable
+    {
+        yield 'менеджер з продажу' => [WorkRole::Manager];
+        yield 'бухгалтер' => [WorkRole::Accountant];
+    }
+
+    /** Ревʼю UX №6: продажі й бухгалтерія бачать склад (позиції, залишки, рухи), але нічого не записують. */
+    #[DataProvider('readers')]
+    public function testSalesAndAccountingReadTheWarehouseButCannotWrite(WorkRole $role): void
+    {
+        $item = $this->item();
+        $reader = $this->person(SupplyRole::Worker)->setWorkRole($role);
+        $this->em->flush();
+        $this->browser->loginUser($reader);
+
+        foreach (['/api/warehouse/meta', '/api/warehouse/items', '/api/warehouse/items/' . $item->getId(), '/api/warehouse/items/' . $item->getId() . '/feed', '/api/warehouse/movements', '/api/warehouse/journal'] as $url) {
+            $this->browser->request('GET', $url);
+            self::assertSame(200, $this->browser->getResponse()->getStatusCode(), $url);
+        }
+
+        $this->browser->request('GET', '/api/warehouse/meta');
+        self::assertFalse($this->body()['can']['edit'], 'форми запису фронт не показує');
+
+        $before = $this->events();
+        $this->postJson('/api/warehouse/movements', ['type' => 'receipt', 'occurredAt' => '2026-11-15', 'toId' => $this->warehouse()->getId(), 'lines' => [['itemId' => $item->getId(), 'quantity' => 1]]]);
+        self::assertResponseStatusCodeSame(403);
+        $this->postJson('/api/warehouse/items', ['name' => 'x']);
+        self::assertResponseStatusCodeSame(403);
+        $this->browser->request('PUT', '/api/warehouse/items/' . $item->getId(), server: ['CONTENT_TYPE' => 'application/json'], content: '{"name":"x"}');
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame([], $this->events($before), 'жодної події запису');
+
+        $this->browser->request('GET', '/api/me');
+        $me = $this->body();
+        self::assertTrue($me['capabilities']['warehouse.view']);
+        self::assertFalse($me['capabilities']['warehouse.edit']);
+        self::assertTrue($me['warehouseEnabled']);
+        self::assertFalse($me['warehouse'], 'Twig-склад /sklad і меню бота — як і були, лише тим, хто веде склад');
+
+        // Картку відкрити можна (Хроніка, поділитися файлом), а сповіщення про рухи — лише тим, хто веде склад.
+        $subjects = new WarehouseSubjects($this->em, self::getContainer()->get(TelegramUserRepository::class), self::getContainer()->get(UrlGeneratorInterface::class), new TasksSection(true, 'tasks'));
+        $ref = SubjectRef::of(SubjectType::WhItem, (int) $item->getId());
+        self::assertTrue($subjects->visibleTo($ref, $reader));
+        self::assertNotContains((int) $reader->getId(), $subjects->audience($ref));
+    }
+
     public function testArchivedManagerIsLockedOut(): void
     {
         $manager = $this->person();
@@ -349,6 +396,43 @@ class WarehouseApiTest extends WebTestCase
         $entry = $this->em->getRepository(WhActivity::class)->findOneBy([], ['id' => 'DESC']);
         self::assertSame(ActivityAction::DocumentRemove, $entry?->getAction());
         @unlink($tmp);
+    }
+
+    /** Склад на читання: документ відкрити можна, а додати, прибрати чи дати публічне посилання — ні. */
+    public function testReaderOpensDocumentsButCannotChangeOrShareThem(): void
+    {
+        $item = $this->item();
+        $this->browser->loginUser($this->person());
+        $tmp = tempnam(sys_get_temp_dir(), 'wh');
+        file_put_contents($tmp, '%PDF-1.4 накладна');
+        $this->browser->request('POST', '/api/warehouse/items/' . $item->getId() . '/documents', ['type' => 'photo'], ['files' => [new UploadedFile($tmp, 'накладна.pdf', 'application/pdf', null, true)]]);
+        self::assertResponseIsSuccessful();
+        $document = $this->body()['documents'][0];
+
+        $reader = $this->person(SupplyRole::Worker)->setWorkRole(WorkRole::Accountant);
+        $this->em->flush();
+        $this->browser->loginUser($reader);
+
+        $this->browser->request('GET', $document['url']);
+        self::assertResponseIsSuccessful();
+        $this->browser->request('GET', '/api/plan/files/wh/' . $document['id']);
+        self::assertResponseIsSuccessful();
+
+        $this->browser->request('POST', '/api/plan/files/wh/' . $document['id'] . '/links', server: ['CONTENT_TYPE' => 'application/json'], content: '{}');
+        self::assertResponseStatusCodeSame(422);
+        $this->browser->request('DELETE', '/api/warehouse/documents/' . $document['id']);
+        self::assertResponseStatusCodeSame(403);
+        $tmp2 = tempnam(sys_get_temp_dir(), 'wh');
+        file_put_contents($tmp2, '%PDF-1.4 ще');
+        $this->browser->request('POST', '/api/warehouse/items/' . $item->getId() . '/documents', ['type' => 'photo'], ['files' => [new UploadedFile($tmp2, 'ще.pdf', 'application/pdf', null, true)]]);
+        self::assertResponseStatusCodeSame(403);
+
+        // Виробничник (не продажі, не бухгалтерія) документ складу не бачить.
+        $this->browser->loginUser($this->person(SupplyRole::Worker));
+        $this->browser->request('GET', '/api/plan/files/wh/' . $document['id']);
+        self::assertNotSame(200, $this->browser->getResponse()->getStatusCode());
+        @unlink($tmp);
+        @unlink($tmp2);
     }
 
     public function testMentionsRespectTaskVisibility(): void

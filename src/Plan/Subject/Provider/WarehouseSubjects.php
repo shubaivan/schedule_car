@@ -83,7 +83,8 @@ final class WarehouseSubjects implements SubjectProvider
 
     public function visibleTo(SubjectRef $ref, TelegramUser $user): bool
     {
-        return WarehouseSection::canManage($user) && $this->entity($ref) !== null;
+        // Бачать і ті, кому склад відкрито на читання; сповіщення (audience) — лише тим, хто його веде.
+        return WarehouseSection::canView($user) && $this->entity($ref) !== null;
     }
 
     private function entity(SubjectRef $ref): WhItem|WhMovement|WhClient|WhSite|WhCategory|null

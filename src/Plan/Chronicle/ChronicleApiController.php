@@ -48,7 +48,7 @@ final class ChronicleApiController extends TasksController
 {
     private const int PAGE = 30;
 
-    private const array MODULE_LABELS = ['task' => 'Задача', 'supply' => 'Заявка', 'warehouse' => 'Склад'];
+    private const array MODULE_LABELS = ['task' => 'Задача', 'supply' => 'Постачання', 'warehouse' => 'Склад'];
 
     public function __construct(
         private readonly PlanChronicle $chronicle,
@@ -339,7 +339,7 @@ final class ChronicleApiController extends TasksController
             case SubjectCreated::TYPE:
                 return match ($ref->type) {
                     SubjectType::Task => 'Створено задачу',
-                    SubjectType::Supply => 'Нова заявка',
+                    SubjectType::Supply => 'Нова заявка на постачання',
                     default => 'Створено',
                 };
 

@@ -178,7 +178,7 @@ onBeforeUnmount(() => {
                 </label>
                 <router-link :to="{ name: 'supply-new' }" class="p-btn primary p-new">
                     <Icon name="plus" :size="18" :stroke="2.2" />
-                    <span>Нова заявка</span>
+                    <span>Заявка на постачання</span>
                 </router-link>
             </div>
 
@@ -243,7 +243,7 @@ onBeforeUnmount(() => {
                         </span>
                     </a>
                     <div v-if="!loading && !items.length" class="p-empty">
-                        {{ view === 'open' && !status && !q ? 'Відкритих заявок немає. «Нова заявка» — угорі.' : 'За цим фільтром заявок немає.' }}
+                        {{ view === 'open' && !status && !q ? 'Відкритих заявок немає. «Заявка на постачання» — угорі.' : 'За цим фільтром заявок немає.' }}
                     </div>
                     <template v-if="loading && !items.length">
                         <div v-for="i in 4" :key="i" class="p-skel" />

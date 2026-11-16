@@ -67,7 +67,7 @@ class AuditApiTest extends WebTestCase
 
         $this->client->loginUser($director);
 
-        foreach (['/api/plan/audit', '/api/plan/audit/meta', '/api/plan/audit/' . $id, '/api/plan/audit.csv'] as $url) {
+        foreach (['/api/plan/audit', '/api/plan/audit/count', '/api/plan/audit/meta', '/api/plan/audit/' . $id, '/api/plan/audit.csv'] as $url) {
             $this->client->request('GET', $url);
             self::assertResponseStatusCodeSame(403, $url);
         }
@@ -128,8 +128,12 @@ class AuditApiTest extends WebTestCase
         // Сторінки за курсором: before — старіші, after — новіші.
         $first = $this->page('from=2030-03-01&limit=2');
         self::assertSame([$download, $login], array_column($first['items'], 'id'));
-        self::assertSame(5, $first['total']);
         self::assertNull($first['newer']);
+        // Лічильник — окремим ледачим запитом (DB_PERF №9): сторінка його більше не рахує, курсор ігнорується.
+        self::assertArrayNotHasKey('total', $first);
+        self::assertSame(['total' => 5, 'totalCapped' => false], $this->get('/api/plan/audit/count?from=2030-03-01&limit=2&before=' . $first['older']));
+        self::assertSame(['total' => 2, 'totalCapped' => false], $this->get('/api/plan/audit/count?from=2030-03-01&actor=' . $anna->getId()));
+        self::assertSame(['total' => 1, 'totalCapped' => false], $this->get('/api/plan/audit/count?from=2030-03-01&q=' . rawurlencode('арматуру')));
         $second = $this->page('from=2030-03-01&limit=2&before=' . $first['older']);
         self::assertSame([$statusNoComment, $status], array_column($second['items'], 'id'));
         self::assertSame($statusNoComment, $second['newer']);
@@ -140,6 +144,8 @@ class AuditApiTest extends WebTestCase
         foreach (['group=nope', 'type[]=nope', 'kind=planet', 'subject=task', 'from=2030-13-01', 'from=2030-03-05&to=2030-03-01', 'actor=abc'] as $bad) {
             $this->client->request('GET', '/api/plan/audit?' . $bad);
             self::assertResponseStatusCodeSame(400, $bad);
+            $this->client->request('GET', '/api/plan/audit/count?' . $bad);
+            self::assertResponseStatusCodeSame(400, 'count: ' . $bad);
         }
 
         $this->client->request('GET', '/api/me');

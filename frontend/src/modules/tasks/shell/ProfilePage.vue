@@ -62,7 +62,7 @@ const THEMES: { value: Theme; label: string; icon: string }[] = [
             </router-link>
             <router-link :to="{ name: 'supply-board' }">
                 <Icon name="clipboard" />
-                Заявки на постачання
+                Постачання
             </router-link>
             <router-link v-if="canSeeWarehouse(session.user)" :to="{ name: 'warehouse' }">
                 <Icon name="warehouse" />

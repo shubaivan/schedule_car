@@ -31,6 +31,8 @@ class MetaApiController extends AbstractController
         return $this->json([
             ...$presenter->user($user),
             'warehouse' => $warehouse->inMenuFor($user),
+            // Склад у «Плані»: розділ увімкнено; бачить / веде — capabilities warehouse.view / warehouse.edit.
+            'warehouseEnabled' => $warehouse->isEnabled(),
             'shop' => $shop->availableTo($user),
             // Розділ «Задачі» і з чого відкривати CRM (CRM_HOME).
             'tasks' => $tasks->enabled(),

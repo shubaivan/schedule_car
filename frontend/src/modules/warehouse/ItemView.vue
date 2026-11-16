@@ -351,9 +351,9 @@ watch(tab, (t) => {
                     <img :src="item.qr" :alt="'QR ' + item.inventoryNumber" width="132" height="132" />
                     <p class="t-hint" style="padding: 0">Скан відкриває картку в боті — і потрапляє в історію.</p>
                     <div class="p-small">
-                        <a :href="item.labels" target="_blank" rel="noopener">Друк наклейки</a>
+                        <a v-if="canEdit" :href="item.labels" target="_blank" rel="noopener">Друк наклейки</a>
                         <template v-if="item.shareUrl">
-                            ·
+                            <template v-if="canEdit">·</template>
                             <button type="button" class="p-link" @click="share">Поділитися</button>
                         </template>
                     </div>
