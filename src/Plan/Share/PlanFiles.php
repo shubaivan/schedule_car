@@ -6,6 +6,7 @@ use App\Entity\TelegramUser;
 use App\Plan\Subject\SubjectRef;
 use App\Plan\Subject\SubjectType;
 use App\Supply\Repository\SupplyAttachmentRepository;
+use App\Supply\Repository\SupplyVisibility;
 use App\Supply\Service\AttachFile;
 use App\Supply\Service\SupplyFeed;
 use App\Tasks\Entity\TaskAttachment;
@@ -30,7 +31,7 @@ use RuntimeException;
  *
  * Права — ті самі, що в модулів (нового правила тут немає):
  * - файл задачі — бачиш задачу (TaskPolicy::canView), повідомлення не видалене;
- * - документ заявки — будь-який підтверджений співробітник (спільна картина заявок);
+ * - документ заявки — бачиш заявку (SupplyVisibility: у «Плані» лише присутні, директор, адмін, постачання);
  * - документ складу — менеджер / адмін / директор постачання (WarehouseSection::canManage).
  */
 class PlanFiles
@@ -47,6 +48,7 @@ class PlanFiles
         private readonly DocumentStore $warehouseStore,
         private readonly TaskPresenter $taskPresenter,
         private readonly SupplyFeed $supplyFeed,
+        private readonly ?SupplyVisibility $supplyVisibility = null,
     ) {
     }
 
@@ -70,7 +72,8 @@ class PlanFiles
         return match (true) {
             $entity instanceof TaskAttachment => $this->tasks->enabled() && $entity->getMessage()->getDeletedAt() === null && $this->taskPolicy->canView($user, $entity->getTask()),
             $entity instanceof WhDocument => $this->warehouse->isEnabled() && WarehouseSection::canManage($user),
-            default => true,
+            // Решта — документ заявки (SupplyAttachment).
+            default => $this->supplyVisibility?->canView($entity->getRequest(), $user) ?? true,
         };
     }
 

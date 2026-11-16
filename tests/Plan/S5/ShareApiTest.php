@@ -14,6 +14,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Google\Service\Exception as GoogleException;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 /**
  * S5 «поділитися»: з людьми (лише з тими, хто має доступ) → сповіщення; посилання
@@ -114,6 +115,39 @@ class ShareApiTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertStringStartsWith('inline', (string) $this->client->getResponse()->headers->get('Content-Disposition'));
         self::assertSame(0, (int) $this->db->fetchOne("SELECT COUNT(*) FROM plan_event WHERE type = 'file_downloaded' AND actor_id = ?", [$author->getId()]), 'Перегляд — не «Файл скачано»');
+    }
+
+    /** «План» (Олександр, 16.11): файл чужої заявки — як неіснуючий; ні переглянути, ні поділитися. */
+    public function testSupplyFileOnlyForThoseWhoSeeTheRequest(): void
+    {
+        $author = $this->person(WorkRole::Production, 'sup-author');
+        $outsider = $this->person(WorkRole::Manager, 'sup-outsider');
+        $director = $this->person(WorkRole::Director, 'sup-director', SupplyRole::Director);
+
+        $this->client->loginUser($author);
+        $created = $this->post('/api/supply/requests', ['item' => 'Пісок митий', 'quantity' => '5', 'unit' => 'ton']);
+        $path = (string) tempnam(sys_get_temp_dir(), 'sf');
+        file_put_contents($path, "\xFF\xD8\xFFJPEG");
+        $this->client->request('POST', '/api/supply/requests/' . $created['id'] . '/feed', ['text' => ''], ['files' => [new UploadedFile($path, 'nakladna.jpg', 'image/jpeg', null, true)]]);
+        self::assertResponseStatusCodeSame(201);
+        $fileId = (int) json_decode((string) $this->client->getResponse()->getContent(), true)['files'][0]['id'];
+        $url = '/api/plan/files/supply/' . $fileId;
+        $this->get($url);
+
+        $flags = array_column($this->get($url . '/recipients')['people'], 'canView', 'id');
+        self::assertFalse($flags[$outsider->getId()] ?? false, 'стороннього не пропонуємо як отримувача');
+        self::assertTrue($flags[$director->getId()] ?? false);
+
+        $this->client->loginUser($outsider);
+
+        foreach (['GET ' . $url, 'GET ' . $url . '/download', 'GET ' . $url . '/inline', 'POST ' . $url . '/links'] as $call) {
+            [$method, $target] = explode(' ', $call);
+            $this->client->request($method, $target, server: ['CONTENT_TYPE' => 'application/json'], content: '{}');
+            self::assertGreaterThanOrEqual(403, $this->client->getResponse()->getStatusCode(), $call);
+            self::assertLessThan(500, $this->client->getResponse()->getStatusCode(), $call);
+        }
+
+        self::assertSame(0, (int) $this->db->fetchOne('SELECT COUNT(*) FROM share_link WHERE created_by_id = ?', [$outsider->getId()]));
     }
 
     public function testLinkWorksUntilExpiryThenGone(): void
