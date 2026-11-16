@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import PersonName from '../../plan/PersonName.vue'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import type { Attachment } from './api'
 import { extClass, pagesLabel } from './files'
 import SharePanel from '../../plan/SharePanel.vue'
@@ -19,9 +20,15 @@ import { typing } from '../../plan/layers'
  * «Поділитися» — панель праворуч (на телефоні — на весь екран поверх файлу) у тій самій
  * читалці; на телефоні вона — свій крок історії (useHistoryLayer), «Назад» згортає її.
  * Файли задач, заявок і складу — тип береться з самого Attachment (fileTypeOf).
+ *
+ * «Повернути» ⟲/⟳ (клавіші R / Shift+R) — поворот на 90° фото або всіх сторінок PDF.
+ * Кут свій для кожного файлу; кут показаного файлу — в адресі ?rot=<id>:<градуси>
+ * (replace, без нового кроку історії), тож оновлення сторінки й «Назад»/«Вперед» його тримають.
  */
 const props = defineProps<{ files: Attachment[]; startId: number; shareOpen?: boolean }>()
 const emit = defineEmits<{ close: []; change: [id: number] }>()
+const route = useRoute()
+const router = useRouter()
 
 const index = ref(
     Math.max(
@@ -35,6 +42,35 @@ const sharing = ref(false)
 useHistoryLayer(sharing)
 const driveUrl = computed(() => (file.value as Attachment & { driveUrl?: string | null }).driveUrl ?? null)
 const pages = computed(() => (file.value?.urls.page && file.value.pages ? Array.from({ length: file.value.pages }, (_, i) => i + 1) : []))
+
+// --- поворот ---
+const rotations = reactive<Record<number, number>>({})
+const ROT_RE = /^(\d+):(0|90|180|270)$/
+const fromUrl = ROT_RE.exec(String(route.query.rot ?? ''))
+if (fromUrl) rotations[Number(fromUrl[1])] = Number(fromUrl[2])
+const rotation = computed(() => (file.value ? (rotations[file.value.id] ?? 0) : 0))
+const sideways = computed(() => rotation.value % 180 !== 0)
+const canRotate = computed(() => !!file.value && ((file.value.kind === 'image' && !!file.value.urls.view) || pages.value.length > 0))
+
+function rotate(step: 1 | -1) {
+    if (!canRotate.value) return
+    const id = file.value.id
+    const deg = (rotation.value + step * 90 + 360) % 360
+    rotations[id] = deg
+    void router.replace({ query: { ...route.query, rot: deg ? `${id}:${deg}` : undefined } })
+}
+
+// Співвідношення сторін сторінок PDF (ширина / висота): поки сторінка не завантажилась —
+// з даних файлу або A4; для бокового повороту коробка сторінки міняє сторони.
+const ratios = reactive<Record<string, number>>({})
+const baseRatio = computed(() => (file.value?.width && file.value.height ? file.value.width / file.value.height : 0.7071))
+function pageLoaded(n: number, e: Event) {
+    const img = e.target as HTMLImageElement
+    if (img.naturalWidth && img.naturalHeight) ratios[`${file.value.id}:${n}`] = img.naturalWidth / img.naturalHeight
+}
+function pageStyle(n: number) {
+    return { '--r': String(ratios[`${file.value.id}:${n}`] ?? baseRatio.value), '--rot': `${rotation.value}deg` }
+}
 
 watch(index, () => {
     zoom.value = false
@@ -64,6 +100,7 @@ function onKey(e: KeyboardEvent) {
     if (typing(e.target)) return
     if (e.key === 'ArrowRight') go(1)
     if (e.key === 'ArrowLeft') go(-1)
+    if ((e.key === 'r' || e.key === 'R' || e.code === 'KeyR') && !e.ctrlKey && !e.metaKey && !e.altKey) rotate(e.shiftKey ? -1 : 1)
 }
 
 let touchX = 0
@@ -108,7 +145,20 @@ onBeforeUnmount(() => {
                     <template v-if="files.length > 1">· {{ index + 1 }} з {{ files.length }}</template>
                 </div>
             </div>
-            <a v-if="file.kind === 'pdf'" :href="file.urls.inline" target="_blank" rel="noopener">Відкрити</a>
+            <template v-if="canRotate">
+                <button type="button" class="rot" title="Повернути ліворуч (Shift+R)" aria-label="Повернути ліворуч" @click="rotate(-1)">
+                    ⟲
+                    <span class="hide-sm">Повернути</span>
+                </button>
+                <button type="button" class="rot" title="Повернути праворуч (R)" aria-label="Повернути праворуч" @click="rotate(1)">
+                    ⟳
+                    <span class="hide-sm">Повернути</span>
+                </button>
+            </template>
+            <a v-if="file.kind === 'pdf'" :href="file.urls.inline" target="_blank" rel="noopener" title="Відкрити у браузері">
+                <span class="show-sm" aria-hidden="true">⧉</span>
+                <span class="hide-sm">Відкрити</span>
+            </a>
             <a v-if="driveUrl" :href="driveUrl" target="_blank" rel="noopener noreferrer" class="hide-sm">Google Drive</a>
             <a :href="file.urls.download">
                 ⬇
@@ -130,14 +180,16 @@ onBeforeUnmount(() => {
                     :key="file.id"
                     :src="file.urls.view"
                     :alt="file.name"
-                    :class="{ zoom }"
-                    :style="zoom ? { cursor: 'zoom-out' } : { cursor: 'zoom-in' }"
+                    :class="{ zoom, sideways }"
+                    :style="{ cursor: zoom ? 'zoom-out' : 'zoom-in', transform: rotation ? `rotate(${rotation}deg)` : undefined }"
                     @click="zoom = !zoom"
                 />
 
                 <div v-else-if="pages.length" :key="'p' + file.id" class="scroller" @click.self="emit('close')">
                     <template v-for="n in pages" :key="n">
-                        <img class="page" :src="(file.urls.page ?? '') + n" :alt="'Сторінка ' + n" loading="lazy" />
+                        <div class="pagebox" :class="{ sideways }" :style="pageStyle(n)">
+                            <img class="page" :src="(file.urls.page ?? '') + n" :alt="'Сторінка ' + n" loading="lazy" @load="pageLoaded(n, $event)" />
+                        </div>
                         <div class="pg">{{ n }} / {{ pages.length }}</div>
                     </template>
                 </div>
@@ -183,12 +235,61 @@ onBeforeUnmount(() => {
     flex: 1;
     min-width: 0;
 }
+/* Поворот: сцена — контейнер, тож боком фото вписується за поміняними сторонами (cqw/cqh). */
+.t-viewer-body > .t-viewer-stage {
+    container-type: size;
+}
+.t-viewer-stage > img {
+    transition: transform 0.15s;
+}
+.t-viewer-stage > img.sideways:not(.zoom) {
+    max-width: 100cqh;
+    max-height: 100cqw;
+}
+/* Сторінка PDF у коробці: 0°/180° — як була; 90°/270° — коробка з поміняними сторонами,
+   а сама сторінка (ширина = висота коробки) повернута по центру. */
+.t-viewer-stage .scroller .pagebox {
+    width: min(900px, 100%);
+    flex: none;
+    position: relative;
+}
+.t-viewer-stage .scroller .pagebox img.page {
+    display: block;
+    width: 100%;
+    transform: rotate(var(--rot, 0deg));
+}
+.t-viewer-stage .scroller .pagebox.sideways {
+    aspect-ratio: 1 / var(--r);
+}
+.t-viewer-stage .scroller .pagebox.sideways img.page {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: calc(100% * var(--r));
+    max-width: none;
+    transform: translate(-50%, -50%) rotate(var(--rot));
+}
 .t-viewer-bar button.share.on {
     background: rgba(255, 255, 255, 0.3);
+}
+.t-viewer-bar .show-sm {
+    display: none;
 }
 @media (max-width: 760px) {
     .t-viewer-bar .hide-sm {
         display: none;
+    }
+    .t-viewer-bar .show-sm {
+        display: inline;
+    }
+    /* Телефон: кнопки вужчі, щоб назві файлу лишалось місце. */
+    .t-viewer-bar {
+        gap: 0.4rem;
+        padding: 0.5rem 0.6rem;
+    }
+    .t-viewer-bar a,
+    .t-viewer-bar button {
+        padding: 0.45rem 0.6rem;
     }
 }
 </style>
