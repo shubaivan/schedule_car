@@ -545,6 +545,7 @@ class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface,
             // «Це був не я» (session_epoch) завершує й уже відкриті сесії на всіх пристроях.
             $user->getSessionEpoch() === $this->sessionEpoch &&
             $user->isArchived() === $this->isArchived() &&
+            $user->isApproved() === $this->isApproved() &&
             $user->getRoles() === $this->getRoles();
     }
 }

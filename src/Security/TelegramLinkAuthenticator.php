@@ -4,6 +4,7 @@ namespace App\Security;
 
 use App\Controller\LoginController;
 use App\Service\CrmLoginLink;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -25,6 +26,8 @@ class TelegramLinkAuthenticator extends AbstractAuthenticator
         private CrmLoginLink $loginLink,
         private UrlGeneratorInterface $urlGenerator,
         private LoginController $login,
+        #[Autowire('%tasks_enabled%')]
+        private bool $plan = false,
     ) {
     }
 
@@ -55,8 +58,9 @@ class TelegramLinkAuthenticator extends AbstractAuthenticator
         // (middleware RequireApproval), а решта її просто не бачить.
         return new SelfValidatingPassport(
             new UserBadge($user->getUserIdentifier(), static fn () => $user),
-            // Запам'ятати вхід на 30 днів (security.yaml → remember_me).
-            [new RememberMeBadge()],
+            // Запам'ятати вхід на 30 днів (security.yaml → remember_me) — лише на «Плані»;
+            // на стендах заявок вхід за посиланням із бота, як і був, — до кінця сесії.
+            $this->plan ? [new RememberMeBadge()] : [],
         );
     }
 
