@@ -76,7 +76,8 @@ class DriveSyncTest extends KernelTestCase
         self::assertSame('done', $row['drive_state']);
         self::assertNotNull($row['drive_file_id']);
         $year = $task->getCreatedAt()->format('Y');
-        self::assertSame([sprintf('План/%s/Задачі/№%s Плити - перекриття ПК 60-12/кошторис.txt', $year, $task->number())], $drive->paths());
+        $day = $file->getCreatedAt()->format('Y-m-d');
+        self::assertSame([sprintf('План/%s/Задачі/№%s Плити - перекриття ПК 60-12/%s кошторис.txt', $year, $task->number(), $day)], $drive->paths(), 'дата завантаження — спереду');
 
         // Повторний прогін нічого не шле.
         self::assertSame(0, $this->sync->run($drive, 50)->sent);
@@ -100,7 +101,8 @@ class DriveSyncTest extends KernelTestCase
         $this->sync->run($drive, 50);
 
         $names = array_map(static fn (string $p) => basename($p), $drive->paths());
-        self::assertSame(['акт.txt', sprintf('акт (%d).txt', $b->getId())], $names);
+        $day = $a->getCreatedAt()->format('Y-m-d');
+        self::assertSame([$day . ' акт.txt', sprintf('%s акт (%d).txt', $day, $b->getId())], $names, 'збіг імені — « (id)» після дати');
         self::assertNotSame($a->getId(), $b->getId());
     }
 
@@ -209,7 +211,7 @@ class DriveSyncTest extends KernelTestCase
         self::assertSame('skipped', $this->row('task_attachment', (int) $file->getId())['drive_state']);
     }
 
-    public function testSupplyDocumentGoesUnderZayavky(): void
+    public function testSupplyDocumentGoesUnderPostachannya(): void
     {
         $author = $this->person(WorkRole::Manager, 'author');
         $request = self::getContainer()->get(CreateRequest::class)($author, new CreateRequestInput(item: 'Цемент М400', quantity: '10', unit: Unit::Pack));
@@ -221,7 +223,7 @@ class DriveSyncTest extends KernelTestCase
         $this->sync->run($drive, 50, only: FileType::Supply);
 
         $year = $request->getCreatedAt()->format('Y');
-        self::assertSame([sprintf('План/%s/Заявки/№%s Цемент М400/%s', $year, str_replace('/', '-', $request->getNumber()), $attachment->getDriveName())], $drive->paths());
+        self::assertSame([sprintf('План/%s/Постачання/№%s Цемент М400/%s %s', $year, str_replace('/', '-', $request->getNumber()), $attachment->getCreatedAt()->format('Y-m-d'), $attachment->getDriveName())], $drive->paths(), 'розділ — як у меню, «Постачання»');
     }
 
     public function testDemoSeedFilesNeverReachDrive(): void
@@ -242,7 +244,7 @@ class DriveSyncTest extends KernelTestCase
 
         self::assertSame(1, $result->sent, 'на Диск — лише справжній файл');
         self::assertCount(1, $drive->paths());
-        self::assertStringEndsWith('/справжній.txt', $drive->paths()[0]);
+        self::assertStringEndsWith(' справжній.txt', $drive->paths()[0]);
         foreach ([['task_attachment', (int) $demoFile->getId()], ['supply_attachment', (int) $demoSupply->getId()]] as [$table, $id]) {
             $row = $this->row($table, $id);
             self::assertSame('skipped', $row['drive_state'], $table);
@@ -263,7 +265,10 @@ class DriveSyncTest extends KernelTestCase
         $at = new DateTimeImmutable('2026-11-15 12:00:00');
 
         self::assertSame(['План', '2026', 'Задачі', '№0012 Плити'], $paths->task($at, '0012', '  Плити  '));
-        self::assertSame(['План', '2026', 'Заявки', '№042-2026 Цемент'], $paths->supply($at, '042/2026', 'Цемент'));
+        self::assertSame(['План', '2026', 'Постачання', '№042-2026 Цемент'], $paths->supply($at, '042/2026', 'Цемент'));
+        self::assertSame('2026-11-15 акт.pdf', DrivePaths::dated($at, 'акт.pdf'));
+        self::assertSame('2026-11-15 акт-1.pdf', DrivePaths::dated($at, ' акт/1.pdf '));
+        self::assertSame(120, mb_strlen(DrivePaths::dated($at, str_repeat('я', 300))));
         self::assertSame(['План', '2026', 'Склад', 'Клієнти', 'ТОВ А-Б'], $paths->warehouse($at, ['Клієнти', 'ТОВ А/Б']));
         self::assertSame(['План', '2026', 'Ліди', '2026-11-15 Олег'], $paths->lead($at, 'Олег'));
         self::assertSame('акт (7).pdf', DrivePaths::withId('акт.pdf', 7));

@@ -10,7 +10,7 @@ use App\Supply\Repository\SupplyAttachmentRepository;
 use App\Supply\Service\AttachFile;
 use RuntimeException;
 
-/** Документи заявок: План / <рік> / Заявки / №042-2026 <матеріал> / <тип> <номер>.pdf. */
+/** Документи заявок: План / <рік> / Постачання / №042-2026 <матеріал> / <дата> <тип> <номер>.pdf. */
 final readonly class SupplyFiles implements DriveSource
 {
     public function __construct(
@@ -38,7 +38,7 @@ final readonly class SupplyFiles implements DriveSource
         return new DriveItem(
             FileType::Supply,
             $id,
-            DrivePaths::safe($attachment->getDriveName()),
+            DrivePaths::dated($attachment->getCreatedAt(), $attachment->getDriveName()),
             $attachment->getMime(),
             $this->paths->supply($request->getCreatedAt(), $request->getNumber(), $request->getItem()),
             SubjectRef::supply((int) $request->getId()),

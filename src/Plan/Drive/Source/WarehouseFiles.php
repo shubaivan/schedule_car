@@ -49,7 +49,7 @@ final readonly class WarehouseFiles implements DriveSource
         return new DriveItem(
             FileType::Warehouse,
             $id,
-            DrivePaths::safe($document->getDriveName()),
+            DrivePaths::dated($document->getCreatedAt(), $document->getDriveName()),
             $document->getMime(),
             $this->paths->warehouse($owner->getCreatedAt(), $warehousePath),
             match (true) {

@@ -39,7 +39,7 @@ final readonly class TaskFiles implements DriveSource
         return new DriveItem(
             FileType::Task,
             $id,
-            DrivePaths::safe($attachment->getOriginalName()),
+            DrivePaths::dated($attachment->getCreatedAt(), $attachment->getOriginalName()),
             $attachment->getMime(),
             $this->paths->task($task->getCreatedAt(), $task->number(), $task->getTitle()),
             SubjectRef::task((int) $task->getId()),

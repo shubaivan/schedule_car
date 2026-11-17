@@ -26,7 +26,7 @@ use Symfony\Component\Routing\Attribute\Route;
 class MetaApiController extends AbstractController
 {
     #[Route('/me', name: 'api_me', methods: ['GET'])]
-    public function me(RequestPresenter $presenter, WarehouseSection $warehouse, ShopLink $shop, TasksSection $tasks, FleetSection $fleet, PlanAccess $access, PlanSections $sections, ZvyazokAccess $zvyazok, #[Autowire('%password_login_enabled%')] bool $passwordLogin = false): JsonResponse
+    public function me(RequestPresenter $presenter, WarehouseSection $warehouse, ShopLink $shop, TasksSection $tasks, FleetSection $fleet, PlanAccess $access, PlanSections $sections, ZvyazokAccess $zvyazok, #[Autowire('%password_login_enabled%')] bool $passwordLogin = false, #[Autowire('%env(default::GOOGLE_DRIVE_LAYOUT)%')] ?string $driveLayout = null): JsonResponse
     {
         /** @var TelegramUser $user */
         $user = $this->getUser();
@@ -51,6 +51,8 @@ class MetaApiController extends AbstractController
             // Вхід за телефоном і паролем (PasswordSetup): чи задано пароль і чи може бот надіслати посилання.
             // «Звʼязок»: до погодження — лише повний доступ, потім PLAN_ZVYAZOK_FOR_ALL=1.
             'zvyazok' => $zvyazok->can($user),
+            // Розкладка копій на Google Диску: plan — «План/рік/розділ/…», інакше — дерево заявок.
+            'driveLayout' => $driveLayout === 'plan' ? 'plan' : 'supply',
             'hasPassword' => $user->getPassword() !== null,
             'passwordLink' => $passwordLogin && PasswordSetup::eligible($user),
             // Матриця можливостей «Плану» (PlanAccess): що показувати в меню, напр. audit.view → «Адмін».

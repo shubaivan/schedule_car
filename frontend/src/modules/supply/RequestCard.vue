@@ -10,6 +10,17 @@ import { formatDate, formatDateTime } from '../../shared/format'
 const props = defineProps<{ id: string }>()
 
 const session = useSession()
+/**
+ * Куди лягає копія на Google Диску — за розкладкою стенду (/api/me → driveLayout):
+ * стенд заявок (supply:drive-sync) — «Постачання / рік / рік-місяць / заявник / №заявки»;
+ * «План» (plan:drive-sync) — «План / рік / Постачання / №заявки», файл з датою спереду.
+ * У «Плані» ця картка не відкривається (/requests/:id веде на Постачання), але підказка має бути чесною всюди.
+ */
+const driveHint = computed(() =>
+    session.user?.driveLayout === 'plan'
+        ? 'у теку «План / рік / Постачання / №заявки», файл з датою завантаження спереду'
+        : 'у теку «Постачання / рік / місяць / заявник / №заявки»',
+)
 const request = ref<SupplyRequest | null>(null)
 const error = ref('')
 const busy = ref(false)
@@ -372,8 +383,7 @@ onMounted(load)
             </div>
 
             <p v-if="canWrite" class="muted">
-                До 20 МБ. Копія автоматично лягає в Google Drive заводу — у теку за роком, місяцем, заявником і номером заявки. Накладну можна надіслати й фото з бота — кнопка «📎
-                Накладна» на картці заявки.
+                До 20 МБ. Копія автоматично лягає в Google Drive заводу — {{ driveHint }}. Накладну можна надіслати й фото з бота — кнопка «📎 Накладна» на картці заявки.
             </p>
         </div>
 

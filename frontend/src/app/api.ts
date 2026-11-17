@@ -37,6 +37,8 @@ export interface ApiUser {
     fullAccess?: boolean
     /** Лише в /api/me: «Звʼязок» відкритий цій людині (до погодження — лише повний доступ). */
     zvyazok?: boolean
+    /** Лише в /api/me: як файли лягають на Google Диск — plan («План/рік/Постачання/…») чи supply (стенди заявок). */
+    driveLayout?: 'plan' | 'supply'
     /** Лише в /api/me: пароль для входу за телефоном задано. */
     hasPassword?: boolean
     /** Лише в /api/me: вхід за паролем увімкнено й бот може надіслати посилання (Telegram прив'язаний). */
