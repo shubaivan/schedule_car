@@ -15,11 +15,16 @@ class TaskPolicy
 {
     public function canView(TelegramUser $user, Task $task): bool
     {
-        return $user->seesAllTasks() || $this->isInvolved($user, $task);
+        // Системний адміністратор задач не бачить узагалі — навіть де він учасник.
+        return $user->canSeeTasks() && ($user->seesAllTasks() || $this->isInvolved($user, $task));
     }
 
     public function canEdit(TelegramUser $user, Task $task): bool
     {
+        if (! $user->canSeeTasks()) {
+            return false;
+        }
+
         return $user->getWorkRole()->editsAnyTask() ||
             $user->getWorkRole()->decides() ||
             $task->getCreator()->getId() === $user->getId();

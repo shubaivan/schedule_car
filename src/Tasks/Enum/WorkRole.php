@@ -2,6 +2,8 @@
 
 namespace App\Tasks\Enum;
 
+use App\Plan\Access\RoleGrants;
+use App\Plan\Access\RolePermission;
 use App\Supply\Enum\SupplyRole;
 
 /**
@@ -10,6 +12,10 @@ use App\Supply\Enum\SupplyRole;
  * Вимога клієнта від 13.11.2026: у кожної ролі своя функціональність і права —
  * продажі, бухгалтерія й виробництво бачать різне. Роль постачання (SupplyRole)
  * лишається окремою: у заявках людина може бути робітником, а в задачах — менеджером.
+ *
+ * Що саме може роль — RolePermission (значення з коду + зміни на сторінці «Ролі й доступ»,
+ * RoleGrants). Системний адміністратор (Олександр 17.11) — усе, що адміністратор, крім
+ * задач і «Звʼязку»: їх не бачить ніде (API, пошук, Хроніка, сповіщення).
  */
 enum WorkRole: string
 {
@@ -18,6 +24,7 @@ enum WorkRole: string
     case Manager = 'manager';
     case Accountant = 'accountant';
     case Production = 'production';
+    case SysAdmin = 'sysadmin';
 
     public function label(): string
     {
@@ -27,31 +34,44 @@ enum WorkRole: string
             self::Manager => 'Менеджер з продажу',
             self::Accountant => 'Бухгалтер',
             self::Production => 'Виробництво',
+            self::SysAdmin => 'Системний адміністратор',
         };
     }
 
     /** Хто бачить усі задачі заводу, а не лише ті, де він учасник. */
     public function seesAllTasks(): bool
     {
-        return $this === self::Admin || $this === self::Director;
+        return $this->seesTasks() && RoleGrants::allows($this, RolePermission::TasksSeeAll);
+    }
+
+    /** Задачі й угоди взагалі. Системний адміністратор — ні (зафіксовано). */
+    public function seesTasks(): bool
+    {
+        return RoleGrants::allows($this, RolePermission::TasksAccess);
     }
 
     /** Веде людей, відділи й кошик. */
     public function managesStaff(): bool
     {
-        return $this === self::Admin;
+        return RoleGrants::allows($this, RolePermission::StaffManage);
     }
 
     /** Рішення директора: погодити, відхилити, відкласти. Адмін — запасний ключ. */
     public function decides(): bool
     {
-        return $this === self::Admin || $this === self::Director;
+        return $this->seesTasks() && RoleGrants::allows($this, RolePermission::TasksDecide);
     }
 
     /** Править будь-яку задачу (назву, учасників, мітки) і рухає її статуси. */
     public function editsAnyTask(): bool
     {
-        return $this === self::Admin || $this === self::Manager;
+        return $this->seesTasks() && RoleGrants::allows($this, RolePermission::TasksEditAny);
+    }
+
+    /** Керує ролями й правами (сторінка «Ролі й доступ») — фіксовано, не налаштовується. */
+    public function managesRoles(): bool
+    {
+        return $this === self::Admin || $this === self::SysAdmin;
     }
 
     /** Роль для тих, кому її ще не призначили: виводимо з ролі в заявках. */

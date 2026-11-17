@@ -2,7 +2,7 @@
 import { computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSession } from './app/store'
-import { hasFullAccess, isHiddenRoute } from './modules/admin/access'
+import { canSeeTasks, hasFullAccess, isHiddenRoute, isTaskRoute } from './modules/admin/access'
 import PlanShell from './modules/tasks/shell/PlanShell.vue'
 import UndoToast from './plan/UndoToast.vue'
 import './modules/tasks/tasks.css'
@@ -62,6 +62,11 @@ watch(
             return
         }
         if (!planHome.value) return
+        // Системний адміністратор задач не бачить: Огляд і задачі ведуть на «Ролі й доступ».
+        if (!canSeeTasks(session.user) && isTaskRoute(String(route.name))) {
+            router.replace({ name: 'admin-roles' })
+            return
+        }
         // Приховані розділи (PlanSections): без повного доступу пряме посилання веде на Огляд.
         if ((!hasFullAccess(session.user) && isHiddenRoute(String(route.name))) || (route.name === 'zvyazok' && session.user?.zvyazok !== true)) {
             router.replace({ name: 'tasks' })

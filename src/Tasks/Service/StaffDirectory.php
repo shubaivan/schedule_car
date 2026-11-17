@@ -91,6 +91,12 @@ class StaffDirectory
 
         $this->apply($user, $data);
 
+        if (! self::canAssignRole($by, $user->getWorkRole())) {
+            $this->logger->warning('staff: спроба завести з недозволеною роллю', ['by' => $by?->getId(), 'role' => $user->getWorkRole()->value]);
+
+            throw new AccessDeniedException(self::roleDenial($by));
+        }
+
         if ($user->getFirstName() === null) {
             throw new TaskException('Вкажіть імʼя.');
         }
@@ -133,7 +139,7 @@ class StaffDirectory
         }
 
         // Роль — та, що була ДО зміни: «зробити колегу-адміна директором» — теж зміна адміна.
-        if (! self::canChange($by, $user, $fields, WorkRole::from($before['role']))) {
+        if (! self::canChange($by, $user, $fields, WorkRole::from($before['role']), WorkRole::from($after['role']))) {
             $this->em->refresh($user);
             $this->deny($user, $by, $fields);
         }
@@ -202,7 +208,7 @@ class StaffDirectory
      *
      * @param list<string> $fields
      */
-    public static function canChange(?TelegramUser $by, TelegramUser $target, array $fields, ?WorkRole $targetRole = null): bool
+    public static function canChange(?TelegramUser $by, TelegramUser $target, array $fields, ?WorkRole $targetRole = null, ?WorkRole $newRole = null): bool
     {
         if ($by === null || $by->isSuperadmin()) {
             return true;
@@ -217,9 +223,48 @@ class StaffDirectory
             return false;
         }
 
-        $colleague = ($targetRole ?? $target->getWorkRole()) === WorkRole::Admin && $target->getId() !== $by->getId();
+        if (in_array('role', $fields, true)) {
+            // Ролі призначають лише адмін, системний адмін і суперадмін (Олександр 17.11);
+            // свою — лише суперадмін (інакше системний адмін зробив би себе адміном і побачив задачі).
+            if (! $by->managesRoles() || $target->getId() === $by->getId()) {
+                return false;
+            }
+
+            if ($newRole !== null && ! self::canAssignRole($by, $newRole)) {
+                return false;
+            }
+        }
+
+        // Колега — інший адміністратор чи системний адміністратор: його вхід і права — лише суперадмін.
+        $colleague = in_array($targetRole ?? $target->getWorkRole(), [WorkRole::Admin, WorkRole::SysAdmin], true) && $target->getId() !== $by->getId();
 
         return ! $colleague || array_intersect($fields, [...self::CREDENTIALS, 'archive']) === [];
+    }
+
+    /**
+     * Чи може людина видати цю роль. Хто сам не бачить задач (системний адміністратор),
+     * не видає ролі, що бачать усі задачі заводу (адмін, директор), — інакше обійшов би
+     * заборону через підставну картку. Ролі «Адміністратор» і «Системний адміністратор»
+     * видає лише той, хто сам керує ролями.
+     */
+    public static function canAssignRole(?TelegramUser $by, WorkRole $role): bool
+    {
+        if ($by === null || $by->isSuperadmin()) {
+            return true;
+        }
+
+        if (in_array($role, [WorkRole::Admin, WorkRole::SysAdmin], true) && ! $by->managesRoles()) {
+            return false;
+        }
+
+        return $by->canSeeTasks() || ! $role->seesAllTasks();
+    }
+
+    private static function roleDenial(?TelegramUser $by): string
+    {
+        return $by !== null && ! $by->canSeeTasks()
+            ? 'Системний адміністратор не видає ролей, які бачать усі задачі (адміністратор, директор).'
+            : 'Цю роль може видати лише адміністратор або суперадміністратор.';
     }
 
     /** @param list<string> $fields */
@@ -235,9 +280,13 @@ class StaffDirectory
     {
         $this->logger->warning('staff: спроба змінити захищену картку', ['id' => $target->getId(), 'by' => $by?->getId(), 'fields' => $fields]);
 
-        throw new AccessDeniedException($target->isSuperadmin()
-            ? 'Картку суперадміністратора змінює лише суперадміністратор.'
-            : 'Пароль, контакти, роль і кошик іншого адміністратора — лише суперадміністратор.');
+        throw new AccessDeniedException(match (true) {
+            $target->isSuperadmin() => 'Картку суперадміністратора змінює лише суперадміністратор.',
+            in_array('role', $fields, true) && $by !== null && $target->getId() === $by->getId() => 'Свою роль змінює лише суперадміністратор.',
+            in_array('role', $fields, true) && $by !== null && ! $by->managesRoles() => 'Ролі призначають лише адміністратор, системний адміністратор і суперадміністратор.',
+            in_array('role', $fields, true) && $by !== null && ! $by->canSeeTasks() => 'Системний адміністратор не видає ролей, які бачать усі задачі (адміністратор, директор).',
+            default => 'Пароль, контакти, роль і кошик іншого адміністратора — лише суперадміністратор.',
+        });
     }
 
     /** @return array<string, string> поля картки, за якими видно, що саме змінилось */

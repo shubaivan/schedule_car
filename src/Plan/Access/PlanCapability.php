@@ -11,13 +11,17 @@ enum PlanCapability: string
 {
     /** Розділи поза базовими (PlanSections): Постачання, Склад, Контрагенти, Автопарк, Диск, «Звʼязок». */
     case FullAccess = 'plan.full';
+    /** Задачі й угоди взагалі (системний адміністратор — ні). */
+    case TasksAccess = 'tasks.access';
+    /** Сторінка «Ролі й доступ»: адмін, системний адмін, суперадмін. */
+    case RolesManage = 'roles.manage';
     case TasksSeeAll = 'tasks.seeAll';
     case SupplyManage = 'supply.manage';
     case SupplyApprove = 'supply.approve';
     case WarehouseView = 'warehouse.view';
     case WarehouseEdit = 'warehouse.edit';
     case AuditView = 'audit.view';
-    /** Заявки на приєднання (вхід через Telegram) — розглядає суперадмін. */
+    /** Заявки на приєднання (вхід через Telegram) — розглядає суперадмін (і системний адміністратор). */
     case StaffJoin = 'staff.join';
     case LeadsReceive = 'leads.receive';
     /** Контрагенти: бачити картки й заводити нові / правити реквізити й контакти. */

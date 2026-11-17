@@ -2,6 +2,7 @@
 
 namespace App;
 
+use App\Plan\Access\RoleGrants;
 use App\Telegram\NutgramRoutesConfigurator;
 use SergiX44\Nutgram\Nutgram;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
@@ -37,6 +38,12 @@ class Kernel extends BaseKernel implements CompilerPassInterface
     public function boot(): void
     {
         date_default_timezone_set('Europe/Kyiv');
+
+        // Права ролей (RoleGrants) — статичний кеш: новий kernel (тести, воркер) починає з нуля,
+        // таблицю підключить RoleGrantsReset на першому ж запиті / команді.
+        if (! $this->booted) {
+            RoleGrants::forget();
+        }
 
         parent::boot();
     }

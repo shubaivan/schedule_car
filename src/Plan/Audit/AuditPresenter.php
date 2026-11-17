@@ -2,6 +2,7 @@
 
 namespace App\Plan\Audit;
 
+use App\Plan\Access\RolePermission;
 use App\Plan\Subject\SubjectRef;
 use App\Plan\Subject\SubjectRegistry;
 use App\Plan\Subject\SubjectType;
@@ -250,6 +251,7 @@ final class AuditPresenter
             },
             'login_failed' => trim($str('name') . ($str('reason') !== '' ? ' · ' . self::reason($str('reason')) : ''), ' ·'),
             'staff_changed' => self::staff($str('action'), $list('fields'), $str('roleFrom'), $str('roleTo')),
+            'role_permission_changed' => trim((WorkRole::tryFrom($str('role'))?->label() ?? $str('role')) . ' · ' . (RolePermission::tryFrom($str('permission'))?->label() ?? $str('permission')) . ' · ' . (($p['allowed'] ?? false) === true ? 'дозволено' : 'заборонено'), ' ·'),
             'join_requested' => trim('№' . $str('requestId') . ' · ' . $str('name') . ($str('username') !== '' ? ' (@' . $str('username') . ')' : '') . ' · ' . $str('phone'), ' ·'),
             'join_decided' => trim('№' . $str('requestId') . ' · ' . ($str('decision') === 'approved' ? 'затверджено' : 'відхилено') . ' · ' . $str('name') . ($str('role') !== '' ? ' · ' . (WorkRole::tryFrom($str('role'))?->label() ?? $str('role')) : '') . ($str('reason') !== '' ? ' · ' . $str('reason') : ''), ' ·'),
             'lead_received' => trim($str('name') . ' · ' . $str('interest'), ' ·'),
@@ -279,6 +281,8 @@ final class AuditPresenter
             'telegram' => 'підключено Telegram за номером телефону',
             'trash' => 'у кошик',
             'restore' => 'з кошика',
+            'superadmin_grant' => 'видано права суперадміністратора',
+            'superadmin_revoke' => 'знято права суперадміністратора',
             default => 'змінено',
         }];
 

@@ -36,7 +36,10 @@ class TaskRepository extends ServiceEntityRepository
             ->leftJoin($alias . '.labels', 'l')->addSelect('l')
             ->leftJoin($alias . '.creator', 'c')->addSelect('c');
 
-        if (! $user->seesAllTasks()) {
+        if (! $user->canSeeTasks()) {
+            // Системний адміністратор — жодної задачі.
+            $qb->andWhere('1 = 0');
+        } elseif (! $user->seesAllTasks()) {
             $qb->andWhere(sprintf(
                 '%1$s.creator = :viewer OR EXISTS (SELECT 1 FROM %2$s vm WHERE vm.task = %1$s AND vm.user = :viewer)',
                 $alias,

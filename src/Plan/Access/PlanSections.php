@@ -29,6 +29,8 @@ final class PlanSections
             return false;
         }
 
-        return ! $this->plan->enabled() || $user->isSuperadmin() || $user->hasPlanFullAccess();
+        return ! $this->plan->enabled() || $user->isSuperadmin() || $user->hasPlanFullAccess() ||
+            // Або всій ролі — клітинку «Приховані розділи» на «Ролі й доступ» змінює лише суперадмін.
+            RoleGrants::allows($user->getWorkRole(), RolePermission::SectionsFull);
     }
 }

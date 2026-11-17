@@ -47,7 +47,7 @@ class PlanAccessTest extends TestCase
 
         $worker = $this->user(WorkRole::Production, SupplyRole::Worker);
         // Без PlanSections (стенд заявок / юніт) повний доступ у всіх — решта матриці за ролями.
-        self::assertSame(['plan.full' => true] + array_fill_keys(array_map(static fn ($c) => $c->value, PlanCapability::cases()), false), $access->matrix($worker));
+        self::assertSame(['plan.full' => true, 'tasks.access' => true] + array_fill_keys(array_map(static fn ($c) => $c->value, PlanCapability::cases()), false), $access->matrix($worker));
 
         $super = $this->user(WorkRole::Production, SupplyRole::Worker)->setSuperadmin(true);
         self::assertTrue($access->can($super, PlanCapability::AuditView));

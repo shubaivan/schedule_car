@@ -246,6 +246,11 @@ class PlanSearch
         $seesAllTasks = $this->access->can($viewer, PlanCapability::TasksSeeAll);
         $out[] = '(d.visible_all OR d.visible_to @> CAST(:meJson AS jsonb)' . ($seesAllTasks ? " OR d.subject_type = 'task'" : '') . ')';
 
+        // Системний адміністратор задач не бачить і в пошуку — навіть де він учасник.
+        if (! $this->access->can($viewer, PlanCapability::TasksAccess)) {
+            $out[] = "d.subject_type <> 'task'";
+        }
+
         // Заявки (і їхні коментарі/файли) — лише тим, кому заявку видно (SupplyVisibility).
         if ($this->supplyVisibility !== null) {
             [$supplyVisible, $supplyParams] = $this->supplyVisibility->sql($viewer, 'd.subject_id');

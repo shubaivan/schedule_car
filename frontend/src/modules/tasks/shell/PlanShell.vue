@@ -10,7 +10,7 @@ import NotificationsHost from '../../../plan/notifications/NotificationsHost.vue
 import PresenceIndicator from '../../../plan/PresenceIndicator.vue'
 import { presenceSection, usePresence } from '../../../plan/presence'
 import { typing } from '../../../plan/layers'
-import { canEditWarehouse, canSeeAdmin, canSeeSupply, canSeeWarehouse } from '../../admin/access'
+import { canEditWarehouse, canManageRoles, canSeeAdmin, canSeeSupply, canSeeTasks, canSeeWarehouse } from '../../admin/access'
 import { WAREHOUSE_FULLSCREEN, WAREHOUSE_SPLIT } from '../../warehouse/routes'
 import { COUNTERPARTY_FORMS, COUNTERPARTY_FULLSCREEN, COUNTERPARTY_SPLIT } from '../../counterparties/routes'
 import { canSeeCounterparties } from '../../counterparties/access'
@@ -43,6 +43,9 @@ const initials = computed(() => ((me.value?.firstName ?? '').charAt(0) + (me.val
 const roleLabel = computed(() => me.value?.position || me.value?.workRoleLabel || '')
 /** Адмін-розділ (журнал аудиту) — адміністраторам; суперадміна вводить окремий потік. */
 const canAdmin = computed(() => canSeeAdmin(me.value))
+/** Задачі (системний адміністратор — ні) і «Ролі й доступ» (адмін, системний адмін, суперадмін). */
+const canTasks = computed(() => canSeeTasks(me.value))
+const canRoles = computed(() => canManageRoles(me.value))
 const canWarehouse = computed(() => canSeeWarehouse(me.value))
 /** Склад на читання (продажі, бухгалтерія): «＋» там — задача, а не новий рух. */
 const writesWarehouse = computed(() => canEditWarehouse(me.value))
@@ -88,7 +91,8 @@ const onSearch = computed(() => name.value === SEARCH_ROUTE || (name.value === '
 const onTasks = computed(() => ['tasks-board', 'tasks-list', 'task-full', 'tasks-new', 'task-edit'].includes(name.value) && !onChronicle.value && !onSearch.value)
 const onSupply = computed(() => name.value.startsWith('supply-'))
 const onStaff = computed(() => name.value.startsWith('staff'))
-const onAdmin = computed(() => name.value.startsWith('admin'))
+const onAdmin = computed(() => name.value.startsWith('admin') && name.value !== 'admin-roles')
+const onRoles = computed(() => name.value === 'admin-roles')
 const onWarehouse = computed(() => name.value.startsWith('warehouse'))
 const onCounterparties = computed(() => name.value.startsWith('counterpart'))
 const onMore = computed(
@@ -104,7 +108,9 @@ const newTarget = computed(() =>
           ? { name: 'warehouse-movement-new' }
           : onCounterparties.value
             ? { name: 'counterparty-new' }
-            : { name: 'tasks-new' },
+            : canTasks.value
+              ? { name: 'tasks-new' }
+              : null,
 )
 const newLabel = computed(() =>
     onSupply.value ? 'Заявка на постачання ( N )' : newOnWarehouse.value ? 'Новий рух ( N )' : onCounterparties.value ? 'Новий контрагент ( N )' : 'Нова задача ( N )',
@@ -124,7 +130,7 @@ function onKey(e: KeyboardEvent) {
         ;(boardFilter && boardFilter.offsetParent !== null ? boardFilter : searchBox.value)?.focus()
         e.preventDefault()
     } else if ((e.key === 'n' || e.key === 'т') && !FORM_ROUTES.includes(name.value)) {
-        router.push(newTarget.value)
+        if (newTarget.value) router.push(newTarget.value)
         e.preventDefault()
     }
 }
@@ -152,8 +158,8 @@ onBeforeUnmount(() => {
 <template>
     <div class="p-shell" :class="{ 'task-open': fullscreen }">
         <nav class="p-rail" aria-label="Розділи">
-            <router-link :to="{ name: 'tasks' }" class="p-logo" title="План · Огляд">П</router-link>
-            <router-link :to="{ name: 'tasks' }" class="p-rail-btn" :class="{ on: name === 'tasks' }" title="Огляд">
+            <router-link :to="canTasks ? { name: 'tasks' } : { name: 'admin-roles' }" class="p-logo" title="План">П</router-link>
+            <router-link v-if="canTasks" :to="{ name: 'tasks' }" class="p-rail-btn" :class="{ on: name === 'tasks' }" title="Огляд">
                 <Icon name="home" />
                 <span>Огляд</span>
             </router-link>
@@ -162,7 +168,7 @@ onBeforeUnmount(() => {
                 <span>Хроніка</span>
                 <b v-if="unread" class="p-badge" :aria-label="unread + ' задач з новим'">{{ badge }}</b>
             </router-link>
-            <router-link :to="{ name: 'tasks-board' }" class="p-rail-btn" :class="{ on: onTasks }" title="Задачі">
+            <router-link v-if="canTasks" :to="{ name: 'tasks-board' }" class="p-rail-btn" :class="{ on: onTasks }" title="Задачі">
                 <Icon name="board" />
                 <span>Задачі</span>
             </router-link>
@@ -205,12 +211,16 @@ onBeforeUnmount(() => {
                 <Icon name="users" />
                 <span>Люди</span>
             </router-link>
+            <router-link v-if="canRoles" :to="{ name: 'admin-roles' }" class="p-rail-btn" :class="{ on: onRoles }" title="Ролі й доступ" data-testid="rail-roles">
+                <Icon name="users" />
+                <span>Ролі</span>
+            </router-link>
             <router-link v-if="canAdmin" :to="{ name: 'admin' }" class="p-rail-btn" :class="{ on: onAdmin }" title="Адмін">
                 <Icon name="shield" />
                 <span>Адмін</span>
             </router-link>
             <span class="p-rail-sp" />
-            <router-link :to="newTarget" class="p-rail-btn p-rail-new" :title="newLabel" :aria-label="newLabel"><Icon name="plus" :stroke="2.2" /></router-link>
+            <router-link v-if="newTarget" :to="newTarget" class="p-rail-btn p-rail-new" :title="newLabel" :aria-label="newLabel"><Icon name="plus" :stroke="2.2" /></router-link>
             <router-link :to="{ name: 'tasks-profile' }" class="p-rail-btn" :class="{ on: name === 'tasks-profile' }" title="Профіль">
                 <Icon name="user" />
                 <span>Профіль</span>
@@ -268,11 +278,15 @@ onBeforeUnmount(() => {
                 <span>Хроніка</span>
                 <b v-if="unread" class="p-badge" :aria-label="unread + ' задач з новим'">{{ badge }}</b>
             </router-link>
-            <router-link :to="{ name: 'tasks-board' }" :class="{ on: onTasks }">
+            <router-link v-if="canTasks" :to="{ name: 'tasks-board' }" :class="{ on: onTasks }">
                 <Icon name="board" />
                 <span>Задачі</span>
             </router-link>
-            <router-link :to="newTarget" class="p-tab-new" :aria-label="newLabel"><Icon name="plus" :size="26" :stroke="2.2" /></router-link>
+            <router-link v-else-if="canRoles" :to="{ name: 'admin-roles' }" :class="{ on: onRoles }" data-testid="tab-roles">
+                <Icon name="shield" />
+                <span>Ролі</span>
+            </router-link>
+            <router-link v-if="newTarget" :to="newTarget" class="p-tab-new" :aria-label="newLabel"><Icon name="plus" :size="26" :stroke="2.2" /></router-link>
             <router-link v-if="canSupply" :to="{ name: 'supply-board' }" :class="{ on: onSupply }">
                 <Icon name="clipboard" />
                 <span>Постачання</span>

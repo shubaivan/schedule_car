@@ -1,0 +1,6 @@
+# «План» — ролі й доступ (17.11): /api/plan/roles*.
+plan_roles_controllers:
+    resource:
+        path: ../../src/Plan/Access/
+        namespace: App\Plan\Access
+    type: attribute

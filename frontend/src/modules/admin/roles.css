@@ -1,0 +1,247 @@
+/* «Ролі й доступ» */
+.r-page {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+}
+.r-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+.r-head h1 {
+    margin: 0;
+    font-size: 22px;
+}
+.r-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+.r-tabs button {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+}
+.r-tabs button.on {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
+.r-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    min-width: 0;
+}
+.r-search {
+    width: 100%;
+    max-width: 420px;
+    margin-bottom: 8px;
+}
+.r-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.r-table th,
+.r-table td {
+    text-align: left;
+    padding: 8px 6px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+}
+.r-table td b {
+    margin-right: 6px;
+}
+.r-table td small.r-muted {
+    display: block;
+}
+.r-select {
+    min-width: 0;
+    width: 100%;
+    max-width: 260px;
+}
+.r-badge {
+    display: inline-block;
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--violet, #7c3aed);
+    color: #fff;
+}
+.r-muted {
+    color: var(--text-muted);
+}
+.r-fixed {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--text-muted);
+}
+.r-note {
+    margin: 0 0 8px;
+    color: var(--text-muted);
+    font-size: 14px;
+}
+.r-scroll {
+    overflow-x: auto;
+    max-width: 100%;
+}
+.r-matrix {
+    border-collapse: collapse;
+    min-width: 760px;
+    width: 100%;
+}
+.r-matrix th,
+.r-matrix td {
+    border-bottom: 1px solid var(--border);
+    padding: 4px;
+    text-align: center;
+    font-size: 13px;
+}
+.r-matrix thead th {
+    font-weight: 600;
+    vertical-align: bottom;
+}
+.r-matrix .r-perm {
+    text-align: left;
+    font-weight: 500;
+    min-width: 220px;
+    position: sticky;
+    left: 0;
+    background: var(--surface);
+}
+.r-matrix .r-perm small {
+    display: block;
+}
+.r-group th {
+    text-align: left;
+    padding-top: 12px;
+    color: var(--accent);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+.r-cell {
+    position: relative;
+    width: 40px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text-muted);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.r-cell.yes {
+    background: color-mix(in srgb, #16a34a 16%, var(--surface));
+    border-color: #16a34a;
+    color: #15803d;
+}
+.r-cell.ro {
+    cursor: default;
+    opacity: 0.7;
+}
+.r-cell.changed::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+}
+.r-sub {
+    font-size: 15px;
+    margin: 16px 0 6px;
+}
+.r-fixed-list,
+.r-supers,
+.r-history {
+    margin: 0;
+    padding-left: 18px;
+    display: grid;
+    gap: 6px;
+}
+.r-supers li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+.r-candidates {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.r-history li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.r-history time {
+    color: var(--text-muted);
+    min-width: 110px;
+}
+.r-empty {
+    color: var(--text-muted);
+    padding: 24px 0;
+}
+@media (max-width: 640px) {
+    .r-page {
+        padding: 12px;
+    }
+    .r-hide-sm {
+        display: none;
+    }
+}
+.r-table {
+    table-layout: fixed;
+}
+.r-table th:first-child {
+    width: 50%;
+}
+.r-table td {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.r-select {
+    max-width: 100%;
+    box-sizing: border-box;
+}
+.r-matrix thead th {
+    white-space: normal;
+    max-width: 104px;
+    line-height: 1.2;
+}
+.r-matrix .r-perm {
+    min-width: 200px;
+}
+.r-note svg {
+    display: inline;
+    vertical-align: -2px;
+}
+@media (max-width: 640px) {
+    .r-table th:first-child {
+        width: 52%;
+    }
+}
+.r-table .r-badge {
+    display: block;
+    width: fit-content;
+    margin: 2px 0;
+}

@@ -4,6 +4,8 @@ namespace App\Entity;
 
 use App\Entity\EntityTrait\CreatedUpdatedAtAwareTrait;
 use App\Enum\AccessStatus;
+use App\Plan\Access\RoleGrants;
+use App\Plan\Access\RolePermission;
 use App\Repository\TelegramUserRepository;
 use App\Supply\Entity\Department;
 use App\Supply\Enum\SupplyRole;
@@ -466,6 +468,27 @@ class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface,
     public function seesAllTasks(): bool
     {
         return $this->getWorkRole()->seesAllTasks() || $this->superadmin;
+    }
+
+    /**
+     * Задачі й угоди взагалі (розділ, пошук, Хроніка, сповіщення). Системний адміністратор —
+     * ні, навіть якщо його колись додали учасником задачі (Олександр 17.11). Суперадмін — так.
+     */
+    public function canSeeTasks(): bool
+    {
+        return $this->superadmin || $this->getWorkRole()->seesTasks();
+    }
+
+    /** «Звʼязок» за роллю (системний адміністратор — ні); чи відкрито модуль — ZvyazokAccess. */
+    public function canUseZvyazok(): bool
+    {
+        return $this->superadmin || RoleGrants::allows($this->getWorkRole(), RolePermission::Zvyazok);
+    }
+
+    /** Сторінка «Ролі й доступ»: адміністратор, системний адміністратор, суперадмін. */
+    public function managesRoles(): bool
+    {
+        return $this->superadmin || $this->getWorkRole()->managesRoles();
     }
 
     /** Веде співробітників: адміністратор або суперадмін (лише суперадмін змінює суперадмінів і колег-адмінів — StaffDirectory). */

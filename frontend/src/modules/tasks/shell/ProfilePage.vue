@@ -5,7 +5,7 @@ import Avatar from '../Avatar.vue'
 import { applyTheme, theme, type Theme } from './theme'
 import { useTasks } from '../store'
 import { useSession } from '../../../app/store'
-import { canSeeAdmin, canSeeDrive, canSeeSupply, canSeeWarehouse } from '../../admin/access'
+import { canManageRoles, canSeeAdmin, canSeeDrive, canSeeSupply, canSeeWarehouse } from '../../admin/access'
 import { canSeeCounterparties } from '../../counterparties/access'
 import { call } from '../../../app/api'
 
@@ -123,6 +123,10 @@ const THEMES: { value: Theme; label: string; icon: string }[] = [
             <router-link :to="{ name: 'staff' }">
                 <Icon name="users" />
                 Співробітники й відділи
+            </router-link>
+            <router-link v-if="canManageRoles(session.user)" :to="{ name: 'admin-roles' }" data-testid="more-roles">
+                <Icon name="users" />
+                Ролі й доступ
             </router-link>
             <router-link v-if="canSeeAdmin(session.user)" :to="{ name: 'admin' }">
                 <Icon name="shield" />

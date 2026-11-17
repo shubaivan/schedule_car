@@ -48,19 +48,26 @@ final class PlanAccess
 
         return match ($capability) {
             PlanCapability::FullAccess => true,
+            PlanCapability::TasksAccess => $user->canSeeTasks(),
+            PlanCapability::RolesManage => $user->managesRoles(),
             PlanCapability::TasksSeeAll => $user->seesAllTasks(),
             PlanCapability::SupplyManage => $supply->canManage(),
             PlanCapability::SupplyApprove => $supply->canApprovePayment(),
             // Склад на читання — ще й продажам і бухгалтерії; записують лише ті, хто його веде.
             PlanCapability::WarehouseView => WarehouseSection::canView($user),
             PlanCapability::WarehouseEdit => WarehouseSection::canManage($user),
-            PlanCapability::AuditView, PlanCapability::StaffJoin => $user->isSuperadmin(),
-            PlanCapability::LeadsReceive => in_array($work, [WorkRole::Manager, WorkRole::Director, WorkRole::Admin], true),
+            // Журнал аудиту — лише суперадмін: у ньому уривки коментарів задач.
+            PlanCapability::AuditView => $user->isSuperadmin(),
+            // Заявки на приєднання — налаштування доступу: суперадмін і системний адміністратор.
+            PlanCapability::StaffJoin => $user->isSuperadmin() || $work === WorkRole::SysAdmin,
+            // Далі — права ролі (RolePermission: значення з коду + сторінка «Ролі й доступ»).
+            PlanCapability::LeadsReceive => RoleGrants::allows($work, RolePermission::LeadsReceive),
             // Контрагенти — комерційна інформація: продажі, бухгалтерія, керівництво й постачання
             // (менеджер заявок працює з постачальниками). Виробництву й робітникам — ні.
-            PlanCapability::CounterpartiesView, PlanCapability::CounterpartiesEdit => in_array($work, [WorkRole::Admin, WorkRole::Director, WorkRole::Manager, WorkRole::Accountant], true) || $supply->canManage(),
+            PlanCapability::CounterpartiesView => RoleGrants::allows($work, RolePermission::CounterpartiesView) || $supply->canManage(),
+            PlanCapability::CounterpartiesEdit => RoleGrants::allows($work, RolePermission::CounterpartiesEdit) || $supply->canManage(),
             // Кредитний ліміт, відстрочка й архів — рішення про гроші: бухгалтер і керівництво.
-            PlanCapability::CounterpartiesFinance => in_array($work, [WorkRole::Admin, WorkRole::Director, WorkRole::Accountant], true),
+            PlanCapability::CounterpartiesFinance => RoleGrants::allows($work, RolePermission::CounterpartiesFinance),
         };
     }
 

@@ -29,6 +29,11 @@ final class ZvyazokAccess
             return false;
         }
 
+        // Системний адміністратор чатів не бачить (Олександр 17.11) — ні модуля, ні людей у ньому.
+        if (! $user->canUseZvyazok()) {
+            return false;
+        }
+
         return $this->forAll || $this->sections->full($user);
     }
 }

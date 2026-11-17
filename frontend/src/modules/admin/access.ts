@@ -34,7 +34,27 @@ export function canSeeSupply(user: ApiUser | null | undefined): boolean {
  * як на бекенді (ShareService::isDriveAdmin); іншим API відповідає 404.
  */
 export function canSeeDrive(user: ApiUser | null | undefined): boolean {
-    return hasFullAccess(user) && (canSeeAdmin(user) || user?.workRole === 'admin')
+    return hasFullAccess(user) && (canSeeAdmin(user) || user?.workRole === 'admin' || user?.workRole === 'sysadmin')
+}
+
+/**
+ * Задачі й угоди взагалі. Системний адміністратор (Олександр 17.11) — ні: ні розділу, ні «＋ задача»,
+ * ні Огляду (там задачі). Немає поля (старий бекенд) — так.
+ */
+export function canSeeTasks(user: ApiUser | null | undefined): boolean {
+    return user?.capabilities?.['tasks.access'] !== false
+}
+
+/** Маршрути задач — без доступу до задач ведуть на «Ролі й доступ». */
+const TASK_ROUTE = /^(tasks|tasks-board|tasks-list|tasks-new|task-edit|task|task-full|file)$/
+
+export function isTaskRoute(name: string): boolean {
+    return TASK_ROUTE.test(name)
+}
+
+/** «Ролі й доступ»: адміністратор, системний адміністратор, суперадмін (`roles.manage`). */
+export function canManageRoles(user: ApiUser | null | undefined): boolean {
+    return user?.capabilities?.['roles.manage'] === true
 }
 
 /**
@@ -51,7 +71,7 @@ export function canEditWarehouse(user: ApiUser | null | undefined): boolean {
     return canSeeWarehouse(user) && user?.capabilities?.['warehouse.edit'] === true
 }
 
-/** Заявки на приєднання (вхід через Telegram) — лише суперадміну: `staff.join`. */
+/** Заявки на приєднання (вхід через Telegram) — суперадміну й системному адміністратору: `staff.join`. */
 export function canSeeJoinRequests(user: ApiUser | null | undefined): boolean {
     return user?.capabilities?.['staff.join'] === true
 }

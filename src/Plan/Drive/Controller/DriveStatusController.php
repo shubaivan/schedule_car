@@ -34,7 +34,7 @@ class DriveStatusController extends AbstractController
     #[Route('', name: 'api_plan_drive_status', methods: ['GET'])]
     public function status(Request $request): JsonResponse
     {
-        $this->admin();
+        $me = $this->admin();
         $state = (string) $request->query->get('state', 'failed');
         $state = in_array($state, self::STATES, true) ? $state : 'failed';
 
@@ -57,12 +57,13 @@ class DriveStatusController extends AbstractController
                 sprintf('SELECT id, original_name, drive_state, drive_attempts, drive_error, drive_next_at, drive_url FROM %s WHERE %s ORDER BY id DESC LIMIT 100', $type->table(), $where),
                 ['state' => $state],
             ) as $row) {
-                // Файли «Звʼязку» бачать лише учасники чату — тут ні назви, ні посилання.
-                $private = $type === FileType::Zvyazok;
+                // Файли «Звʼязку» бачать лише учасники чату — тут ні назви, ні посилання;
+                // файли задач — так само тому, хто задач не бачить (системний адміністратор).
+                $private = $type === FileType::Zvyazok || ($type === FileType::Task && ! $me->canSeeTasks());
                 $items[] = [
                     'type' => $type->value,
                     'id' => (int) $row['id'],
-                    'name' => $private ? 'Файл «Звʼязку» #' . $row['id'] : $row['original_name'],
+                    'name' => $private ? ($type === FileType::Task ? 'Файл задачі #' : 'Файл «Звʼязку» #') . $row['id'] : $row['original_name'],
                     'state' => $state === 'done' ? 'done' : $row['drive_state'],
                     'attempts' => (int) $row['drive_attempts'],
                     'nextAt' => $row['drive_next_at'],

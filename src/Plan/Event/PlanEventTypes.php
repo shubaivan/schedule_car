@@ -40,6 +40,7 @@ final class PlanEventTypes
         StaffChanged::class,
         JoinRequested::class,
         JoinDecided::class,
+        RolePermissionChanged::class,
     ];
 
     /**
@@ -60,6 +61,7 @@ final class PlanEventTypes
         StaffChanged::class,
         JoinRequested::class,
         JoinDecided::class,
+        RolePermissionChanged::class,
     ];
 
     public static function isAuditOnly(PlanEvent $event): bool

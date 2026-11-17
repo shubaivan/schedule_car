@@ -125,3 +125,49 @@ export const joinApi = {
     approve: (id: number, data: JoinApproval) => call<JoinRequestRow>(`/api/plan/join-requests/${id}/approve`, { method: 'POST', body: JSON.stringify(data) }),
     reject: (id: number, reason: string) => call<JoinRequestRow>(`/api/plan/join-requests/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
 }
+
+/** «Ролі й доступ» (/api/plan/roles) — адмін, системний адмін, суперадмін; іншим 404. */
+export interface RoleCell {
+    role: string
+    allowed: boolean
+    default: boolean
+    changed: boolean
+    locked: boolean
+    lockReason: string | null
+    editable: boolean
+}
+export interface RolePermissionRow {
+    value: string
+    label: string
+    group: string
+    superadminOnly: boolean
+    cells: RoleCell[]
+}
+export interface RolePerson {
+    id: number
+    name: string
+    position: string | null
+    department: string | null
+    role: string
+    superadmin: boolean
+    /** Які ролі поточна людина може цій видати; порожньо — змінювати не може. */
+    assignable: string[]
+}
+export interface RolesPageData {
+    me: { id: number; superadmin: boolean; role: string }
+    roles: { value: string; label: string }[]
+    permissions: RolePermissionRow[]
+    fixed: { label: string; roles: string[]; note: string }[]
+    people: RolePerson[]
+    history: { id: number; at: string; by: string; text: string }[]
+}
+
+const ROLES_WRITE = { 'Content-Type': 'application/json', Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+const rolesWrite = (url: string, body: unknown) => call<RolesPageData>(url, { method: 'POST', headers: ROLES_WRITE, body: JSON.stringify(body) })
+
+export const rolesApi = {
+    load: () => call<RolesPageData>('/api/plan/roles'),
+    permission: (role: string, permission: string, allowed: boolean) => rolesWrite('/api/plan/roles/permission', { role, permission, allowed }),
+    assign: (userId: number, role: string) => rolesWrite(`/api/plan/roles/people/${userId}`, { role }),
+    superadmin: (userId: number, grant: boolean) => rolesWrite('/api/plan/roles/superadmin', { userId, grant }),
+}

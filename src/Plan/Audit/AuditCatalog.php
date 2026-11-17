@@ -20,6 +20,7 @@ use App\Plan\Event\MemberRemoved;
 use App\Plan\Event\MentionAdded;
 use App\Plan\Event\PurchaseRecorded;
 use App\Plan\Event\PurchaseRemoved;
+use App\Plan\Event\RolePermissionChanged;
 use App\Plan\Event\ShareCreated;
 use App\Plan\Event\ShareRevoked;
 use App\Plan\Event\StaffChanged;
@@ -52,7 +53,7 @@ final class AuditCatalog
         'access' => ['label' => 'Скачування й поширення', 'types' => [FileDownloaded::TYPE, ShareCreated::TYPE, ShareRevoked::TYPE]],
         'view' => ['label' => 'Перегляди й скани', 'types' => [SubjectViewed::TYPE]],
         'login' => ['label' => 'Входи', 'types' => [UserLoggedIn::TYPE, LoginFailed::TYPE, JoinRequested::TYPE, JoinDecided::TYPE]],
-        'staff' => ['label' => 'Співробітники й ролі', 'types' => [StaffChanged::TYPE]],
+        'staff' => ['label' => 'Співробітники й ролі', 'types' => [StaffChanged::TYPE, RolePermissionChanged::TYPE]],
         'system' => ['label' => 'Службові', 'types' => [DriveAuthBroken::TYPE]],
     ];
 
@@ -84,6 +85,7 @@ final class AuditCatalog
         UserLoggedIn::TYPE => 'Вхід',
         LoginFailed::TYPE => 'Невдалий вхід',
         StaffChanged::TYPE => 'Картку співробітника змінено',
+        RolePermissionChanged::TYPE => 'Права ролі змінено',
         JoinRequested::TYPE => 'Заявка на приєднання',
         JoinDecided::TYPE => 'Рішення щодо заявки',
     ];
