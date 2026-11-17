@@ -79,7 +79,22 @@ class PlanfixMapperTest extends TestCase
 
         $description = PlanfixMapper::description(17, PlanfixMapper::KIND_DEAL, 'Тестовий проєкт', 5, '01.02.2024 10:00', ['Оплата: Оплачено'], '<p>Текст</p>');
         self::assertSame("Із Planfix № 17 · угода · проєкт «Тестовий проєкт» · створено 01.02.2024 10:00\n\nПідзадача Planfix № 5\n\nПоля угоди:\nОплата: Оплачено\n\nТекст", $description);
+        self::assertStringContainsString("Поля:\nОплата: Оплачено", PlanfixMapper::description(18, PlanfixMapper::KIND_TASK, null, null, '01.02.2024 10:00', ['Оплата: Оплачено'], ''));
         self::assertSame('Без назви (Planfix № 9)', PlanfixMapper::title('  ', 9));
         self::assertSame('2024-02-01 10:05', PlanfixMapper::date('01-02-2024 10:05')?->format('Y-m-d H:i'));
+    }
+
+    public function testPeopleAndStageLabels(): void
+    {
+        self::assertSame(PlanfixMapper::PERSON_ACTIVE, PlanfixMapper::personRole(true, false, false, true, true));
+        self::assertSame(PlanfixMapper::PERSON_CONTACT, PlanfixMapper::personRole(false, false, false, true, true));
+        self::assertSame(PlanfixMapper::PERSON_FORMER, PlanfixMapper::personRole(false, false, true, true, true), 'писав — співробітник');
+        self::assertSame(PlanfixMapper::PERSON_FORMER, PlanfixMapper::personRole(false, true, false, true, true), 'був виконавцем — співробітник');
+        self::assertSame(PlanfixMapper::PERSON_FORMER, PlanfixMapper::personRole(false, false, false, false, true), 'діяв у чужих задачах — співробітник');
+        self::assertSame('Співробітник Planfix', PlanfixMapper::personName(PlanfixMapper::PERSON_ACTIVE));
+        self::assertSame('Контакт з сайту', PlanfixMapper::personName(PlanfixMapper::PERSON_CONTACT));
+        self::assertSame('Колишній співробітник', PlanfixMapper::personName(PlanfixMapper::PERSON_FORMER));
+        self::assertSame('Етап: Ціноутворення', PlanfixMapper::stageLabel('Ціноутворення'));
+        self::assertSame(60, mb_strlen(PlanfixMapper::stageLabel(str_repeat('я', 100))));
     }
 }

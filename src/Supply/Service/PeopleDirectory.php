@@ -14,6 +14,9 @@ use App\Supply\Entity\SupplyStatusLog;
 use App\Supply\Enum\SupplyRole;
 use App\Supply\Exception\SupplyException;
 use App\Supply\Repository\DepartmentRepository;
+use App\Tasks\Entity\Task;
+use App\Tasks\Entity\TaskMember;
+use App\Tasks\Entity\TaskMessage;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 
@@ -179,6 +182,10 @@ class PeopleDirectory
             SupplyStatusLog::class => 'author',
             ScheduledSet::class => 'telegramUserId',
             CarDriver::class => 'driver',
+            // Задачі (зокрема перенесені з Planfix) — без людини лишилися б без автора/учасника.
+            Task::class => 'creator',
+            TaskMember::class => 'user',
+            TaskMessage::class => 'author',
         ];
 
         foreach ($entities as $class => $field) {

@@ -4,6 +4,7 @@ namespace App\Plan\Planfix\Command;
 
 use App\Plan\Planfix\PlanfixImportGuard;
 use App\Plan\Planfix\PlanfixRollback;
+use Doctrine\DBAL\Connection;
 use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -17,14 +18,17 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * Відкат партії імпорту з Planfix — видаляє рівно ті рядки, що записані в planfix_import_map.
  *
  *     php bin/console plan:planfix:rollback pf-1 --dry-run
- *     PLANFIX_IMPORT_ALLOW=1 php bin/console plan:planfix:rollback pf-1 [--purge-staging]
+ *     PLANFIX_IMPORT_ALLOW=1 php bin/console plan:planfix:rollback pf-1 --confirm=<назва бази>
  *
- * --purge-staging — ще й прибрати staging партії (у ньому копія вивантаження з персональними даними).
+ * Якщо в задачах партії люди вже щось зробили (повідомлення, файли, учасники, ★), відкат
+ * відмовляє й показує, що саме. Тоді: --keep-touched — такі задачі лишити (прибрати з них
+ * лише імпортоване), --force-delete-user-content — видалити разом із чужим.
+ * --purge-staging — ще й прибрати персональні дані зі staging (карта й партія лишаються).
  */
 #[AsCommand(name: 'plan:planfix:rollback', description: 'Відкат партії імпорту з Planfix (рівно її рядки)')]
 final class PlanfixRollbackCommand extends Command
 {
-    public function __construct(private readonly PlanfixRollback $rollback)
+    public function __construct(private readonly PlanfixRollback $rollback, private readonly Connection $db)
     {
         parent::__construct();
     }
@@ -34,36 +38,81 @@ final class PlanfixRollbackCommand extends Command
         $this
             ->addArgument('batch', InputArgument::REQUIRED, 'Ідентифікатор партії')
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Лише порахувати')
-            ->addOption('purge-staging', null, InputOption::VALUE_NONE, 'Видалити й staging-таблиці партії');
+            ->addOption('confirm', null, InputOption::VALUE_REQUIRED, 'Назва бази — обовʼязкове підтвердження')
+            ->addOption('keep-touched', null, InputOption::VALUE_NONE, 'Задачі з чужим вмістом лишити, прибрати з них лише імпортоване')
+            ->addOption('force-delete-user-content', null, InputOption::VALUE_NONE, 'Видалити й задачі з чужим вмістом (разом із ним)')
+            ->addOption('purge-staging', null, InputOption::VALUE_NONE, 'Прибрати й staging партії (персональні дані)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
+        $batch = (string) $input->getArgument('batch');
         $dryRun = (bool) $input->getOption('dry-run');
+        $keep = (bool) $input->getOption('keep-touched');
+        $force = (bool) $input->getOption('force-delete-user-content');
 
-        if (! $dryRun && ! PlanfixImportGuard::allowed()) {
-            $io->error('Відкат видаляє задачі. Запустіть з ' . PlanfixImportGuard::ENV . '=1 у середовищі процесу або з --dry-run.');
+        if ($keep && $force) {
+            $io->error('Або --keep-touched, або --force-delete-user-content.');
+
+            return Command::INVALID;
+        }
+
+        if (! $dryRun && ($denied = PlanfixImportGuard::check($this->db, $input->getOption('confirm'))) !== null) {
+            $io->error('Відкат видаляє задачі. ' . $denied);
 
             return Command::FAILURE;
         }
 
+        $mode = $force ? PlanfixRollback::FORCE : ($keep ? PlanfixRollback::KEEP_TOUCHED : PlanfixRollback::REFUSE);
+
         try {
-            $stats = $this->rollback->rollback((string) $input->getArgument('batch'), $dryRun, (bool) $input->getOption('purge-staging'));
+            // Спершу підрахунок (нічого не видаляє) — попередження до видалення, не після.
+            $plan = $this->rollback->rollback($batch, dryRun: true);
+            $this->table($io, $batch . ' [перевірка]', $plan);
+
+            if ($plan['touched_tasks'] > 0) {
+                $text = sprintf(
+                    'У %d задачах партії люди вже працювали в Плані: повідомлень %d, файлів %d, учасників %d, ★ задач %d, ★ повідомлень %d.',
+                    $plan['touched_tasks'],
+                    $plan['foreign_messages'],
+                    $plan['foreign_files'],
+                    $plan['foreign_members'],
+                    $plan['foreign_favorites'],
+                    $plan['foreign_stars'],
+                );
+
+                if (! $dryRun && $mode === PlanfixRollback::REFUSE) {
+                    $io->error($text . ' Нічого не видалено. --keep-touched — лишити ці задачі; --force-delete-user-content — видалити разом із цим.');
+
+                    return Command::FAILURE;
+                }
+
+                $io->warning($text . ($mode === PlanfixRollback::FORCE ? ' Буде ВИДАЛЕНО разом із задачами.' : ($mode === PlanfixRollback::KEEP_TOUCHED ? ' Ці задачі лишаться, з них прибереться лише імпортоване.' : '')));
+            }
+
+            if ($dryRun) {
+                $io->success('Dry-run: нічого не видалено.');
+
+                return Command::SUCCESS;
+            }
+
+            $stats = $this->rollback->rollback($batch, false, $mode, (bool) $input->getOption('purge-staging'));
         } catch (RuntimeException $e) {
             $io->error($e->getMessage());
 
             return Command::FAILURE;
         }
 
-        $io->table(['Партія ' . $input->getArgument('batch') . ($dryRun ? ' [dry-run]' : ''), 'Кількість'], array_map(static fn ($k, $v) => [$k, $v], array_keys($stats), $stats));
-
-        if ($stats['foreign_messages'] > 0) {
-            $io->warning(sprintf('У задачах партії є %d повідомлень, написаних уже в Плані — вони %s разом із задачами.', $stats['foreign_messages'], $dryRun ? 'зникнуть' : 'видалені'));
-        }
-
-        $io->success($dryRun ? 'Dry-run: нічого не видалено.' : 'Партію відкочено.');
+        $this->table($io, $batch, $stats);
+        $io->success('Партію відкочено.');
 
         return Command::SUCCESS;
+    }
+
+    /** @param array<string, int> $stats */
+    private function table(SymfonyStyle $io, string $title, array $stats): void
+    {
+        $io->table(['Партія ' . $title, 'Кількість'], array_map(static fn ($k, $v) => [$k, $v], array_keys($stats), $stats));
     }
 }

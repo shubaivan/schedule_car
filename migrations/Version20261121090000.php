@@ -12,7 +12,7 @@ use Doctrine\Migrations\AbstractMigration;
  * Лише нові таблиці з префіксом planfix_import_ — наявні не чіпає. Без сутностей ORM
  * (doctrine.dbal.schema_filter їх оминає), пише й читає plan:planfix:import / rollback.
  */
-final class Version20261120090000 extends AbstractMigration
+final class Version20261121090000 extends AbstractMigration
 {
     public function getDescription(): string
     {

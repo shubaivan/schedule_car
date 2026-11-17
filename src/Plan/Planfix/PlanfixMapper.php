@@ -33,6 +33,17 @@ final class PlanfixMapper
     public const string LABEL_URGENT = 'Planfix: термінова';
     public const string STAGE_PREFIX = 'Етап: ';
 
+    /** Хто людина в Planfix — від цього підпис заглушки в Плані. */
+    public const string PERSON_ACTIVE = 'active';
+    public const string PERSON_FORMER = 'former';
+    public const string PERSON_CONTACT = 'contact';
+
+    private const array PERSON_NAMES = [
+        self::PERSON_ACTIVE => 'Співробітник Planfix',
+        self::PERSON_FORMER => 'Колишній співробітник',
+        self::PERSON_CONTACT => 'Контакт з сайту',
+    ];
+
     public const string FILE_NOTE = '[файл з Planfix не перенесено]';
 
     /** Базові статуси Planfix (рос. назви системних статусів). */
@@ -118,6 +129,32 @@ final class PlanfixMapper
         '{log35}' => 'опис',
         '{log37}' => 'важливість',
     ];
+
+    /** Мітка етапу воронки — одна на staging, --apply і звіт (task_label.name ≤ 60). */
+    public static function stageLabel(string $stage): string
+    {
+        return mb_substr(self::STAGE_PREFIX . $stage, 0, 60);
+    }
+
+    /** Підпис заглушки: «Колишній співробітник» + «#id» (імʼя й прізвище в telegram_user). */
+    public static function personName(string $role): string
+    {
+        return self::PERSON_NAMES[$role] ?? self::PERSON_NAMES[self::PERSON_FORMER];
+    }
+
+    /**
+     * Контакт (заявка з сайту чи листа), а не співробітник: немає в users.json, ніколи не
+     * виконавець, сам нічого не писав (жодного Comment/Action) і всі його дії — лише
+     * в задачах, де він автор (створення заявки сценарієм).
+     */
+    public static function personRole(bool $active, bool $everWorker, bool $wrote, bool $onlyOwnTasks, bool $ownsTasks): string
+    {
+        if ($active) {
+            return self::PERSON_ACTIVE;
+        }
+
+        return ! $everWorker && ! $wrote && $onlyOwnTasks && $ownsTasks ? self::PERSON_CONTACT : self::PERSON_FORMER;
+    }
 
     public static function date(?string $value): ?DateTime
     {
@@ -217,7 +254,7 @@ final class PlanfixMapper
         }
 
         if ($fieldLines !== []) {
-            $parts[] = "Поля угоди:\n" . implode("\n", $fieldLines);
+            $parts[] = ($kind === self::KIND_DEAL ? 'Поля угоди:' : 'Поля:') . "\n" . implode("\n", $fieldLines);
         }
 
         $body = self::text($original);

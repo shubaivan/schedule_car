@@ -24,8 +24,12 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  *
  *     php bin/console plan:planfix:import /шлях/до/вивантаження                 # dry-run: лише staging + звіт
  *     php bin/console plan:planfix:import /шлях --batch=pf-1 --user-map=map.json
- *     PLANFIX_IMPORT_ALLOW=1 php bin/console plan:planfix:import /шлях --batch=pf-1 --apply
- *     php bin/console plan:planfix:rollback pf-1
+ *     PLANFIX_IMPORT_ALLOW=1 php bin/console plan:planfix:import /шлях --batch=pf-1 --apply --confirm=<назва бази>
+ *     PLANFIX_IMPORT_ALLOW=1 php bin/console plan:planfix:rollback pf-1 --confirm=<назва бази>
+ *     php bin/console plan:planfix:purge-staging pf-1
+ *
+ * Dry-run без --batch прибирає staging попередніх незастосованих партій (копії вивантаження
+ * з персональними даними не накопичуються). Приховані (hidden) дії — лише з --include-hidden.
  *
  * Без --apply у задачі Плану не пишеться нічого — лише таблиці planfix_import_*.
  * --apply пише напряму (DBAL), без подій журналу: ні Telegram, ні push, ні Хроніки, ні Диска.
@@ -51,7 +55,9 @@ final class PlanfixImportCommand extends Command
             ->addArgument('dir', InputArgument::REQUIRED, 'Тека з tasks.json, actions.json, users.json, projects.json')
             ->addOption('batch', null, InputOption::VALUE_REQUIRED, 'Ідентифікатор партії (за замовчуванням pf-<дата-час>)')
             ->addOption('apply', null, InputOption::VALUE_NONE, 'Записати в задачі Плану (потрібно ' . PlanfixImportGuard::ENV . '=1)')
-            ->addOption('since', null, InputOption::VALUE_REQUIRED, 'Лише задачі, створені з цієї дати (РРРР-ММ-ДД)')
+            ->addOption('confirm', null, InputOption::VALUE_REQUIRED, 'Назва бази — обовʼязкове підтвердження для --apply')
+            ->addOption('since', null, InputOption::VALUE_REQUIRED, 'Відкриті задачі + закриті, де остання дія з цієї дати (РРРР-ММ-ДД)')
+            ->addOption('include-hidden', null, InputOption::VALUE_NONE, 'Переносити й приховані (hidden) дії Planfix')
             ->addOption('only', null, InputOption::VALUE_REQUIRED, 'all | deal | task', 'all')
             ->addOption('events', null, InputOption::VALUE_REQUIRED, 'none (лише коментарі) | meaningful (+ учасники, зміни) | all (+ статуси, нагадування…)', PlanfixMapper::EVENTS_MEANINGFUL)
             ->addOption('user-map', null, InputOption::VALUE_REQUIRED, 'JSON {"planfix id": id людини в Плані}')
@@ -65,8 +71,8 @@ final class PlanfixImportCommand extends Command
         $io = new SymfonyStyle($input, $output);
         $apply = (bool) $input->getOption('apply');
 
-        if ($apply && ! PlanfixImportGuard::allowed()) {
-            $io->error('--apply пише в задачі. Запустіть з ' . PlanfixImportGuard::ENV . '=1 у середовищі процесу (навмисно, щоб не спрацювало на проді випадково).');
+        if ($apply && ($denied = PlanfixImportGuard::check($this->db, $input->getOption('confirm'))) !== null) {
+            $io->error('--apply пише в задачі. ' . $denied);
 
             return Command::FAILURE;
         }
@@ -116,7 +122,14 @@ final class PlanfixImportCommand extends Command
         $dir = (string) $input->getArgument('dir');
 
         try {
-            $stats = $this->staging->stage($dir, $batch, ['since' => $since ?: null, 'only' => $only, 'events' => $events]);
+            $stats = $this->staging->stage($dir, $batch, [
+                'since' => $since ?: null,
+                'only' => $only,
+                'events' => $events,
+                'includeHidden' => (bool) $input->getOption('include-hidden'),
+                // Dry-run без явної партії — не плодимо повних копій вивантаження.
+                'cleanupUnapplied' => $input->getOption('batch') === null,
+            ]);
         } catch (RuntimeException $e) {
             $io->error($e->getMessage());
 
@@ -131,7 +144,8 @@ final class PlanfixImportCommand extends Command
             ['Беремо: задач' => $stats['tasks']],
             ['Пропущено фільтром (--since/--only)' => $stats['skipped_by_filter']],
             ['Дій → повідомлень у чат' => $stats['actions_staged']],
-            ['Людей (з них діючих у Planfix)' => sprintf('%d (%d)', $stats['people'], $stats['people_active'])],
+            ['Приховані (hidden) дії' => sprintf('%d, пропущено %d%s', $stats['hidden_in_export'], $stats['hidden_skipped'], $stats['hidden_skipped'] > 0 ? ' (перенести: --include-hidden)' : '')],
+            ['Людей: діючі / колишні / контакти з сайту' => sprintf('%d: %d / %d / %d', $stats['people'], $stats['people_active'], $stats['people_former'], $stats['people_contact'])],
         );
 
         $io->section('Статуси Planfix → План');
@@ -144,7 +158,7 @@ final class PlanfixImportCommand extends Command
         $this->samples($io, $batch, max(0, (int) $input->getOption('samples')));
 
         if (! $apply) {
-            $io->success(sprintf('Dry-run: staging партії %s готовий, задач Плану не змінено. Застосувати: %s=1 … --batch=%1$s --apply', $batch, PlanfixImportGuard::ENV));
+            $io->success(sprintf('Dry-run: staging партії %s готовий, задач Плану не змінено. Застосувати: %s=1 … --batch=%1$s --apply --confirm=%s. Прибрати персональні дані зі staging: plan:planfix:purge-staging %1$s', $batch, PlanfixImportGuard::ENV, $this->db->getDatabase()));
 
             return Command::SUCCESS;
         }
@@ -209,13 +223,13 @@ final class PlanfixImportCommand extends Command
                 $hint = $ids === [] ? '' : 'можливо #' . implode(', #', $ids) . ' (перевірити!)';
             }
 
-            $rows[] = [$pid, $u['name'], isset($userMap[$pid]) ? '#' . $userMap[$pid] : 'заглушка', $hint];
+            $rows[] = [$pid, $u['name'], isset($userMap[$pid]) ? '#' . $userMap[$pid] : PlanfixMapper::personName(PlanfixMapper::PERSON_ACTIVE) . ' #' . $pid, $hint];
         }
 
         $others = (int) $this->db->fetchOne('SELECT COUNT(*) FROM planfix_import_user WHERE batch_id = ? AND NOT active', [$batch]);
         $io->section('Люди');
         $io->table(['Planfix id', 'Імʼя (діючі в Planfix)', 'У Плані', 'Підказка'], $rows);
-        $io->text(sprintf('Ще %d id без облікового запису в users.json (колишні) — «%s #<id>».', $others, PlanfixApplier::PLACEHOLDER_NAME));
+        $io->text(sprintf('Ще %d id без облікового запису в users.json — «%s #<id>» або «%s #<id>».', $others, PlanfixMapper::personName(PlanfixMapper::PERSON_FORMER), PlanfixMapper::personName(PlanfixMapper::PERSON_CONTACT)));
     }
 
     private function samples(SymfonyStyle $io, string $batch, int $limit): void
@@ -249,7 +263,7 @@ final class PlanfixImportCommand extends Command
             $messages = $this->db->fetchAllAssociative('SELECT at, owner_id, decision, text FROM planfix_import_action WHERE batch_id = ? AND task_planfix_id = ? ORDER BY at, planfix_id', [$batch, $pid]);
             $io->text(sprintf('<info>Planfix № %d</info> (%s) → «%s»', $t['number'], $t['kind'] === 'deal' ? 'угода' : 'задача', PlanfixMapper::oneLine((string) $t['title'], 80)));
             $io->listing([
-                sprintf('статус: %s → %s%s', $t['status_raw'], $t['status'], $t['stage'] !== null ? ' + мітка «Етап: ' . $t['stage'] . '»' : ''),
+                sprintf('статус: %s → %s%s', $t['status_raw'], $t['status'], $t['stage'] !== null ? ' + мітка «' . PlanfixMapper::stageLabel((string) $t['stage']) . '»' : ''),
                 sprintf('створено %s, остання дія %s, строк %s', $t['created_at'], $t['last_at'], $t['due_at'] ?? '—'),
                 sprintf('автор planfix#%d, учасники %s, відділи %s', $t['owner_id'], $t['member_ids'], $t['group_names']),
                 'клієнт: ' . ($t['client'] ?? '—'),

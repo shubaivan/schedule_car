@@ -23,7 +23,11 @@ final readonly class PlanfixStaging
     }
 
     /**
-     * @param array{since?: ?DateTime, only?: string, events?: string} $options
+     * --since: задача лишається, якщо вона відкрита або її остання дія (будь-яка) — не раніше дати.
+     * cleanupUnapplied: staging попередніх незастосованих партій (без рядків у карті) прибирається,
+     * щоб повні копії вивантаження з персональними даними не накопичувались.
+     *
+     * @param array{since?: ?DateTime, only?: string, events?: string, includeHidden?: bool, cleanupUnapplied?: bool} $options
      *
      * @return array<string, int|array<string, int>> лічильники
      */
@@ -32,6 +36,7 @@ final readonly class PlanfixStaging
         $since = $options['since'] ?? null;
         $only = $options['only'] ?? 'all';
         $events = $options['events'] ?? PlanfixMapper::EVENTS_MEANINGFUL;
+        $includeHidden = (bool) ($options['includeHidden'] ?? false);
 
         $tasks = $this->read($dir, 'tasks.json');
         $actions = $this->read($dir, 'actions.json');
@@ -49,10 +54,58 @@ final readonly class PlanfixStaging
         }
 
         $numbers = [];
+        $owners = [];
 
         foreach ($tasks as $t) {
             $numbers[(int) $t['id']] = (int) ($t['number'] ?? 0);
+            $owners[(int) $t['id']] = (int) ($t['owner']['id'] ?? 0);
         }
+
+        // Перший прохід по діях: остання дія й остання зміна статусу задачі (навіть тих дій,
+        // що в чат не підуть), і хто що писав — для ролі людини (співробітник чи контакт).
+        $lastAny = [];
+        $lastStatus = [];
+        $wrote = [];
+        $foreignTask = [];
+
+        foreach ($actions as $a) {
+            $taskId = (int) ($a['task']['id'] ?? 0);
+
+            if (! isset($numbers[$taskId])) {
+                continue;
+            }
+
+            $at = PlanfixMapper::date((string) ($a['dateTime'] ?? ''))?->format('Y-m-d H:i:s');
+            $type = (string) ($a['type'] ?? '');
+            $owner = (int) ($a['owner']['id'] ?? 0);
+
+            if ($at !== null) {
+                $lastAny[$taskId] = max($lastAny[$taskId] ?? $at, $at);
+
+                if ($type === 'StatusChanged') {
+                    $lastStatus[$taskId] = max($lastStatus[$taskId] ?? $at, $at);
+                }
+            }
+
+            if ($type === 'Comment' || $type === 'Action') {
+                $wrote[$owner] = true;
+            }
+
+            if ($owners[$taskId] !== $owner) {
+                $foreignTask[$owner] = true;
+            }
+        }
+
+        $everWorker = [];
+
+        foreach ($tasks as $t) {
+            foreach ($t['workers']['users'] ?? [] as $u) {
+                $everWorker[(int) $u['id']] = true;
+            }
+        }
+
+        $ownsTasks = array_flip($owners);
+        $sinceText = $since?->format('Y-m-d H:i:s');
 
         $stats = ['tasks_in_export' => count($tasks), 'actions_in_export' => count($actions), 'tasks' => 0, 'deals' => 0, 'skipped_by_filter' => 0];
         $byStatus = [];
@@ -65,15 +118,17 @@ final readonly class PlanfixStaging
             $kind = PlanfixMapper::kind($t);
             $created = PlanfixMapper::date((string) ($t['createDate'] ?? '')) ?? new DateTime('2000-01-01');
 
-            if (($only !== 'all' && $only !== $kind) || ($since !== null && $created < $since)) {
+            $raw = trim((string) ($t['status'] ?? ''));
+            [$status, $stage] = PlanfixMapper::status($raw);
+            $recent = $sinceText === null || ! $status->isClosed() || max($lastAny[$id] ?? '', $created->format('Y-m-d H:i:s')) >= $sinceText;
+
+            if (($only !== 'all' && $only !== $kind) || ! $recent) {
                 ++$stats['skipped_by_filter'];
                 continue;
             }
 
             $kept[$id] = true;
             ++$stats[$kind === PlanfixMapper::KIND_DEAL ? 'deals' : 'tasks'];
-            $raw = trim((string) ($t['status'] ?? ''));
-            [$status, $stage] = PlanfixMapper::status($raw);
             $byStatus[$raw . ' → ' . $status->value] = ($byStatus[$raw . ' → ' . $status->value] ?? 0) + 1;
 
             $fields = is_array($t['customData'] ?? null) ? $t['customData'] : [];
@@ -122,11 +177,14 @@ final readonly class PlanfixStaging
                 'due_at' => ($t['hasEndDate'] ?? false) ? PlanfixMapper::date((string) ($t['endTime'] ?? ''))?->format('Y-m-d H:i:s') : null,
                 'created_at' => $created->format('Y-m-d H:i:s'),
                 'last_at' => $created->format('Y-m-d H:i:s'),
+                'closed_at' => $status->isClosed() ? ($lastStatus[$id] ?? null) : null,
             ];
         }
 
         $actionRows = [];
         $decisions = [];
+        $stats['hidden_in_export'] = 0;
+        $stats['hidden_skipped'] = 0;
 
         foreach ($actions as $a) {
             $taskId = (int) ($a['task']['id'] ?? 0);
@@ -135,6 +193,19 @@ final readonly class PlanfixStaging
             if (! isset($kept[$taskId])) {
                 $decisions['поза задачами (контакти / фільтр)'] = ($decisions['поза задачами (контакти / фільтр)'] ?? 0) + 1;
                 continue;
+            }
+
+            $hidden = (bool) ($a['hidden'] ?? false);
+
+            if ($hidden) {
+                ++$stats['hidden_in_export'];
+
+                // Приховані в Planfix записи — лише з --include-hidden.
+                if (! $includeHidden) {
+                    ++$stats['hidden_skipped'];
+                    $decisions['пропуск: прихована (hidden)'] = ($decisions['пропуск: прихована (hidden)'] ?? 0) + 1;
+                    continue;
+                }
             }
 
             $at = PlanfixMapper::date((string) ($a['dateTime'] ?? '')) ?? new DateTime($taskRows[$taskId]['created_at']);
@@ -166,7 +237,7 @@ final readonly class PlanfixStaging
                 'decision' => $decision,
                 'event_type' => $eventType,
                 'text' => $text,
-                'hidden' => (bool) ($a['hidden'] ?? false),
+                'hidden' => $hidden,
             ];
         }
 
@@ -183,10 +254,24 @@ final readonly class PlanfixStaging
                 continue;
             }
 
-            $userRows[] = ['batch_id' => $batch, 'planfix_id' => $pid, 'name' => mb_substr($active[$pid] ?? '', 0, 255), 'active' => isset($active[$pid])];
+            $role = PlanfixMapper::personRole(isset($active[$pid]), isset($everWorker[$pid]), isset($wrote[$pid]), ! isset($foreignTask[$pid]), isset($ownsTasks[$pid]));
+            $userRows[] = ['batch_id' => $batch, 'planfix_id' => $pid, 'name' => mb_substr($active[$pid] ?? '', 0, 255), 'active' => isset($active[$pid]), 'role' => $role];
         }
 
         $this->db->transactional(function () use ($batch, $dir, $options, $taskRows, $actionRows, $userRows): void {
+            if ($options['cleanupUnapplied'] ?? false) {
+                $stale = $this->db->fetchFirstColumn(
+                    'SELECT b.id FROM planfix_import_batch b WHERE b.applied_at IS NULL AND b.id <> ?
+                       AND NOT EXISTS (SELECT 1 FROM planfix_import_map x WHERE x.batch_id = b.id)',
+                    [$batch],
+                );
+
+                foreach ($stale as $old) {
+                    self::purge($this->db, (string) $old);
+                    $this->db->executeStatement('DELETE FROM planfix_import_batch WHERE id = ?', [$old]);
+                }
+            }
+
             foreach (['planfix_import_action', 'planfix_import_task', 'planfix_import_user'] as $table) {
                 $this->db->executeStatement("DELETE FROM {$table} WHERE batch_id = ?", [$batch]);
             }
@@ -198,6 +283,7 @@ final readonly class PlanfixStaging
                     'since' => isset($options['since']) ? $options['since']->format('Y-m-d') : null,
                     'only' => $options['only'] ?? 'all',
                     'events' => $options['events'] ?? PlanfixMapper::EVENTS_MEANINGFUL,
+                    'includeHidden' => (bool) ($options['includeHidden'] ?? false),
                 ], JSON_THROW_ON_ERROR)],
             );
             $this->insertMany('planfix_import_task', array_values($taskRows));
@@ -209,13 +295,32 @@ final readonly class PlanfixStaging
         ksort($decisions);
         $stats['actions_staged'] = count($actionRows);
         $stats['people'] = count($userRows);
-        $stats['people_active'] = count(array_filter($userRows, static fn ($u) => $u['active']));
+        $stats['people_active'] = count(array_filter($userRows, static fn ($u) => $u['role'] === PlanfixMapper::PERSON_ACTIVE));
+        $stats['people_former'] = count(array_filter($userRows, static fn ($u) => $u['role'] === PlanfixMapper::PERSON_FORMER));
+        $stats['people_contact'] = count(array_filter($userRows, static fn ($u) => $u['role'] === PlanfixMapper::PERSON_CONTACT));
         $stats['statuses'] = $byStatus;
         $stats['actions'] = $decisions;
 
         $this->db->executeStatement('UPDATE planfix_import_batch SET stats = ? WHERE id = ?', [json_encode($stats, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE), $batch]);
 
         return $stats;
+    }
+
+    /**
+     * Прибрати персональні дані партії (staging задач, дій, людей). Карта й рядок партії
+     * лишаються — на них тримаються ідемпотентність і відкат.
+     *
+     * @return int видалено рядків
+     */
+    public static function purge(Connection $db, string $batch): int
+    {
+        $n = 0;
+
+        foreach (['planfix_import_action', 'planfix_import_task', 'planfix_import_user'] as $table) {
+            $n += (int) $db->executeStatement("DELETE FROM {$table} WHERE batch_id = ?", [$batch]);
+        }
+
+        return $n;
     }
 
     /** @return list<array<string, mixed>> */

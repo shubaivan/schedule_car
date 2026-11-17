@@ -18,11 +18,12 @@ use RuntimeException;
  *
  * Ідемпотентно: задача чи дія, що вже є в карті (з будь-якої партії), вдруге не пишеться;
  * до вже перенесеної задачі додаються лише нові дії. Поля перенесених задач не переписуються.
+ * Задачу, яку в Плані видалили руками, карта памʼятає надгробком (deleted_at) — повторний
+ * імпорт її не повертає.
  */
 final readonly class PlanfixApplier
 {
     public const string PLACEHOLDER_PREFIX = 'planfix-';
-    public const string PLACEHOLDER_NAME = 'Колишній співробітник';
     /** Службові облікові записи Planfix (роботи, сценарії) — один автор «Planfix (система)». */
     public const string SYSTEM_TELEGRAM_ID = 'planfix-system';
 
@@ -48,10 +49,10 @@ final readonly class PlanfixApplier
             throw new RuntimeException(sprintf('Партії «%s» немає в staging — спершу запустіть імпорт без --apply.', $batch));
         }
 
-        // Задачі, які вже видалили руками в Плані, з карти прибираємо — інакше до них писали б дії.
+        // Задачі, які вже видалили руками в Плані, — надгробки: до них не пишемо й не відтворюємо.
         PlanfixRollback::pruneStaleMap($this->db);
 
-        $stats = ['tasks_created' => 0, 'tasks_existing' => 0, 'messages_created' => 0, 'messages_existing' => 0, 'members_created' => 0, 'placeholders_created' => 0, 'labels_created' => 0, 'reads_created' => 0];
+        $stats = ['tasks_created' => 0, 'tasks_existing' => 0, 'tasks_tombstoned' => 0, 'messages_created' => 0, 'messages_existing' => 0, 'members_created' => 0, 'placeholders_created' => 0, 'labels_created' => 0, 'reads_created' => 0];
 
         $people = $this->resolvePeople($batch, $userMap, $systemIds, $stats);
         $labels = $this->labels($batch, $stats);
@@ -62,13 +63,23 @@ final readonly class PlanfixApplier
         }
 
         $mappedTasks = $this->mapped('task', 'task');
+        $tombstones = array_flip(array_map('intval', $this->db->fetchFirstColumn("SELECT planfix_id FROM planfix_import_map WHERE planfix_type = 'task' AND plan_table = 'task' AND deleted_at IS NOT NULL")));
         $mappedActions = $this->mapped('action', 'task_message');
-        $real = array_flip(array_map('intval', array_values($userMap)));
+        // Живі люди (не заглушки) — їм «+N» на старих задачах не потрібен.
+        $real = [];
+
+        foreach ($people as $userId) {
+            $real[$userId] = true;
+        }
+
+        foreach ($this->db->fetchFirstColumn("SELECT id FROM telegram_user WHERE telegram_id LIKE 'planfix-%'") as $ghost) {
+            unset($real[(int) $ghost]);
+        }
 
         $ids = array_map('intval', $this->db->fetchFirstColumn('SELECT planfix_id FROM planfix_import_task WHERE batch_id = ? ORDER BY created_at, planfix_id', [$batch]));
 
         foreach (array_chunk($ids, max(1, $chunk)) as $part) {
-            $this->db->transactional(function () use ($batch, $part, $people, $labels, $departments, $real, &$mappedTasks, &$mappedActions, &$stats): void {
+            $this->db->transactional(function () use ($batch, $part, $people, $labels, $departments, $real, $tombstones, &$mappedTasks, &$mappedActions, &$stats): void {
                 $tasks = $this->db->fetchAllAssociative('SELECT * FROM planfix_import_task WHERE batch_id = ? AND planfix_id IN (?)', [$batch, $part], [1 => ArrayParameterType::INTEGER]);
                 $actions = [];
 
@@ -78,12 +89,17 @@ final readonly class PlanfixApplier
 
                 foreach ($tasks as $t) {
                     $pid = (int) $t['planfix_id'];
+
+                    if (isset($tombstones[$pid])) {
+                        ++$stats['tasks_tombstoned'];
+                        continue;
+                    }
+
                     $taskId = $mappedTasks[$pid] ?? null;
                     $isNew = $taskId === null;
-                    $members = [];
 
                     if ($isNew) {
-                        $taskId = $this->createTask($batch, $t, $people, $labels, $departments, $members, $stats);
+                        $taskId = $this->createTask($batch, $t, $people, $labels, $departments, $stats);
                         $mappedTasks[$pid] = $taskId;
                         ++$stats['tasks_created'];
                     } else {
@@ -112,21 +128,8 @@ final readonly class PlanfixApplier
                         $this->db->executeStatement('UPDATE task SET last_activity_at = GREATEST(last_activity_at, CAST(? AS timestamp)) WHERE id = ?', [$last, $taskId]);
                     }
 
-                    // «+N» у живих людей на тисячах старих задач — шум: позначаємо прочитаним.
-                    foreach ($members as $userId) {
-                        if (isset($real[$userId])) {
-                            $readId = (int) $this->db->fetchOne(
-                                "INSERT INTO task_read (id, task_id, user_id, last_message_id, read_at)
-                                 SELECT nextval('task_read_id_seq'), ?, ?, COALESCE(MAX(m.id), 0), LOCALTIMESTAMP(0) FROM task_message m WHERE m.task_id = ?
-                                 ON CONFLICT (task_id, user_id) DO NOTHING RETURNING id",
-                                [$taskId, $userId, $taskId],
-                            );
-
-                            if ($readId > 0) {
-                                $this->map($batch, 'read', $pid, 'task_read', $readId);
-                                ++$stats['reads_created'];
-                            }
-                        }
+                    if ($isNew || $last !== null) {
+                        $this->markRead($batch, $pid, $taskId, $real, $stats);
                     }
                 }
             });
@@ -142,18 +145,47 @@ final readonly class PlanfixApplier
     }
 
     /**
+     * «+N» у живих учасників на старих задачах — шум: прочитано до останнього повідомлення
+     * (і після дописаних повторним імпортом дій теж). Нове прочитання — у карту.
+     *
+     * @param array<int, true> $real
+     * @param array<string, int> $stats
+     */
+    private function markRead(string $batch, int $pid, int $taskId, array $real, array &$stats): void
+    {
+        foreach ($this->db->fetchFirstColumn('SELECT user_id FROM task_member WHERE task_id = ?', [$taskId]) as $userId) {
+            if (! isset($real[(int) $userId])) {
+                continue;
+            }
+
+            $row = $this->db->fetchAssociative(
+                "INSERT INTO task_read (id, task_id, user_id, last_message_id, read_at)
+                 SELECT nextval('task_read_id_seq'), ?, ?, COALESCE(MAX(m.id), 0), LOCALTIMESTAMP(0) FROM task_message m WHERE m.task_id = ?
+                 ON CONFLICT (task_id, user_id) DO UPDATE SET last_message_id = GREATEST(task_read.last_message_id, EXCLUDED.last_message_id)
+                 RETURNING id, (xmax = 0) AS inserted",
+                [$taskId, (int) $userId, $taskId],
+            );
+
+            if ($row !== false && $row['inserted']) {
+                $this->map($batch, 'read', $pid, 'task_read', (int) $row['id']);
+                ++$stats['reads_created'];
+            }
+        }
+    }
+
+    /**
      * @param array<string, mixed> $t
      * @param array<int, int> $people
      * @param array<string, int> $labels
      * @param array<string, int> $departments
-     * @param list<int> $members
      * @param array<string, int> $stats
      */
-    private function createTask(string $batch, array $t, array $people, array $labels, array $departments, array &$members, array &$stats): int
+    private function createTask(string $batch, array $t, array $people, array $labels, array $departments, array &$stats): int
     {
         $pid = (int) $t['planfix_id'];
         $creator = $people[(int) $t['owner_id']] ?? throw new RuntimeException('Немає автора для задачі Planfix ' . $pid);
-        $closed = in_array($t['status'], ['done', 'rejected'], true) ? $t['last_at'] : null;
+        // Закрито — коли востаннє змінили статус у Planfix (навіть якщо сама подія в чат не йде).
+        $closed = in_array($t['status'], ['done', 'rejected'], true) ? ($t['closed_at'] ?? $t['last_at']) : null;
 
         $taskId = (int) $this->db->fetchOne(
             "INSERT INTO task (id, creator_id, title, description, client, status, due_at, created_at, last_activity_at, closed_at)
@@ -195,7 +227,7 @@ final readonly class PlanfixApplier
         }
 
         if ($t['stage'] !== null) {
-            $names[] = PlanfixMapper::STAGE_PREFIX . $t['stage'];
+            $names[] = PlanfixMapper::stageLabel((string) $t['stage']);
         }
 
         foreach ($names as $name) {
@@ -217,8 +249,9 @@ final readonly class PlanfixApplier
     }
 
     /**
-     * Planfix id → id людини в Плані: явна відповідність або заглушка
-     * «Колишній співробітник #id» (без входу, у кошику, без Telegram).
+     * Planfix id → id людини в Плані: явна відповідність (--user-map або раніше plan:planfix:relink),
+     * інакше заглушка «Співробітник Planfix / Колишній співробітник / Контакт з сайту #id»
+     * (без входу, у кошику, без Telegram).
      *
      * @param array<int, int> $userMap
      * @param list<int> $systemIds
@@ -236,11 +269,17 @@ final readonly class PlanfixApplier
             }
         }
 
-        foreach ($this->db->fetchFirstColumn('SELECT planfix_id FROM planfix_import_user WHERE batch_id = ? ORDER BY planfix_id', [$batch]) as $pid) {
-            $pid = (int) $pid;
+        $links = [];
 
-            if (isset($userMap[$pid])) {
-                $people[$pid] = (int) $userMap[$pid];
+        foreach ($this->db->fetchAllAssociative("SELECT x.planfix_id, x.plan_id FROM planfix_import_map x JOIN telegram_user u ON u.id = x.plan_id WHERE x.planfix_type = 'user_link'") as $l) {
+            $links[(int) $l['planfix_id']] = (int) $l['plan_id'];
+        }
+
+        foreach ($this->db->fetchAllAssociative('SELECT planfix_id, role FROM planfix_import_user WHERE batch_id = ? ORDER BY planfix_id', [$batch]) as $u) {
+            $pid = (int) $u['planfix_id'];
+
+            if (isset($userMap[$pid]) || isset($links[$pid])) {
+                $people[$pid] = (int) ($userMap[$pid] ?? $links[$pid]);
                 continue;
             }
 
@@ -256,7 +295,7 @@ final readonly class PlanfixApplier
             $id = (int) $this->db->fetchOne(
                 "INSERT INTO telegram_user (id, telegram_id, first_name, last_name, language_code, created_at, supply_role, access_status, access_decided_at, archived_at, is_superadmin, plan_full_access, session_epoch)
                  VALUES (nextval('telegram_user_id_seq'), ?, ?, ?, 'uk', LOCALTIMESTAMP(0), 'worker', 'rejected', LOCALTIMESTAMP(0), LOCALTIMESTAMP(0), false, false, 0) RETURNING id",
-                [$telegramId, $system ? 'Planfix' : self::PLACEHOLDER_NAME, $system ? '(система)' : '#' . $pid],
+                [$telegramId, $system ? 'Planfix' : PlanfixMapper::personName((string) $u['role']), $system ? '(система)' : '#' . $pid],
             );
             $this->map($batch, 'user', $system ? 0 : $pid, 'telegram_user', $id);
             $people[$pid] = $id;
@@ -282,7 +321,7 @@ final readonly class PlanfixApplier
         }
 
         foreach ($this->db->fetchFirstColumn('SELECT DISTINCT stage FROM planfix_import_task WHERE batch_id = ? AND stage IS NOT NULL ORDER BY stage', [$batch]) as $stage) {
-            $names[] = mb_substr(PlanfixMapper::STAGE_PREFIX . $stage, 0, 60);
+            $names[] = PlanfixMapper::stageLabel((string) $stage);
         }
 
         $sort = (int) $this->db->fetchOne('SELECT COALESCE(MAX(sort), 0) FROM task_label');
@@ -311,7 +350,7 @@ final readonly class PlanfixApplier
     {
         $out = [];
 
-        foreach ($this->db->fetchAllAssociative('SELECT planfix_id, plan_id FROM planfix_import_map WHERE planfix_type = ? AND plan_table = ?', [$type, $table]) as $r) {
+        foreach ($this->db->fetchAllAssociative('SELECT planfix_id, plan_id FROM planfix_import_map WHERE planfix_type = ? AND plan_table = ? AND deleted_at IS NULL', [$type, $table]) as $r) {
             $out[(int) $r['planfix_id']] = (int) $r['plan_id'];
         }
 
