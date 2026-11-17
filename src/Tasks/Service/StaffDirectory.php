@@ -250,7 +250,10 @@ class StaffDirectory
 
         // Хто сам задач не бачить (системний адмін), не змінює телефон/email тих, хто бачить:
         // інакше переписав би номер ще не привʼязаної картки на свій і увійшов би нею.
-        if (! $by->canSeeTasks() && $target->getId() !== $by->getId() && $target->canSeeTasks() && array_intersect($fields, ['phone', 'email', 'password']) !== []) {
+        // Роль цілі — та, що була ДО зміни (інакше «зробити сисадміном і змінити телефон» одним запитом).
+        $targetSees = $target->isSuperadmin() || ($targetRole ?? $target->getWorkRole())->seesTasks();
+
+        if (! $by->canSeeTasks() && $target->getId() !== $by->getId() && $targetSees && array_intersect($fields, ['phone', 'email', 'password']) !== []) {
             return false;
         }
 

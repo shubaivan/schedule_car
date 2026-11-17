@@ -2,11 +2,11 @@
 
 namespace App\Tests\Plan;
 
-use App\Supply\Enum\SupplyRole;
 use App\Entity\TelegramUser;
 use App\Plan\Event\CommentAdded;
 use App\Plan\Notification\AudienceResolver;
 use App\Plan\Subject\SubjectRef;
+use App\Supply\Enum\SupplyRole;
 use App\Tasks\Enum\WorkRole;
 use App\Tasks\Repository\TaskRepository;
 use App\Tasks\Service\TaskPolicy;
@@ -144,6 +144,8 @@ class SysAdminTest extends WebTestCase
         // Телефон картки, яка бачить задачі, сисадмін не переписує (захоплення входу).
         $this->send('PATCH', '/api/staff/' . $worker->getId(), ['phone' => '+380671112299']);
         self::assertResponseStatusCodeSame(403);
+        $this->send('PATCH', '/api/staff/' . $worker->getId(), ['role' => 'sysadmin', 'phone' => '+380671112299']);
+        self::assertResponseStatusCodeSame(403, 'роль і телефон одним запитом — теж ні');
         self::assertFalse($this->get('/api/me')['capabilities']['tasks.access']);
     }
 }
