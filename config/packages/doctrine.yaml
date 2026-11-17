@@ -7,6 +7,8 @@ doctrine:
         #server_version: '16'
 
         profiling_collect_backtrace: '%kernel.debug%'
+        # Staging імпорту з Planfix (planfix_import_*) — без сутностей ORM; diff міграцій їх не чіпає.
+        schema_filter: '~^(?!planfix_import_)~'
     orm:
         validate_xml_mapping: true
         # Схема створена з SEQUENCE-генерацією id (DBAL 3). З DBAL 4 / ORM 3
