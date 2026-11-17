@@ -88,7 +88,8 @@ final readonly class DrivePaths
     /** «акт.pdf» → «2026-11-17 акт.pdf»: дата завантаження (київська) спереду. */
     public static function dated(DateTimeInterface $uploaded, string $name): string
     {
-        $full = $uploaded->format('Y-m-d') . ' ' . trim($name);
+        // Спершу ті самі заміни, що й safe() (скісні, зайві пробіли), — потім міряємо й ріжемо.
+        $full = (string) preg_replace('/\s+/u', ' ', str_replace(['/', '\\'], '-', $uploaded->format('Y-m-d') . ' ' . trim($name)));
         $extension = pathinfo($full, PATHINFO_EXTENSION);
 
         // Задовга назва: обрізаємо основу, а розширення лишаємо — інакше на Диску «….pd» без типу.
