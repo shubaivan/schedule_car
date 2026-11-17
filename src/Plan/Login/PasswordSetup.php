@@ -51,13 +51,18 @@ final class PasswordSetup
         private readonly string $baseUrl = 'http://localhost',
         #[Autowire('%password_login_enabled%')]
         private readonly bool $enabled = false,
+        #[Autowire('%tasks_enabled%')]
+        private readonly bool $plan = true,
     ) {
     }
 
-    /** Вхід за паролем увімкнено (PASSWORD_LOGIN_ENABLED) — інакше посилань не видаємо. */
+    /**
+     * Лише «План» (TASKS_ENABLED) з увімкненим входом за паролем — на стендах заявок
+     * паролі, як і раніше, задає адмін, і посилань там немає.
+     */
     public function enabled(): bool
     {
-        return $this->enabled;
+        return $this->enabled && $this->plan;
     }
 
     /** Хто може отримати посилання: жива підтверджена картка з прив'язаним Telegram. */
@@ -74,12 +79,16 @@ final class PasswordSetup
         $now ??= new DateTimeImmutable();
         $token = bin2hex(random_bytes(32));
 
-        $this->em->createQuery('DELETE FROM ' . PasswordToken::class . ' t WHERE t.user = :u OR t.expiresAt < :old')
-            ->setParameter('u', $user)
-            ->setParameter('old', $now->modify('-1 day'))
-            ->execute();
-        $this->em->persist(new PasswordToken($user, self::hash($token), $now));
-        $this->em->flush();
+        // Одночасні запити однієї людини — по черзі: чинне лише останнє посилання.
+        $this->events->transactional(function () use ($user, $token, $now): void {
+            $this->em->getConnection()->executeQuery('SELECT id FROM telegram_user WHERE id = ? FOR UPDATE', [$user->getId()]);
+            $this->em->createQuery('DELETE FROM ' . PasswordToken::class . ' t WHERE t.user = :u OR t.expiresAt < :old')
+                ->setParameter('u', $user)
+                ->setParameter('old', $now->modify('-1 day'))
+                ->execute();
+            $this->em->persist(new PasswordToken($user, self::hash($token), $now));
+            $this->em->flush();
+        });
 
         return rtrim($this->baseUrl, '/') . '/vhid/parol/' . $token;
     }
@@ -90,7 +99,7 @@ final class PasswordSetup
      */
     public function sendLink(TelegramUser $user, string $why): bool
     {
-        if (! $this->enabled || ! self::eligible($user)) {
+        if (! $this->enabled() || ! self::eligible($user)) {
             return false;
         }
 
@@ -212,6 +221,7 @@ final class PasswordSetup
 
             $first = $user->getPassword() === null;
             $user->setPassword($this->hasher->hashPassword($user, $password));
+            $user->setPasswordSetAt($now);
             $row->markUsed($now);
             $this->em->flush();
             $this->events->record(new StaffChanged(SubjectRef::user((int) $user->getId()), $user->getId(), action: 'update', fields: ['password']));

@@ -70,6 +70,12 @@ class StaffLinker
             $conn->executeStatement('UPDATE telegram_user SET archived_by_id = :to WHERE archived_by_id = :from', compact('from', 'to'));
             $conn->executeStatement('UPDATE telegram_user SET access_decided_by_id = :to WHERE access_decided_by_id = :from', compact('from', 'to'));
             $conn->executeStatement('DELETE FROM login_token WHERE user_id = :from', ['from' => $from]);
+            // «Звʼязок»: повідомлення й участь у чатах переходять на живу картку.
+            $conn->executeStatement('UPDATE plan_chat_message SET author_id = :to WHERE author_id = :from', compact('from', 'to'));
+            $conn->executeStatement('UPDATE plan_chat SET created_by = :to WHERE created_by = :from', compact('from', 'to'));
+            $conn->executeStatement('DELETE FROM plan_chat_member WHERE user_id = :from AND chat_id IN (SELECT chat_id FROM plan_chat_member WHERE user_id = :to)', compact('from', 'to'));
+            $conn->executeStatement('UPDATE plan_chat_member SET user_id = :to WHERE user_id = :from', compact('from', 'to'));
+            $conn->executeStatement('DELETE FROM plan_password_token WHERE user_id = :from', ['from' => $from]);
         });
 
         // Те, що вписав адмін, важливіше за імʼя з профілю Telegram.
@@ -83,7 +89,9 @@ class StaffLinker
             ->setWorkRole($card->getWorkRole())
             ->setDepartment($card->getDepartment() ?? $user->getDepartment())
             ->setEmail($email)
-            ->setPassword($card->getPassword());
+            ->setPassword($card->getPassword())
+            // Повний доступ, виданий суперадміном картці, не губиться при прив'язці Telegram.
+            ->setPlanFullAccess($user->hasPlanFullAccess() || $card->hasPlanFullAccess());
         $user->decideAccess(AccessStatus::Approved, $card->getAccessDecidedBy());
 
         $this->em->remove($card);

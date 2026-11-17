@@ -1,0 +1,6 @@
+# «Звʼязок» — особисті й групові чати поза задачами (/api/plan/zvyazok).
+plan_zvyazok:
+    resource:
+        path: ../../src/Plan/Zvyazok/
+        namespace: App\Plan\Zvyazok
+    type: attribute

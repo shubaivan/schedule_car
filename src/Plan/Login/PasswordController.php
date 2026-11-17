@@ -8,10 +8,12 @@ use App\Plan\People\PhoneFormat;
 use App\Security\LoginIdentity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -31,8 +33,6 @@ final class PasswordController extends AbstractController
 
     public function __construct(
         private readonly PasswordSetup $setup,
-        #[Autowire('%password_login_enabled%')]
-        private readonly bool $enabled,
         #[Autowire('%env(APP_COMPANY_NAME)%')]
         private readonly string $company,
         #[Autowire(service: 'limiter.plan_pw_request_account')]
@@ -43,13 +43,14 @@ final class PasswordController extends AbstractController
         private readonly RateLimiterFactoryInterface $setLimiter,
         #[Autowire('%kernel.secret%')]
         private readonly string $secret,
+        private readonly EventDispatcherInterface $dispatcher,
     ) {
     }
 
     #[Route('/vhid/parol', name: 'app_password_request', methods: ['GET', 'POST'])]
     public function request(Request $request): Response
     {
-        if (! $this->enabled) {
+        if (! $this->setup->enabled()) {
             throw $this->createNotFoundException();
         }
 
@@ -66,8 +67,15 @@ final class PasswordController extends AbstractController
                 $error = 'Забагато запитів. Зачекайте кілька хвилин.';
             } else {
                 // Ліміт на людину мовчазний: відповідь та сама, просто нового посилання не буде.
+                // Пошук і відправка — після відповіді (kernel.terminate): за часом відповіді не
+                // видно, чи є такий номер у Плані.
                 if ($this->accountLimiter->create('acc:' . $this->key(LoginIdentity::normalize($login)))->consume()->isAccepted()) {
-                    $this->setup->requestByLogin($login);
+                    // Один раз: слухач знімає себе (довгоживучий процес не накопичує їх).
+                    $once = function () use ($login, &$once): void {
+                        $this->dispatcher->removeListener(KernelEvents::TERMINATE, $once);
+                        $this->setup->requestByLogin($login);
+                    };
+                    $this->dispatcher->addListener(KernelEvents::TERMINATE, $once);
                 }
 
                 $sent = true;
@@ -85,7 +93,7 @@ final class PasswordController extends AbstractController
     #[Route('/vhid/parol/{token}', name: 'app_password_set', requirements: ['token' => '[A-Za-z0-9]{1,128}'], methods: ['GET', 'POST'])]
     public function set(Request $request, string $token): Response
     {
-        if (! $this->enabled) {
+        if (! $this->setup->enabled()) {
             throw $this->createNotFoundException();
         }
 
@@ -133,7 +141,7 @@ final class PasswordController extends AbstractController
     {
         $me = $this->getUser();
 
-        if (! $this->enabled || ! $me instanceof TelegramUser) {
+        if (! $this->setup->enabled() || ! $me instanceof TelegramUser) {
             throw $this->createNotFoundException();
         }
 

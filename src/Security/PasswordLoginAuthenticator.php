@@ -4,6 +4,8 @@ namespace App\Security;
 
 use App\Controller\LoginController;
 use App\Entity\TelegramUser;
+use App\Plan\Login\PasswordLoginNotice;
+use App\Plan\Telegram\TelegramLink;
 use App\Repository\TelegramUserRepository;
 use App\Service\CrmLoginLink;
 use Doctrine\ORM\EntityManagerInterface;
@@ -42,6 +44,9 @@ class PasswordLoginAuthenticator extends AbstractAuthenticator
         #[Autowire('%password_login_enabled%')]
         private bool $enabled,
         private PasswordHasherFactoryInterface $hashers,
+        #[Autowire('%tasks_enabled%')]
+        private bool $plan = false,
+        private ?PasswordLoginNotice $notice = null,
     ) {
     }
 
@@ -70,7 +75,11 @@ class PasswordLoginAuthenticator extends AbstractAuthenticator
                 $user = $this->find($identifier);
 
                 // Та сама відповідь, що й на хибний пароль: не підказуємо, чи є такий логін.
-                if ($user === null || $user->isArchived() || ! $user->isApproved() || $user->getPassword() === null) {
+                // «План»: лише пароль, який людина задала сама за посиланням із бота, і лише з
+                // прив'язаним Telegram (старі паролі — адмінські, консольні, демо — не діють).
+                $planOnly = $this->plan && ($user === null || ! TelegramLink::isLinked($user) || $user->getPasswordSetAt() === null);
+
+                if ($user === null || $planOnly || $user->isArchived() || ! $user->isApproved() || $user->getPassword() === null) {
                     // Порожнє хешування — щоб за часом відповіді не відрізнити «немає логіна» від «хибний пароль».
                     $this->hashers->getPasswordHasher(TelegramUser::class)->hash('timing-equaliser');
 
@@ -91,6 +100,11 @@ class PasswordLoginAuthenticator extends AbstractAuthenticator
         if ($user instanceof TelegramUser) {
             $user->touchLastSeen();
             $this->em->flush();
+
+            // «План»: про кожен вхід за паролем — повідомлення в Telegram людини.
+            if ($this->plan) {
+                $this->notice?->loggedIn($user, $request);
+            }
         }
 
         $next = $request->hasSession() ? $request->getSession()->remove(LoginEntryPoint::TARGET) : null;

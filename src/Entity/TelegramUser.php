@@ -9,6 +9,7 @@ use App\Supply\Entity\Department;
 use App\Supply\Enum\SupplyRole;
 use App\Tasks\Enum\WorkRole;
 use DateTime;
+use DateTimeImmutable;
 use DateTimeZone;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -122,6 +123,14 @@ class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface,
      */
     #[ORM\Column(name: 'plan_full_access', type: 'boolean', nullable: false, options: ['default' => false])]
     private bool $planFullAccess = false;
+
+    /**
+     * Коли людина САМА задала пароль за посиланням із бота (PasswordSetup). На «Плані» вхід
+     * за паролем — лише з цією позначкою: старі паролі (задані адміном, консоллю, демо)
+     * там не діють.
+     */
+    #[ORM\Column(name: 'password_set_at', type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?DateTimeImmutable $passwordSetAt = null;
 
     public function __construct()
     {
@@ -456,6 +465,18 @@ class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface,
     public function managesStaff(): bool
     {
         return $this->getWorkRole()->managesStaff() || $this->superadmin;
+    }
+
+    public function getPasswordSetAt(): ?DateTimeImmutable
+    {
+        return $this->passwordSetAt;
+    }
+
+    public function setPasswordSetAt(?DateTimeImmutable $at): static
+    {
+        $this->passwordSetAt = $at;
+
+        return $this;
     }
 
     public function hasPlanFullAccess(): bool

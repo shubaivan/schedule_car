@@ -6,6 +6,7 @@ use App\Entity\TelegramUser;
 use App\Enum\AccessStatus;
 use App\Plan\Login\PasswordSetup;
 use App\Tasks\Enum\WorkRole;
+use DateTimeImmutable;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use SergiX44\Nutgram\Nutgram;
@@ -194,6 +195,31 @@ class PasswordSetupTest extends WebTestCase
         $nopass = $this->person();
         $this->client->request('POST', '/vhid', ['login' => (string) $nopass->getPhoneNumber(), 'password' => '', '_csrf_token' => $csrf]);
         self::assertResponseStatusCodeSame(401);
+    }
+
+    /** Старі паролі (адмін, консоль, демо) на «Плані» не діють; вхід паролем — повідомлення в Telegram. */
+    public function testOnlySelfSetPasswordsWorkAndEveryPasswordLoginIsReported(): void
+    {
+        $hasher = self::getContainer()->get(UserPasswordHasherInterface::class);
+        $legacy = $this->person();
+        $legacy->setPassword($hasher->hashPassword($legacy, self::GOOD));
+        $noTelegram = $this->person(telegram: false);
+        $noTelegram->setPassword($hasher->hashPassword($noTelegram, self::GOOD))->setPasswordSetAt(new DateTimeImmutable());
+        $own = $this->person();
+        $own->setPassword($hasher->hashPassword($own, self::GOOD))->setPasswordSetAt(new DateTimeImmutable());
+        $this->em->flush();
+
+        foreach ([$legacy, $noTelegram] as $user) {
+            $crawler = $this->client->request('GET', '/vhid');
+            $this->client->request('POST', '/vhid', ['login' => (string) $user->getPhoneNumber(), 'password' => self::GOOD, '_csrf_token' => (string) $crawler->filter('details.pw-alt input[name=_csrf_token]')->attr('value')]);
+            self::assertResponseStatusCodeSame(401, 'старий пароль або без Telegram — ні');
+        }
+
+        $crawler = $this->client->request('GET', '/vhid');
+        $this->client->request('POST', '/vhid', ['login' => (string) $own->getPhoneNumber(), 'password' => self::GOOD, '_csrf_token' => (string) $crawler->filter('details.pw-alt input[name=_csrf_token]')->attr('value')], server: ['HTTP_USER_AGENT' => 'pw-test-agent']);
+        self::assertResponseRedirects();
+        self::assertStringContainsString('Вхід у План за паролем', $this->lastBotText());
+        self::assertStringContainsString('pw-test-agent', $this->lastBotText());
     }
 
     public function testProfileAndBotSendLinkOnlyToOwnTelegram(): void

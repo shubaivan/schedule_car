@@ -40,7 +40,7 @@ class TasksApiTest extends WebTestCase
     protected function tearDown(): void
     {
         $conn = $this->em->getConnection();
-        $ids = $conn->fetchFirstColumn('SELECT id FROM telegram_user WHERE telegram_id LIKE ?', [self::PREFIX . '%']);
+        $ids = $conn->fetchFirstColumn('SELECT id FROM telegram_user WHERE telegram_id LIKE ? OR email LIKE ?', [self::PREFIX . '%', self::PREFIX . '%']);
 
         if ($ids !== []) {
             $list = implode(',', array_map('intval', $ids));
@@ -59,6 +59,9 @@ class TasksApiTest extends WebTestCase
     public function testPasswordLogin(): void
     {
         $user = $this->user(WorkRole::Manager, 'login');
+        // «План»: паролем входить лише той, хто задав пароль сам (за посиланням із бота) і має Telegram.
+        $user->setTelegramId((string) random_int(710_000_000, 719_999_999))->setPasswordSetAt(new DateTimeImmutable());
+        $this->em->flush();
 
         $this->client->request('GET', '/vhid');
         self::assertResponseIsSuccessful();

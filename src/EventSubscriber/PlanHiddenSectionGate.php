@@ -30,7 +30,7 @@ final class PlanHiddenSectionGate implements EventSubscriberInterface
         '/api/fleet',
         '/api/plan/drive',
         '/api/plan/counterparties',
-        '/api/plan/zvyazok',
+        '/shop',
     ];
 
     /** Виняток у прихованих префіксах: довідники статусів і відділів — для старту CRM. */

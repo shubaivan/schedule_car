@@ -14,6 +14,7 @@ import { canEditWarehouse, canSeeAdmin, canSeeSupply, canSeeWarehouse } from '..
 import { WAREHOUSE_FULLSCREEN, WAREHOUSE_SPLIT } from '../../warehouse/routes'
 import { COUNTERPARTY_FORMS, COUNTERPARTY_FULLSCREEN, COUNTERPARTY_SPLIT } from '../../counterparties/routes'
 import { canSeeCounterparties } from '../../counterparties/access'
+import { zvApi } from '../../zvyazok/api'
 
 /**
  * Оболонка «Плану» — один продукт: задачі, заявки, склад, люди.
@@ -48,6 +49,19 @@ const writesWarehouse = computed(() => canEditWarehouse(me.value))
 const canCounterparties = computed(() => canSeeCounterparties(me.value))
 /** «Постачання» — прихований розділ без повного доступу; тоді в нижній панелі на його місці «Люди». */
 const canSupply = computed(() => canSeeSupply(me.value))
+/** «Звʼязок»: пункт меню й бейдж непрочитаних (опитування раз на 30 с; на самій сторінці — частіше). */
+const canZv = computed(() => me.value?.zvyazok === true)
+const zvUnread = ref(0)
+let zvTimer: number | undefined
+async function pollZv() {
+    if (!canZv.value || document.hidden) return
+    try {
+        zvUnread.value = (await zvApi.unread()).unread
+    } catch {
+        /* мережа — спробуємо наступного разу */
+    }
+}
+const onZv = computed(() => name.value === 'zvyazok')
 
 const name = computed(() => String(route.name))
 /** Сторінки-вікна (форма, файл) і відкрита праворуч картка — на телефоні на весь екран. */
@@ -64,7 +78,7 @@ const FULLSCREEN = [
     ...WAREHOUSE_FULLSCREEN,
     ...COUNTERPARTY_FULLSCREEN,
 ]
-const SPLIT = ['tasks-board', 'tasks-list', CHRONICLE_ROUTE, SEARCH_ROUTE, 'supply-board', 'admin-join', ...WAREHOUSE_SPLIT, ...COUNTERPARTY_SPLIT]
+const SPLIT = ['zvyazok', 'tasks-board', 'tasks-list', CHRONICLE_ROUTE, SEARCH_ROUTE, 'supply-board', 'admin-join', ...WAREHOUSE_SPLIT, ...COUNTERPARTY_SPLIT]
 /** Сторінки-форми: «N» на них не відкриває ще одну форму. */
 const FORM_ROUTES = ['tasks-new', 'task-edit', 'supply-new', 'staff-new', 'warehouse-item-new', 'warehouse-item-edit', 'warehouse-movement-new', ...COUNTERPARTY_FORMS]
 const fullscreen = computed(() => FULLSCREEN.includes(name.value) || (SPLIT.includes(name.value) && !!route.params.id))
@@ -119,14 +133,19 @@ function onKey(e: KeyboardEvent) {
 const presence = usePresence()
 const section = computed(() => presenceSection(name.value, route.query))
 watch(section, (now) => presence.setSection(now))
+// Зі сторінки «Звʼязку» вийшли — бейдж одразу свіжий.
+watch(onZv, () => void pollZv())
 
 onMounted(() => {
     window.addEventListener('keydown', onKey)
     presence.start(section.value)
+    void pollZv()
+    zvTimer = window.setInterval(() => void pollZv(), 30_000)
 })
 onBeforeUnmount(() => {
     window.removeEventListener('keydown', onKey)
     presence.stop()
+    window.clearInterval(zvTimer)
 })
 </script>
 
@@ -146,6 +165,11 @@ onBeforeUnmount(() => {
             <router-link :to="{ name: 'tasks-board' }" class="p-rail-btn" :class="{ on: onTasks }" title="Задачі">
                 <Icon name="board" />
                 <span>Задачі</span>
+            </router-link>
+            <router-link v-if="canZv" :to="{ name: 'zvyazok' }" class="p-rail-btn" :class="{ on: onZv }" title="Звʼязок" data-testid="rail-zvyazok">
+                <Icon name="chat" />
+                <span>Звʼязок</span>
+                <b v-if="zvUnread" class="p-badge" :aria-label="zvUnread + ' непрочитаних'">{{ zvUnread > 99 ? '99+' : zvUnread }}</b>
             </router-link>
             <router-link v-if="canSupply" :to="{ name: 'supply-board' }" class="p-rail-btn" :class="{ on: onSupply }" title="Постачання">
                 <Icon name="clipboard" />

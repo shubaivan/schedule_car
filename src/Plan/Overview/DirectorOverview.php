@@ -71,7 +71,8 @@ final class DirectorOverview
         $decisions = $this->decisions($me);
         $replies = $this->replies($me);
         $supply = $this->supply($me, $now);
-        $fleet = $this->fleet($now);
+        // Автопарк — прихований розділ без повного доступу (PlanSections).
+        $fleet = $this->access->can($me, PlanCapability::FullAccess) ? $this->fleet($now) : ['enabled' => false];
         $warehouse = $this->warehouse($me);
         $control = $this->control($me);
 

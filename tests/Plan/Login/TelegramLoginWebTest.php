@@ -7,6 +7,7 @@ use App\Enum\AccessStatus;
 use App\Plan\Login\JoinRequests;
 use App\Plan\Login\TelegramLogin;
 use App\Tasks\Enum\WorkRole;
+use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use SergiX44\Nutgram\Nutgram;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -229,7 +230,8 @@ class TelegramLoginWebTest extends WebTestCase
         $user->decideAccess(AccessStatus::Approved, null);
 
         if ($password) {
-            $user->setPassword(self::getContainer()->get(UserPasswordHasherInterface::class)->hashPassword($user, self::PASSWORD));
+            $user->setPassword(self::getContainer()->get(UserPasswordHasherInterface::class)->hashPassword($user, self::PASSWORD))
+                ->setPasswordSetAt(new DateTimeImmutable());
         }
 
         $this->em->persist($user);

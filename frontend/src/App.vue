@@ -63,7 +63,7 @@ watch(
         }
         if (!planHome.value) return
         // Приховані розділи (PlanSections): без повного доступу пряме посилання веде на Огляд.
-        if (!hasFullAccess(session.user) && isHiddenRoute(String(route.name))) {
+        if ((!hasFullAccess(session.user) && isHiddenRoute(String(route.name))) || (route.name === 'zvyazok' && session.user?.zvyazok !== true)) {
             router.replace({ name: 'tasks' })
             return
         }

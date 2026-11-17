@@ -22,6 +22,7 @@ enum PresenceSection: string
     case Fleet = 'fleet';
     case Admin = 'admin';
     case Profile = 'profile';
+    case Zvyazok = 'zvyazok';
     case Other = 'other';
 
     public static function fromClient(mixed $value): self
@@ -45,6 +46,7 @@ enum PresenceSection: string
             self::Fleet => 'Автопарк',
             self::Admin => 'Адмін',
             self::Profile => 'Профіль',
+            self::Zvyazok => 'Звʼязок',
             self::Other => 'План',
         };
     }

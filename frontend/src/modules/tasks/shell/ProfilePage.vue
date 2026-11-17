@@ -96,6 +96,10 @@ const THEMES: { value: Theme; label: string; icon: string }[] = [
                 <Icon name="search" />
                 Пошук
             </router-link>
+            <router-link v-if="session.user?.zvyazok" :to="{ name: 'zvyazok' }" data-testid="more-zvyazok">
+                <Icon name="chat" />
+                Звʼязок
+            </router-link>
             <router-link v-if="canSeeSupply(session.user)" :to="{ name: 'supply-board' }">
                 <Icon name="clipboard" />
                 Постачання

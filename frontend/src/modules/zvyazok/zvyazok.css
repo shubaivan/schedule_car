@@ -1,0 +1,641 @@
+/* «Звʼязок»: список чатів ліворуч, розмова праворуч; прокручується лише стрічка. */
+.zv {
+    display: grid;
+    grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+    height: calc(100dvh - var(--p-top) - 32px);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--p-r-lg);
+    overflow: hidden;
+}
+.zv-list {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-right: 1px solid var(--border);
+}
+.zv-list-head {
+    display: flex;
+    gap: 6px;
+    padding: 10px;
+    border-bottom: 1px solid var(--border);
+}
+.zv-search {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--p-r);
+    background: var(--surface-2);
+    color: var(--text-muted);
+}
+.zv-search input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 14px;
+    padding: 8px 0;
+    color: var(--text);
+    outline: none;
+}
+.zv-new,
+.zv-icon,
+.zv-x,
+.zv-back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    flex: none;
+    border: 1px solid var(--border);
+    border-radius: var(--p-r);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+}
+.zv-x {
+    width: 28px;
+    height: 28px;
+    border: 0;
+}
+.zv-icon.on {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-soft);
+}
+.zv-back {
+    display: none;
+    border: 0;
+}
+.zv-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+}
+.zv-tabs button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: 0;
+    background: none;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font: 600 13px/1 var(--p-font);
+    color: var(--text-muted);
+    cursor: pointer;
+}
+.zv-tabs button.on {
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+.zv-rows,
+.zv-people {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    flex: 1;
+}
+.zv-row {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    color: var(--text);
+    font: inherit;
+}
+.zv-row:hover {
+    background: var(--surface-2);
+}
+.zv-row.on {
+    background: var(--accent-soft);
+}
+.zv-row-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.zv-row-top,
+.zv-row-bottom {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+.zv-row-top b {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 14.5px;
+}
+.zv-row-top time {
+    color: var(--text-muted);
+    font-size: 12px;
+    flex: none;
+}
+.zv-pin {
+    color: var(--text-muted);
+    flex: none;
+}
+.zv-last,
+.zv-draft {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    color: var(--text-muted);
+}
+.zv-draft {
+    color: var(--danger);
+}
+.zv-row.unread .zv-last {
+    color: var(--text);
+}
+.zv-badge,
+.zv-at {
+    flex: none;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 11.5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.zv-at {
+    background: var(--violet);
+}
+.zv-group-ava {
+    width: 40px;
+    height: 40px;
+    flex: none;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--violet-soft);
+    color: var(--violet);
+}
+.zv-group-ava.sm {
+    width: 34px;
+    height: 34px;
+}
+.zv-muted {
+    color: var(--text-muted);
+}
+.zv-empty {
+    padding: 28px 16px;
+    text-align: center;
+    color: var(--text-muted);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+}
+.zv-create {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    min-height: 0;
+    flex: 1;
+}
+.zv-create header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.zv-deps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    font-size: 12.5px;
+    color: var(--text-muted);
+    align-items: center;
+}
+.zv-deps button,
+.zv-add button {
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    border-radius: 999px;
+    padding: 3px 9px;
+    font: 500 12.5px/1.2 var(--p-font);
+    color: var(--text);
+    cursor: pointer;
+}
+.zv-people button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    border: 0;
+    border-radius: var(--p-r);
+    padding: 6px 8px;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    color: var(--text);
+    font: inherit;
+}
+.zv-people button span {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+.zv-people button small {
+    color: var(--text-muted);
+    font-size: 12px;
+}
+.zv-people button:hover,
+.zv-people button.on {
+    background: var(--accent-soft);
+}
+.zv-chat {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    background: var(--t-chat-bg);
+}
+.zv-placeholder {
+    margin: auto;
+    text-align: center;
+    color: var(--text-muted);
+    padding: 24px;
+}
+.zv-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex: none;
+}
+.zv-head-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+.zv-head-main b {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.zv-head-main small {
+    color: var(--text-muted);
+    font-size: 12.5px;
+}
+.zv-head-main a {
+    color: var(--link);
+}
+.zv-link {
+    border: 0;
+    background: none;
+    padding: 0;
+    color: var(--link);
+    font: inherit;
+    cursor: pointer;
+}
+.zv-link.danger {
+    color: var(--danger);
+}
+.zv-members {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 45%;
+    overflow-y: auto;
+    flex: none;
+}
+.zv-members-head,
+.zv-rename {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.zv-members ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.zv-members li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+.zv-members li span {
+    flex: 1;
+}
+.zv-members small {
+    color: var(--text-muted);
+}
+.zv-add {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+.zv-feed {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.zv-older {
+    align-self: center;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-size: 12.5px;
+    cursor: pointer;
+    color: var(--text);
+}
+.zv-start {
+    text-align: center;
+    margin: auto;
+}
+.zv-msg {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    max-width: min(640px, 86%);
+}
+.zv-msg.mine {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+}
+.zv-bubble {
+    background: var(--t-bubble);
+    border-radius: 12px;
+    padding: 6px 10px 4px;
+    box-shadow: var(--t-shadow);
+    min-width: 0;
+    overflow-wrap: anywhere;
+    transition: box-shadow 0.3s;
+}
+.zv-msg.mine .zv-bubble {
+    background: var(--accent-soft);
+}
+.zv-msg.mentioned .zv-bubble {
+    border-left: 3px solid var(--violet);
+}
+.zv-msg.flash .zv-bubble {
+    box-shadow: 0 0 0 3px var(--accent);
+}
+.zv-author {
+    display: block;
+    font-size: 12.5px;
+    color: var(--accent);
+}
+.zv-quote {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: 0;
+    border-left: 3px solid var(--accent);
+    background: rgba(37, 99, 235, 0.07);
+    border-radius: 6px;
+    padding: 3px 8px;
+    margin: 2px 0 4px;
+    font: inherit;
+    font-size: 12.5px;
+    color: var(--text);
+    cursor: pointer;
+}
+.zv-quote b {
+    display: block;
+    color: var(--accent);
+}
+.zv-quote span {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-muted);
+}
+.zv-text {
+    font-size: 14.5px;
+    line-height: 1.4;
+}
+.zv-mention {
+    color: var(--link);
+    font-weight: 600;
+}
+.zv-mention.me {
+    background: var(--violet-soft);
+    color: var(--violet);
+    border-radius: 4px;
+    padding: 0 2px;
+}
+.zv-history {
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px dashed var(--border);
+    font-size: 12.5px;
+    color: var(--text-muted);
+}
+.zv-bubble footer {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+.zv-ticks {
+    font-weight: 700;
+    letter-spacing: -2px;
+}
+.zv-ticks small {
+    letter-spacing: 0;
+    font-weight: 500;
+}
+.zv-ticks.read {
+    color: var(--accent);
+}
+.zv-actions {
+    display: flex;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+.zv-msg:hover .zv-actions,
+.zv-msg:focus-within .zv-actions {
+    opacity: 1;
+}
+.zv-actions button {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    border: 0;
+    background: var(--surface);
+    border-radius: 6px;
+    padding: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+.zv-actions button.danger {
+    color: var(--danger);
+}
+.zv-compose {
+    flex: none;
+    position: relative;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 8px 10px;
+}
+.zv-compose-ctx {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-muted);
+    padding: 0 2px 6px;
+}
+.zv-compose-ctx span {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.zv-compose-ctx b {
+    color: var(--accent);
+    margin-right: 4px;
+}
+.zv-compose-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+}
+.zv-compose textarea {
+    flex: 1;
+    min-width: 0;
+    resize: none;
+    font: inherit;
+    font-size: 15px;
+    line-height: 1.4;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--p-r);
+    background: var(--surface-2);
+    color: var(--text);
+    height: 40px;
+    min-height: 40px;
+    max-height: 180px;
+}
+.zv-send {
+    flex: none;
+    height: 40px;
+    padding: 0 16px;
+    border: 0;
+    border-radius: var(--p-r);
+    background: var(--accent);
+    color: #fff;
+    font: 600 14px/1 var(--p-font);
+    cursor: pointer;
+}
+.zv-send:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+/* Список згадок — над полем, у межах вікна, не перекривається редактором. */
+.zv-mentions {
+    position: absolute;
+    left: 10px;
+    bottom: calc(100% + 4px);
+    z-index: 5;
+    list-style: none;
+    margin: 0;
+    padding: 4px;
+    min-width: 240px;
+    max-width: calc(100% - 20px);
+    max-height: 240px;
+    overflow-y: auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--p-r);
+    box-shadow: var(--t-shadow-lg);
+}
+.zv-mentions li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+}
+.zv-mentions li small {
+    color: var(--text-muted);
+}
+.zv-mentions li.on,
+.zv-mentions li:hover {
+    background: var(--accent-soft);
+}
+
+@media (max-width: 760px) {
+    .zv {
+        grid-template-columns: minmax(0, 1fr);
+        height: calc(100dvh - var(--p-mtop, 52px) - var(--p-tabbar) - 24px);
+        border-radius: var(--p-r);
+    }
+    .zv .zv-chat {
+        display: none;
+    }
+    .zv.zv-open .zv-list {
+        display: none;
+    }
+    .zv.zv-open .zv-chat {
+        display: flex;
+    }
+    .zv.zv-open {
+        height: 100dvh;
+        border: 0;
+        border-radius: 0;
+    }
+    .zv-back {
+        display: inline-flex;
+    }
+    .zv-actions {
+        opacity: 1;
+    }
+    .zv-msg {
+        max-width: 92%;
+    }
+}
