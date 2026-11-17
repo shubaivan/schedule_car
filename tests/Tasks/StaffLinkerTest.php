@@ -48,7 +48,7 @@ class StaffLinkerTest extends KernelTestCase
         $card = self::getContainer()->get(StaffDirectory::class)->create([
             'firstName' => 'Сергій', 'lastName' => 'Гончар', 'position' => 'Начальник цеху',
             'role' => 'production', 'phone' => $phone, 'email' => 'linker' . uniqid() . '@example.test', 'password' => 'secret-pass-1',
-        ], $admin);
+        ], null);
         $this->ids[] = (int) $card->getId();
 
         $task = new Task('Партія ПК', $card);

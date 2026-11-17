@@ -4,7 +4,6 @@ namespace App\Security;
 
 use App\Controller\LoginController;
 use App\Entity\TelegramUser;
-use App\Plan\Telegram\PlanBotMode;
 use App\Repository\TelegramUserRepository;
 use App\Service\CrmLoginLink;
 use Doctrine\ORM\EntityManagerInterface;
@@ -26,8 +25,9 @@ use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
 /**
  * Вхід на «робоче місце» за логіном (email або телефон) і паролем.
  *
- * Вмикається PASSWORD_LOGIN_ENABLED — лише на стендах заявок (робоче місце за компʼютером).
- * На «Плані» (вхід через Telegram) вимкнено завжди: один вхід — Telegram.
+ * Вмикається PASSWORD_LOGIN_ENABLED. На «Плані» (17.11.2026) — поряд із входом через
+ * Telegram, на вибір людини; пароль там задає лише сама людина за посиланням із бота
+ * (PasswordSetup), тож у кого пароля немає — увійти ним не може.
  * Перебір паролів стримує login_throttling у security.yaml (PlanLoginRateLimiter);
  * ключ UserBadge — нормалізований логін (LoginIdentity), тож різні записи одного
  * номера — одна людина і для пошуку, і для лічильника спроб.
@@ -42,16 +42,12 @@ class PasswordLoginAuthenticator extends AbstractAuthenticator
         #[Autowire('%password_login_enabled%')]
         private bool $enabled,
         private PasswordHasherFactoryInterface $hashers,
-        private ?PlanBotMode $planBot = null,
     ) {
     }
 
     public function supports(Request $request): ?bool
     {
-        // «План» (вхід через Telegram увімкнено): єдиний вхід — Telegram, пароль недоступний
-        // з вебу взагалі, навіть якщо PASSWORD_LOGIN_ENABLED лишився в .env.
         return $this->enabled &&
-            ! ($this->planBot?->enabled() ?? false) &&
             $request->isMethod('POST') &&
             $request->attributes->get('_route') === 'app_login_password';
     }
@@ -119,6 +115,6 @@ class PasswordLoginAuthenticator extends AbstractAuthenticator
 
         $tail = LoginIdentity::phoneTail($identifier);
 
-        return $tail !== null ? $this->users->findOneByPhoneTail($tail) : null;
+        return $tail !== null ? $this->users->findSingleLiveByPhoneTail($tail) : null;
     }
 }

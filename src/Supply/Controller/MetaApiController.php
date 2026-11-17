@@ -5,6 +5,7 @@ namespace App\Supply\Controller;
 use App\Entity\TelegramUser;
 use App\Plan\Access\PlanAccess;
 use App\Plan\Access\PlanSections;
+use App\Plan\Login\PasswordSetup;
 use App\Service\FleetSection;
 use App\Service\ShopLink;
 use App\Supply\Enum\SupplyAccent;
@@ -15,6 +16,7 @@ use App\Supply\Service\RequestPresenter;
 use App\Tasks\Service\TasksSection;
 use App\Warehouse\Service\WarehouseSection;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -23,7 +25,7 @@ use Symfony\Component\Routing\Attribute\Route;
 class MetaApiController extends AbstractController
 {
     #[Route('/me', name: 'api_me', methods: ['GET'])]
-    public function me(RequestPresenter $presenter, WarehouseSection $warehouse, ShopLink $shop, TasksSection $tasks, FleetSection $fleet, PlanAccess $access, PlanSections $sections): JsonResponse
+    public function me(RequestPresenter $presenter, WarehouseSection $warehouse, ShopLink $shop, TasksSection $tasks, FleetSection $fleet, PlanAccess $access, PlanSections $sections, #[Autowire('%password_login_enabled%')] bool $passwordLogin = false): JsonResponse
     {
         /** @var TelegramUser $user */
         $user = $this->getUser();
@@ -45,6 +47,9 @@ class MetaApiController extends AbstractController
             'fleet' => $fleet->isEnabled() && $sections->full($user),
             // Повний доступ (PlanSections): без нього — лише Огляд, Хроніка, Задачі, Пошук, Сповіщення, Люди.
             'fullAccess' => $sections->full($user),
+            // Вхід за телефоном і паролем (PasswordSetup): чи задано пароль і чи може бот надіслати посилання.
+            'hasPassword' => $user->getPassword() !== null,
+            'passwordLink' => $passwordLogin && PasswordSetup::eligible($user),
             // Матриця можливостей «Плану» (PlanAccess): що показувати в меню, напр. audit.view → «Адмін».
             'capabilities' => $access->matrix($user),
         ]);

@@ -5,7 +5,6 @@ namespace App\Controller;
 use App\Entity\LoginToken;
 use App\Entity\TelegramUser;
 use App\Plan\Login\TelegramLogin;
-use App\Plan\Telegram\PlanBotMode;
 use App\Warehouse\Service\WarehouseSection;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -36,14 +35,17 @@ class LoginController extends AbstractController
         #[Autowire('%tasks_enabled%')]
         private bool $tasks = false,
         private ?TelegramLogin $telegramLogin = null,
-        private ?PlanBotMode $planBot = null,
     ) {
     }
 
     #[Route('/vhid', name: 'app_login', methods: ['GET'])]
     public function index(Request $request): Response
     {
-        return $this->page($request->query->getBoolean('revoked') ? 'Сесію завершено з Telegram («Це був не я»). Увійдіть знову.' : null, $request->query->getBoolean('out'));
+        return $this->page(
+            $request->query->getBoolean('revoked') ? 'Сесію завершено з Telegram («Це був не я»). Увійдіть знову.' : null,
+            $request->query->getBoolean('out'),
+            notice: $request->query->getBoolean('parol') ? 'password_set' : null,
+        );
     }
 
     /**
@@ -57,7 +59,7 @@ class LoginController extends AbstractController
     }
 
     /** Та сама сторінка з причиною відмови — її малює і TelegramLinkAuthenticator. */
-    public function page(?string $error, bool $loggedOut = false, int $status = Response::HTTP_OK): Response
+    public function page(?string $error, bool $loggedOut = false, int $status = Response::HTTP_OK, ?string $notice = null): Response
     {
         $user = $this->getUser();
 
@@ -70,8 +72,9 @@ class LoginController extends AbstractController
             'warehouse' => $user instanceof TelegramUser && $this->warehouse->inMenuFor($user),
             // «План»: один вхід — «Увійти через Telegram»; форми пароля там немає зовсім.
             'telegram_login' => $this->telegramLogin?->enabled() ?? false,
-            // Пароль вимикає вже сам режим бота «Плану» (навіть якщо ім'я бота забули вказати).
-            'password_login' => $this->passwordLogin && ! ($this->planBot?->enabled() ?? false),
+            // «План»: пароль — другий спосіб поряд із Telegram (PASSWORD_LOGIN_ENABLED).
+            'password_login' => $this->passwordLogin,
+            'password_set' => $notice === 'password_set',
             'tasks' => $this->tasks,
             'last_login' => $this->lastLogin(),
         ], new Response(status: $status));

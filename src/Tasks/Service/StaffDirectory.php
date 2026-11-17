@@ -38,7 +38,27 @@ class StaffDirectory
         private UserPasswordHasherInterface $hasher,
         private LoggerInterface $logger,
         private PlanEventRecorder $events,
+        private ?TasksSection $plan = null,
     ) {
+    }
+
+    /**
+     * «План»: пароль людина ставить сама за посиланням із бота (PasswordSetup) — адмін у
+     * картці його не задає (за паролем завжди той, чий Telegram підтвердив номер).
+     * Консоль ($by = null, plan:user:create) — довірена.
+     *
+     * @param array<string, mixed> $data
+     */
+    private function guardPassword(array $data, ?TelegramUser $by, ?TelegramUser $target = null): void
+    {
+        if ($by !== null && ($data['password'] ?? '') !== '' && ($this->plan?->enabled() ?? false)) {
+            // Чужа захищена картка (суперадмін, колега-адмін) — як і раніше 403, а не підказка.
+            if ($target !== null && ! self::canChange($by, $target, ['password'])) {
+                $this->deny($target, $by, ['password']);
+            }
+
+            throw new TaskException('Пароль людина встановлює сама — за посиланням, яке бот надсилає в її Telegram (/parol).');
+        }
     }
 
     /** Поля, що дають вхід у чужий обліковий запис або права: їх у колеги-адміна змінює лише суперадмін. */
@@ -61,6 +81,8 @@ class StaffDirectory
             ->setTelegramId('staff-' . bin2hex(random_bytes(8)))
             ->setLanguageCode('uk');
         $user->decideAccess(AccessStatus::Approved, $by);
+
+        $this->guardPassword($data, $by);
 
         // Повний доступ при заведенні — лише від суперадміна (або з консолі).
         if ($by !== null && ! $by->isSuperadmin()) {
@@ -99,6 +121,7 @@ class StaffDirectory
     /** @param array<string, mixed> $data $by = null — з консолі (plan:user:create) */
     public function update(TelegramUser $user, array $data, ?TelegramUser $by): TelegramUser
     {
+        $this->guardPassword($data, $by, $user);
         $before = self::snapshot($user);
         $this->apply($user, $data);
         $after = self::snapshot($user);

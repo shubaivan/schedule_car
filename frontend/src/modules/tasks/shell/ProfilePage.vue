@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import Icon from './Icon.vue'
 import Avatar from '../Avatar.vue'
 import { applyTheme, theme, type Theme } from './theme'
@@ -7,6 +7,7 @@ import { useTasks } from '../store'
 import { useSession } from '../../../app/store'
 import { canSeeAdmin, canSeeDrive, canSeeSupply, canSeeWarehouse } from '../../admin/access'
 import { canSeeCounterparties } from '../../counterparties/access'
+import { call } from '../../../app/api'
 
 /** «Я»: хто я в Плані, тема оформлення, інші розділи й вихід. */
 const session = useSession()
@@ -15,6 +16,23 @@ const store = useTasks()
 onMounted(() => store.load().catch((e) => session.handle(e)))
 
 const me = computed(() => store.meta?.me ?? null)
+/**
+ * Пароль для входу за телефоном: його задає лише сама людина — бот надсилає одноразове
+ * посилання в її Telegram (PasswordSetup). Тут — лише попросити це посилання.
+ */
+const pwState = ref<'idle' | 'busy' | 'sent' | 'error'>('idle')
+const pwError = ref('')
+async function passwordLink() {
+    pwState.value = 'busy'
+    try {
+        await call('/api/plan/password/link', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+        pwState.value = 'sent'
+    } catch (e) {
+        pwState.value = 'error'
+        pwError.value = session.handle(e)
+    }
+}
+
 const THEMES: { value: Theme; label: string; icon: string }[] = [
     { value: 'auto', label: 'Як у системі', icon: 'monitor' },
     { value: 'light', label: 'Світла', icon: 'sun' },
@@ -31,6 +49,23 @@ const THEMES: { value: Theme; label: string; icon: string }[] = [
                 <div class="p-muted">{{ me?.position ?? session.user?.workRoleLabel }}</div>
                 <div v-if="me?.department" class="p-dep">[{{ me.department }}]</div>
             </div>
+        </section>
+
+        <section v-if="session.user?.passwordLink" class="p-card" data-testid="profile-password">
+            <h3>Пароль для входу</h3>
+            <p class="p-muted">
+                {{
+                    session.user?.hasPassword
+                        ? 'Пароль задано: можна входити за телефоном і паролем або через Telegram.'
+                        : 'Можна входити не лише через Telegram, а й за телефоном і паролем.'
+                }}
+                Пароль задаєте лише ви — бот надішле посилання у ваш Telegram.
+            </p>
+            <button type="button" class="t-btn" :disabled="pwState === 'busy' || pwState === 'sent'" @click="passwordLink">
+                {{ pwState === 'sent' ? 'Посилання надіслано в Telegram' : session.user?.hasPassword ? 'Змінити пароль' : 'Встановити пароль' }}
+            </button>
+            <p v-if="pwState === 'sent'" class="p-muted">Відкрийте бота Плану в Telegram і натисніть «🔑 …». Посилання діє 30 хвилин.</p>
+            <p v-if="pwState === 'error' && pwError" class="t-error">{{ pwError }}</p>
         </section>
 
         <section class="p-card">

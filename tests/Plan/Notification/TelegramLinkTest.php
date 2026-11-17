@@ -3,6 +3,8 @@
 namespace App\Tests\Plan\Notification;
 
 use App\Entity\TelegramUser;
+use App\Plan\EventStore\PlanEventRecorder;
+use App\Plan\Login\PasswordSetup;
 use App\Plan\Login\PlanLoginBot;
 use App\Plan\Notification\NotificationPreferences;
 use App\Plan\Telegram\LinkResult;
@@ -10,17 +12,21 @@ use App\Plan\Telegram\PlanBot;
 use App\Plan\Telegram\PlanBotFallback;
 use App\Plan\Telegram\PlanBotMode;
 use App\Plan\Telegram\TelegramLink;
+use App\Repository\TelegramUserRepository;
 use App\Service\TelegramUserService;
 use App\Tasks\Enum\WorkRole;
 use App\Tasks\Service\TaskNotifier;
 use DateTimeImmutable;
+use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Properties\ChatType;
 use SergiX44\Nutgram\Telegram\Types\Chat\Chat;
 use SergiX44\Nutgram\Telegram\Types\User\User;
 use SergiX44\Nutgram\Testing\FakeNutgram;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
  * Прив'язка бота Плану з профілю: одноразовий токен → /start plink_… → людині
@@ -144,6 +150,21 @@ class TelegramLinkTest extends KernelTestCase
         $start = $this->lastText($bot);
         self::assertStringContainsString('Увійти в План', $start);
         self::assertStringNotContainsString('Постачання', $start, 'Меню заявок у боті Плану немає');
+        self::assertStringContainsString('/parol', $start);
+
+        // /parol — посилання на пароль приходить у Telegram цієї ж людини (PasswordSetup).
+        $sink = Nutgram::fake();
+        $c = self::getContainer();
+        $passwords = new PasswordSetup($c->get(EntityManagerInterface::class), $c->get(TelegramUserRepository::class), $c->get(UserPasswordHasherInterface::class), $c->get(PlanEventRecorder::class), $sink, $c->get(LoggerInterface::class), 'https://plan.test', true);
+        $bot = $this->bot($users, passwords: $passwords);
+        $bot->hearText('/parol')->reply();
+        $history = $sink->getRequestHistory();
+        [$request] = array_values(end($history));
+        $data = FakeNutgram::getActualData($request);
+        self::assertSame('700100400', (string) $data['chat_id']);
+        self::assertStringContainsString('Пароль для входу в План', (string) $data['text']);
+        self::assertStringContainsString('https:\\/\\/plan.test\\/vhid\\/parol\\/', (string) json_encode($data['reply_markup'] ?? ''), 'кнопка «Встановити пароль» з посиланням');
+        self::getContainer()->get(Connection::class)->executeStatement('DELETE FROM plan_password_token WHERE user_id = ?', [$user->getId()]);
     }
 
     public function testStrangerGetsLoginInstructionsAndShareContactButton(): void
@@ -160,12 +181,12 @@ class TelegramLinkTest extends KernelTestCase
         self::assertStringContainsString('request_contact', json_encode(FakeNutgram::getActualData($request)) ?: '', 'Кнопка «Поділитися номером»');
     }
 
-    private function bot(TelegramUserService $users, int $id = 700100400): FakeNutgram
+    private function bot(TelegramUserService $users, int $id = 700100400, ?PasswordSetup $passwords = null): FakeNutgram
     {
         $bot = Nutgram::fake();
         $bot->setCommonUser(User::make($id, false, 'Ivan'));
         $bot->setCommonChat(Chat::make($id, ChatType::PRIVATE));
-        $bot->middleware(new PlanBot(new PlanBotMode(true), $this->link, $users, self::getContainer()->get(NotificationPreferences::class), self::getContainer()->get(PlanLoginBot::class), 'https://plan.test'));
+        $bot->middleware(new PlanBot(new PlanBotMode(true), $this->link, $users, self::getContainer()->get(NotificationPreferences::class), self::getContainer()->get(PlanLoginBot::class), 'https://plan.test', $passwords));
         $bot->onCommand('start {payload}', new PlanBotFallback());
         $bot->onCommand('start', new PlanBotFallback());
         $bot->fallback(new PlanBotFallback());

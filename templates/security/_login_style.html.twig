@@ -1,0 +1,76 @@
+<style>
+  :root {
+    --bg: #EBEBE5; --surface: #FFFFFF; --surface-2: #F5F5F0; --ink: #1A1C19; --muted: #5D615A;
+    --rule: #DEDFD7; --mark: #E4B106; --mark-ink: #1A1C19; --alert: #9E3521; --ok: #2F6B3A; --tg: #2AABEE;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #131511; --surface: #1C1F1A; --surface-2: #232720; --ink: #E8E9E1; --muted: #9BA093;
+      --rule: #2A2E26; --mark: #E4B106; --mark-ink: #131511; --alert: #E08061; --ok: #7FC48A;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    padding: 16px; background: var(--bg); color: var(--ink);
+    font: 16px/1.5 "Segoe UI", Roboto, -apple-system, Arial, sans-serif;
+  }
+  .card {
+    width: 100%; max-width: 26rem; background: var(--surface); border: 1px solid var(--rule);
+    border-radius: 14px; padding: 28px 24px; box-shadow: 0 10px 30px rgba(0,0,0,.06);
+  }
+  .brand { text-align: center; margin-bottom: 20px; }
+  .brand .logo { font-size: 44px; line-height: 1; }
+  .brand h1 { font-size: 20px; margin: 10px 0 2px; }
+  .brand .sub { color: var(--muted); font-size: 14px; }
+  .note { border-radius: 8px; padding: 10px 12px; font-size: 14px; margin-bottom: 16px; border: 1px solid; }
+  .note.error { color: var(--alert); border-color: var(--alert); }
+  .note.info { color: var(--ok); border-color: var(--ok); }
+  .btn {
+    display: block; width: 100%; text-align: center; text-decoration: none; font-weight: 600;
+    padding: 13px 16px; border-radius: 10px; font-size: 16px; border: 1px solid transparent; font-family: inherit; cursor: pointer;
+  }
+  .btn.tg { background: var(--tg); color: #fff; }
+  .btn.primary { background: var(--mark); color: var(--mark-ink); }
+  .btn.ghost { background: var(--surface-2); color: var(--ink); border-color: var(--rule); margin-top: 8px; }
+  ol { margin: 20px 0 0; padding: 0; list-style: none; counter-reset: step; }
+  ol li { counter-increment: step; position: relative; padding: 0 0 12px 38px; color: var(--muted); font-size: 15px; }
+  ol li::before {
+    content: counter(step); position: absolute; left: 0; top: 0; width: 26px; height: 26px; border-radius: 50%;
+    background: var(--surface-2); border: 1px solid var(--rule); color: var(--ink);
+    font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+  }
+  ol b { color: var(--ink); font-weight: 600; }
+  .foot { margin-top: 12px; padding-top: 14px; border-top: 1px solid var(--rule); color: var(--muted); font-size: 13px; text-align: center; }
+  .foot a { color: inherit; }
+  form.pw { display: flex; flex-direction: column; gap: 10px; }
+  form.pw label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; color: var(--muted); }
+  form.pw input { font: inherit; font-size: 16px; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--rule); background: var(--surface-2); color: var(--ink); }
+  form.pw input:focus { outline: 2px solid var(--mark); border-color: var(--mark); }
+  .or { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; margin: 18px 0 14px; }
+  .or::before, .or::after { content: ''; flex: 1; height: 1px; background: var(--rule); }
+  .tg-block { display: flex; flex-direction: column; gap: 12px; }
+  .btn.tg.big { font-size: 18px; padding: 16px; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .btn.tg.big svg { width: 24px; height: 24px; flex: none; }
+  .btn[aria-disabled="true"] { opacity: .65; pointer-events: none; }
+  .tg-wait { display: none; text-align: center; }
+  .tg-wait.on { display: block; }
+  .tg-code { font-size: 30px; font-weight: 700; letter-spacing: .3em; margin: 4px 0 2px; font-variant-numeric: tabular-nums; }
+  .tg-hint { color: var(--muted); font-size: 14px; }
+  .tg-spin { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--rule); border-top-color: var(--tg); border-radius: 50%; animation: tg-spin 1s linear infinite; vertical-align: -2px; margin-right: 6px; }
+  @keyframes tg-spin { to { transform: rotate(360deg); } }
+  .tg-qr { display: none; margin: 14px auto 0; width: 180px; height: 180px; background: #fff; border-radius: 10px; padding: 6px; }
+  @media (min-width: 720px) and (hover: hover) { .tg-qr.ready { display: block; } }
+  .desk-only { display: none; }
+  @media (min-width: 720px) and (hover: hover) { .desk-only { display: inline; } }
+  .tg-msg { display: none; }
+  .tg-msg.on { display: block; }
+  .pw-alt { margin-top: 4px; }
+  .pw-alt summary { list-style: none; cursor: pointer; text-align: center; color: var(--muted); font-size: 15px; padding: 10px; border-radius: 10px; border: 1px solid var(--rule); background: var(--surface-2); }
+  .pw-alt summary::-webkit-details-marker { display: none; }
+  .pw-alt[open] summary { margin-bottom: 12px; }
+  .small-links { text-align: center; margin-top: 10px; font-size: 14px; }
+  .small-links a { color: var(--muted); }
+  .rules { color: var(--muted); font-size: 13px; margin: 0; padding-left: 18px; }
+  .link-btn { background: none; border: 0; color: var(--muted); text-decoration: underline; font: inherit; font-size: 14px; cursor: pointer; padding: 6px; }
+</style>

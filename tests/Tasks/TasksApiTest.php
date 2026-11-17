@@ -387,11 +387,14 @@ class TasksApiTest extends WebTestCase
         $this->send('POST', '/api/staff/' . $colleague->getId() . '/trash', []);
         self::assertResponseStatusCodeSame(403);
 
-        // Звичайна людина й сам собі — як і раніше.
-        $this->send('PATCH', '/api/staff/' . $worker->getId(), ['password' => 'new-password-1', 'role' => 'manager']);
+        // Звичайна людина: роль — так; пароль у «Плані» адмін не задає нікому, і собі теж —
+        // лише сама людина за посиланням із бота (PasswordSetup, 17.11.2026).
+        $this->send('PATCH', '/api/staff/' . $worker->getId(), ['role' => 'manager']);
         self::assertResponseIsSuccessful();
-        $this->send('PATCH', '/api/staff/' . $admin->getId(), ['password' => 'my-new-password-1']);
-        self::assertResponseIsSuccessful();
+        foreach ([$worker, $admin] as $target) {
+            $this->send('PATCH', '/api/staff/' . $target->getId(), ['password' => 'new-password-1']);
+            self::assertResponseStatusCodeSame(422);
+        }
 
         $this->em->clear();
         $hasher = self::getContainer()->get(UserPasswordHasherInterface::class);
@@ -405,16 +408,18 @@ class TasksApiTest extends WebTestCase
         // Суперадмін може все, а кожна зміна — у журналі аудиту, без значень пароля.
         $this->login($this->em->find(TelegramUser::class, $boss->getId()));
         $this->send('PATCH', '/api/staff/' . $colleague->getId(), ['password' => 'reset-by-boss-1', 'role' => 'director']);
+        self::assertResponseStatusCodeSame(422, 'пароль — лише сама людина, навіть не суперадмін');
+        $this->send('PATCH', '/api/staff/' . $colleague->getId(), ['role' => 'director']);
         self::assertResponseIsSuccessful();
 
         $rows = $this->em->getConnection()->fetchAllAssociative(
             "SELECT subject_id, actor_id, payload FROM plan_event WHERE type = 'staff_changed' AND subject_id IN (?, ?) ORDER BY id",
             [$worker->getId(), $colleague->getId()],
         );
-        self::assertCount(3, $rows, 'посада колеги, пароль+роль людини, пароль+роль колеги від суперадміна');
+        self::assertCount(3, $rows, 'посада колеги, роль людини, роль колеги від суперадміна');
         $last = json_decode($rows[2]['payload'], true);
         self::assertSame($boss->getId(), (int) $rows[2]['actor_id']);
-        self::assertSame(['role', 'password'], $last['fields']);
+        self::assertSame(['role'], $last['fields']);
         self::assertSame(['admin', 'director'], [$last['roleFrom'], $last['roleTo']]);
         self::assertStringNotContainsString('reset-by-boss', $rows[2]['payload']);
         $worker = json_decode($rows[1]['payload'], true);

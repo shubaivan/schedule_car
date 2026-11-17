@@ -71,8 +71,12 @@ class TelegramLoginWebTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('#tg-go', 'Увійти через Telegram');
         self::assertNotEmpty($crawler->filter('#tg-login')->attr('data-csrf'));
-        self::assertCount(0, $crawler->filter('form.pw, input[type=password]'), 'Пароля на «Плані» немає зовсім');
         self::assertCount(1, $crawler->filter('script[src^="/plan-login.js"]'));
+        // 17.11: пароль — другий спосіб, згорнутий під Telegram; «Забули пароль?» веде на /vhid/parol.
+        self::assertCount(1, $crawler->filter('details.pw-alt form.pw input[type=password]'));
+        self::assertCount(1, $crawler->filter('a[href="/vhid/parol"]'));
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertLessThan(strpos($html, 'class="pw-alt"'), strpos($html, 'id="tg-go"'), 'Telegram — першим, рекомендований');
     }
 
     public function testStartNeedsCsrfAndTheConfirmedAttemptLogsInOnlyThisSession(): void
@@ -159,13 +163,20 @@ class TelegramLoginWebTest extends WebTestCase
         self::assertResponseStatusCodeSame(422, 'Двічі не вирішити');
     }
 
-    public function testPasswordIsUnreachableEvenForSuperadmins(): void
+    /** Телефон + пароль працює поряд із Telegram, і для звичайної людини, і для суперадміна. */
+    public function testPasswordLoginWorksAlongsideTelegram(): void
     {
-        $super = $this->staff(telegramId: '700400407', superadmin: true, password: true);
-        $this->client->request('POST', '/vhid', ['login' => $super->getEmail(), 'password' => self::PASSWORD, '_csrf_token' => 'x']);
-        self::assertResponseIsSuccessful('Просто сторінка входу — автентифікатор пароля вимкнено');
+        $user = $this->staff(telegramId: '700400407', password: true);
+        $user->setPhoneNumber('380' . random_int(500000000, 999999999));
+        $this->em->flush();
+
+        $crawler = $this->client->request('GET', '/vhid');
+        $token = (string) $crawler->filter('details.pw-alt input[name=_csrf_token]')->attr('value');
+        $this->client->request('POST', '/vhid', ['login' => '0' . substr((string) $user->getPhoneNumber(), 3), 'password' => self::PASSWORD, '_csrf_token' => $token]);
+        self::assertResponseRedirects();
         $this->client->request('GET', '/api/me');
-        self::assertResponseStatusCodeSame(401);
+        self::assertResponseIsSuccessful();
+        self::assertSame($user->getId(), json_decode((string) $this->client->getResponse()->getContent(), true)['id']);
     }
 
     /** @return array{url: string, code: string, qr: string} */

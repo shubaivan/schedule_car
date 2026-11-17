@@ -83,6 +83,30 @@ class TelegramUserRepository extends ServiceEntityRepository
     }
 
     /**
+     * Єдина жива (не в кошику) підтверджена картка з цим хвостом номера; кілька — null
+     * (вхід за паролем і «Забули пароль?» не вгадують між двійниками, а архівні
+     * заглушки після прив'язки Telegram не затуляють живу картку).
+     */
+    public function findSingleLiveByPhoneTail(string $tail): ?TelegramUser
+    {
+        if (strlen($tail) !== 9 || ! ctype_digit($tail)) {
+            return null;
+        }
+
+        /** @var list<TelegramUser> $rows */
+        $rows = $this->createQueryBuilder('tu')
+            ->where('tu.phone_number LIKE :tail')
+            ->andWhere('tu.archivedAt IS NULL')
+            ->setParameter('tail', '%' . $tail)
+            ->setMaxResults(3)
+            ->getQuery()
+            ->getResult();
+        $rows = array_values(array_filter($rows, static fn (TelegramUser $u) => $u->isApproved()));
+
+        return count($rows) === 1 ? $rows[0] : null;
+    }
+
+    /**
      * Інша жива (не в кошику) картка з тим самим хвостом номера — для перевірки дублів.
      */
     public function findLiveTwinByPhoneTail(string $tail, int $exceptId): ?TelegramUser

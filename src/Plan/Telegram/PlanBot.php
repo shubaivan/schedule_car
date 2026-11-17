@@ -3,6 +3,7 @@
 namespace App\Plan\Telegram;
 
 use App\Entity\TelegramUser;
+use App\Plan\Login\PasswordSetup;
 use App\Plan\Login\PlanLoginBot;
 use App\Plan\Login\TelegramLogin;
 use App\Plan\Notification\NotificationPreferences;
@@ -17,7 +18,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  * інакше — прозорий, стенди заявок працюють як раніше.
  *
  * Команди: /start (і /start plink_<токен> — прив'язка з профілю, /start login_<nonce> —
- * вхід через Telegram), /mute (вимкнути/увімкнути сповіщення в Telegram), /help.
+ * вхід через Telegram), /parol (посилання на пароль, PasswordSetup), /mute (вимкнути/увімкнути сповіщення в Telegram), /help.
  * Вхід, контакт і заявки на приєднання веде PlanLoginBot.
  */
 final class PlanBot
@@ -25,6 +26,7 @@ final class PlanBot
     /** Меню команд бота Плану (bot:menu). */
     public const array COMMANDS = [
         'start' => 'Що вміє бот і посилання на План',
+        'parol' => 'Пароль для входу за телефоном: встановити або змінити',
         'mute' => 'Вимкнути / увімкнути сповіщення в Telegram',
         'help' => 'Довідка',
     ];
@@ -37,6 +39,7 @@ final class PlanBot
         private readonly PlanLoginBot $login,
         #[Autowire('%env(APP_BASE_URL)%')]
         private readonly string $baseUrl = 'http://localhost',
+        private readonly ?PasswordSetup $passwords = null,
     ) {
     }
 
@@ -72,12 +75,17 @@ final class PlanBot
             $this->login->start($bot, $user, $m[1]);
         } elseif (preg_match('~^/start(?:@\w+)?\s+' . TelegramLink::PREFIX . '([A-Za-z0-9]+)$~', $text, $m) === 1) {
             $this->linkFrom($bot, $m[1]);
+        } elseif (preg_match('~^/(?:parol|password)(?:@\w+)?$~', $text) === 1 && $linked && ($this->passwords?->enabled() ?? false)) {
+            // Посилання на пароль — лише людині, чий Telegram уже прив'язаний до картки.
+            if (! $this->passwords->sendLink($user, 'Ви попросили посилання в боті Плану.')) {
+                $this->say($bot, 'Не вдалося підготувати посилання. Спробуйте ще раз за хвилину або зверніться до адміністратора.');
+            }
         } elseif (preg_match('~^/mute(?:@\w+)?$~', $text) === 1 && $linked) {
             $this->toggleMute($bot, $user);
         } elseif (preg_match('~^/start(?:@\w+)?$~', $text) === 1 && $linked) {
             // Знайома людина: одна кнопка «Увійти в План» — одноразовий вхід просто з бота.
             $bot->sendMessage(
-                text: sprintf("👋 %s, натисніть «Увійти в План» — відкриється План, уже з входом.\n\nСюди ж приходять сповіщення: нові задачі й заявки, коментарі, погодження.\n/mute — вимкнути або ввімкнути сповіщення\n/help — довідка", htmlspecialchars($user->shortName())),
+                text: sprintf("👋 %s, натисніть «Увійти в План» — відкриється План, уже з входом.\n\nСюди ж приходять сповіщення: нові задачі й заявки, коментарі, погодження.\n/parol — пароль для входу за телефоном\n/mute — вимкнути або ввімкнути сповіщення\n/help — довідка", htmlspecialchars($user->shortName())),
                 parse_mode: ParseMode::HTML,
                 reply_markup: $this->login->loginButton($user),
             );
