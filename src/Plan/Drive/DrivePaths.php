@@ -88,7 +88,17 @@ final readonly class DrivePaths
     /** «акт.pdf» → «2026-11-17 акт.pdf»: дата завантаження (київська) спереду. */
     public static function dated(DateTimeInterface $uploaded, string $name): string
     {
-        return self::safe($uploaded->format('Y-m-d') . ' ' . $name);
+        $full = $uploaded->format('Y-m-d') . ' ' . trim($name);
+        $extension = pathinfo($full, PATHINFO_EXTENSION);
+
+        // Задовга назва: обрізаємо основу, а розширення лишаємо — інакше на Диску «….pd» без типу.
+        if (mb_strlen($full) > 120 && $extension !== '' && mb_strlen($extension) <= 10) {
+            $base = mb_substr($full, 0, mb_strlen($full) - mb_strlen($extension) - 1);
+
+            return self::safe(mb_substr($base, 0, 119 - mb_strlen($extension)) . '.' . $extension);
+        }
+
+        return self::safe($full);
     }
 
     /** «акт.pdf» → «акт (17).pdf», коли в теці вже є файл із тим самим ім'ям. */

@@ -269,6 +269,9 @@ class DriveSyncTest extends KernelTestCase
         self::assertSame('2026-11-15 акт.pdf', DrivePaths::dated($at, 'акт.pdf'));
         self::assertSame('2026-11-15 акт-1.pdf', DrivePaths::dated($at, ' акт/1.pdf '));
         self::assertSame(120, mb_strlen(DrivePaths::dated($at, str_repeat('я', 300))));
+        $long = DrivePaths::dated($at, str_repeat('я', 300) . '.pdf');
+        self::assertSame(120, mb_strlen($long));
+        self::assertStringEndsWith('я.pdf', $long, 'розширення не обрізається');
         self::assertSame(['План', '2026', 'Склад', 'Клієнти', 'ТОВ А-Б'], $paths->warehouse($at, ['Клієнти', 'ТОВ А/Б']));
         self::assertSame(['План', '2026', 'Ліди', '2026-11-15 Олег'], $paths->lead($at, 'Олег'));
         self::assertSame('акт (7).pdf', DrivePaths::withId('акт.pdf', 7));
