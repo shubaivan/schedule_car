@@ -132,6 +132,13 @@ class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface,
     #[ORM\Column(name: 'password_set_at', type: Types::DATETIME_IMMUTABLE, nullable: true)]
     private ?DateTimeImmutable $passwordSetAt = null;
 
+    /**
+     * «Покоління» входів: +1 — усі сесії й запам'ятовані входи (remember-me, 30 днів) людини
+     * на всіх пристроях завершуються («Це був не я» в боті). Див. getRememberMeStamp().
+     */
+    #[ORM\Column(name: 'session_epoch', type: Types::INTEGER, options: ['default' => 0])]
+    private int $sessionEpoch = 0;
+
     public function __construct()
     {
         $this->scheduledSet = new ArrayCollection();
@@ -467,6 +474,27 @@ class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface,
         return $this->getWorkRole()->managesStaff() || $this->superadmin;
     }
 
+    public function getSessionEpoch(): int
+    {
+        return $this->sessionEpoch;
+    }
+
+    public function bumpSessionEpoch(): static
+    {
+        ++$this->sessionEpoch;
+
+        return $this;
+    }
+
+    /**
+     * Підпис запам'ятованого входу (security.yaml → remember_me.signature_properties разом із
+     * паролем): зміниться покоління, кошик чи допуск — кука на 30 днів перестає діяти.
+     */
+    public function getRememberMeStamp(): string
+    {
+        return $this->sessionEpoch . '|' . ($this->isArchived() ? 'a' : '-') . '|' . ($this->isApproved() ? 'y' : 'n');
+    }
+
     public function getPasswordSetAt(): ?DateTimeImmutable
     {
         return $this->passwordSetAt;
@@ -514,6 +542,8 @@ class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface,
         return $user instanceof self &&
             $user->getId() === $this->id &&
             $user->getPassword() === $this->password &&
+            // «Це був не я» (session_epoch) завершує й уже відкриті сесії на всіх пристроях.
+            $user->getSessionEpoch() === $this->sessionEpoch &&
             $user->isArchived() === $this->isArchived() &&
             $user->getRoles() === $this->getRoles();
     }

@@ -18,6 +18,7 @@ use Symfony\Component\Security\Core\Exception\TooManyLoginAttemptsAuthentication
 use Symfony\Component\Security\Csrf\CsrfToken;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use Symfony\Component\Security\Http\Authenticator\AbstractAuthenticator;
+use Symfony\Component\Security\Http\Authenticator\Passport\Badge\RememberMeBadge;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
 use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
 use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPassport;
@@ -64,6 +65,8 @@ final class TelegramLoginAuthenticator extends AbstractAuthenticator
 
         return new SelfValidatingPassport(
             new UserBadge($user->getUserIdentifier(), static fn () => $user),
+            // Запам'ятати вхід на 30 днів (security.yaml → remember_me).
+            [new RememberMeBadge()],
         );
     }
 

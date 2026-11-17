@@ -20,6 +20,7 @@ use Symfony\Component\Security\Core\Exception\CustomUserMessageAuthenticationExc
 use Symfony\Component\Security\Core\Exception\TooManyLoginAttemptsAuthenticationException;
 use Symfony\Component\Security\Http\Authenticator\AbstractAuthenticator;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\CsrfTokenBadge;
+use Symfony\Component\Security\Http\Authenticator\Passport\Badge\RememberMeBadge;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
 use Symfony\Component\Security\Http\Authenticator\Passport\Credentials\PasswordCredentials;
 use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
@@ -89,7 +90,7 @@ class PasswordLoginAuthenticator extends AbstractAuthenticator
                 return $user;
             }),
             new PasswordCredentials($password),
-            [new CsrfTokenBadge('login', (string) $request->request->get('_csrf_token'))],
+            [new CsrfTokenBadge('login', (string) $request->request->get('_csrf_token')), new RememberMeBadge()],
         );
     }
 

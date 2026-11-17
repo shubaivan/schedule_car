@@ -1,8 +1,8 @@
 security:
     # Основний вхід у CRM — через Telegram-бота: на «Плані» кнопка «Увійти через Telegram»
     # (TelegramLoginAuthenticator), на стендах заявок — одноразове посилання з бота.
-    # На стендах заявок, де ввімкнено PASSWORD_LOGIN_ENABLED, поруч є вхід за паролем;
-    # на «Плані» пароля немає зовсім (PasswordLoginAuthenticator вимикається).
+    # Поруч — вхід за паролем (PASSWORD_LOGIN_ENABLED); на «Плані» лише паролем, який людина
+    # задала сама за посиланням із бота (PasswordSetup). Вхід тримається 30 днів (remember_me).
     password_hashers:
         App\Entity\TelegramUser: auto
 
@@ -35,9 +35,22 @@ security:
             login_throttling:
                 limiter: App\Security\PlanLoginRateLimiter
             entry_point: App\Security\LoginEntryPoint
+            # Вхід (Telegram чи пароль) тримається 30 днів на пристрої (Олександр 17.11: сесія
+            # PHP згасала за ~24 хв простою). Кука з підписом: зміна пароля, «Це був не я»
+            # (session_epoch), кошик чи допуск — і кука недійсна. «Вийти» її стирає.
+            remember_me:
+                secret: '%kernel.secret%'
+                lifetime: 2592000
+                path: /
+                always_remember_me: true
+                httponly: true
+                secure: auto
+                samesite: lax
+                signature_properties: ['password', 'rememberMeStamp']
             logout:
                 path: crm_logout
                 target: /vhid?out=1
+                delete_cookies: ['REMEMBERME']
 
     # Тільки перший збіг спрацьовує, тож /crm/auth має бути вище за /crm.
     # Вебхук бота (/hook) навмисно не в списку — він публічний.

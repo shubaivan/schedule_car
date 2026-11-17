@@ -215,7 +215,18 @@ final class TelegramLogin
             [$nonceId, $telegramId],
         );
 
-        return $id !== false && $id !== null ? $this->refreshed((int) $id) : null;
+        if ($id === false || $id === null) {
+            return null;
+        }
+
+        // Відкликано вже використаний вхід: завершуємо всі сесії й запам'ятовані входи людини
+        // (кука на 30 днів інакше відновила б вхід після завершення сесії).
+        $this->em->getConnection()->executeStatement(
+            "UPDATE telegram_user SET session_epoch = session_epoch + 1 WHERE id = (SELECT user_id FROM plan_login_nonce WHERE id = ? AND status = 'revoked')",
+            [(int) $id],
+        );
+
+        return $this->refreshed((int) $id);
     }
 
     public function isRevoked(int $nonceId): bool
