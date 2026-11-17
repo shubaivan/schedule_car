@@ -60,6 +60,8 @@ class PlanFiles
             FileType::Task => $this->task($id),
             FileType::Supply => $this->supply($id),
             FileType::Warehouse => $this->document($id),
+            // Файли «Звʼязку» віддає лише сам «Звʼязок» учасникам чату — не через /crm/files і не посиланням.
+            FileType::Zvyazok => null,
         };
     }
 

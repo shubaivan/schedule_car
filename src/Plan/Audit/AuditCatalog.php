@@ -99,6 +99,7 @@ final class AuditCatalog
         SubjectType::Lead->value => 'Лід',
         SubjectType::User->value => 'Людина',
         SubjectType::Counterparty->value => 'Контрагент',
+        SubjectType::Chat->value => 'Звʼязок · чат',
     ];
 
     /**

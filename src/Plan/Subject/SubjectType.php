@@ -22,6 +22,8 @@ enum SubjectType: string
     case Lead = 'lead';
     case User = 'user';
     case Counterparty = 'counterparty';
+    /** Чат «Звʼязку» — лише для службових подій (Диск); у Хроніку, пошук і сповіщення не йде. */
+    case Chat = 'chat';
 
     /** Тип складу з журналу wh_activity (item, movement, client, site, category). */
     public static function fromWarehouse(string $type): self

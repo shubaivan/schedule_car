@@ -5,9 +5,12 @@ namespace App\Plan\Zvyazok;
 use App\Entity\TelegramUser;
 use JsonException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
@@ -23,7 +26,8 @@ use Symfony\Component\Routing\Attribute\Route;
  *   POST   /api/plan/zvyazok/chats/{id}/flag         {pinned|archived: bool} — особисто
  *   POST   /api/plan/zvyazok/chats/{id}/leave
  *   GET    /api/plan/zvyazok/chats/{id}/messages?before=|after=
- *   POST   /api/plan/zvyazok/chats/{id}/messages     {text, replyTo?, mentions?}
+ *   POST   /api/plan/zvyazok/chats/{id}/messages     {text, replyTo?, mentions?} JSON або multipart з files[] (до 10, по 20 МБ)
+ *   GET    /api/plan/zvyazok/files/{id}/thumb|inline|download   файл — лише учасникам чату
  *   POST   /api/plan/zvyazok/chats/{id}/read         {messageId}
  *   PATCH  /api/plan/zvyazok/messages/{id}           {text} — автор
  *   DELETE /api/plan/zvyazok/messages/{id}           для всіх — автор
@@ -32,9 +36,13 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/api/plan/zvyazok')]
 final class ZvyazokApiController extends AbstractController
 {
+    /** Що безпечно показати в браузері «як є»; решта — лише скачуванням. */
+    private const array INLINE_SAFE = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
     public function __construct(
         private readonly ZvyazokService $service,
         private readonly ZvyazokAccess $access,
+        private readonly ZvyazokFiles $files,
     ) {
     }
 
@@ -128,6 +136,26 @@ final class ZvyazokApiController extends AbstractController
     #[Route('/chats/{id}/messages', name: 'api_plan_zv_post', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function post(Request $request, int $id): JsonResponse
     {
+        // З файлами — multipart (FormData): text, replyTo, mentions[] і files[].
+        if ($request->getContentTypeFormat() === 'form') {
+            return $this->run($request, function (TelegramUser $me) use ($request, $id): array {
+                $files = array_values(array_filter(
+                    (array) ($request->files->all()['files'] ?? []),
+                    static fn (mixed $f) => $f instanceof UploadedFile,
+                ));
+                $replyTo = $request->request->get('replyTo');
+
+                return $this->service->post(
+                    $me,
+                    $id,
+                    (string) $request->request->get('text', ''),
+                    is_numeric($replyTo) ? (int) $replyTo : null,
+                    self::ids($request->request->all()['mentions'] ?? []),
+                    $files,
+                );
+            }, multipart: true, created: true);
+        }
+
         return $this->run($request, fn (TelegramUser $me, array $data) => $this->service->post(
             $me,
             $id,
@@ -165,8 +193,58 @@ final class ZvyazokApiController extends AbstractController
         return $this->run($request, fn (TelegramUser $me) => ['items' => $this->service->history($me, $id)]);
     }
 
+    #[Route('/files/{id}/{variant}', name: 'api_plan_zv_file', requirements: ['id' => '\d+', 'variant' => 'thumb|inline|download'], methods: ['GET'])]
+    public function attachment(int $id, string $variant): Response
+    {
+        $me = $this->getUser();
+
+        if (! $me instanceof TelegramUser || ! $this->access->can($me)) {
+            return new JsonResponse(['error' => 'Не знайдено.'], Response::HTTP_NOT_FOUND);
+        }
+
+        try {
+            $file = $this->service->file($me, $id);
+        } catch (ZvyazokException $e) {
+            return new JsonResponse(['error' => $e->getMessage()], $e->status());
+        }
+
+        if ($variant === 'thumb') {
+            $path = $this->files->thumbPath($id);
+            $mime = 'image/jpeg';
+        } else {
+            $path = $this->files->path((string) $file['path']);
+            $mime = (string) $file['mime'];
+        }
+
+        if (! is_file($path)) {
+            return new JsonResponse(['error' => 'Файл не знайдено.'], Response::HTTP_NOT_FOUND);
+        }
+
+        $response = new BinaryFileResponse($path, 200, ['Content-Type' => $mime]);
+        $response->headers->set('X-Content-Type-Options', 'nosniff');
+        $response->setPrivate();
+
+        if ($variant === 'thumb') {
+            $response->setMaxAge(86400 * 30);
+            $response->setEtag((string) $file['sha256'] . '-thumb');
+
+            return $response;
+        }
+
+        // У браузері «як є» — лише фото й PDF; офісні документи — скачуванням.
+        $inline = $variant === 'inline' && in_array($mime, self::INLINE_SAFE, true);
+        $name = (string) $file['original_name'];
+        $response->setContentDisposition(
+            $inline ? ResponseHeaderBag::DISPOSITION_INLINE : ResponseHeaderBag::DISPOSITION_ATTACHMENT,
+            $name,
+            'file-' . $id . '.' . (pathinfo($name, PATHINFO_EXTENSION) ?: 'bin'),
+        );
+
+        return $response;
+    }
+
     /** @param callable(TelegramUser, array<string, mixed>): array<string, mixed> $work */
-    private function run(Request $request, callable $work, bool $write = false, bool $created = false): JsonResponse
+    private function run(Request $request, callable $work, bool $write = false, bool $created = false, bool $multipart = false): JsonResponse
     {
         $me = $this->getUser();
 
@@ -176,7 +254,13 @@ final class ZvyazokApiController extends AbstractController
 
         $data = [];
 
-        if ($write) {
+        if ($multipart) {
+            // Форма з файлами: чужий сайт не може додати X-Requested-With без preflight (CORS) —
+            // це й захист від підробки запиту (як JSON для решти записів).
+            if ($request->headers->get('X-Requested-With') !== 'XMLHttpRequest' || $request->headers->get('Sec-Fetch-Site', 'same-origin') !== 'same-origin') {
+                return new JsonResponse(['error' => 'Очікується запит із самого Плану.'], Response::HTTP_UNSUPPORTED_MEDIA_TYPE);
+            }
+        } elseif ($write) {
             // Записи — лише JSON-запитом із самого Плану (HTML-форма чужого сайту так не може).
             if ($request->getContentTypeFormat() !== 'json' || $request->headers->get('Sec-Fetch-Site', 'same-origin') !== 'same-origin') {
                 return new JsonResponse(['error' => 'Очікується JSON-запит із самого Плану.'], Response::HTTP_UNSUPPORTED_MEDIA_TYPE);

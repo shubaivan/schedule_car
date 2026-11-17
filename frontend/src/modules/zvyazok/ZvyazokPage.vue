@@ -5,7 +5,21 @@ import Avatar from '../tasks/Avatar.vue'
 import Icon from '../tasks/shell/Icon.vue'
 import type { Person } from '../tasks/api'
 import { useSession } from '../../app/store'
-import { drafts, draftsOwner, zvApi, type ZvChat, type ZvChatRow, type ZvMember, type ZvMessage } from './api'
+import {
+    batches,
+    drafts,
+    draftsOwner,
+    shrinkPhoto,
+    zvApi,
+    ZV_ACCEPT,
+    ZV_MAX_BYTES,
+    ZV_MAX_FILES,
+    type ZvChat,
+    type ZvChatRow,
+    type ZvFile,
+    type ZvMember,
+    type ZvMessage,
+} from './api'
 import './zvyazok.css'
 
 /**
@@ -13,6 +27,8 @@ import './zvyazok.css'
  * людина-людина й людина-команда. Ліворуч — чати (закріплені вгорі, непрочитані, @, чернетки,
  * архів, пошук), праворуч — розмова: прокручується лише стрічка, шапка й поле вводу на місці.
  * Без модалок: новий чат і учасники — панелі в самій колонці.
+ * Файли (Олександр 17.11): скріпка, вставка з буфера, перетягування; фото стискаються ще тут
+ * (shrinkPhoto) і ще раз на сервері; до 20 МБ кожен. Сповіщень у Telegram немає — лише лічильник.
  */
 const route = useRoute()
 const router = useRouter()
@@ -128,6 +144,79 @@ const history = ref<Record<number, { text: string; at: string | null }[]>>({})
 const flash = ref<number | null>(null)
 const mentioned = ref<Map<string, number>>(new Map())
 
+// ---- файли до відправки
+type Pending = { key: number; file: File; preview: string | null; busy: boolean }
+const pending = ref<Pending[]>([])
+const fileInput = ref<HTMLInputElement | null>(null)
+const dragging = ref(false)
+let pendingKey = 0
+const sizeLabel = (n: number) => (n >= 1048576 ? (n / 1048576).toFixed(1).replace('.0', '') + ' МБ' : Math.max(1, Math.round(n / 1024)) + ' КБ')
+function clearPending() {
+    pending.value.forEach((p) => p.preview && URL.revokeObjectURL(p.preview))
+    pending.value = []
+}
+async function addFiles(list: FileList | File[]) {
+    chatError.value = ''
+    for (const raw of Array.from(list)) {
+        if (pending.value.length >= ZV_MAX_FILES * 3) {
+            chatError.value = `За раз — до ${ZV_MAX_FILES * 3} файлів.`
+            break
+        }
+        if (raw.size > ZV_MAX_BYTES) {
+            chatError.value = `«${raw.name}» більший за 20 МБ.`
+            continue
+        }
+        const item = reactiveItem(raw)
+        pending.value = [...pending.value, item]
+        if (raw.type.startsWith('image/')) {
+            const small = await shrinkPhoto(raw)
+            const found = pending.value.find((p) => p.key === item.key)
+            if (found) {
+                found.file = small
+                found.preview = URL.createObjectURL(small)
+                found.busy = false
+            }
+        }
+    }
+}
+function reactiveItem(file: File): Pending {
+    return { key: ++pendingKey, file, preview: null, busy: file.type.startsWith('image/') }
+}
+function unpend(key: number) {
+    const p = pending.value.find((x) => x.key === key)
+    if (p?.preview) URL.revokeObjectURL(p.preview)
+    pending.value = pending.value.filter((x) => x.key !== key)
+}
+function pickFiles(e: Event) {
+    const input = e.target as HTMLInputElement
+    if (input.files) void addFiles(input.files)
+    input.value = ''
+}
+function onPaste(e: ClipboardEvent) {
+    if (e.clipboardData?.files.length && !editing.value) {
+        void addFiles(e.clipboardData.files)
+        e.preventDefault()
+    }
+}
+let dragDepth = 0
+function dragEnter(e: DragEvent) {
+    if (!chat.value || editing.value || !e.dataTransfer?.types.includes('Files')) return
+    dragDepth++
+    dragging.value = true
+}
+function dragLeave() {
+    dragDepth = Math.max(0, dragDepth - 1)
+    if (!dragDepth) dragging.value = false
+}
+function onDrop(e: DragEvent) {
+    dragDepth = 0
+    dragging.value = false
+    if (e.dataTransfer?.files.length && !editing.value) void addFiles(e.dataTransfer.files)
+}
+const images = (m: ZvMessage): ZvFile[] => m.files.filter((f) => f.kind === 'image' && f.thumbUrl)
+const documents = (m: ZvMessage): ZvFile[] => m.files.filter((f) => !(f.kind === 'image' && f.thumbUrl))
+const fileIcon = (f: ZvFile) => (f.kind === 'pdf' ? 'PDF' : (f.name.split('.').pop() ?? 'файл').toUpperCase().slice(0, 4))
+
 const nearBottom = () => !feed.value || feed.value.scrollHeight - feed.value.scrollTop - feed.value.clientHeight < 80
 function toBottom() {
     nextTick(() => feed.value && (feed.value.scrollTop = feed.value.scrollHeight))
@@ -143,6 +232,7 @@ async function loadChat(id: number) {
     chatError.value = ''
     text.value = drafts.get(id)
     mentioned.value = new Map()
+    clearPending()
     try {
         const [c, m] = await Promise.all([zvApi.chat(id), zvApi.messages(id)])
         if (chatId.value !== id) return
@@ -273,7 +363,9 @@ function mentionIds(body: string): number[] {
 
 async function send() {
     const body = text.value.trim()
-    if (!body || !chat.value || sending.value) return
+    const files = pending.value.map((p) => p.file)
+    if (!chat.value || sending.value || pending.value.some((p) => p.busy)) return
+    if (!body && !(files.length && !editing.value)) return
     sending.value = true
     try {
         if (editing.value) {
@@ -283,20 +375,35 @@ async function send() {
             editing.value = null
             text.value = drafts.get(chat.value.id)
         } else {
-            const saved = await zvApi.post(chat.value.id, body, replyTo.value?.id ?? null, mentionIds(body))
+            const chatNow = chat.value
+            const sent: ZvMessage[] = []
+            if (files.length) {
+                // Великі пачки — кількома повідомленнями; текст, відповідь і згадки — з першим.
+                const groups = batches(files)
+                for (let i = 0; i < groups.length; i++) {
+                    sent.push(await zvApi.postFiles(chatNow.id, i === 0 ? body : '', groups[i], i === 0 ? (replyTo.value?.id ?? null) : null, i === 0 ? mentionIds(body) : []))
+                    const done = new Set(groups[i])
+                    pending.value.filter((p) => done.has(p.file)).forEach((p) => unpend(p.key))
+                }
+            } else {
+                sent.push(await zvApi.post(chatNow.id, body, replyTo.value?.id ?? null, mentionIds(body)))
+            }
             // Спершу стираємо чернетку, потім текст: запізнілий autosave не поверне відправлене.
-            drafts.set(chat.value.id, '')
+            drafts.set(chatNow.id, '')
             text.value = ''
             replyTo.value = null
             mentioned.value = new Map()
-            messages.value = [...messages.value.filter((m) => m.id !== saved.id), saved]
-            chat.value.lastReadId = saved.id
+            const ids = new Set(sent.map((m) => m.id))
+            messages.value = [...messages.value.filter((m) => !ids.has(m.id)), ...sent]
+            chatNow.lastReadId = sent[sent.length - 1].id
             toBottom()
             void loadList()
         }
         nextTick(onInput)
     } catch (e) {
         chatError.value = session.handle(e)
+        // Частина пачок могла піти — показуємо, що вже в чаті.
+        void refreshChat()
     } finally {
         sending.value = false
     }
@@ -530,7 +637,8 @@ function onVisible() {
             </ul>
         </aside>
 
-        <section class="zv-chat" aria-label="Розмова">
+        <section class="zv-chat" aria-label="Розмова" @dragenter.prevent="dragEnter" @dragover.prevent @dragleave="dragLeave" @drop.prevent="onDrop">
+            <div v-if="dragging" class="zv-drop">Відпустіть, щоб додати файли</div>
             <div v-if="!chatId" class="zv-placeholder">
                 <Icon name="chat" :size="40" />
                 <p>Оберіть чат ліворуч або почніть новий.</p>
@@ -604,7 +712,7 @@ function onVisible() {
                                 <b>{{ m.reply.author }}</b>
                                 <span>{{ m.reply.text }}</span>
                             </button>
-                            <div v-if="!m.deleted" class="zv-text">
+                            <div v-if="!m.deleted && m.text" class="zv-text">
                                 <template v-for="(seg, i) in segments(m)" :key="i">
                                     <span
                                         v-if="seg.person"
@@ -617,7 +725,24 @@ function onVisible() {
                                     <template v-else>{{ seg.text }}</template>
                                 </template>
                             </div>
-                            <div v-else class="zv-text zv-muted"><i>Повідомлення видалено</i></div>
+                            <div v-else-if="m.deleted" class="zv-text zv-muted"><i>Повідомлення видалено</i></div>
+                            <div v-if="images(m).length" class="zv-photos" :class="{ one: images(m).length === 1 }">
+                                <a v-for="f in images(m)" :key="f.id" :href="f.viewUrl" target="_blank" rel="noopener" :title="f.name" data-testid="zv-photo">
+                                    <img :src="f.thumbUrl ?? ''" :alt="f.name" loading="lazy" />
+                                </a>
+                            </div>
+                            <ul v-if="documents(m).length" class="zv-docs">
+                                <li v-for="f in documents(m)" :key="f.id" data-testid="zv-doc">
+                                    <a class="zv-doc" :href="f.kind === 'pdf' ? f.viewUrl : f.downloadUrl" :target="f.kind === 'pdf' ? '_blank' : undefined" rel="noopener">
+                                        <span class="zv-doc-ext" :class="f.kind">{{ fileIcon(f) }}</span>
+                                        <span class="zv-doc-main">
+                                            <b>{{ f.name }}</b>
+                                            <small>{{ sizeLabel(f.size) }}</small>
+                                        </span>
+                                    </a>
+                                    <a class="zv-doc-dl" :href="f.downloadUrl" title="Скачати" aria-label="Скачати"><Icon name="down" :size="16" /></a>
+                                </li>
+                            </ul>
                             <div v-if="history[m.id]" class="zv-history">
                                 <div v-for="(h, i) in history[m.id]" :key="i">
                                     <small>{{ time(h.at) }} — було:</small>
@@ -668,7 +793,30 @@ function onVisible() {
                         </li>
                     </ul>
                     <p v-if="chatError" class="t-error">{{ chatError }}</p>
+                    <ul v-if="pending.length" class="zv-pending" aria-label="Файли до відправки">
+                        <li v-for="p in pending" :key="p.key">
+                            <img v-if="p.preview" :src="p.preview" alt="" />
+                            <span v-else class="zv-doc-ext">{{ p.busy ? '…' : (p.file.name.split('.').pop() ?? '').toUpperCase().slice(0, 4) }}</span>
+                            <span class="zv-pending-name">
+                                {{ p.file.name }}
+                                <small>{{ p.busy ? 'стискаємо…' : sizeLabel(p.file.size) }}</small>
+                            </span>
+                            <button type="button" class="zv-x" :aria-label="'Прибрати ' + p.file.name" @click="unpend(p.key)"><Icon name="x" :size="14" /></button>
+                        </li>
+                    </ul>
                     <div class="zv-compose-row">
+                        <input ref="fileInput" type="file" multiple :accept="ZV_ACCEPT" hidden data-testid="zv-file" @change="pickFiles" />
+                        <button
+                            type="button"
+                            class="zv-clip"
+                            :disabled="!!editing"
+                            title="Додати фото чи документ (до 20 МБ)"
+                            aria-label="Додати файл"
+                            data-testid="zv-attach"
+                            @click="fileInput?.click()"
+                        >
+                            <Icon name="clip" :size="20" />
+                        </button>
                         <textarea
                             ref="box"
                             v-model="text"
@@ -680,8 +828,18 @@ function onVisible() {
                             @input="onInput"
                             @keydown="onKey"
                             @click="onInput"
+                            @paste="onPaste"
                         />
-                        <button type="button" class="zv-send" :disabled="!text.trim() || sending" aria-label="Надіслати" data-testid="zv-send" @click="send">Надіслати</button>
+                        <button
+                            type="button"
+                            class="zv-send"
+                            :disabled="(!text.trim() && !(pending.length && !editing)) || sending || pending.some((p) => p.busy)"
+                            aria-label="Надіслати"
+                            data-testid="zv-send"
+                            @click="send"
+                        >
+                            {{ sending && pending.length ? 'Надсилаємо…' : 'Надіслати' }}
+                        </button>
                     </div>
                 </footer>
             </template>

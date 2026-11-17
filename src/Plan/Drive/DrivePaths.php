@@ -11,10 +11,16 @@ use DateTimeInterface;
  *     План / 2026 / Постачання / №042-2026 Цемент М400 / 2026-11-17 Накладна 042-2026.pdf
  *     План / 2026 / Склад / Клієнти / ТОВ Будінвест / 2026-11-17 Договір — ….pdf
  *     План / 2026 / Ліди / 2026-11-15 Олег / транскрипт.txt
+ *     План / 2026 / Звʼязок / №7 Виробництво і постачання / 2026-11-17 фото.jpg
+ *     План / 2026 / Звʼязок / №9 Особисте — Іван Шуба, Олексій Коваль / 2026-11-17 акт.pdf
  *
  * Рік — за датою створення суб'єкта; перейменування задачі теку не рухає
  * (на Диску це архів, а не дзеркало назв). Файл — з датою завантаження спереду
  * (dated), щоб у теці було видно, що коли прийшло; збіг імен — « (id)» (withId).
+ *
+ * «Звʼязок» — рік за датою файла (чат безстроковий, інакше все жило б у році створення
+ * чату); №<id> чату спереду — дві групи з однаковою назвою не змішуються, а
+ * перейменована група продовжує нову теку з тим самим №.
  *
  * Розділ постачання — «Постачання», як у меню (17.11.2026; до того — «Заявки»).
  * Теки на Диску шукаються за назвою, тож нові файли підуть у нову теку «Постачання»;
@@ -27,6 +33,7 @@ final readonly class DrivePaths
     public const string SUPPLY = 'Постачання';
     public const string WAREHOUSE = 'Склад';
     public const string LEADS = 'Ліди';
+    public const string ZVYAZOK = 'Звʼязок';
 
     public function __construct(private string $rootFolder = 'План')
     {
@@ -68,6 +75,12 @@ final readonly class DrivePaths
     public function warehouse(DateTimeInterface $created, array $warehousePath): array
     {
         return $this->under($created, self::WAREHOUSE, $warehousePath);
+    }
+
+    /** «Звʼязок»: тека чату «№7 Назва групи» або «№9 Особисте — Імʼя, Імʼя». @return list<string> */
+    public function zvyazok(DateTimeInterface $uploaded, int $chatId, string $chatTitle): array
+    {
+        return $this->under($uploaded, self::ZVYAZOK, [sprintf('№%d %s', $chatId, $chatTitle)]);
     }
 
     /** Для потоку SL (ліди): тека діалогу «2026-11-15 Олег». @return list<string> */

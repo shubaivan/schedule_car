@@ -3,6 +3,10 @@
 namespace App\Plan\Zvyazok;
 
 use App\Entity\TelegramUser;
+use App\Plan\Drive\DriveClientFactory;
+use App\Plan\Drive\SyncDriveFiles;
+use App\Plan\EventStore\PlanEventRecorder;
+use App\Plan\Share\FileType;
 use App\Repository\TelegramUserRepository;
 use App\Tasks\Service\TaskPresenter;
 use DateTimeImmutable;
@@ -10,6 +14,9 @@ use DateTimeInterface;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\Messenger\MessageBusInterface;
+use Throwable;
 
 /**
  * «Звʼязок» — месенджер «Плану» поза задачами (ТЗ §21; Олександр 15.11: «аналог
@@ -20,6 +27,10 @@ use Doctrine\DBAL\ParameterType;
  * учасники; хто вийшов — більше не бачить. Особисте: закріплення, архів, «прочитано до».
  * Повідомлення: відповідь з переходом до оригіналу, @згадки, редагування з історією,
  * видалення для всіх (автор), галочки: ✓ надіслано, ✓✓ прочитали всі, у групі — «2/5».
+ * Файли (Олександр 17.11): фото (стискаємо), офісні документи й PDF, до 20 МБ — ZvyazokFiles;
+ * копія на Google Диску «План/<рік>/Звʼязок/№<id> <назва чату>/» (ZvyazokDriveFiles).
+ * Новий учасник групи бачить усю історію (стрічка не фільтрується за joined_at).
+ * Сповіщень у Telegram немає — лише лічильник непрочитаних (Олександр 17.11).
  *
  * Усі запити — DBAL з перевіркою членства; помилка доступу — ZvyazokException(404),
  * щоб за id не можна було дізнатись, що чат існує.
@@ -35,6 +46,10 @@ final class ZvyazokService
         private readonly TelegramUserRepository $users,
         private readonly TaskPresenter $presenter,
         private readonly ZvyazokAccess $access,
+        private readonly ?ZvyazokFiles $files = null,
+        private readonly ?MessageBusInterface $bus = null,
+        private readonly ?DriveClientFactory $drives = null,
+        private readonly ?PlanEventRecorder $events = null,
     ) {
     }
 
@@ -55,7 +70,9 @@ final class ZvyazokService
                 OR EXISTS (SELECT 1 FROM plan_chat_member qm JOIN telegram_user qu ON qu.id = qm.user_id
                            WHERE qm.chat_id = c.id AND qm.user_id <> :me AND qm.left_at IS NULL
                              AND LOWER(COALESCE(qu.first_name, '') || ' ' || COALESCE(qu.last_name, '')) LIKE :q)
-                OR EXISTS (SELECT 1 FROM plan_chat_message qx WHERE qx.chat_id = c.id AND qx.deleted_at IS NULL AND LOWER(qx.body) LIKE :q))";
+                OR EXISTS (SELECT 1 FROM plan_chat_message qx WHERE qx.chat_id = c.id AND qx.deleted_at IS NULL AND LOWER(qx.body) LIKE :q)
+                OR EXISTS (SELECT 1 FROM plan_chat_attachment qa JOIN plan_chat_message qy ON qy.id = qa.message_id
+                           WHERE qa.chat_id = c.id AND qy.deleted_at IS NULL AND LOWER(qa.original_name) LIKE :q))";
         }
 
         $rows = $this->db->fetchAllAssociative(
@@ -64,6 +81,8 @@ final class ZvyazokService
                     (SELECT COUNT(*) FROM plan_chat_message x WHERE x.chat_id = c.id AND x.id > m.last_read_id AND x.author_id <> :me AND x.deleted_at IS NULL AND x.mentions @> CAST(:meJson AS jsonb)) AS mentions,
                     (SELECT COUNT(*) FROM plan_chat_member am WHERE am.chat_id = c.id AND am.left_at IS NULL) AS members,
                     l.id AS last_id, l.body AS last_body, l.author_id AS last_author, l.created_at AS last_at, l.deleted_at AS last_deleted,
+                    (SELECT COUNT(*) FROM plan_chat_attachment la WHERE la.message_id = l.id) AS last_files,
+                    (SELECT la.original_name FROM plan_chat_attachment la WHERE la.message_id = l.id ORDER BY la.id LIMIT 1) AS last_file,
                     (SELECT om.user_id FROM plan_chat_member om WHERE om.chat_id = c.id AND om.user_id <> :me ORDER BY om.user_id LIMIT 1) AS other_id
                FROM plan_chat_member m
                JOIN plan_chat c ON c.id = m.chat_id
@@ -94,7 +113,7 @@ final class ZvyazokService
                 'activityAt' => self::iso($r['last_activity_at']),
                 'last' => $r['last_id'] === null ? null : [
                     'id' => (int) $r['last_id'],
-                    'text' => $r['last_deleted'] !== null ? 'Повідомлення видалено' : mb_substr((string) $r['last_body'], 0, 140),
+                    'text' => $r['last_deleted'] !== null ? 'Повідомлення видалено' : self::preview((string) $r['last_body'], (int) $r['last_files'], $r['last_file']),
                     'mine' => (int) $r['last_author'] === (int) $me->getId(),
                     'author' => ($people[(int) $r['last_author']]['name'] ?? null),
                     'at' => self::iso($r['last_at']),
@@ -247,13 +266,25 @@ final class ZvyazokService
 
     /**
      * @param list<int> $mentionIds
+     * @param list<UploadedFile> $files фото, документи, PDF (ZvyazokFiles), до MAX_FILES
      *
      * @return array<string, mixed>
      */
-    public function post(TelegramUser $me, int $chatId, string $body, ?int $replyTo, array $mentionIds): array
+    public function post(TelegramUser $me, int $chatId, string $body, ?int $replyTo, array $mentionIds, array $files = []): array
     {
         $this->membership($me, $chatId);
-        $body = self::cleanBody($body);
+        $body = self::cleanBody($body, $files !== []);
+
+        if (count($files) > ZvyazokFiles::MAX_FILES) {
+            throw new ZvyazokException(sprintf('За раз — до %d файлів.', ZvyazokFiles::MAX_FILES), 422);
+        }
+
+        if ($files !== [] && $this->files === null) {
+            throw new ZvyazokException('Файли тут не приймаються.', 422);
+        }
+
+        // Розмір і тип — до будь-якого запису.
+        $checked = array_map(static fn (UploadedFile $f) => [$f, ...ZvyazokFiles::check($f)], $files);
 
         if ($replyTo !== null && $this->db->fetchOne('SELECT 1 FROM plan_chat_message WHERE id = ? AND chat_id = ?', [$replyTo, $chatId]) === false) {
             throw new ZvyazokException('Повідомлення, на яке ви відповідаєте, не знайдено.', 422);
@@ -266,29 +297,152 @@ final class ZvyazokService
             ['ids' => ArrayParameterType::INTEGER],
         ));
 
-        $id = (int) $this->db->transactional(function () use ($me, $chatId, $body, $replyTo, $mentions): int {
-            $now = self::now();
-            $id = (int) $this->db->fetchOne(
-                'INSERT INTO plan_chat_message (id, chat_id, author_id, body, reply_to_id, mentions, created_at)
-                 VALUES (nextval(\'plan_chat_message_id_seq\'), ?, ?, ?, ?, CAST(? AS jsonb), ?) RETURNING id',
-                [$chatId, $me->getId(), $body, $replyTo, json_encode($mentions), $now],
-            );
-            $this->db->executeStatement('UPDATE plan_chat SET last_activity_at = ? WHERE id = ?', [$now, $chatId]);
-            // Своє — прочитане; новe повідомлення повертає чат з архіву всім учасникам.
-            $this->db->executeStatement('UPDATE plan_chat_member SET last_read_id = ? WHERE chat_id = ? AND user_id = ?', [$id, $chatId, $me->getId()]);
-            $this->db->executeStatement('UPDATE plan_chat_member SET archived = FALSE WHERE chat_id = ? AND left_at IS NULL', [$chatId]);
+        /** @var list<array{id: int, path: string}> $written */
+        $written = [];
 
-            return $id;
-        });
+        try {
+            $id = (int) $this->db->transactional(function () use ($me, $chatId, $body, $replyTo, $mentions, $checked, &$written): int {
+                $now = self::now();
+                $id = (int) $this->db->fetchOne(
+                    'INSERT INTO plan_chat_message (id, chat_id, author_id, body, reply_to_id, mentions, created_at)
+                     VALUES (nextval(\'plan_chat_message_id_seq\'), ?, ?, ?, ?, CAST(? AS jsonb), ?) RETURNING id',
+                    [$chatId, $me->getId(), $body, $replyTo, json_encode($mentions), $now],
+                );
+
+                foreach ($checked as [$file, $kind, $detected]) {
+                    $written[] = $this->storeFile($me, $chatId, $id, $file, $kind, $detected);
+                }
+
+                $this->db->executeStatement('UPDATE plan_chat SET last_activity_at = ? WHERE id = ?', [$now, $chatId]);
+                // Своє — прочитане; новe повідомлення повертає чат з архіву всім учасникам.
+                $this->db->executeStatement('UPDATE plan_chat_member SET last_read_id = ? WHERE chat_id = ? AND user_id = ?', [$id, $chatId, $me->getId()]);
+                $this->db->executeStatement('UPDATE plan_chat_member SET archived = FALSE WHERE chat_id = ? AND left_at IS NULL', [$chatId]);
+
+                return $id;
+            });
+        } catch (Throwable $e) {
+            // Повідомлення не збереглося — файлів у сховищі теж не лишаємо.
+            foreach ($written as $w) {
+                $this->files?->discard($w['path'], $w['id']);
+            }
+
+            throw $e;
+        }
+
+        $this->toDrive(array_column($written, 'id'));
 
         return $this->one($me, $chatId, $id);
+    }
+
+    /**
+     * Файл на місце й рядок у plan_chat_attachment (у транзакції повідомлення).
+     *
+     * @return array{id: int, path: string}
+     */
+    private function storeFile(TelegramUser $me, int $chatId, int $messageId, UploadedFile $file, string $kind, string $detected): array
+    {
+        $files = $this->files ?? throw new ZvyazokException('Файли тут не приймаються.', 422);
+        $prepared = $files->prepare($file, $kind, $detected);
+
+        try {
+            $id = (int) $this->db->fetchOne("SELECT nextval('plan_chat_attachment_id_seq')");
+            $at = new DateTimeImmutable();
+            $sha = (string) hash_file('sha256', $prepared['path']);
+            $relative = $files->put($id, $sha, $at, $prepared['name'], $prepared['path']);
+        } finally {
+            if ($prepared['temp']) {
+                @unlink($prepared['path']);
+            }
+        }
+
+        try {
+            $this->insertAttachment($id, $messageId, $chatId, $me, $prepared, $sha, $relative, $kind, $at);
+        } catch (Throwable $e) {
+            $files->discard($relative, $id);
+
+            throw $e;
+        }
+
+        if ($kind === ZvyazokFiles::KIND_IMAGE) {
+            $files->thumb($id, $relative);
+        }
+
+        return ['id' => $id, 'path' => $relative];
+    }
+
+    /** @param array{name: string, mime: string, size: int, originalSize: int, width: ?int, height: ?int} $prepared */
+    private function insertAttachment(int $id, int $messageId, int $chatId, TelegramUser $me, array $prepared, string $sha, string $relative, string $kind, DateTimeImmutable $at): void
+    {
+        $this->db->insert('plan_chat_attachment', [
+            'id' => $id,
+            'message_id' => $messageId,
+            'chat_id' => $chatId,
+            'uploaded_by_id' => $me->getId(),
+            'original_name' => mb_substr($prepared['name'], 0, 255),
+            'mime' => mb_substr($prepared['mime'], 0, 127),
+            'size' => $prepared['size'],
+            'original_size' => $prepared['originalSize'],
+            'sha256' => $sha,
+            'path' => $relative,
+            'kind' => $kind,
+            'width' => $prepared['width'],
+            'height' => $prepared['height'],
+            'created_at' => $at->format('Y-m-d H:i:s'),
+        ]);
+    }
+
+    /**
+     * Файл повідомлення для віддачі: лише учасник чату, повідомлення не видалене.
+     * Чужий/неіснуючий — 404 однаково.
+     *
+     * @return array<string, mixed>
+     */
+    public function file(TelegramUser $me, int $fileId): array
+    {
+        $row = $this->db->fetchAssociative(
+            'SELECT a.id, a.chat_id, a.original_name, a.mime, a.size, a.sha256, a.path, a.kind
+               FROM plan_chat_attachment a JOIN plan_chat_message m ON m.id = a.message_id
+               JOIN plan_chat_member cm ON cm.chat_id = a.chat_id AND cm.user_id = ? AND cm.left_at IS NULL
+              WHERE a.id = ? AND m.deleted_at IS NULL',
+            [$me->getId(), $fileId],
+        );
+
+        if ($row === false) {
+            throw new ZvyazokException('Файл не знайдено.', 404);
+        }
+
+        return $row;
+    }
+
+    /**
+     * Одразу на Диск, як файли задач (DriveEnqueue): лише коли події йдуть через воркер
+     * і розкладка «План»; інакше файл чекає крону plan:drive-sync (рядок уже pending).
+     *
+     * @param list<int> $ids
+     */
+    private function toDrive(array $ids): void
+    {
+        if ($ids === [] || $this->bus === null || $this->drives === null || $this->events === null) {
+            return;
+        }
+
+        if ($this->events->isSync() || ! $this->drives->isPlanLayout() || ! $this->drives->isConfigured()) {
+            return;
+        }
+
+        try {
+            $this->bus->dispatch(new SyncDriveFiles(FileType::Zvyazok->value, $ids));
+        } catch (Throwable) {
+            // Не страшно: крон plan:drive-sync підбере pending.
+        }
     }
 
     /** @return array<string, mixed> */
     public function edit(TelegramUser $me, int $messageId, string $body): array
     {
         $row = $this->ownMessage($me, $messageId);
-        $body = self::cleanBody($body);
+        $hasFiles = $this->db->fetchOne('SELECT 1 FROM plan_chat_attachment WHERE message_id = ? LIMIT 1', [$messageId]) !== false;
+        $body = self::cleanBody($body, $hasFiles);
 
         if ($body !== $row['body']) {
             $this->db->transactional(function () use ($messageId, $row, $body): void {
@@ -539,14 +693,22 @@ final class ZvyazokService
         $replies = [];
 
         if ($replyIds !== []) {
-            foreach ($this->db->fetchAllAssociative('SELECT id, author_id, body, deleted_at FROM plan_chat_message WHERE id IN (?) AND chat_id = ?', [$replyIds, $chatId], [ArrayParameterType::INTEGER]) as $r) {
+            foreach ($this->db->fetchAllAssociative(
+                'SELECT x.id, x.author_id, x.body, x.deleted_at,
+                        (SELECT COUNT(*) FROM plan_chat_attachment a WHERE a.message_id = x.id) AS files,
+                        (SELECT a.original_name FROM plan_chat_attachment a WHERE a.message_id = x.id ORDER BY a.id LIMIT 1) AS file
+                   FROM plan_chat_message x WHERE x.id IN (?) AND x.chat_id = ?',
+                [$replyIds, $chatId],
+                [ArrayParameterType::INTEGER],
+            ) as $r) {
                 $replies[(int) $r['id']] = $r;
             }
         }
 
         $people = $this->people([...array_column($rows, 'author_id'), ...array_column($replies, 'author_id')]);
+        $attachments = $this->attachments(array_map(static fn (array $r) => (int) $r['id'], array_filter($rows, static fn (array $r) => $r['deleted_at'] === null)));
 
-        return array_map(function (array $r) use ($reads, $replies, $people, $me): array {
+        return array_map(function (array $r) use ($reads, $replies, $people, $me, $attachments): array {
             $id = (int) $r['id'];
             $author = (int) $r['author_id'];
             $others = array_values(array_filter($reads, static fn (array $m) => $m['user'] !== $author));
@@ -563,10 +725,11 @@ final class ZvyazokService
                 'edited' => $r['edited_at'] !== null,
                 'at' => self::iso($r['created_at']),
                 'mentions' => array_map('intval', json_decode((string) $r['mentions'], true) ?: []),
+                'files' => $deleted ? [] : ($attachments[$id] ?? []),
                 'reply' => $reply === null ? null : [
                     'id' => (int) $reply['id'],
                     'author' => $people[(int) $reply['author_id']]['name'] ?? null,
-                    'text' => $reply['deleted_at'] !== null ? 'Повідомлення видалено' : mb_substr((string) $reply['body'], 0, 160),
+                    'text' => $reply['deleted_at'] !== null ? 'Повідомлення видалено' : self::preview((string) $reply['body'], (int) $reply['files'], $reply['file'], 160),
                 ],
                 // Галочки: ✓ — збережено (доставлено), ✓✓ — прочитали всі інші учасники.
                 'readBy' => $readBy,
@@ -596,11 +759,59 @@ final class ZvyazokService
         return $out;
     }
 
-    private static function cleanBody(string $body): string
+    /**
+     * @param list<int> $messageIds
+     *
+     * @return array<int, list<array<string, mixed>>> message id → файли
+     */
+    private function attachments(array $messageIds): array
+    {
+        if ($messageIds === []) {
+            return [];
+        }
+
+        $out = [];
+
+        foreach ($this->db->fetchAllAssociative(
+            'SELECT id, message_id, original_name, mime, size, original_size, kind, width, height FROM plan_chat_attachment WHERE message_id IN (?) ORDER BY id',
+            [array_values($messageIds)],
+            [ArrayParameterType::INTEGER],
+        ) as $a) {
+            $id = (int) $a['id'];
+            $base = '/api/plan/zvyazok/files/' . $id;
+            $out[(int) $a['message_id']][] = [
+                'id' => $id,
+                'name' => (string) $a['original_name'],
+                'mime' => (string) $a['mime'],
+                'size' => (int) $a['size'],
+                'originalSize' => (int) $a['original_size'],
+                'kind' => (string) $a['kind'],
+                'width' => $a['width'] !== null ? (int) $a['width'] : null,
+                'height' => $a['height'] !== null ? (int) $a['height'] : null,
+                'thumbUrl' => $a['kind'] === ZvyazokFiles::KIND_IMAGE ? $base . '/thumb' : null,
+                'viewUrl' => $base . '/inline',
+                'downloadUrl' => $base . '/download',
+            ];
+        }
+
+        return $out;
+    }
+
+    /** Рядок у списку чатів і в цитаті: текст, а повідомлення з самим файлом — «📎 назва (+2)». */
+    private static function preview(string $body, int $files, mixed $first, int $max = 140): string
+    {
+        if (trim($body) !== '' || $files === 0) {
+            return mb_substr($body, 0, $max);
+        }
+
+        return mb_substr('📎 ' . (string) $first . ($files > 1 ? sprintf(' (+%d)', $files - 1) : ''), 0, $max);
+    }
+
+    private static function cleanBody(string $body, bool $hasFiles = false): string
     {
         $body = trim(str_replace("\r\n", "\n", $body));
 
-        if ($body === '') {
+        if ($body === '' && ! $hasFiles) {
             throw new ZvyazokException('Порожнє повідомлення.', 422);
         }
 
