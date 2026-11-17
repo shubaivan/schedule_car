@@ -5,7 +5,7 @@ import Avatar from '../tasks/Avatar.vue'
 import Icon from '../tasks/shell/Icon.vue'
 import type { Person } from '../tasks/api'
 import { useSession } from '../../app/store'
-import { drafts, zvApi, type ZvChat, type ZvChatRow, type ZvMessage } from './api'
+import { drafts, draftsOwner, zvApi, type ZvChat, type ZvChatRow, type ZvMember, type ZvMessage } from './api'
 import './zvyazok.css'
 
 /**
@@ -20,6 +20,7 @@ const session = useSession()
 
 const chatId = computed(() => (route.params.id ? Number(route.params.id) : null))
 const me = computed(() => session.user?.id ?? 0)
+watch(me, (id) => draftsOwner(id), { immediate: true })
 
 // ---- ліва колонка
 const rows = ref<ZvChatRow[]>([])
@@ -343,19 +344,20 @@ function jump(id: number) {
     window.setTimeout(() => (flash.value = null), 1600)
 }
 
-/** Текст повідомлення: екрануємо, переноси рядків, @Імʼя учасника — посиланням. */
-function render(m: ZvMessage): string {
-    const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] ?? c)
-    let html = esc(m.text)
-    for (const id of m.mentions) {
-        const p = chat.value?.members.find((x) => x.id === id)
-        if (!p) continue
-        const tag = esc('@' + p.name)
-        html = html
-            .split(tag)
-            .join(`<span class="zv-mention${id === me.value ? ' me' : ''}" title="${esc(p.position ?? p.name)}${p.phone ? ' · ' + esc(p.phone) : ''}">${tag}</span>`)
-    }
-    return html.replace(/\n/g, '<br>')
+/**
+ * Текст повідомлення — сегментами (без v-html): звичайний текст і @Імʼя учасника.
+ * Один прохід по сирому тексту, довші імена першими — «@Іван» не з'їсть «@Іван Петренко».
+ */
+type Segment = { text: string; person?: ZvMember }
+function segments(m: ZvMessage): Segment[] {
+    const people = (chat.value?.members ?? []).filter((p) => m.mentions.includes(p.id)).sort((x, y) => y.name.length - x.name.length)
+    if (!people.length) return [{ text: m.text }]
+    const esc = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const re = new RegExp('(' + people.map((p) => esc('@' + p.name)).join('|') + ')', 'gu')
+    return m.text
+        .split(re)
+        .filter((part) => part !== '')
+        .map((part) => ({ text: part, person: people.find((p) => '@' + p.name === part) }))
 }
 const ticks = (m: ZvMessage) => (m.readOf > 0 && m.readBy >= m.readOf ? '✓✓' : '✓')
 const tickTitle = (m: ZvMessage) =>
@@ -602,8 +604,19 @@ function onVisible() {
                                 <b>{{ m.reply.author }}</b>
                                 <span>{{ m.reply.text }}</span>
                             </button>
-                            <!-- eslint-disable-next-line vue/no-v-html -- render() екранує текст, додає лише <span>/<br> -->
-                            <div v-if="!m.deleted" class="zv-text" v-html="render(m)" />
+                            <div v-if="!m.deleted" class="zv-text">
+                                <template v-for="(seg, i) in segments(m)" :key="i">
+                                    <span
+                                        v-if="seg.person"
+                                        class="zv-mention"
+                                        :class="{ me: seg.person.id === me }"
+                                        :title="(seg.person.position ?? seg.person.name) + (seg.person.phone ? ' · ' + seg.person.phone : '')"
+                                    >
+                                        {{ seg.text }}
+                                    </span>
+                                    <template v-else>{{ seg.text }}</template>
+                                </template>
+                            </div>
                             <div v-else class="zv-text zv-muted"><i>Повідомлення видалено</i></div>
                             <div v-if="history[m.id]" class="zv-history">
                                 <div v-for="(h, i) in history[m.id]" :key="i">

@@ -126,20 +126,26 @@ final class ZvyazokService
         $key = min((int) $me->getId(), $otherId) . ':' . max((int) $me->getId(), $otherId);
 
         return (int) $this->db->transactional(function () use ($me, $other, $key): int {
-            $existing = $this->db->fetchOne('SELECT id FROM plan_chat WHERE direct_key = ? FOR UPDATE', [$key]);
+            $now = self::now();
+            // Двоє одночасно відкрили розмову — ON CONFLICT: другий просто отримає той самий чат.
+            $id = $this->db->fetchOne(
+                'INSERT INTO plan_chat (id, kind, title, direct_key, created_by, created_at, last_activity_at)
+                 VALUES (nextval(\'plan_chat_id_seq\'), \'direct\', NULL, ?, ?, ?, ?) ON CONFLICT (direct_key) DO NOTHING RETURNING id',
+                [$key, $me->getId(), $now, $now],
+            );
 
-            if ($existing !== false) {
+            if ($id === false) {
+                $existing = (int) $this->db->fetchOne('SELECT id FROM plan_chat WHERE direct_key = ?', [$key]);
                 // Повернувся до розмови — чат знову в списку, навіть якщо був в архіві.
                 $this->db->executeStatement('UPDATE plan_chat_member SET archived = FALSE, left_at = NULL WHERE chat_id = ? AND user_id = ?', [$existing, $me->getId()]);
 
-                return (int) $existing;
+                return $existing;
             }
 
-            $id = $this->insertChat('direct', null, $me, $key);
-            $this->addMember($id, (int) $me->getId(), 'owner');
-            $this->addMember($id, (int) $other->getId(), 'member');
+            $this->addMember((int) $id, (int) $me->getId(), 'owner');
+            $this->addMember((int) $id, (int) $other->getId(), 'member');
 
-            return $id;
+            return (int) $id;
         });
     }
 
@@ -291,6 +297,18 @@ final class ZvyazokService
                     [$messageId, $row['body'], self::now()],
                 );
                 $this->db->executeStatement('UPDATE plan_chat_message SET body = ?, edited_at = ? WHERE id = ?', [$body, self::now(), $messageId]);
+                // Згадка, яку прибрали з тексту, — більше не згадка.
+                $kept = [];
+
+                foreach (json_decode((string) $row['mentions'], true) ?: [] as $id) {
+                    $user = $this->users->find((int) $id);
+
+                    if ($user !== null && str_contains($body, '@' . $user->shortName())) {
+                        $kept[] = (int) $id;
+                    }
+                }
+
+                $this->db->executeStatement('UPDATE plan_chat_message SET mentions = CAST(? AS jsonb) WHERE id = ?', [json_encode($kept), $messageId]);
             });
         }
 
@@ -301,19 +319,28 @@ final class ZvyazokService
     public function delete(TelegramUser $me, int $messageId): void
     {
         $this->ownMessage($me, $messageId);
-        $this->db->executeStatement('UPDATE plan_chat_message SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL', [self::now(), $messageId]);
+        $this->db->transactional(function () use ($messageId): void {
+            $this->db->executeStatement('UPDATE plan_chat_message SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL', [self::now(), $messageId]);
+            // «Для всіх» — і текст, і його попередні версії.
+            $this->db->executeStatement('DELETE FROM plan_chat_message_edit WHERE message_id = ?', [$messageId]);
+        });
     }
 
     /** @return list<array{text: string, at: ?string}> попередні версії, від найстарішої */
     public function history(TelegramUser $me, int $messageId): array
     {
-        $chatId = $this->db->fetchOne('SELECT chat_id FROM plan_chat_message WHERE id = ?', [$messageId]);
+        $row = $this->db->fetchAssociative('SELECT chat_id, deleted_at FROM plan_chat_message WHERE id = ?', [$messageId]);
 
-        if ($chatId === false) {
+        if ($row === false) {
             throw new ZvyazokException('Повідомлення не знайдено.', 404);
         }
 
-        $this->membership($me, (int) $chatId);
+        $this->membership($me, (int) $row['chat_id']);
+
+        // Видалене для всіх — разом з усіма попередніми версіями.
+        if ($row['deleted_at'] !== null) {
+            return [];
+        }
 
         return array_map(
             static fn (array $r) => ['text' => (string) $r['old_body'], 'at' => self::iso($r['edited_at'])],
@@ -436,7 +463,7 @@ final class ZvyazokService
     /** @return array<string, mixed> */
     private function ownMessage(TelegramUser $me, int $messageId): array
     {
-        $row = $this->db->fetchAssociative('SELECT chat_id, author_id, body, deleted_at FROM plan_chat_message WHERE id = ?', [$messageId]);
+        $row = $this->db->fetchAssociative('SELECT chat_id, author_id, body, mentions, deleted_at FROM plan_chat_message WHERE id = ?', [$messageId]);
 
         if ($row === false) {
             throw new ZvyazokException('Повідомлення не знайдено.', 404);
@@ -479,7 +506,8 @@ final class ZvyazokService
         $this->db->executeStatement(
             'INSERT INTO plan_chat_member (chat_id, user_id, role, pinned, archived, last_read_id, joined_at)
              VALUES (:chat, :user, :role, FALSE, FALSE, (SELECT COALESCE(MAX(id), 0) FROM plan_chat_message WHERE chat_id = :chat), :now)
-             ON CONFLICT (chat_id, user_id) DO UPDATE SET left_at = NULL, archived = FALSE',
+             ON CONFLICT (chat_id, user_id) DO UPDATE SET left_at = NULL, archived = FALSE,
+                 last_read_id = CASE WHEN plan_chat_member.left_at IS NULL THEN plan_chat_member.last_read_id ELSE EXCLUDED.last_read_id END',
             ['chat' => $chatId, 'user' => $userId, 'role' => $role, 'now' => self::now()],
         );
     }

@@ -122,6 +122,7 @@ class ZvyazokApiTest extends WebTestCase
         self::assertTrue($edited['edited']);
         self::assertSame([['text' => 'Машина о 9:00']], array_map(static fn ($h) => ['text' => $h['text']], $this->call('GET', '/api/plan/zvyazok/messages/' . $first['id'] . '/history')['items']));
         $this->call('DELETE', '/api/plan/zvyazok/messages/' . $first['id']);
+        self::assertSame([], $this->call('GET', '/api/plan/zvyazok/messages/' . $first['id'] . '/history')['items'], 'видалене для всіх — і без попередніх версій');
         $items = $this->call('GET', $url . '/messages')['items'];
         self::assertTrue($items[0]['deleted']);
         self::assertSame('', $items[0]['text']);
@@ -133,6 +134,14 @@ class ZvyazokApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(404);
         $this->client->loginUser($bob);
         self::assertTrue($this->call('GET', $url)['owner']);
+
+        // Повернули в чат — «прочитано» з моменту повернення, а не всі старі як нові.
+        $this->call('POST', $url . '/messages', ['text' => 'Поки Анни немає']);
+        $this->call('PATCH', $url, ['add' => [$ann->getId()]]);
+        self::assertResponseIsSuccessful();
+        $this->client->loginUser($ann);
+        $row = array_first(array_filter($this->call('GET', '/api/plan/zvyazok/chats')['items'], static fn ($r) => $r['id'] === $group['id']));
+        self::assertSame(0, $row['unread']);
     }
 
     public function testPinArchiveAndSearchInTheLeftColumn(): void

@@ -73,19 +73,36 @@ export const zvApi = {
     history: (messageId: number) => call<{ items: { text: string; at: string | null }[] }>(`${BASE}/messages/${messageId}/history`),
 }
 
-/** Чернетка — особиста, у цьому браузері; відправлене повідомлення її стирає. */
+/**
+ * Чернетка — особиста (ключ з id людини: на спільному заводському ПК інший не побачить),
+ * у цьому браузері; відправлене повідомлення її стирає; «Вийти» чистить усі.
+ */
+let owner = 0
+export function draftsOwner(userId: number) {
+    owner = userId
+}
+export function clearDrafts() {
+    try {
+        Object.keys(localStorage)
+            .filter((k) => k.startsWith('plan.zv.draft.'))
+            .forEach((k) => localStorage.removeItem(k))
+    } catch {
+        /* немає сховища */
+    }
+}
+const key = (chatId: number) => `plan.zv.draft.${owner}.${chatId}`
 export const drafts = {
     get(chatId: number): string {
         try {
-            return localStorage.getItem('plan.zv.draft.' + chatId) ?? ''
+            return localStorage.getItem(key(chatId)) ?? ''
         } catch {
             return ''
         }
     },
     set(chatId: number, text: string) {
         try {
-            if (text.trim()) localStorage.setItem('plan.zv.draft.' + chatId, text)
-            else localStorage.removeItem('plan.zv.draft.' + chatId)
+            if (text.trim()) localStorage.setItem(key(chatId), text)
+            else localStorage.removeItem(key(chatId))
         } catch {
             /* приватне вікно — без чернеток */
         }

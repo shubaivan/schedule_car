@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { clearDrafts } from '../../modules/zvyazok/api'
 import { onBeforeUnmount, onMounted, watch, watchEffect } from 'vue'
 import { useRoute } from 'vue-router'
 import Toast from '../Toast.vue'
@@ -20,6 +21,7 @@ async function onClick(e: MouseEvent) {
     const a = (e.target as HTMLElement | null)?.closest?.('a[href="/crm/logout"]')
     if (!a || e.defaultPrevented || e.button !== 0) return
     e.preventDefault()
+    clearDrafts()
     await Promise.race([forgetPushOnLogout(), new Promise((r) => setTimeout(r, 1500))])
     window.location.href = '/crm/logout'
 }

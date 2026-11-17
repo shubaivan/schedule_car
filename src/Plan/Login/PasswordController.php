@@ -6,6 +6,7 @@ use App\Controller\LoginController;
 use App\Entity\TelegramUser;
 use App\Plan\People\PhoneFormat;
 use App\Security\LoginIdentity;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -16,6 +17,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Throwable;
 
 /**
  * Пароль для входу в «План» (PasswordSetup) — сайтова частина.
@@ -44,6 +46,7 @@ final class PasswordController extends AbstractController
         #[Autowire('%kernel.secret%')]
         private readonly string $secret,
         private readonly EventDispatcherInterface $dispatcher,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -73,7 +76,12 @@ final class PasswordController extends AbstractController
                     // Один раз: слухач знімає себе (довгоживучий процес не накопичує їх).
                     $once = function () use ($login, &$once): void {
                         $this->dispatcher->removeListener(KernelEvents::TERMINATE, $once);
-                        $this->setup->requestByLogin($login);
+
+                        try {
+                            $this->setup->requestByLogin($login);
+                        } catch (Throwable $e) {
+                            $this->logger->warning('plan: «Забули пароль?» — не вдалося', ['error' => $e->getMessage()]);
+                        }
                     };
                     $this->dispatcher->addListener(KernelEvents::TERMINATE, $once);
                 }

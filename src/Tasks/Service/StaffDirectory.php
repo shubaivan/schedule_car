@@ -356,6 +356,8 @@ class StaffDirectory
             }
 
             $user->setPassword($this->hasher->hashPassword($user, (string) $data['password']));
+            // Пароль від адміна чи консолі — не самостійний: на «Плані» ним не увійти.
+            $user->setPasswordSetAt(null);
         }
     }
 }

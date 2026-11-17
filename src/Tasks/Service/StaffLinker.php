@@ -73,8 +73,18 @@ class StaffLinker
             // «Звʼязок»: повідомлення й участь у чатах переходять на живу картку.
             $conn->executeStatement('UPDATE plan_chat_message SET author_id = :to WHERE author_id = :from', compact('from', 'to'));
             $conn->executeStatement('UPDATE plan_chat SET created_by = :to WHERE created_by = :from', compact('from', 'to'));
+            // Обидві картки в одному чаті: лишається один рядок, зі старшою роллю (власник).
+            $conn->executeStatement("UPDATE plan_chat_member t SET role = 'owner' FROM plan_chat_member f
+                WHERE f.chat_id = t.chat_id AND f.user_id = :from AND t.user_id = :to AND f.role = 'owner'", compact('from', 'to'));
             $conn->executeStatement('DELETE FROM plan_chat_member WHERE user_id = :from AND chat_id IN (SELECT chat_id FROM plan_chat_member WHERE user_id = :to)', compact('from', 'to'));
             $conn->executeStatement('UPDATE plan_chat_member SET user_id = :to WHERE user_id = :from', compact('from', 'to'));
+            // Особисті чати картки: ключ пари — на живу картку; якщо така пара вже є — чат лишається
+            // без ключа (історія в ньому, новий особистий відкриється в наявному).
+            foreach ($conn->fetchAllAssociative("SELECT c.id, (SELECT MIN(m.user_id) || ':' || MAX(m.user_id) FROM plan_chat_member m WHERE m.chat_id = c.id) AS k
+                    FROM plan_chat c WHERE c.kind = 'direct' AND c.id IN (SELECT chat_id FROM plan_chat_member WHERE user_id = :to)", compact('to')) as $c) {
+                $taken = $c['k'] === null || $conn->fetchOne('SELECT 1 FROM plan_chat WHERE direct_key = ? AND id <> ?', [$c['k'], $c['id']]) !== false;
+                $conn->executeStatement('UPDATE plan_chat SET direct_key = ? WHERE id = ?', [$taken ? null : $c['k'], $c['id']]);
+            }
             $conn->executeStatement('DELETE FROM plan_password_token WHERE user_id = :from', ['from' => $from]);
         });
 
@@ -90,6 +100,8 @@ class StaffLinker
             ->setDepartment($card->getDepartment() ?? $user->getDepartment())
             ->setEmail($email)
             ->setPassword($card->getPassword())
+            // Пароль картки задав адмін — на «Плані» він не діє (лише самостійний, PasswordSetup).
+            ->setPasswordSetAt(null)
             // Повний доступ, виданий суперадміном картці, не губиться при прив'язці Telegram.
             ->setPlanFullAccess($user->hasPlanFullAccess() || $card->hasPlanFullAccess());
         $user->decideAccess(AccessStatus::Approved, $card->getAccessDecidedBy());
