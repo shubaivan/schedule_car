@@ -155,7 +155,8 @@ class TaskNotifier
         foreach ($task->getMembers() as $member) {
             $user = $member->getUser();
 
-            if ($user->getId() !== $except?->getId()) {
+            // Учасник, якому задачу вже не видно (системний адміністратор), — без сповіщень.
+            if ($user->getId() !== $except?->getId() && $user->canSeeTasks()) {
                 $result[(int) $user->getId()] = $user;
             }
         }

@@ -242,7 +242,9 @@ class Task
 
     public function addMember(TelegramUser $user, ?Department $via = null): self
     {
-        if (! $this->hasMember($user)) {
+        // Системного адміністратора в задачу не додаємо (ні вручну, ні відділом, ні згадкою):
+        // задач він не бачить, а учасник отримував би назви й тексти в сповіщеннях.
+        if (! $this->hasMember($user) && $user->canSeeTasks()) {
             $this->members->add(new TaskMember($this, $user, $via));
         }
 

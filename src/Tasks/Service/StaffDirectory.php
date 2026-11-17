@@ -91,7 +91,8 @@ class StaffDirectory
 
         $this->apply($user, $data);
 
-        if (! self::canAssignRole($by, $user->getWorkRole())) {
+        // Роль при заведенні — лише той, хто керує ролями (інакше «веде людей» = видає ролі).
+        if ((array_key_exists('role', $data) && $by !== null && ! $by->managesRoles()) || ! self::canAssignRole($by, $user->getWorkRole())) {
             $this->logger->warning('staff: спроба завести з недозволеною роллю', ['by' => $by?->getId(), 'role' => $user->getWorkRole()->value]);
 
             throw new AccessDeniedException(self::roleDenial($by));
@@ -164,8 +165,20 @@ class StaffDirectory
         }
 
         $this->guard($user, $by, ['archive']);
-        $user->archive($by);
         $this->events->transactional(function () use ($user, $by): void {
+            // Останнього суперадміна в кошик не переносимо (під блокуванням — разом із «Ролі й доступ»).
+            if ($user->isSuperadmin()) {
+                $others = $this->em->getConnection()->fetchFirstColumn(
+                    "SELECT id FROM telegram_user WHERE is_superadmin = TRUE AND archived_at IS NULL AND access_status = 'approved' AND id <> ? FOR UPDATE",
+                    [$user->getId()],
+                );
+
+                if ($others === []) {
+                    throw new TaskException('Це останній суперадміністратор — у кошик не перенести.');
+                }
+            }
+
+            $user->archive($by);
             $this->em->flush();
             $this->audit($user, $by, 'trash');
         });
@@ -233,6 +246,12 @@ class StaffDirectory
             if ($newRole !== null && ! self::canAssignRole($by, $newRole)) {
                 return false;
             }
+        }
+
+        // Хто сам задач не бачить (системний адмін), не змінює телефон/email тих, хто бачить:
+        // інакше переписав би номер ще не привʼязаної картки на свій і увійшов би нею.
+        if (! $by->canSeeTasks() && $target->getId() !== $by->getId() && $target->canSeeTasks() && array_intersect($fields, ['phone', 'email', 'password']) !== []) {
+            return false;
         }
 
         // Колега — інший адміністратор чи системний адміністратор: його вхід і права — лише суперадмін.

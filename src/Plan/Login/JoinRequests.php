@@ -190,10 +190,15 @@ final class JoinRequests
             : '+' . $digits;
     }
 
+    /**
+     * Суперадмін або системний адміністратор (налаштування доступу, Олександр 17.11) — так само,
+     * як PlanCapability::StaffJoin. Роль новій людині обмежує StaffDirectory::canAssignRole:
+     * системний адмін не видасть ролей, що бачать усі задачі.
+     */
     private static function guard(TelegramUser $by): void
     {
-        if (! $by->isSuperadmin() || $by->isArchived() || ! $by->isApproved()) {
-            throw new AccessDeniedException('Заявки на приєднання розглядає суперадмін.');
+        if ($by->isArchived() || ! $by->isApproved() || ! ($by->isSuperadmin() || $by->getWorkRole() === WorkRole::SysAdmin)) {
+            throw new AccessDeniedException('Заявки на приєднання розглядає суперадмін або системний адміністратор.');
         }
     }
 

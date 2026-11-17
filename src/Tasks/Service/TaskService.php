@@ -66,6 +66,10 @@ class TaskService
      */
     public function create(TelegramUser $author, array $data): Task
     {
+        if (! $author->canSeeTasks()) {
+            throw new TaskException('Задачі вам недоступні.');
+        }
+
         $title = trim((string) ($data['title'] ?? ''));
 
         if ($title === '') {

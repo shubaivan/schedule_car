@@ -113,6 +113,7 @@ enum RolePermission: string
     /** Клітинку може змінити лише суперадмін (не адмін і не системний адміністратор). */
     public function superadminOnly(): bool
     {
-        return $this === self::SectionsFull;
+        // «Веде людей» дає заводити картки — через неї роль обходила б «Ролі й доступ».
+        return $this === self::SectionsFull || $this === self::StaffManage;
     }
 }

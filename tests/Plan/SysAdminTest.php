@@ -2,6 +2,8 @@
 
 namespace App\Tests\Plan;
 
+use App\Supply\Enum\SupplyRole;
+use App\Entity\TelegramUser;
 use App\Plan\Event\CommentAdded;
 use App\Plan\Notification\AudienceResolver;
 use App\Plan\Subject\SubjectRef;
@@ -71,6 +73,41 @@ class SysAdminTest extends WebTestCase
         self::assertNotContains($sys->getId(), $recipients, 'сповіщення про задачу системному адміну не йде навіть зі згадкою');
     }
 
+    public function testReviewHolesAreClosed(): void
+    {
+        $manager = $this->user(WorkRole::Manager, 'mgr3');
+        $sys = $this->user(WorkRole::SysAdmin, 'sys3');
+        $super = $this->user(WorkRole::Production, 'sup3');
+        $super->setSuperadmin(true);
+        $supplyMgr = $this->user(WorkRole::Production, 'spl3', SupplyRole::Manager);
+        $this->em->flush();
+
+        // Учасником системного адміна не додати.
+        $this->login($manager);
+        $task = $this->send('POST', '/api/tasks', ['title' => 'Без сисадміна', 'memberIds' => [$sys->getId()]]);
+        self::assertSame(0, (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM task_member WHERE task_id = ? AND user_id = ?', [$task['id'], $sys->getId()]));
+
+        // URL-кодування шлях не обходить; задачу не створити.
+        $this->login($sys);
+        foreach (['GET /api/%74asks/chronicle/counts', 'POST /api/%74asks', 'GET /api/plan/%7Avyazok/chats'] as $call) {
+            [$method, $url] = explode(' ', $call);
+            $this->client->request($method, $url, server: ['CONTENT_TYPE' => 'application/json'], content: '{"title":"x"}');
+            self::assertResponseStatusCodeSame(404, $call);
+        }
+
+        // Менеджер постачання не блокує суперадміна / адміна «Плану» через розділ заявок.
+        $this->login($supplyMgr);
+        $this->send('POST', '/api/supply/users/' . $super->getId() . '/access', ['status' => 'rejected']);
+        self::assertGreaterThanOrEqual(400, $this->client->getResponse()->getStatusCode());
+        $this->em->clear();
+        self::assertTrue($this->em->find(TelegramUser::class, $super->getId())->isApproved());
+        // І роль у заявках більше не робить директором «Плану».
+        $plain = $this->user(WorkRole::Production, 'pln3');
+        $this->send('PATCH', '/api/supply/users/' . $plain->getId(), ['role' => 'director']);
+        $this->em->clear();
+        self::assertSame(WorkRole::Production, $this->em->find(TelegramUser::class, $plain->getId())->getWorkRole());
+    }
+
     public function testSysAdminCannotEscalateToTasks(): void
     {
         $sys = $this->user(WorkRole::SysAdmin, 'sys2');
@@ -98,6 +135,14 @@ class SysAdminTest extends WebTestCase
         $this->send('POST', '/api/plan/roles/permission', ['role' => 'sysadmin', 'permission' => 'zvyazok.use', 'allowed' => true]);
         self::assertResponseStatusCodeSame(403);
         $this->send('POST', '/api/plan/roles/superadmin', ['userId' => $sys->getId(), 'grant' => true]);
+        self::assertResponseStatusCodeSame(403);
+        // «Веде людей» іншим ролям — лише суперадмін; «Звʼязок» і ліди — не сисадміну.
+        foreach (['staff.manage', 'zvyazok.use', 'leads.receive'] as $perm) {
+            $this->send('POST', '/api/plan/roles/permission', ['role' => 'production', 'permission' => $perm, 'allowed' => $perm !== 'zvyazok.use']);
+            self::assertResponseStatusCodeSame(403, $perm);
+        }
+        // Телефон картки, яка бачить задачі, сисадмін не переписує (захоплення входу).
+        $this->send('PATCH', '/api/staff/' . $worker->getId(), ['phone' => '+380671112299']);
         self::assertResponseStatusCodeSame(403);
         self::assertFalse($this->get('/api/me')['capabilities']['tasks.access']);
     }

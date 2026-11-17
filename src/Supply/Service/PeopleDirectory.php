@@ -199,6 +199,12 @@ class PeopleDirectory
         if ($target->getSupplyRole() === SupplyRole::Admin && $by->getSupplyRole() !== SupplyRole::Admin) {
             throw new SupplyException('Картку адміністратора змінює лише адміністратор.');
         }
+
+        // Суперадміна, адміністратора й системного адміністратора «Плану» розділ заявок не чіпає:
+        // інакше менеджер постачання заблокував би їх (і останнього суперадміна) повз «Ролі й доступ».
+        if ($target->getId() !== $by->getId() && ($target->isSuperadmin() || $target->managesRoles()) && ! $by->isSuperadmin()) {
+            throw new SupplyException('Картку адміністратора «Плану» змінює суперадміністратор на сторінці «Ролі й доступ».');
+        }
     }
 
     private function assertMayGrant(SupplyRole $role, TelegramUser $by, TelegramUser $target): void

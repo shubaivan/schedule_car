@@ -103,7 +103,7 @@ class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface,
     #[ORM\Column(name: 'position', type: 'string', length: 120, nullable: true)]
     private ?string $position = null;
 
-    /** Роль у задачах; null — виводиться з ролі в заявках (WorkRole::fromSupply). */
+    /** Роль у «Плані»; null — «Виробництво» (до 17.11 виводилась з ролі в заявках, міграція проставила явно). */
     #[ORM\Column(name: 'work_role', type: 'string', length: 16, enumType: WorkRole::class, nullable: true)]
     private ?WorkRole $workRole = null;
 
@@ -396,7 +396,10 @@ class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface,
 
     public function getWorkRole(): WorkRole
     {
-        return $this->workRole ?? WorkRole::fromSupply($this->supplyRole);
+        // Роль у «Плані» не виводиться з ролі в заявках (інакше менеджер постачання робив би
+        // людину директором «Плану» повз «Ролі й доступ»): міграція Version20261119150000
+        // проставила всім явну роль, нові без ролі — «Виробництво».
+        return $this->workRole ?? WorkRole::Production;
     }
 
     public function setWorkRole(?WorkRole $workRole): TelegramUser

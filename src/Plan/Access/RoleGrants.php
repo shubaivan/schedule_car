@@ -4,6 +4,7 @@ namespace App\Plan\Access;
 
 use App\Tasks\Enum\WorkRole;
 use Closure;
+use Doctrine\DBAL\Exception\TableNotFoundException;
 use Throwable;
 
 /**
@@ -13,7 +14,7 @@ use Throwable;
  * WorkRole::decides() — десятки місць у задачах, пошуку, Хроніці), куди сервіс не передати.
  * Таблицю читає RolePermissions (loader) — ліниво, раз на запит / команду / повідомлення
  * воркера (RoleGrantsReset скидає кеш). Без loader-а (юніт-тести, стенди) або при помилці
- * читання — значення за замовчуванням, тобто стара поведінка з коду. Зафіксовані клітинки
+ * таблиці (ще не мігровано) — значення за замовчуванням; інша помилка бази — усе незафіксоване «ні». Зафіксовані клітинки
  * (RolePermission::locked) таблиця не перекриває ніколи.
  */
 final class RoleGrants
@@ -55,6 +56,20 @@ final class RoleGrants
         self::$overrides = null;
     }
 
+    /** @return array<string, array<string, bool>> усе «ні» */
+    private static function closed(): array
+    {
+        $out = [];
+
+        foreach (WorkRole::cases() as $role) {
+            foreach (RolePermission::cases() as $permission) {
+                $out[$role->value][$permission->value] = false;
+            }
+        }
+
+        return $out;
+    }
+
     /** @return array<string, array<string, bool>> */
     private static function overrides(): array
     {
@@ -68,9 +83,12 @@ final class RoleGrants
 
         try {
             return self::$overrides = (self::$loader)();
-        } catch (Throwable) {
-            // Таблиці ще немає (міграція не пройшла) чи база недоступна — права з коду.
+        } catch (TableNotFoundException) {
+            // Міграція ще не пройшла (секунди деплою) — змін ще й не могло бути: права з коду.
             return [];
+        } catch (Throwable) {
+            // Інша помилка бази — закрито: незафіксовані права «ні» (не відкриваємо те, що адмін закрив).
+            return self::closed();
         }
     }
 }

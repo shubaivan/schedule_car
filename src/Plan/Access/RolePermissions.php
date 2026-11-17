@@ -101,7 +101,11 @@ class RolePermissions
         }
 
         // Хто сам не бачить задач (системний адмін), той не роздає права на задачі.
-        $tasks = in_array($permission, [RolePermission::TasksAccess, RolePermission::TasksSeeAll, RolePermission::TasksEditAny, RolePermission::TasksDecide], true);
+        $tasks = in_array($permission, [RolePermission::TasksAccess, RolePermission::TasksSeeAll, RolePermission::TasksEditAny, RolePermission::TasksDecide, RolePermission::LeadsReceive], true);
+
+        if ($permission === RolePermission::Zvyazok && ! $by->canUseZvyazok()) {
+            return false;
+        }
 
         return ! $tasks || $by->canSeeTasks();
     }
@@ -166,7 +170,7 @@ class RolePermissions
         $this->events->transactional(function () use ($by, $target, $grant): void {
             // Під блокуванням рядків: два суперадміни одночасно знімають один одного — хоч один лишиться.
             if (! $grant) {
-                $active = $this->db->fetchFirstColumn('SELECT id FROM telegram_user WHERE is_superadmin = TRUE AND archived_at IS NULL FOR UPDATE');
+                $active = $this->db->fetchFirstColumn("SELECT id FROM telegram_user WHERE is_superadmin = TRUE AND archived_at IS NULL AND access_status = 'approved' FOR UPDATE");
 
                 if (count(array_diff(array_map('intval', $active), [(int) $target->getId()])) < 1) {
                     throw new AccessDeniedException('Це останній суперадміністратор — його не зняти.');

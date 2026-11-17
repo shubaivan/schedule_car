@@ -39,9 +39,15 @@ final class PlanTasksGate implements EventSubscriberInterface
             return;
         }
 
-        $path = $event->getRequest()->getPathInfo();
-        $tasks = self::matches($path, self::TASKS) && ! in_array(rtrim($path, '/'), self::OPEN, true);
-        $chats = self::matches($path, self::CHATS);
+        $request = $event->getRequest();
+        // Шлях — сирий (`/api/%74asks` його обходив би), тож головне — імʼя маршруту, яке
+        // RouterListener (пріоритет 32) уже визначив після декодування; шлях — друга лінія.
+        $route = (string) $request->attributes->get('_route', '');
+        $path = rawurldecode($request->getPathInfo());
+        $tasks = (str_starts_with($route, 'api_tasks_') && $route !== 'api_tasks_meta') ||
+            (str_starts_with($route, 'api_plan_file') && $request->attributes->get('type') === 'task') ||
+            (self::matches($path, self::TASKS) && ! in_array(rtrim($path, '/'), self::OPEN, true));
+        $chats = str_starts_with($route, 'api_plan_zv_') || self::matches($path, self::CHATS);
 
         if (! $tasks && ! $chats) {
             return;

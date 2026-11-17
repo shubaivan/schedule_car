@@ -4,7 +4,6 @@ namespace App\Plan\Search;
 
 use App\Plan\Subject\SubjectRef;
 use App\Plan\Subject\SubjectType;
-use App\Supply\Enum\SupplyRole;
 use App\Supply\Enum\Unit;
 use App\Tasks\Enum\WorkRole;
 use App\Warehouse\Enum\MovementType;
@@ -303,13 +302,8 @@ class SearchProjector
 
         $movementLabel = SearchCatalog::caseSql('m.type', MovementType::cases());
         $unitLabel = SearchCatalog::caseSql('r.unit', Unit::cases());
-        $roleCase = 'COALESCE(u.work_role, CASE u.supply_role';
-
-        foreach (['admin', 'director', 'manager'] as $role) {
-            $roleCase .= sprintf(" WHEN '%s' THEN '%s'", $role, WorkRole::fromSupply(SupplyRole::from($role))->value);
-        }
-
-        $roleCase .= " ELSE '" . WorkRole::Production->value . "' END)";
+        // Як TelegramUser::getWorkRole(): без ролі — «Виробництво» (з ролі в заявках не виводимо).
+        $roleCase = "COALESCE(u.work_role, '" . WorkRole::Production->value . "')";
         $roleLabel = 'CASE ' . $roleCase;
 
         foreach (WorkRole::cases() as $case) {

@@ -89,6 +89,10 @@ class TaskFeedRepository
     /** @return array{tasks: int, events: int} скільки задач мають нове і скільки там подій */
     public function unreadCounts(TelegramUser $viewer): array
     {
+        if (! $viewer->canSeeTasks()) {
+            return ['tasks' => 0, 'events' => 0];
+        }
+
         // Множина «мої задачі» будується від участі (індекси task_member / task_favorite),
         // а не проходом усієї таблиці task з OR-EXISTS (DB-perf #2: 57 → ~20 мс на 50k задач).
         // Те саме, що TaskVisibility::involved(): автор або учасник; ★ — лише для тих, хто

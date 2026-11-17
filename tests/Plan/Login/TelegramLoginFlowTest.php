@@ -28,6 +28,7 @@ use SergiX44\Nutgram\Testing\FakeNutgram;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\HttpFoundation\Session\Session;
 use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 /**
  * «Увійти через Telegram» від початку до кінця, без HTTP: сайт (TelegramLogin::start /
@@ -300,6 +301,35 @@ class TelegramLoginFlowTest extends KernelTestCase
 
         $this->expectException(TaskException::class);
         $joins->approve($request, $admin);
+    }
+
+    public function testSysAdminDecidesJoinRequestsButCannotGrantTaskRoles(): void
+    {
+        $sys = $this->staff('0637778811')->setWorkRole(WorkRole::SysAdmin);
+        $manager = $this->staff('0637778812');
+        $this->em->flush();
+        $joins = self::getContainer()->get(JoinRequests::class);
+
+        [, $request] = $joins->submit(['id' => '700300888', 'chatId' => '700300888', 'firstName' => 'Новий', 'lastName' => 'Робітник', 'username' => null], '380501114455');
+        self::assertNotNull($request);
+
+        try {
+            $joins->approve($request, $manager, ['role' => 'production']);
+            self::fail('менеджер заявки не розглядає');
+        } catch (AccessDeniedException) {
+        }
+
+        try {
+            $joins->approve($request, $sys, ['role' => 'director']);
+            self::fail('системний адмін не видає ролей, що бачать усі задачі');
+        } catch (AccessDeniedException) {
+        }
+
+        $this->em->clear();
+        $request = $this->em->find(JoinRequest::class, $request->getId());
+        $sys = $this->em->find(TelegramUser::class, $sys->getId());
+        $user = $joins->approve($request, $sys, ['role' => 'production']);
+        self::assertSame(WorkRole::Production, $user->getWorkRole());
     }
 
     public function testNotMeAfterLoginRevokesThatSession(): void
