@@ -9,6 +9,7 @@ import { dueLabel, today } from './format'
 import { useTasks } from './store'
 import { api } from '../../app/api'
 import { useSession } from '../../app/store'
+import { hasFullAccess } from '../admin/access'
 import { useLiveRefresh } from '../../plan/live'
 import { useNotifications } from '../../plan/notifications/store'
 import { isoDay } from '../plan/searchQuery'
@@ -24,6 +25,8 @@ import { overviewApi, type Decision, type DecisionAction, type Overview, type Re
  * Цифри живі: оновлюються за подією (Mercure), без нього — раз на 30 с.
  */
 const session = useSession()
+/** Приховані розділи (PlanSections): без повного доступу на Огляді немає постачання, автопарку й складу. */
+const full = computed(() => hasFullAccess(session.user))
 const route = useRoute()
 const store = useTasks()
 const live = useNotifications()
@@ -174,15 +177,21 @@ useLiveRefresh(() => load(), { pollMs: 30000, debounceMs: 1000 })
                     <span class="v">{{ data.kpi.replies }}</span>
                     <span class="k">Чекають моєї відповіді</span>
                 </router-link>
-                <router-link :to="{ name: 'supply-board', query: { v: 'overdue' } }" class="ov-tile" :class="{ alert: data.kpi.supplyOverdue }" data-testid="kpi-supply">
+                <router-link
+                    v-if="full"
+                    :to="{ name: 'supply-board', query: { v: 'overdue' } }"
+                    class="ov-tile"
+                    :class="{ alert: data.kpi.supplyOverdue }"
+                    data-testid="kpi-supply"
+                >
                     <span class="v">{{ data.kpi.supplyOverdue }}</span>
                     <span class="k">Прострочені заявки на постачання</span>
                 </router-link>
-                <router-link v-if="data.kpi.fleet" :to="{ name: 'schedule' }" class="ov-tile" data-testid="kpi-fleet">
+                <router-link v-if="full && data.kpi.fleet" :to="{ name: 'schedule' }" class="ov-tile" data-testid="kpi-fleet">
                     <span class="v">{{ data.kpi.fleet.busy }} / {{ data.kpi.fleet.free }}</span>
                     <span class="k">Машини з бронню / вільні</span>
                 </router-link>
-                <div v-else class="ov-tile off" title="Розділ «Автопарк» у Плані ще не ввімкнено" data-testid="kpi-fleet">
+                <div v-else-if="full" class="ov-tile off" title="Розділ «Автопарк» у Плані ще не ввімкнено" data-testid="kpi-fleet">
                     <span class="v">—</span>
                     <span class="k">Автопарк · не підключено</span>
                 </div>
@@ -402,7 +411,7 @@ useLiveRefresh(() => load(), { pollMs: 30000, debounceMs: 1000 })
 
                 <aside class="ov-side">
                     <!-- (7) Автопарк по бронях -->
-                    <section id="fleet" class="t-panel" data-testid="ov-fleet">
+                    <section v-if="full" id="fleet" class="t-panel" data-testid="ov-fleet">
                         <h2>🚚 Автопарк сьогодні</h2>
                         <template v-if="data.fleet.enabled">
                             <div class="ov-line">
@@ -429,7 +438,7 @@ useLiveRefresh(() => load(), { pollMs: 30000, debounceMs: 1000 })
                     </section>
 
                     <!-- (6) Постачання за місяць -->
-                    <section class="t-panel" data-testid="ov-supply">
+                    <section v-if="full" class="t-panel" data-testid="ov-supply">
                         <h2>
                             🛒 Постачання
                             <template v-if="month">· {{ month }}</template>

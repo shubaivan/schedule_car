@@ -118,7 +118,7 @@ class TaskNotifierTest extends KernelTestCase
 
     private function person(WorkRole $role, ?string $telegramId = null): TelegramUser
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId($telegramId ?? (string) random_int(900000000, 999999999))
             ->setFirstName($role->label())
             ->setWorkRole($role);

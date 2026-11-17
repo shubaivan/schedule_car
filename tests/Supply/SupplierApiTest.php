@@ -143,7 +143,7 @@ class SupplierApiTest extends WebTestCase
 
     private function login(): void
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId('supplier-api-' . uniqid())
             ->setFirstName(self::MARKER)
             ->setSupplyRole(SupplyRole::Manager);

@@ -46,14 +46,15 @@ class PlanAccessTest extends TestCase
         self::assertTrue($access->can($this->user(WorkRole::Production, SupplyRole::Manager), PlanCapability::CounterpartiesView), 'Постачання веде постачальників');
 
         $worker = $this->user(WorkRole::Production, SupplyRole::Worker);
-        self::assertSame(array_fill_keys(array_map(static fn ($c) => $c->value, PlanCapability::cases()), false), $access->matrix($worker));
+        // Без PlanSections (стенд заявок / юніт) повний доступ у всіх — решта матриці за ролями.
+        self::assertSame(['plan.full' => true] + array_fill_keys(array_map(static fn ($c) => $c->value, PlanCapability::cases()), false), $access->matrix($worker));
 
         $super = $this->user(WorkRole::Production, SupplyRole::Worker)->setSuperadmin(true);
         self::assertTrue($access->can($super, PlanCapability::AuditView));
         self::assertContains('ROLE_PLAN_SUPERADMIN', $super->getRoles());
         self::assertNotContains('ROLE_PLAN_SUPERADMIN', $worker->getRoles());
 
-        $pending = new TelegramUser()->setTelegramId('p')->setWorkRole(WorkRole::Director);
+        $pending = new TelegramUser()->setPlanFullAccess(true)->setTelegramId('p')->setWorkRole(WorkRole::Director);
         self::assertFalse($access->can($pending, PlanCapability::TasksSeeAll), 'Не допущений — нічого');
         self::assertFalse($access->can(null, PlanCapability::TasksSeeAll));
     }
@@ -75,7 +76,7 @@ class PlanAccessTest extends TestCase
 
     private function user(WorkRole $work, SupplyRole $supply): TelegramUser
     {
-        $user = new TelegramUser()->setTelegramId('acc-' . uniqid())->setWorkRole($work)->setSupplyRole($supply);
+        $user = new TelegramUser()->setPlanFullAccess(true)->setTelegramId('acc-' . uniqid())->setWorkRole($work)->setSupplyRole($supply);
         $user->decideAccess(AccessStatus::Approved, null);
 
         return $user;

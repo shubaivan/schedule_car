@@ -318,7 +318,7 @@ class AuditApiTest extends WebTestCase
 
     private function user(WorkRole $role, string $name, bool $superadmin = false): TelegramUser
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId(self::PREFIX . $name . '-' . uniqid())
             ->setFirstName(ucfirst($name))
             ->setLastName('Аудит')

@@ -200,7 +200,7 @@ class PeopleApiTest extends WebTestCase
 
     private function user(SupplyRole $role): TelegramUser
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId(self::PREFIX . uniqid())
             ->setFirstName('Тест-Люди')
             ->setPhoneNumber('38050' . random_int(1000000, 9999999))

@@ -92,7 +92,7 @@ class SubjectRegistryTest extends KernelTestCase
 
     private function worker(WorkRole $role, SupplyRole $supply): TelegramUser
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId('subj-' . uniqid('', true))
             ->setFirstName('Тест-Суб')
             ->setWorkRole($role)

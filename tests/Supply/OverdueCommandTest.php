@@ -185,7 +185,7 @@ class OverdueCommandTest extends KernelTestCase
 
     private function person(SupplyRole $role = SupplyRole::Worker): TelegramUser
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId('overdue-' . $role->value . '-' . uniqid())
             ->setFirstName($role->label())
             ->setSupplyRole($role);

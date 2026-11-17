@@ -84,7 +84,7 @@ class AccessCommandTest extends KernelTestCase
 
     private function person(string $username, SupplyRole $role, AccessStatus $status): TelegramUser
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId('access-cmd-' . uniqid())
             ->setFirstName(self::MARKER)
             ->setUsername($username)

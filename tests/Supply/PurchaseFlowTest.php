@@ -353,17 +353,17 @@ class PurchaseFlowTest extends KernelTestCase
     /** @return array{0: TelegramUser, 1: TelegramUser, 2: TelegramUser} робітник, менеджер, директор */
     private function users(): array
     {
-        $worker = new TelegramUser()
+        $worker = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId('purchase-worker-' . uniqid())
             ->setFirstName('Робітник')
             ->setSupplyRole(SupplyRole::Worker);
 
-        $manager = new TelegramUser()
+        $manager = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId('purchase-manager-' . uniqid())
             ->setFirstName('Менеджер')
             ->setSupplyRole(SupplyRole::Manager);
 
-        $director = new TelegramUser()
+        $director = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId('purchase-director-' . uniqid())
             ->setFirstName('Директор')
             ->setSupplyRole(SupplyRole::Director);

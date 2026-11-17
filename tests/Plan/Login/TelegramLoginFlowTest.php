@@ -365,7 +365,7 @@ class TelegramLoginFlowTest extends KernelTestCase
 
     private function staff(string $phone, ?string $telegramId = null, bool $superadmin = false): TelegramUser
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId($telegramId ?? 'staff-' . bin2hex(random_bytes(6)))
             ->setChatId($telegramId)
             ->setFirstName('Тест-Вхід')

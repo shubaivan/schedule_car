@@ -195,7 +195,7 @@ class PurchaseApiTest extends WebTestCase
 
     private function user(SupplyRole $role): TelegramUser
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId('purchase-api-' . uniqid())
             ->setFirstName(self::MARKER)
             ->setSupplyRole($role);

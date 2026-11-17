@@ -202,12 +202,12 @@ class NotificationCoverageTest extends KernelTestCase
     /** @return TelegramUser[] */
     private function users(): array
     {
-        $worker = new TelegramUser()
+        $worker = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId('notify-worker-' . uniqid())
             ->setFirstName('Робітник')
             ->setSupplyRole(SupplyRole::Worker);
 
-        $manager = new TelegramUser()
+        $manager = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId('notify-manager-' . uniqid())
             ->setFirstName('Менеджер')
             ->setSupplyRole(SupplyRole::Manager);

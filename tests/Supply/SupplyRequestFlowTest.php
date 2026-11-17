@@ -220,7 +220,7 @@ class SupplyRequestFlowTest extends KernelTestCase
 
     private function user(string $prefix, SupplyRole $role): TelegramUser
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId($prefix . '-' . uniqid())
             ->setFirstName(ucfirst($prefix))
             ->setLanguageCode('uk')

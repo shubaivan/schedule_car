@@ -61,7 +61,7 @@ class CrmLoginLinkTest extends KernelTestCase
 
     private function manager(): TelegramUser
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId('mgr-' . uniqid())
             ->setFirstName('Менеджер')
             ->setSupplyRole(SupplyRole::Manager);

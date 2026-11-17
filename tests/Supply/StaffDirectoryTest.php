@@ -99,7 +99,7 @@ class StaffDirectoryTest extends KernelTestCase
 
     private function user(SupplyRole $role = SupplyRole::Worker): TelegramUser
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId('staff-' . uniqid())
             ->setFirstName('Тест-Довідник')
             ->setSupplyRole($role);

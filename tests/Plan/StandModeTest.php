@@ -190,7 +190,7 @@ class StandModeTest extends WebTestCase
 
     private function person(SupplyRole $role): TelegramUser
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId((string) random_int(100_000_000, 999_999_999))
             ->setFirstName('Тест-Стенд')
             ->setSupplyRole($role);

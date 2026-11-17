@@ -246,7 +246,7 @@ class NoDoubleNotificationTest extends KernelTestCase
 
     private function person(WorkRole $role, SupplyRole $supply = SupplyRole::Worker): TelegramUser
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId((string) random_int(100_000_000, 999_999_999))
             ->setFirstName('Тест-Дубль')
             ->setWorkRole($role)

@@ -152,7 +152,7 @@ class PlanShellS2Test extends WebTestCase
 
     private function user(WorkRole $role, string $name): TelegramUser
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId(self::PREFIX . $name . '-' . uniqid())
             ->setFirstName(ucfirst($name))
             ->setLastName('Тестовий')

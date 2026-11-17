@@ -265,7 +265,7 @@ class AuditCommandsTest extends KernelTestCase
 
     private function human(string $name, string $email, ?string $phone = null): TelegramUser
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId('audit-cmd-' . $name . '-' . uniqid())
             ->setFirstName(ucfirst($name))
             ->setEmail($email)

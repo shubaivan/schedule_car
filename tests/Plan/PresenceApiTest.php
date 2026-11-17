@@ -206,7 +206,7 @@ class PresenceApiTest extends WebTestCase
 
     private function user(string $name, WorkRole $role, ?string $phone = null, bool $approved = true): TelegramUser
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId('presence-' . uniqid('', true))
             ->setFirstName($name)
             ->setLastName('Тест')

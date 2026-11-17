@@ -140,7 +140,7 @@ class DepartmentApiTest extends WebTestCase
 
     private function user(SupplyRole $role): TelegramUser
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId(self::PREFIX . uniqid())
             ->setFirstName('Тест-Підрозділи')
             ->setSupplyRole($role);

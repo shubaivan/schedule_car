@@ -65,7 +65,7 @@ class TeamChatTest extends KernelTestCase
         $em->beginTransaction();
 
         try {
-            $user = new TelegramUser()->setTelegramId('team-' . uniqid())->setFirstName('Іван')->setChatId('555');
+            $user = new TelegramUser()->setPlanFullAccess(true)->setTelegramId('team-' . uniqid())->setFirstName('Іван')->setChatId('555');
             $em->persist($user);
             $em->flush();
 

@@ -3,6 +3,7 @@
 namespace App\Plan\Share;
 
 use App\Entity\TelegramUser;
+use App\Plan\Access\PlanSections;
 use App\Plan\Subject\SubjectRef;
 use App\Plan\Subject\SubjectType;
 use App\Supply\Repository\SupplyAttachmentRepository;
@@ -49,6 +50,7 @@ class PlanFiles
         private readonly TaskPresenter $taskPresenter,
         private readonly SupplyFeed $supplyFeed,
         private readonly ?SupplyVisibility $supplyVisibility = null,
+        private readonly ?PlanSections $sections = null,
     ) {
     }
 
@@ -71,7 +73,7 @@ class PlanFiles
 
         return match (true) {
             $entity instanceof TaskAttachment => $this->tasks->enabled() && $entity->getMessage()->getDeletedAt() === null && $this->taskPolicy->canView($user, $entity->getTask()),
-            $entity instanceof WhDocument => $this->warehouse->isEnabled() && WarehouseSection::canView($user),
+            $entity instanceof WhDocument => $this->warehouse->isEnabled() && WarehouseSection::canView($user) && ($this->sections === null || $this->sections->full($user)),
             // Решта — документ заявки (SupplyAttachment).
             default => $this->supplyVisibility?->canView($entity->getRequest(), $user) ?? true,
         };

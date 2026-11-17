@@ -9,6 +9,8 @@ namespace App\Plan\Access;
  */
 enum PlanCapability: string
 {
+    /** Розділи поза базовими (PlanSections): Постачання, Склад, Контрагенти, Автопарк, Диск, «Звʼязок». */
+    case FullAccess = 'plan.full';
     case TasksSeeAll = 'tasks.seeAll';
     case SupplyManage = 'supply.manage';
     case SupplyApprove = 'supply.approve';

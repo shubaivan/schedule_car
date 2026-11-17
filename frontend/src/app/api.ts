@@ -30,6 +30,11 @@ export interface ApiUser {
     fleet?: boolean
     /** Лише в /api/me: можливості в «Плані» (PlanAccess), напр. `audit.view` — суперадмін. */
     capabilities?: Record<string, boolean>
+    /**
+     * Лише в /api/me: повний доступ (PlanSections). false — лише Огляд, Хроніка, Задачі,
+     * Пошук, Сповіщення, Люди; решта розділів прихована й закрита в API.
+     */
+    fullAccess?: boolean
 }
 
 /** Підрозділ у довіднику: разом із тим, скільки на ньому висить. */

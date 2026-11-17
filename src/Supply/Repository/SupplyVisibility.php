@@ -3,6 +3,7 @@
 namespace App\Supply\Repository;
 
 use App\Entity\TelegramUser;
+use App\Plan\Access\PlanSections;
 use App\Supply\Entity\SupplyRequest;
 use App\Tasks\Service\TasksSection;
 use Doctrine\DBAL\Connection;
@@ -24,11 +25,22 @@ final class SupplyVisibility
     public function __construct(
         private readonly TasksSection $plan,
         private readonly Connection $db,
+        private readonly ?PlanSections $sections = null,
     ) {
+    }
+
+    /** «Постачання» — прихований розділ (PlanSections): без повного доступу заявок не видно ніде. */
+    public function hidden(TelegramUser $viewer): bool
+    {
+        return $this->sections !== null && ! $this->sections->full($viewer);
     }
 
     public function seesAll(TelegramUser $viewer): bool
     {
+        if ($this->hidden($viewer)) {
+            return false;
+        }
+
         // Ролі напряму (як SupplyRole у модулі заявок), а не PlanAccess: допуск до CRM перевіряє файрвол.
         $supply = $viewer->getSupplyRole();
 
@@ -37,6 +49,10 @@ final class SupplyVisibility
 
     public function canView(SupplyRequest $request, TelegramUser $viewer): bool
     {
+        if ($this->hidden($viewer)) {
+            return false;
+        }
+
         if ($this->seesAll($viewer)) {
             return true;
         }
@@ -58,6 +74,10 @@ final class SupplyVisibility
      */
     public function sql(TelegramUser $viewer, string $idExpr): array
     {
+        if ($this->hidden($viewer)) {
+            return ['FALSE', []];
+        }
+
         if ($this->seesAll($viewer)) {
             return ['TRUE', []];
         }

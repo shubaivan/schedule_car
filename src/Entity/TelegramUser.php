@@ -114,6 +114,15 @@ class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface,
     #[ORM\Column(name: 'is_superadmin', type: 'boolean', nullable: false, options: ['default' => false])]
     private bool $superadmin = false;
 
+    /**
+     * Повний доступ до «Плану» (Олександр, 17.11.2026): усім лишаються Огляд, Хроніка,
+     * Задачі, Пошук, Сповіщення й Люди; решта розділів (Постачання, Склад, Контрагенти,
+     * Автопарк, Диск, «Звʼязок» до погодження) — лише людям із цим прапорцем і суперадмінам.
+     * Видає суперадмін (картка співробітника) або консоль `plan:full-access`. Див. PlanSections.
+     */
+    #[ORM\Column(name: 'plan_full_access', type: 'boolean', nullable: false, options: ['default' => false])]
+    private bool $planFullAccess = false;
+
     public function __construct()
     {
         $this->scheduledSet = new ArrayCollection();
@@ -447,6 +456,18 @@ class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface,
     public function managesStaff(): bool
     {
         return $this->getWorkRole()->managesStaff() || $this->superadmin;
+    }
+
+    public function hasPlanFullAccess(): bool
+    {
+        return $this->planFullAccess;
+    }
+
+    public function setPlanFullAccess(bool $planFullAccess): static
+    {
+        $this->planFullAccess = $planFullAccess;
+
+        return $this;
     }
 
     public function setSuperadmin(bool $superadmin): static

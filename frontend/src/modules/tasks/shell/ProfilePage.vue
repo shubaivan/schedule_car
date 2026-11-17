@@ -5,7 +5,7 @@ import Avatar from '../Avatar.vue'
 import { applyTheme, theme, type Theme } from './theme'
 import { useTasks } from '../store'
 import { useSession } from '../../../app/store'
-import { canSeeAdmin, canSeeDrive, canSeeWarehouse } from '../../admin/access'
+import { canSeeAdmin, canSeeDrive, canSeeSupply, canSeeWarehouse } from '../../admin/access'
 import { canSeeCounterparties } from '../../counterparties/access'
 
 /** «Я»: хто я в Плані, тема оформлення, інші розділи й вихід. */
@@ -61,7 +61,7 @@ const THEMES: { value: Theme; label: string; icon: string }[] = [
                 <Icon name="search" />
                 Пошук
             </router-link>
-            <router-link :to="{ name: 'supply-board' }">
+            <router-link v-if="canSeeSupply(session.user)" :to="{ name: 'supply-board' }">
                 <Icon name="clipboard" />
                 Постачання
             </router-link>

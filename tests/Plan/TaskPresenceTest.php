@@ -165,7 +165,7 @@ class TaskPresenceTest extends WebTestCase
 
     private function user(WorkRole $role, ?Department $department = null): TelegramUser
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId('presence-' . uniqid('', true))
             ->setFirstName('Присутність')
             ->setLastName($role->label())

@@ -197,7 +197,7 @@ class StatusRoleSplitTest extends KernelTestCase
         $users = [];
 
         foreach ([SupplyRole::Worker, SupplyRole::Manager, SupplyRole::Director] as $role) {
-            $user = new TelegramUser()
+            $user = new TelegramUser()->setPlanFullAccess(true)
                 ->setTelegramId('roles-' . $role->value . '-' . uniqid())
                 ->setFirstName($role->label())
                 ->setSupplyRole($role);

@@ -208,7 +208,7 @@ class TelegramLoginWebTest extends WebTestCase
 
     private function staff(string $telegramId, bool $superadmin = false, bool $password = false): TelegramUser
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId($telegramId)
             ->setChatId($telegramId)
             ->setFirstName('Тест-ВхідWeb')

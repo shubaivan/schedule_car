@@ -62,6 +62,11 @@ class StaffDirectory
             ->setLanguageCode('uk');
         $user->decideAccess(AccessStatus::Approved, $by);
 
+        // Повний доступ при заведенні — лише від суперадміна (або з консолі).
+        if ($by !== null && ! $by->isSuperadmin()) {
+            unset($data['fullAccess']);
+        }
+
         $this->apply($user, $data);
 
         if ($user->getFirstName() === null) {
@@ -184,6 +189,11 @@ class StaffDirectory
             return false;
         }
 
+        // Повний доступ до прихованих розділів (PlanSections) видає й знімає лише суперадмін.
+        if (in_array('fullAccess', $fields, true)) {
+            return false;
+        }
+
         $colleague = ($targetRole ?? $target->getWorkRole()) === WorkRole::Admin && $target->getId() !== $by->getId();
 
         return ! $colleague || array_intersect($fields, [...self::CREDENTIALS, 'archive']) === [];
@@ -218,6 +228,7 @@ class StaffDirectory
             'phone' => (string) $user->getPhoneNumber(),
             'role' => $user->getWorkRole()->value,
             'departmentId' => (string) $user->getDepartment()?->getId(),
+            'fullAccess' => $user->hasPlanFullAccess() ? '1' : '0',
         ];
     }
 
@@ -236,7 +247,7 @@ class StaffDirectory
      */
     private static function fields(array $data): array
     {
-        $known = ['firstName', 'lastName', 'position', 'email', 'phone', 'role', 'departmentId'];
+        $known = ['firstName', 'lastName', 'position', 'email', 'phone', 'role', 'departmentId', 'fullAccess'];
         $fields = array_values(array_filter($known, static fn (string $key) => array_key_exists($key, $data)));
 
         if (($data['password'] ?? '') !== '') {
@@ -310,6 +321,10 @@ class StaffDirectory
         if (array_key_exists('departmentId', $data)) {
             $id = (int) $data['departmentId'];
             $user->setDepartment($id > 0 ? $this->departments->find($id) : null);
+        }
+
+        if (array_key_exists('fullAccess', $data)) {
+            $user->setPlanFullAccess(filter_var($data['fullAccess'], FILTER_VALIDATE_BOOLEAN));
         }
 
         if (($data['password'] ?? '') !== '') {

@@ -89,7 +89,7 @@ class DriveSyncCommandTest extends KernelTestCase
         $users = [];
 
         foreach ([SupplyRole::Worker, SupplyRole::Manager] as $role) {
-            $user = new TelegramUser()
+            $user = new TelegramUser()->setPlanFullAccess(true)
                 ->setTelegramId('drive-' . $role->value . '-' . uniqid())
                 ->setFirstName($role->label())
                 ->setSupplyRole($role);

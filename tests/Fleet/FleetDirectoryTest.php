@@ -107,7 +107,7 @@ class FleetDirectoryTest extends KernelTestCase
 
     private function user(): TelegramUser
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId('fleet-' . uniqid())
             ->setFirstName('Водій');
 

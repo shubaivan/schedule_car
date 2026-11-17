@@ -393,7 +393,7 @@ class CounterpartyApiTest extends WebTestCase
 
     private function person(WorkRole $work, SupplyRole $supply = SupplyRole::Worker): TelegramUser
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId('cp-' . uniqid('', true))
             ->setFirstName('Тест-Контрагент')
             ->setWorkRole($work)

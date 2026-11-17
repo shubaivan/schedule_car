@@ -181,7 +181,7 @@ class ScheduleTest extends KernelTestCase
 
     private function user(): TelegramUser
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId('trip-' . uniqid())
             ->setFirstName('Іван')
             ->setPhoneNumber('380631112299');

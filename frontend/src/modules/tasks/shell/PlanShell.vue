@@ -10,7 +10,7 @@ import NotificationsHost from '../../../plan/notifications/NotificationsHost.vue
 import PresenceIndicator from '../../../plan/PresenceIndicator.vue'
 import { presenceSection, usePresence } from '../../../plan/presence'
 import { typing } from '../../../plan/layers'
-import { canEditWarehouse, canSeeAdmin, canSeeWarehouse } from '../../admin/access'
+import { canEditWarehouse, canSeeAdmin, canSeeSupply, canSeeWarehouse } from '../../admin/access'
 import { WAREHOUSE_FULLSCREEN, WAREHOUSE_SPLIT } from '../../warehouse/routes'
 import { COUNTERPARTY_FORMS, COUNTERPARTY_FULLSCREEN, COUNTERPARTY_SPLIT } from '../../counterparties/routes'
 import { canSeeCounterparties } from '../../counterparties/access'
@@ -46,6 +46,8 @@ const canWarehouse = computed(() => canSeeWarehouse(me.value))
 /** Склад на читання (продажі, бухгалтерія): «＋» там — задача, а не новий рух. */
 const writesWarehouse = computed(() => canEditWarehouse(me.value))
 const canCounterparties = computed(() => canSeeCounterparties(me.value))
+/** «Постачання» — прихований розділ без повного доступу; тоді в нижній панелі на його місці «Люди». */
+const canSupply = computed(() => canSeeSupply(me.value))
 
 const name = computed(() => String(route.name))
 /** Сторінки-вікна (форма, файл) і відкрита праворуч картка — на телефоні на весь екран. */
@@ -75,7 +77,9 @@ const onStaff = computed(() => name.value.startsWith('staff'))
 const onAdmin = computed(() => name.value.startsWith('admin'))
 const onWarehouse = computed(() => name.value.startsWith('warehouse'))
 const onCounterparties = computed(() => name.value.startsWith('counterpart'))
-const onMore = computed(() => onWarehouse.value || onCounterparties.value || name.value === 'tasks-profile' || onNotifications.value || onAdmin.value || onStaff.value)
+const onMore = computed(
+    () => onWarehouse.value || onCounterparties.value || name.value === 'tasks-profile' || onNotifications.value || onAdmin.value || (onStaff.value && canSupply.value),
+)
 
 /** «＋» створює те, де людина зараз: у постачанні — заявку, на складі — рух (хто веде склад), у контрагентах — контрагента, деінде — задачу. */
 const newOnWarehouse = computed(() => onWarehouse.value && writesWarehouse.value)
@@ -143,7 +147,7 @@ onBeforeUnmount(() => {
                 <Icon name="board" />
                 <span>Задачі</span>
             </router-link>
-            <router-link :to="{ name: 'supply-board' }" class="p-rail-btn" :class="{ on: onSupply }" title="Постачання">
+            <router-link v-if="canSupply" :to="{ name: 'supply-board' }" class="p-rail-btn" :class="{ on: onSupply }" title="Постачання">
                 <Icon name="clipboard" />
                 <span>Постачання</span>
             </router-link>
@@ -245,9 +249,13 @@ onBeforeUnmount(() => {
                 <span>Задачі</span>
             </router-link>
             <router-link :to="newTarget" class="p-tab-new" :aria-label="newLabel"><Icon name="plus" :size="26" :stroke="2.2" /></router-link>
-            <router-link :to="{ name: 'supply-board' }" :class="{ on: onSupply }">
+            <router-link v-if="canSupply" :to="{ name: 'supply-board' }" :class="{ on: onSupply }">
                 <Icon name="clipboard" />
                 <span>Постачання</span>
+            </router-link>
+            <router-link v-else :to="{ name: 'staff' }" :class="{ on: onStaff }" data-testid="tab-staff">
+                <Icon name="users" />
+                <span>Люди</span>
             </router-link>
             <router-link :to="{ name: 'tasks-profile' }" :class="{ on: onMore }">
                 <Icon name="menu" />

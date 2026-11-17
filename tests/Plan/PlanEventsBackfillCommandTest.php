@@ -115,7 +115,7 @@ class PlanEventsBackfillCommandTest extends KernelTestCase
 
     private function person(WorkRole $role, SupplyRole $supply): TelegramUser
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId('bf-' . uniqid('', true))
             ->setFirstName('Тест-Історія')
             ->setWorkRole($role)

@@ -230,6 +230,10 @@ export interface StaffRow extends Person {
     archivedAt: string | null
     archivedBy: string | null
     me: boolean
+    /** Повний доступ до розділів (PlanSections) — лише в очах суперадміна; іншим null. */
+    fullAccess?: boolean | null
+    /** Суперадмін може видати / зняти повний доступ цій людині. */
+    fullAccessEditable?: boolean
 }
 
 export interface StaffDepartment {

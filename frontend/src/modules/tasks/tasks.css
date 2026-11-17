@@ -1838,3 +1838,18 @@
         padding-bottom: calc(1rem + env(safe-area-inset-bottom));
     }
 }
+
+/* Прапорець у формі (картка співробітника: «Повний доступ»). */
+.t-check {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 10px 0 2px;
+    cursor: pointer;
+}
+.t-check input {
+    margin-top: 3px;
+    width: 18px;
+    height: 18px;
+    flex: none;
+}

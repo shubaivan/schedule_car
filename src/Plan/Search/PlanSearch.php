@@ -204,7 +204,12 @@ class PlanSearch
     {
         return array_values(array_filter(
             array_keys(SearchCatalog::GROUPS),
-            fn (string $group) => $group !== 'warehouse' || $this->seesWarehouse($viewer),
+            fn (string $group) => match ($group) {
+                'warehouse' => $this->seesWarehouse($viewer),
+                // «Постачання» — прихований розділ без повного доступу (PlanSections).
+                'supply' => $this->supplyVisibility === null || ! $this->supplyVisibility->hidden($viewer),
+                default => true,
+            },
         ));
     }
 

@@ -374,7 +374,7 @@ class OverviewApiTest extends WebTestCase
 
     private function user(WorkRole $role, SupplyRole $supply, ?Department $department = null): TelegramUser
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId('overview-' . uniqid('', true))
             ->setFirstName('Огляд')
             ->setLastName($role->label())

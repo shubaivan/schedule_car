@@ -16,9 +16,30 @@ use App\Warehouse\Service\WarehouseSection;
  */
 final class PlanAccess
 {
+    /** null — без розподілу розділів (юніт-тести, стенди заявок): повний доступ у всіх. */
+    public function __construct(private readonly ?PlanSections $sections = null)
+    {
+    }
+
+    /** Прихований розділ (PlanSections): без повного доступу — ні бачити, ні змінювати. */
+    private const array FULL_ONLY = [
+        PlanCapability::SupplyManage,
+        PlanCapability::SupplyApprove,
+        PlanCapability::WarehouseView,
+        PlanCapability::WarehouseEdit,
+        PlanCapability::CounterpartiesView,
+        PlanCapability::CounterpartiesEdit,
+        PlanCapability::CounterpartiesFinance,
+        PlanCapability::FullAccess,
+    ];
+
     public function can(?TelegramUser $user, PlanCapability $capability): bool
     {
         if ($user === null || $user->isArchived() || ! $user->isApproved()) {
+            return false;
+        }
+
+        if (in_array($capability, self::FULL_ONLY, true) && $this->sections !== null && ! $this->sections->full($user)) {
             return false;
         }
 
@@ -26,6 +47,7 @@ final class PlanAccess
         $supply = $user->getSupplyRole();
 
         return match ($capability) {
+            PlanCapability::FullAccess => true,
             PlanCapability::TasksSeeAll => $user->seesAllTasks(),
             PlanCapability::SupplyManage => $supply->canManage(),
             PlanCapability::SupplyApprove => $supply->canApprovePayment(),

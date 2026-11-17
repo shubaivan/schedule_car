@@ -169,6 +169,10 @@ class StaffApiController extends TasksController
             'me' => $user->getId() === $me->getId(),
             // Пароль, контакти й роль цієї людини поточний адмін змінити не може (суперадмін / колега-адмін).
             'protected' => ! StaffDirectory::canChange($me, $user, ['password']),
+            // Повний доступ до прихованих розділів (PlanSections): суперадмін має його завжди;
+            // прапорець видає лише суперадмін — іншим не показуємо, щоб не плодити питань.
+            'fullAccess' => $me->isSuperadmin() ? ($user->isSuperadmin() || $user->hasPlanFullAccess()) : null,
+            'fullAccessEditable' => $me->isSuperadmin() && ! $user->isSuperadmin(),
         ];
     }
 }

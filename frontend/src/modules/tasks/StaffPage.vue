@@ -12,7 +12,7 @@ import { useTasks } from './store'
 import { useSession } from '../../app/store'
 import { goBack } from '../../plan/layers'
 import { notify, undoable } from '../../plan/undo'
-import { canSeeJoinRequests } from '../admin/access'
+import { canSeeAdmin, canSeeJoinRequests } from '../admin/access'
 
 /**
  * Співробітники — як розділ налаштувань ПланФікса (скріни клієнта 13.11.2026):
@@ -56,7 +56,15 @@ const filtered = computed(() => {
 const direction = computed(() => deps.value.find((d) => /дирекц/i.test(d.name)))
 const branches = computed(() => deps.value.filter((d) => d !== direction.value))
 
-const form = reactive({ firstName: '', lastName: '', position: '', email: '', phone: '', role: 'production', departmentId: 0, password: '' })
+const form = reactive({ firstName: '', lastName: '', position: '', email: '', phone: '', role: 'production', departmentId: 0, password: '', fullAccess: false })
+/** Прапорець «Повний доступ» (PlanSections) — видає лише суперадмін; суперадміну він не потрібен. */
+const fullAccessEditable = computed(() =>
+    editing.value === 'new' ? canSeeAdmin(session.user) : !!(editing.value && typeof editing.value === 'object' && editing.value.fullAccessEditable),
+)
+function payload(): Record<string, unknown> {
+    const { fullAccess, ...rest } = form
+    return fullAccessEditable.value ? { ...rest, fullAccess } : rest
+}
 
 async function load() {
     try {
@@ -96,14 +104,15 @@ function fill(row: StaffRow | 'new' | null) {
         role: r?.role ?? 'production',
         departmentId: r?.departmentId ?? 0,
         password: '',
+        fullAccess: r?.fullAccess === true,
     })
     error.value = ''
 }
 
 async function save() {
     try {
-        if (editing.value === 'new') await tasksApi.createStaff({ ...form })
-        else if (editing.value) await tasksApi.updateStaff(editing.value.id, { ...form })
+        if (editing.value === 'new') await tasksApi.createStaff(payload())
+        else if (editing.value) await tasksApi.updateStaff(editing.value.id, payload())
         await store.load(true)
         await load()
         notify('Збережено')
@@ -384,6 +393,16 @@ onMounted(load)
                         <label v-if="isAdmin && store.meta?.me.passwordLogin !== false" class="t-field">
                             <span>{{ editing === 'new' ? 'Пароль (необовʼязково, запасний вхід)' : 'Новий пароль (необовʼязково; порожнє — без змін)' }}</span>
                             <input v-model="form.password" type="password" class="t-input" autocomplete="new-password" minlength="8" />
+                        </label>
+                        <label v-if="fullAccessEditable" class="t-check" data-testid="staff-full-access">
+                            <input v-model="form.fullAccess" type="checkbox" />
+                            <span>
+                                Повний доступ — бачить усі розділи
+                                <small class="t-hint" style="display: block; padding: 0">
+                                    Без нього — лише Огляд, Хроніка, Задачі, Пошук, Сповіщення й Люди. Постачання, Склад, Контрагенти, Автопарк і нові розділи — тільки з повним
+                                    доступом.
+                                </small>
+                            </span>
                         </label>
                     </fieldset>
                 </div>

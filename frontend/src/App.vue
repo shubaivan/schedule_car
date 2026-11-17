@@ -2,6 +2,7 @@
 import { computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSession } from './app/store'
+import { hasFullAccess, isHiddenRoute } from './modules/admin/access'
 import PlanShell from './modules/tasks/shell/PlanShell.vue'
 import UndoToast from './plan/UndoToast.vue'
 import './modules/tasks/tasks.css'
@@ -61,6 +62,11 @@ watch(
             return
         }
         if (!planHome.value) return
+        // Приховані розділи (PlanSections): без повного доступу пряме посилання веде на Огляд.
+        if (!hasFullAccess(session.user) && isHiddenRoute(String(route.name))) {
+            router.replace({ name: 'tasks' })
+            return
+        }
         if (route.name === 'requests' && route.path === '/') router.replace({ name: 'tasks' })
         else if (route.name === 'request' && /^\d+$/.test(String(route.params.id))) {
             router.replace({ name: 'supply-board', params: { id: String(route.params.id) } })

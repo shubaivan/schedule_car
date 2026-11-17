@@ -103,7 +103,12 @@ class PlanChronicle
     /** @return list<string> модулі, які людина бачить у Хроніці */
     public function modulesFor(TelegramUser $viewer): array
     {
-        $out = ['task', 'supply'];
+        $out = ['task'];
+
+        // «Постачання» — прихований розділ без повного доступу (PlanSections, через PlanAccess).
+        if ($this->access->can($viewer, PlanCapability::FullAccess)) {
+            $out[] = 'supply';
+        }
 
         if ($this->seesWarehouse($viewer)) {
             $out[] = 'warehouse';
@@ -371,6 +376,7 @@ class PlanChronicle
     {
         $params['me'] ??= (int) $viewer->getId();
         $parts = [];
+        $modules = array_values(array_intersect($modules, $this->modulesFor($viewer)));
 
         if (in_array('supply', $modules, true)) {
             $parts[] = $this->access->can($viewer, PlanCapability::SupplyManage)

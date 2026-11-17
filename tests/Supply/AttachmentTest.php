@@ -239,7 +239,7 @@ class AttachmentTest extends KernelTestCase
 
     private function user(string $prefix, SupplyRole $role): TelegramUser
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId($prefix . '-file-' . uniqid())
             ->setFirstName('Тест-Файл')
             ->setSupplyRole($role);

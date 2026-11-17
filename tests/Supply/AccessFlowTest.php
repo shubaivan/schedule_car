@@ -149,7 +149,7 @@ class AccessFlowTest extends KernelTestCase
 
     private function user(): TelegramUser
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId('acc-' . uniqid())
             ->setFirstName('Новачок');
 

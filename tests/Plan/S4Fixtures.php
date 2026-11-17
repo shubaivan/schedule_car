@@ -63,7 +63,7 @@ trait S4Fixtures
 
     private function user(WorkRole $role, string $name, SupplyRole $supply = SupplyRole::Worker): TelegramUser
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId(self::PREFIX . $name . '-' . uniqid())
             ->setFirstName(ucfirst($name))
             ->setLastName('Пошук')

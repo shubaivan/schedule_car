@@ -145,7 +145,7 @@ class ScheduleApiTest extends WebTestCase
 
     private function person(string $name): TelegramUser
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId('board-' . uniqid())
             ->setFirstName($name . ' ' . self::MARKER)
             ->setPhoneNumber('380631110000');
@@ -157,7 +157,7 @@ class ScheduleApiTest extends WebTestCase
 
     private function login(SupplyRole $role): void
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId('board-login-' . uniqid())
             ->setFirstName(self::MARKER)
             ->setSupplyRole($role);

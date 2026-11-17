@@ -4,6 +4,7 @@ namespace App\Supply\Controller;
 
 use App\Entity\TelegramUser;
 use App\Plan\Access\PlanAccess;
+use App\Plan\Access\PlanSections;
 use App\Service\FleetSection;
 use App\Service\ShopLink;
 use App\Supply\Enum\SupplyAccent;
@@ -22,7 +23,7 @@ use Symfony\Component\Routing\Attribute\Route;
 class MetaApiController extends AbstractController
 {
     #[Route('/me', name: 'api_me', methods: ['GET'])]
-    public function me(RequestPresenter $presenter, WarehouseSection $warehouse, ShopLink $shop, TasksSection $tasks, FleetSection $fleet, PlanAccess $access): JsonResponse
+    public function me(RequestPresenter $presenter, WarehouseSection $warehouse, ShopLink $shop, TasksSection $tasks, FleetSection $fleet, PlanAccess $access, PlanSections $sections): JsonResponse
     {
         /** @var TelegramUser $user */
         $user = $this->getUser();
@@ -30,7 +31,7 @@ class MetaApiController extends AbstractController
         // Які розділи показати у верхньому ряду: склад (/sklad) і магазин (/shop).
         return $this->json([
             ...$presenter->user($user),
-            'warehouse' => $warehouse->inMenuFor($user),
+            'warehouse' => $warehouse->inMenuFor($user) && $sections->full($user),
             // Склад у «Плані»: розділ увімкнено; бачить / веде — capabilities warehouse.view / warehouse.edit.
             'warehouseEnabled' => $warehouse->isEnabled(),
             'shop' => $shop->availableTo($user),
@@ -41,7 +42,9 @@ class MetaApiController extends AbstractController
             'workRole' => $user->getWorkRole()->value,
             'workRoleLabel' => $user->getWorkRole()->label(),
             'position' => $user->getPosition(),
-            'fleet' => $fleet->isEnabled(),
+            'fleet' => $fleet->isEnabled() && $sections->full($user),
+            // Повний доступ (PlanSections): без нього — лише Огляд, Хроніка, Задачі, Пошук, Сповіщення, Люди.
+            'fullAccess' => $sections->full($user),
             // Матриця можливостей «Плану» (PlanAccess): що показувати в меню, напр. audit.view → «Адмін».
             'capabilities' => $access->matrix($user),
         ]);

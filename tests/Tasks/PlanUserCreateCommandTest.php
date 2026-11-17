@@ -31,7 +31,7 @@ class PlanUserCreateCommandTest extends KernelTestCase
         $this->command = new CommandTester(new Application(self::$kernel)->find('plan:user:create'));
 
         // «Жива» людина з бота вже є — команда все одно має працювати.
-        $live = new TelegramUser()->setTelegramId((string) random_int(100000000, 899999999))->setFirstName('Живий');
+        $live = new TelegramUser()->setPlanFullAccess(true)->setTelegramId((string) random_int(100000000, 899999999))->setFirstName('Живий');
         $this->em->persist($live);
         $this->em->flush();
         $this->emails[] = 'live-' . $live->getId();
@@ -183,7 +183,7 @@ class PlanUserCreateCommandTest extends KernelTestCase
     public function testRefusesDemoUser(): void
     {
         $email = $this->email();
-        $demo = new TelegramUser()->setTelegramId('demo-cli-' . bin2hex(random_bytes(3)))->setFirstName('Демо')->setEmail($email);
+        $demo = new TelegramUser()->setPlanFullAccess(true)->setTelegramId('demo-cli-' . bin2hex(random_bytes(3)))->setFirstName('Демо')->setEmail($email);
         $this->em->persist($demo);
         $this->em->flush();
 

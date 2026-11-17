@@ -21,7 +21,7 @@ trait WarehouseFixtures
 
     protected function person(SupplyRole $role = SupplyRole::Manager): TelegramUser
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId('wh-' . uniqid('', true))
             ->setFirstName('Тест-Склад')
             ->setSupplyRole($role);

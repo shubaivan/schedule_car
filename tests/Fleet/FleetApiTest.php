@@ -154,7 +154,7 @@ class FleetApiTest extends WebTestCase
 
     private function login(SupplyRole $role): void
     {
-        $user = new TelegramUser()
+        $user = new TelegramUser()->setPlanFullAccess(true)
             ->setTelegramId('fleet-api-' . uniqid())
             ->setFirstName(self::MARKER)
             ->setSupplyRole($role);

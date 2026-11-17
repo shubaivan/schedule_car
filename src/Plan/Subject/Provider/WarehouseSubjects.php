@@ -3,6 +3,7 @@
 namespace App\Plan\Subject\Provider;
 
 use App\Entity\TelegramUser;
+use App\Plan\Access\PlanSections;
 use App\Plan\Subject\SubjectProvider;
 use App\Plan\Subject\SubjectRef;
 use App\Plan\Subject\SubjectType;
@@ -34,6 +35,7 @@ final class WarehouseSubjects implements SubjectProvider
         private readonly TelegramUserRepository $users,
         private readonly UrlGeneratorInterface $urls,
         private readonly ?TasksSection $plan = null,
+        private readonly ?PlanSections $sections = null,
     ) {
     }
 
@@ -84,7 +86,8 @@ final class WarehouseSubjects implements SubjectProvider
     public function visibleTo(SubjectRef $ref, TelegramUser $user): bool
     {
         // Бачать і ті, кому склад відкрито на читання; сповіщення (audience) — лише тим, хто його веде.
-        return WarehouseSection::canView($user) && $this->entity($ref) !== null;
+        // «Склад» — прихований розділ без повного доступу (PlanSections).
+        return WarehouseSection::canView($user) && ($this->sections === null || $this->sections->full($user)) && $this->entity($ref) !== null;
     }
 
     private function entity(SubjectRef $ref): WhItem|WhMovement|WhClient|WhSite|WhCategory|null
