@@ -57,15 +57,17 @@ class DriveStatusController extends AbstractController
                 sprintf('SELECT id, original_name, drive_state, drive_attempts, drive_error, drive_next_at, drive_url FROM %s WHERE %s ORDER BY id DESC LIMIT 100', $type->table(), $where),
                 ['state' => $state],
             ) as $row) {
+                // Файли «Звʼязку» бачать лише учасники чату — тут ні назви, ні посилання.
+                $private = $type === FileType::Zvyazok;
                 $items[] = [
                     'type' => $type->value,
                     'id' => (int) $row['id'],
-                    'name' => $row['original_name'],
+                    'name' => $private ? 'Файл «Звʼязку» #' . $row['id'] : $row['original_name'],
                     'state' => $state === 'done' ? 'done' : $row['drive_state'],
                     'attempts' => (int) $row['drive_attempts'],
-                    'error' => $row['drive_error'],
                     'nextAt' => $row['drive_next_at'],
-                    'driveUrl' => $row['drive_url'],
+                    'driveUrl' => $private ? null : $row['drive_url'],
+                    'error' => $private && $row['drive_error'] !== null ? 'Помилка копіювання (деталі — у журналі сервера).' : $row['drive_error'],
                 ];
             }
         }

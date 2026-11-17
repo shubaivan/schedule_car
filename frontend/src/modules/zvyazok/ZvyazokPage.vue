@@ -377,26 +377,36 @@ async function send() {
         } else {
             const chatNow = chat.value
             const sent: ZvMessage[] = []
-            if (files.length) {
-                // Великі пачки — кількома повідомленнями; текст, відповідь і згадки — з першим.
-                const groups = batches(files)
-                for (let i = 0; i < groups.length; i++) {
-                    sent.push(await zvApi.postFiles(chatNow.id, i === 0 ? body : '', groups[i], i === 0 ? (replyTo.value?.id ?? null) : null, i === 0 ? mentionIds(body) : []))
-                    const done = new Set(groups[i])
-                    pending.value.filter((p) => done.has(p.file)).forEach((p) => unpend(p.key))
+            const replyId = replyTo.value?.id ?? null
+            const mentionsNow = mentionIds(body)
+            // Текст, відповідь і згадки йдуть із першим повідомленням — і одразу зникають з поля,
+            // щоб після збою наступної пачки повторне «Надіслати» не продублювало їх.
+            const clearCompose = () => {
+                drafts.set(chatNow.id, '')
+                if (chatId.value === chatNow.id) {
+                    text.value = ''
+                    replyTo.value = null
+                    mentioned.value = new Map()
                 }
-            } else {
-                sent.push(await zvApi.post(chatNow.id, body, replyTo.value?.id ?? null, mentionIds(body)))
             }
-            // Спершу стираємо чернетку, потім текст: запізнілий autosave не поверне відправлене.
-            drafts.set(chatNow.id, '')
-            text.value = ''
-            replyTo.value = null
-            mentioned.value = new Map()
-            const ids = new Set(sent.map((m) => m.id))
-            messages.value = [...messages.value.filter((m) => !ids.has(m.id)), ...sent]
-            chatNow.lastReadId = sent[sent.length - 1].id
-            toBottom()
+            const groups = files.length ? batches(files) : [[]]
+            for (let i = 0; i < groups.length; i++) {
+                const first = i === 0
+                const saved = groups[i].length
+                    ? await zvApi.postFiles(chatNow.id, first ? body : '', groups[i], first ? replyId : null, first ? mentionsNow : [])
+                    : await zvApi.post(chatNow.id, body, replyId, mentionsNow)
+                sent.push(saved)
+                if (first) clearCompose()
+                const done = new Set(groups[i])
+                pending.value.filter((p) => done.has(p.file)).forEach((p) => unpend(p.key))
+            }
+            // Поки вантажилось, людина перейшла в інший чат — решту дослали, але в його стрічку не вклеюємо.
+            if (chatId.value === chatNow.id && chat.value?.id === chatNow.id) {
+                const ids = new Set(sent.map((m) => m.id))
+                messages.value = [...messages.value.filter((m) => !ids.has(m.id)), ...sent]
+                chat.value.lastReadId = sent[sent.length - 1].id
+                toBottom()
+            }
             void loadList()
         }
         nextTick(onInput)
@@ -528,6 +538,7 @@ onMounted(() => {
     document.addEventListener('visibilitychange', onVisible)
 })
 onBeforeUnmount(() => {
+    clearPending()
     window.clearInterval(listTimer)
     window.clearInterval(chatTimer)
     document.removeEventListener('visibilitychange', onVisible)

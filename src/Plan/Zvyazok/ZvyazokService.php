@@ -299,9 +299,16 @@ final class ZvyazokService
 
         /** @var list<array{id: int, path: string}> $written */
         $written = [];
+        /** @var list<array{kind: string, prepared: array<string, mixed>}> $ready */
+        $ready = [];
 
         try {
-            $id = (int) $this->db->transactional(function () use ($me, $chatId, $body, $replyTo, $mentions, $checked, &$written): int {
+            // Стиснення фото — ДО транзакції: важке, і рядки повідомлень не тримаються заблокованими.
+            foreach ($checked as [$file, $kind, $detected]) {
+                $ready[] = ['kind' => $kind, 'prepared' => $this->files?->prepare($file, $kind, $detected) ?? []];
+            }
+
+            $id = (int) $this->db->transactional(function () use ($me, $chatId, $body, $replyTo, $mentions, $ready, &$written): int {
                 $now = self::now();
                 $id = (int) $this->db->fetchOne(
                     'INSERT INTO plan_chat_message (id, chat_id, author_id, body, reply_to_id, mentions, created_at)
@@ -309,8 +316,8 @@ final class ZvyazokService
                     [$chatId, $me->getId(), $body, $replyTo, json_encode($mentions), $now],
                 );
 
-                foreach ($checked as [$file, $kind, $detected]) {
-                    $written[] = $this->storeFile($me, $chatId, $id, $file, $kind, $detected);
+                foreach ($ready as $r) {
+                    $written[] = $this->storeFile($me, $chatId, $id, $r['prepared'], $r['kind']);
                 }
 
                 $this->db->executeStatement('UPDATE plan_chat SET last_activity_at = ? WHERE id = ?', [$now, $chatId]);
@@ -327,6 +334,19 @@ final class ZvyazokService
             }
 
             throw $e;
+        } finally {
+            foreach ($ready as $r) {
+                if (($r['prepared']['temp'] ?? false) === true) {
+                    @unlink((string) $r['prepared']['path']);
+                }
+            }
+        }
+
+        // Мініатюри — після коміту (не тримаємо транзакцію; не вийшло — покажемо значок).
+        foreach ($written as $w) {
+            if ($w['image']) {
+                $this->files?->thumb($w['id'], $w['path']);
+            }
         }
 
         $this->toDrive(array_column($written, 'id'));
@@ -337,23 +357,17 @@ final class ZvyazokService
     /**
      * Файл на місце й рядок у plan_chat_attachment (у транзакції повідомлення).
      *
-     * @return array{id: int, path: string}
+     * @param array<string, mixed> $prepared з ZvyazokFiles::prepare()
+     *
+     * @return array{id: int, path: string, image: bool}
      */
-    private function storeFile(TelegramUser $me, int $chatId, int $messageId, UploadedFile $file, string $kind, string $detected): array
+    private function storeFile(TelegramUser $me, int $chatId, int $messageId, array $prepared, string $kind): array
     {
         $files = $this->files ?? throw new ZvyazokException('Файли тут не приймаються.', 422);
-        $prepared = $files->prepare($file, $kind, $detected);
-
-        try {
-            $id = (int) $this->db->fetchOne("SELECT nextval('plan_chat_attachment_id_seq')");
-            $at = new DateTimeImmutable();
-            $sha = (string) hash_file('sha256', $prepared['path']);
-            $relative = $files->put($id, $sha, $at, $prepared['name'], $prepared['path']);
-        } finally {
-            if ($prepared['temp']) {
-                @unlink($prepared['path']);
-            }
-        }
+        $id = (int) $this->db->fetchOne("SELECT nextval('plan_chat_attachment_id_seq')");
+        $at = new DateTimeImmutable();
+        $sha = (string) hash_file('sha256', (string) $prepared['path']);
+        $relative = $files->put($id, $sha, $at, (string) $prepared['name'], (string) $prepared['path']);
 
         try {
             $this->insertAttachment($id, $messageId, $chatId, $me, $prepared, $sha, $relative, $kind, $at);
@@ -363,14 +377,10 @@ final class ZvyazokService
             throw $e;
         }
 
-        if ($kind === ZvyazokFiles::KIND_IMAGE) {
-            $files->thumb($id, $relative);
-        }
-
-        return ['id' => $id, 'path' => $relative];
+        return ['id' => $id, 'path' => $relative, 'image' => $kind === ZvyazokFiles::KIND_IMAGE];
     }
 
-    /** @param array{name: string, mime: string, size: int, originalSize: int, width: ?int, height: ?int} $prepared */
+    /** @param array<string, mixed> $prepared */
     private function insertAttachment(int $id, int $messageId, int $chatId, TelegramUser $me, array $prepared, string $sha, string $relative, string $kind, DateTimeImmutable $at): void
     {
         $this->db->insert('plan_chat_attachment', [
@@ -378,10 +388,10 @@ final class ZvyazokService
             'message_id' => $messageId,
             'chat_id' => $chatId,
             'uploaded_by_id' => $me->getId(),
-            'original_name' => mb_substr($prepared['name'], 0, 255),
-            'mime' => mb_substr($prepared['mime'], 0, 127),
-            'size' => $prepared['size'],
-            'original_size' => $prepared['originalSize'],
+            'original_name' => mb_substr((string) $prepared['name'], 0, 255),
+            'mime' => mb_substr((string) $prepared['mime'], 0, 127),
+            'size' => (int) $prepared['size'],
+            'original_size' => (int) $prepared['originalSize'],
             'sha256' => $sha,
             'path' => $relative,
             'kind' => $kind,

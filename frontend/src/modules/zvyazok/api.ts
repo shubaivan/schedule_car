@@ -67,7 +67,8 @@ export interface ZvMessage {
 const BASE = '/api/plan/zvyazok'
 
 /** Що приймаємо (сервер перевіряє за вмістом): фото, PDF, офісні документи. */
-export const ZV_ACCEPT = 'image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.heic,.heif,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp,.rtf'
+// HEIC не просимо: тоді iPhone сам віддає JPEG (а сервер HEIC не приймає — не стиснути, GPS лишився б).
+export const ZV_ACCEPT = 'image/jpeg,image/png,image/webp,image/gif,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp,.rtf'
 export const ZV_MAX_BYTES = 20 * 1024 * 1024
 export const ZV_MAX_FILES = 10
 /** Один запит — до ~22 МБ (nginx пропускає 25 МБ); більше — наступними повідомленнями. */

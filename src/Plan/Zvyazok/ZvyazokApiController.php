@@ -224,21 +224,29 @@ final class ZvyazokApiController extends AbstractController
         $response->headers->set('X-Content-Type-Options', 'nosniff');
         $response->setPrivate();
 
-        if ($variant === 'thumb') {
-            $response->setMaxAge(86400 * 30);
-            $response->setEtag((string) $file['sha256'] . '-thumb');
+        // Без довгого кешу: вийшов з чату чи повідомлення видалили — браузер перепитає (ETag → 304).
+        $response->headers->addCacheControlDirective('no-cache');
+        $response->setEtag((string) $file['sha256'] . '-' . $variant);
 
+        if ($variant === 'thumb') {
             return $response;
         }
 
         // У браузері «як є» — лише фото й PDF; офісні документи — скачуванням.
         $inline = $variant === 'inline' && in_array($mime, self::INLINE_SAFE, true);
         $name = (string) $file['original_name'];
+        $ext = mb_strtolower(pathinfo($name, PATHINFO_EXTENSION));
+        // Запасне ім'я заголовка — лише ASCII («звіт.пдф» інакше дав би 500).
         $response->setContentDisposition(
             $inline ? ResponseHeaderBag::DISPOSITION_INLINE : ResponseHeaderBag::DISPOSITION_ATTACHMENT,
             $name,
-            'file-' . $id . '.' . (pathinfo($name, PATHINFO_EXTENSION) ?: 'bin'),
+            'file-' . $id . '.' . (preg_match('/^[a-z0-9]{1,8}$/', $ext) === 1 ? $ext : 'bin'),
         );
+
+        if ($inline) {
+            // PDF у вкладці браузера — у пісочниці: скрипти документа не бачать сесії «Плану».
+            $response->headers->set('Content-Security-Policy', "sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; object-src 'self'");
+        }
 
         return $response;
     }

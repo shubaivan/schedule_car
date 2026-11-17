@@ -33,12 +33,18 @@ class ZvyazokFiles
     public const string KIND_PDF = 'pdf';
     public const string KIND_OFFICE = 'office';
 
-    private const array IMAGE_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif'];
+    /** HEIC не приймаємо: GD його не стисне, а з ним лишився б і GPS (iOS сам дає JPEG, якщо HEIC не просять). */
+    private const array IMAGE_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    /** Більше — не розпаковуємо (GD тримає ~5 байт на піксель; «бомба» 20 МБ може важити гігабайти). */
+    public const int MAX_PIXELS = 50_000_000;
     private const array OFFICE_EXT = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp', 'rtf'];
     private const array OFFICE_MIME = ['application/msword', 'application/vnd.ms-excel', 'application/vnd.ms-powerpoint', 'application/rtf', 'text/rtf'];
     private const array OFFICE_PREFIX = ['application/vnd.openxmlformats-officedocument.', 'application/vnd.oasis.opendocument.'];
-    /** Офісні файли, які finfo бачить лише як контейнер (zip / OLE) — приймаємо за розширенням. */
-    private const array OFFICE_CONTAINERS = ['application/octet-stream', 'application/zip', 'application/cdfv2', 'application/x-ole-storage', 'application/vnd.ms-office'];
+    /**
+     * Офісні файли, які finfo бачить лише як контейнер (zip / OLE): приймаємо за розширенням,
+     * але лише якщо всередині справді документ (OfficeContainer) — не будь-який zip чи exe.
+     */
+    private const array OFFICE_CONTAINERS = ['application/zip', 'application/cdfv2', 'application/x-ole-storage', 'application/vnd.ms-office'];
 
     private Filesystem $fs;
 
@@ -75,8 +81,26 @@ class ZvyazokFiles
         $detected = AttachmentStorage::detect($file->getPathname());
         $kind = self::kindOf($name, $detected);
 
+        if ($kind === self::KIND_OFFICE && in_array($detected, self::OFFICE_CONTAINERS, true) && ! OfficeContainer::looksLikeDocument($file->getPathname(), AttachmentStorage::extension($name))) {
+            $kind = null;
+        }
+
         if ($kind === null) {
-            throw new ZvyazokException(sprintf('«%s»: такий тип файла не приймаємо. Можна фото, PDF і документи Word/Excel/PowerPoint.', $name), 422);
+            throw new ZvyazokException(in_array($detected, ['image/heic', 'image/heif'], true)
+                ? sprintf('«%s»: формат HEIC не приймаємо — надішліть фото з галереї ще раз (телефон перетворить на JPEG) або змініть формат камери на «Найсумісніший».', $name)
+                : sprintf('«%s»: такий тип файла не приймаємо. Можна фото, PDF і документи Word/Excel/PowerPoint.', $name), 422);
+        }
+
+        if ($kind === self::KIND_IMAGE) {
+            [$w, $h] = @getimagesize($file->getPathname()) ?: [0, 0];
+
+            if ($w < 1 || $h < 1) {
+                throw new ZvyazokException(sprintf('«%s»: не вдалося прочитати фото.', $name), 422);
+            }
+
+            if ($w * $h > self::MAX_PIXELS) {
+                throw new ZvyazokException(sprintf('«%s»: фото завелике (%d×%d). До %d мегапікселів.', $name, $w, $h, self::MAX_PIXELS / 1_000_000), 422);
+            }
         }
 
         return [$kind, (string) $detected];
@@ -124,6 +148,7 @@ class ZvyazokFiles
         }
 
         if ($kind === self::KIND_IMAGE && $detected !== 'image/gif') {
+            // Не розпізнали (зіпсований файл) — далі як є: розмір і тип уже перевірені в check().
             $compressed = $this->compress($file->getPathname(), $detected);
 
             if ($compressed !== null) {
@@ -162,7 +187,7 @@ class ZvyazokFiles
     public function thumb(int $id, string $relative): void
     {
         try {
-            $image = self::load($this->path($relative));
+            $image = self::load($this->path($relative), null, self::THUMB_SIDE);
 
             if ($image !== null) {
                 $dir = $this->root . '/previews/' . $id;
@@ -195,7 +220,7 @@ class ZvyazokFiles
      */
     private function compress(string $source, string $mime): ?array
     {
-        $image = self::load($source, $mime);
+        $image = self::load($source, $mime, self::PHOTO_SIDE);
 
         if ($image === null) {
             return null;
@@ -207,10 +232,23 @@ class ZvyazokFiles
         return ['path' => $target, 'width' => $width, 'height' => $height];
     }
 
-    private static function load(string $path, ?string $mime = null): ?GdImage
+    /**
+     * Розпакувати, одразу зменшити до $max і лише потім повернути за EXIF (поворот
+     * маленького полотна — без другої повнорозмірної копії в пам'яті).
+     */
+    private static function load(string $path, ?string $mime = null, int $max = self::PHOTO_SIDE): ?GdImage
     {
         $mime ??= (string) AttachmentStorage::detect($path);
-        $image = match ($mime) {
+        [$w, $h] = @getimagesize($path) ?: [0, 0];
+
+        if ($w < 1 || $h < 1 || $w * $h > self::MAX_PIXELS) {
+            return null;
+        }
+
+        // 12 Мп фото з телефона — ~60 МБ у GD; ліміт FPM буває 128 МБ.
+        self::ensureMemory((int) ($w * $h * 6 + 64 * 1024 * 1024));
+
+        $full = match ($mime) {
             'image/jpeg' => @imagecreatefromjpeg($path),
             'image/png' => @imagecreatefrompng($path),
             'image/webp' => @imagecreatefromwebp($path),
@@ -218,20 +256,64 @@ class ZvyazokFiles
             default => false,
         };
 
-        if (! $image instanceof GdImage) {
+        if (! $full instanceof GdImage) {
             return null;
         }
+
+        $image = self::scaled($full, $max);
+        unset($full);
 
         return $mime === 'image/jpeg' ? self::orient($image, JpegOrientation::read($path)) : $image;
     }
 
-    /** Фото з телефона лежать «боком» з EXIF-орієнтацією — повертаємо, як бачить людина. */
-    private static function orient(GdImage $image, int $orientation): GdImage
+    private static function scaled(GdImage $image, int $max): GdImage
     {
-        if (in_array($orientation, [2, 4, 5, 7], true)) {
-            imageflip($image, IMG_FLIP_HORIZONTAL);
+        $width = imagesx($image);
+        $height = imagesy($image);
+        $scale = min(1, $max / max($width, $height));
+
+        if ($scale >= 1) {
+            return $image;
         }
 
+        $w = max(1, (int) round($width * $scale));
+        $h = max(1, (int) round($height * $scale));
+        $canvas = imagecreatetruecolor($w, $h);
+        // Прозорий PNG — на білому: у JPEG прозорості немає.
+        imagefill($canvas, 0, 0, (int) imagecolorallocate($canvas, 255, 255, 255));
+        imagecopyresampled($canvas, $image, 0, 0, 0, 0, $w, $h, $width, $height);
+
+        return $canvas;
+    }
+
+    private static function ensureMemory(int $bytes): void
+    {
+        $limit = (string) ini_get('memory_limit');
+
+        if ($limit === '-1') {
+            return;
+        }
+
+        $current = (int) $limit * match (strtoupper(substr($limit, -1))) {
+            'G' => 1024 ** 3,
+            'M' => 1024 ** 2,
+            'K' => 1024,
+            default => 1,
+        };
+
+        $need = memory_get_usage(true) + $bytes;
+
+        if ($current < $need) {
+            @ini_set('memory_limit', (string) min($need, 512 * 1024 * 1024));
+        }
+    }
+
+    /**
+     * Фото з телефона лежать «боком» з EXIF-орієнтацією — повертаємо, як бачить людина.
+     * Спершу поворот, потім дзеркало: для 5 і 7 порядок важливий (транспонування).
+     */
+    public static function orient(GdImage $image, int $orientation): GdImage
+    {
         $angle = match ($orientation) {
             3, 4 => 180,
             5, 6 => -90,
@@ -243,8 +325,12 @@ class ZvyazokFiles
             $rotated = imagerotate($image, $angle, 0);
 
             if ($rotated instanceof GdImage) {
-                return $rotated;
+                $image = $rotated;
             }
+        }
+
+        if (in_array($orientation, [2, 4, 5, 7], true)) {
+            imageflip($image, IMG_FLIP_HORIZONTAL);
         }
 
         return $image;

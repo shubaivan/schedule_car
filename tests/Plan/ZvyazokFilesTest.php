@@ -2,11 +2,11 @@
 
 namespace App\Tests\Plan;
 
-use App\Plan\Share\FileType;
 use App\Entity\TelegramUser;
 use App\Enum\AccessStatus;
 use App\Plan\Drive\DriveSync;
 use App\Plan\Drive\FakeDriveClient;
+use App\Plan\Share\FileType;
 use App\Plan\Zvyazok\JpegOrientation;
 use App\Plan\Zvyazok\ZvyazokFiles;
 use App\Tasks\Enum\WorkRole;
@@ -174,6 +174,86 @@ class ZvyazokFilesTest extends WebTestCase
         self::assertSame('done', $this->db->fetchOne('SELECT drive_state FROM plan_chat_attachment WHERE id = ?', [$first['files'][0]['id']]));
     }
 
+    public function testLeftMemberCrossSiteFakeOfficeHugeImageAndNonAsciiName(): void
+    {
+        $ann = $this->user('Анна');
+        $bob = $this->user('Борис');
+        $this->client->loginUser($ann);
+        $chat = $this->json('POST', '/api/plan/zvyazok/chats', ['kind' => 'group', 'title' => 'Склад', 'memberIds' => [$bob->getId()]]);
+
+        // Не-ASCII розширення — скачування працює (раніше 500 через fallback-ім'я).
+        $odd = $this->upload($chat['id'], '', [new UploadedFile($this->pdf(), 'звіт.пдф', 'application/pdf', null, true)]);
+        self::assertResponseStatusCodeSame(201);
+        $this->client->request('GET', $odd['files'][0]['downloadUrl']);
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('file-' . $odd['files'][0]['id'] . '.bin', (string) $this->client->getResponse()->headers->get('Content-Disposition'));
+        $this->client->request('GET', $odd['files'][0]['viewUrl']);
+        self::assertStringContainsString('sandbox', (string) $this->client->getResponse()->headers->get('Content-Security-Policy'));
+
+        // Будь-який zip під .docx і будь-що під .doc — ні.
+        $zip = $this->tmp . '/fake.docx';
+        $z = new ZipArchive();
+        $z->open($zip, ZipArchive::CREATE);
+        $z->addFromString('readme.txt', 'not a document');
+        $z->close();
+        $this->upload($chat['id'], '', [new UploadedFile($zip, 'звіт.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', null, true)]);
+        self::assertResponseStatusCodeSame(422, 'zip без word/ — не документ');
+        $bin = $this->tmp . '/fake.doc';
+        file_put_contents($bin, "MZ\x90\x00" . random_bytes(2000));
+        $this->upload($chat['id'], '', [new UploadedFile($bin, 'акт.doc', 'application/msword', null, true)]);
+        self::assertResponseStatusCodeSame(422, 'не OLE — не .doc');
+
+        // Справжній docx — так.
+        $this->upload($chat['id'], '', [new UploadedFile($this->docx(), 'специфікація.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', null, true)]);
+        self::assertResponseStatusCodeSame(201);
+
+        // «Бомба»: мало байтів, забагато пікселів — відмова без розпакування.
+        $huge = $this->tmp . '/huge.png';
+        $img = imagecreate(8000, 7000);
+        imagecolorallocate($img, 255, 255, 255);
+        imagepng($img, $huge, 9);
+        $out = $this->upload($chat['id'], '', [new UploadedFile($huge, 'скан.png', 'image/png', null, true)]);
+        self::assertResponseStatusCodeSame(422);
+        self::assertStringContainsString('завелике', $out['error']);
+
+        // Запит з чужого сайту — навіть з X-Requested-With.
+        $this->client->request('POST', '/api/plan/zvyazok/chats/' . $chat['id'] . '/messages', ['text' => 'x'], ['files' => [new UploadedFile($this->pdf(), 'a.pdf', 'application/pdf', null, true)]], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest', 'HTTP_SEC_FETCH_SITE' => 'cross-site']);
+        self::assertResponseStatusCodeSame(415);
+
+        // Вийшов з чату — файли більше не віддаються, писати не можна.
+        $this->client->loginUser($bob);
+        $this->json('POST', '/api/plan/zvyazok/chats/' . $chat['id'] . '/leave');
+        $this->client->request('GET', $odd['files'][0]['downloadUrl']);
+        self::assertResponseStatusCodeSame(404);
+        $this->upload($chat['id'], 'я тут', [new UploadedFile($this->pdf(), 'b.pdf', 'application/pdf', null, true)]);
+        self::assertResponseStatusCodeSame(404);
+
+        // Сторінка «Диск» не розкриває назв і посилань файлів чатів.
+        $admin = $this->user('Адмін');
+        $admin->setWorkRole(WorkRole::Admin);
+        $this->em->flush();
+        $this->client->loginUser($admin);
+        $status = $this->json('GET', '/api/plan/drive?state=pending');
+        $zv = array_values(array_filter($status['items'] ?? [], static fn ($i) => $i['type'] === 'zv'));
+        self::assertNotEmpty($zv);
+        foreach ($zv as $i) {
+            self::assertStringStartsWith('Файл «Звʼязку» #', $i['name']);
+            self::assertNull($i['driveUrl']);
+        }
+    }
+
+    public function testExifOrientationsOnRealImage(): void
+    {
+        // Полотно 3×2 з різними кольорами в кутах; після виправлення орієнтації 5..8 — 2×3.
+        foreach ([5 => [0, 0], 6 => [1, 0], 7 => [1, 2], 8 => [0, 2]] as $orientation => [$x, $y]) {
+            $img = imagecreatetruecolor(3, 2);
+            imagesetpixel($img, 0, 0, 0xFF0000); // червоний — верхній лівий кут знімка
+            $fixed = ZvyazokFiles::orient($img, $orientation);
+            self::assertSame([2, 3], [imagesx($fixed), imagesy($fixed)], "орієнтація $orientation");
+            self::assertSame(0xFF0000, imagecolorat($fixed, $x, $y) & 0xFFFFFF, "орієнтація $orientation: червоний кут на місці");
+        }
+    }
+
     public function testJpegOrientationParser(): void
     {
         // Мінімальний JPEG-заголовок з APP1/Exif, Orientation = 6 (big-endian «MM»).
@@ -217,6 +297,18 @@ class ZvyazokFilesTest extends WebTestCase
         }
         $path = $this->tmp . '/p' . uniqid() . '.png';
         imagepng($img, $path);
+
+        return $path;
+    }
+
+    private function docx(): string
+    {
+        $path = $this->tmp . '/d' . uniqid() . '.docx';
+        $z = new ZipArchive();
+        $z->open($path, ZipArchive::CREATE);
+        $z->addFromString('[Content_Types].xml', '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>');
+        $z->addFromString('word/document.xml', '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"/>');
+        $z->close();
 
         return $path;
     }
