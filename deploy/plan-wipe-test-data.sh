@@ -22,6 +22,7 @@ KEEP_TASKS=${KEEP_TASKS:-0}
 COMMIT=${COMMIT:-0}
 STAMP=$(date +%Y%m%d-%H%M)
 BACKUP=/var/backups/plan-$STAMP-wipe-pre
+cd /tmp
 PSQL="runuser -u postgres -- psql -d plan -v ON_ERROR_STOP=1"
 APP="sudo -u deploy php8.5 $APP_DIR/bin/console --env=prod"
 
@@ -36,7 +37,8 @@ fi
 echo "== 1. Бекап → $BACKUP"
 install -d -m 700 "$BACKUP"
 runuser -u postgres -- pg_dump -Fc -d plan > "$BACKUP/plan.dump"
-runuser -u postgres -- pg_restore --list "$BACKUP/plan.dump" > /dev/null
+# stdin: тека бекапу 700 root, postgres її не читає.
+runuser -u postgres -- pg_restore --list < "$BACKUP/plan.dump" > /dev/null
 tar -C "$APP_DIR/var" -czf "$BACKUP/storage.tgz" storage
 cp -p "$APP_DIR/.env.local" "$BACKUP/env.local"
 cp -p "$APP_DIR/REVISION" "$BACKUP/REVISION" 2>/dev/null || true
