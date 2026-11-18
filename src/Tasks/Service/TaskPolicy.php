@@ -75,7 +75,8 @@ class TaskPolicy
             return false;
         }
 
-        return $message->getAuthor()?->getId() === $user->getId() || $user->getWorkRole()->managesStaff();
+        // Чуже — адміністратор, який бачить усі задачі (не системний адмін: у своїх задачах він — як усі).
+        return $message->getAuthor()?->getId() === $user->getId() || ($user->getWorkRole()->managesStaff() && $user->seesAllTasks());
     }
 
     public function isInvolved(TelegramUser $user, Task $task): bool

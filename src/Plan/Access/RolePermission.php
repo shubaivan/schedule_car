@@ -92,12 +92,13 @@ enum RolePermission: string
         if ($role === WorkRole::SysAdmin) {
             return match ($this) {
                 self::TasksAccess, self::Zvyazok, self::StaffManage => true,
-                self::TasksSeeAll, self::TasksEditAny, self::TasksDecide => false,
+                self::TasksSeeAll, self::TasksEditAny, self::TasksDecide, self::LeadsReceive => false,
                 default => null,
             };
         }
 
-        return $role === WorkRole::Admin && $this === self::StaffManage ? true : null;
+        // Адміністратор завжди веде людей і бачить усі задачі: на цьому тримаються запобіжники ролей.
+        return $role === WorkRole::Admin && in_array($this, [self::StaffManage, self::TasksSeeAll], true) ? true : null;
     }
 
     /** Чому клітинка зафіксована — підказка в інтерфейсі. */
@@ -107,7 +108,8 @@ enum RolePermission: string
             $this->locked($role) === null => null,
             $role === WorkRole::SysAdmin && $this === self::StaffManage => 'Системний адміністратор завжди веде людей і налаштування.',
             $role === WorkRole::SysAdmin && in_array($this, [self::TasksAccess, self::Zvyazok], true) => 'Системний адміністратор бачить задачі й чати лише ті, де він учасник, — як звичайний користувач.',
-            $role === WorkRole::SysAdmin => 'Системний адміністратор не бачить усіх задач і не керує чужими задачами.',
+            $role === WorkRole::SysAdmin => 'Системний адміністратор не бачить усіх задач, не керує чужими задачами й не отримує лідів.',
+            $role === WorkRole::Admin && $this === self::TasksSeeAll => 'Адміністратор бачить усі задачі — на цьому тримаються запобіжники ролей.',
             default => 'Адміністратор завжди веде людей — щоб не замкнути себе поза налаштуваннями.',
         };
     }

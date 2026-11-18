@@ -230,14 +230,15 @@ class ShareService
 
     public static function isAdmin(TelegramUser $user): bool
     {
-        return $user->isSuperadmin() || in_array($user->getWorkRole(), [WorkRole::Admin, WorkRole::SysAdmin], true) || $user->getSupplyRole() === SupplyRole::Admin;
+        // Системний адмін — ні: у своїх задачах він як звичайний користувач (чужі посилання не бачить і не відкликає).
+        return $user->isSuperadmin() || $user->getWorkRole() === WorkRole::Admin || $user->getSupplyRole() === SupplyRole::Admin;
     }
 
     /**
      * Сторінка «Диск» показує назви файлів усіх модулів — лише тим, хто й так бачить усе:
      * суперадмін і адміністратор «Плану» (адмін постачання приватних задач не бачить).
      * Системний адміністратор теж (налаштування), але назви файлів задач йому приховано
-     * (DriveStatusController) — задач він не бачить.
+     * (DriveStatusController) — усіх задач він не бачить.
      */
     public static function isDriveAdmin(TelegramUser $user): bool
     {

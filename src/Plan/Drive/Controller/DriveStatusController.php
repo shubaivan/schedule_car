@@ -77,7 +77,8 @@ class DriveStatusController extends AbstractController
             'layout' => $this->drives->isPlanLayout() ? 'plan' : 'stand',
             'configured' => $this->drives->isConfigured(),
             'fake' => $this->drives->isFake(),
-            'status' => $this->sync->status(),
+            // Остання помилка Диска може містити назву файла чи теки задачі.
+            'status' => $me->seesAllTasks() ? $this->sync->status() : ['lastError' => null] + $this->sync->status(),
             'counts' => $counts,
             'state' => $state,
             'items' => $items,

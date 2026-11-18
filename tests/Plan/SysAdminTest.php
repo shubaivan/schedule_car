@@ -2,6 +2,7 @@
 
 namespace App\Tests\Plan;
 
+use App\Supply\Repository\DepartmentRepository;
 use App\Entity\TelegramUser;
 use App\Plan\Event\CommentAdded;
 use App\Plan\Notification\AudienceResolver;
@@ -49,6 +50,10 @@ class SysAdminTest extends WebTestCase
         self::assertResponseIsSuccessful('свою задачу бачить');
         $this->send('POST', '/api/tasks/' . $mine['id'] . '/messages', ['text' => 'Я тут']);
         self::assertResponseStatusCodeSame(201);
+        // Чуже повідомлення у своїй задачі не видаляє — як звичайний користувач.
+        $foreign = (int) $this->em->getConnection()->fetchOne("SELECT id FROM task_message WHERE task_id = ? AND author_id = ? AND kind = 'comment' LIMIT 1", [$mine['id'], $manager->getId()]);
+        $this->send('DELETE', '/api/tasks/' . $mine['id'] . '/messages/' . $foreign);
+        self::assertGreaterThanOrEqual(400, $this->client->getResponse()->getStatusCode(), 'чуже повідомлення');
         $this->client->request('GET', '/api/tasks/' . $other['id']);
         self::assertResponseStatusCodeSame(403, 'чужу — ні, як звичайний користувач');
 
@@ -150,6 +155,12 @@ class SysAdminTest extends WebTestCase
         self::assertResponseStatusCodeSame(403);
         $this->send('PATCH', '/api/staff/' . $worker->getId(), ['role' => 'sysadmin', 'phone' => '+380671112299']);
         self::assertResponseStatusCodeSame(403, 'роль і телефон одним запитом — теж ні');
+        // Свій відділ — ні (задача з відділом додала б його учасником чужих задач).
+        $dep = self::getContainer()->get(DepartmentRepository::class)->findActive()[0] ?? null;
+        if ($dep !== null) {
+            $this->send('PATCH', '/api/staff/' . $sys->getId(), ['departmentId' => $dep->getId()]);
+            self::assertResponseStatusCodeSame(403, 'свій відділ');
+        }
         self::assertFalse($this->get('/api/me')['capabilities']['tasks.seeAll'], 'усі задачі — так і не відкрились');
     }
 }

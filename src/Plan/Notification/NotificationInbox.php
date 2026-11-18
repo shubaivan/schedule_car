@@ -80,7 +80,7 @@ final class NotificationInbox
             [(int) $user->getId(), $afterEvent],
         );
         $unread = $this->unread($user);
-        // Хто задач не бачить (системний адміністратор) — навіть id старих сповіщень про задачі не віддаємо.
+        // Роль без «Задачі й угоди» — навіть id старих сповіщень про задачі не віддаємо.
         $rows = $user->canSeeTasks() ? $rows : array_values(array_filter($rows, static fn (array $r) => $r['subject_type'] !== 'task'));
 
         return array_map(static fn (array $row) => [

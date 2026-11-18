@@ -2007,3 +2007,15 @@ textarea.p-title-input {
 .p-staff.split .t-table.responsive tr:hover {
     background: var(--surface-2);
 }
+/* Без колонки дій (не адміністратор) — без порожньої третьої колонки. */
+.p-staff.split .t-table.responsive tr:not(:has(> td:last-child:not(.hide-sm):not(:nth-child(-n + 4)))) {
+    grid-template-columns: auto minmax(0, 1fr);
+}
+/* «Кошик» поруч із карткою: дата — під імʼям, порожній рядок — на всю ширину. */
+.p-staff.split .t-table.responsive td:nth-child(5):not(:last-child) {
+    grid-column: 2;
+    font-size: 0.85rem;
+}
+.p-staff.split .t-table.responsive td.t-empty {
+    grid-column: 1 / -1;
+}
