@@ -97,7 +97,7 @@ onMounted(() => {
 <template>
     <div v-if="!allowed" class="t-page a-denied">
         <h1>Заявки на приєднання</h1>
-        <p class="muted">Цей розділ бачить лише суперадмін.</p>
+        <p class="muted">Цей розділ бачать лише суперадмін і системний адміністратор.</p>
     </div>
 
     <div v-else class="p-split p-staff p-join" :class="{ split: openId !== null }">
