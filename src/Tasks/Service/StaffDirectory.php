@@ -248,12 +248,12 @@ class StaffDirectory
             }
         }
 
-        // Хто сам задач не бачить (системний адмін), не змінює телефон/email тих, хто бачить:
+        // Хто сам не бачить усіх задач (системний адмін), не змінює телефон/email тих, хто бачить задачі:
         // інакше переписав би номер ще не привʼязаної картки на свій і увійшов би нею.
         // Роль цілі — та, що була ДО зміни (інакше «зробити сисадміном і змінити телефон» одним запитом).
         $targetSees = ($targetRole ?? $target->getWorkRole())->seesTasks();
 
-        if (! $by->canSeeTasks() && $target->getId() !== $by->getId() && $targetSees && array_intersect($fields, ['phone', 'email', 'password']) !== []) {
+        if (! $by->seesAllTasks() && $target->getId() !== $by->getId() && $targetSees && array_intersect($fields, ['phone', 'email', 'password']) !== []) {
             return false;
         }
 
@@ -264,7 +264,7 @@ class StaffDirectory
     }
 
     /**
-     * Чи може людина видати цю роль. Хто сам не бачить задач (системний адміністратор),
+     * Чи може людина видати цю роль. Хто сам не бачить усіх задач (системний адміністратор),
      * не видає ролі, що бачать усі задачі заводу (адмін, директор), — інакше обійшов би
      * заборону через підставну картку. Ролі «Адміністратор» і «Системний адміністратор»
      * видає лише той, хто сам керує ролями.
@@ -279,12 +279,12 @@ class StaffDirectory
             return false;
         }
 
-        return $by->canSeeTasks() || ! $role->seesAllTasks();
+        return $by->seesAllTasks() || ! $role->seesAllTasks();
     }
 
     private static function roleDenial(?TelegramUser $by): string
     {
-        return $by !== null && ! $by->canSeeTasks()
+        return $by !== null && ! $by->seesAllTasks()
             ? 'Системний адміністратор не видає ролей, які бачать усі задачі (адміністратор, директор).'
             : 'Цю роль може видати лише адміністратор або суперадміністратор.';
     }
@@ -306,7 +306,7 @@ class StaffDirectory
             $target->isSuperadmin() => 'Картку суперадміністратора змінює лише суперадміністратор.',
             in_array('role', $fields, true) && $by !== null && $target->getId() === $by->getId() => 'Свою роль змінює лише суперадміністратор.',
             in_array('role', $fields, true) && $by !== null && ! $by->managesRoles() => 'Ролі призначають лише адміністратор, системний адміністратор і суперадміністратор.',
-            in_array('role', $fields, true) && $by !== null && ! $by->canSeeTasks() => 'Системний адміністратор не видає ролей, які бачать усі задачі (адміністратор, директор).',
+            in_array('role', $fields, true) && $by !== null && ! $by->seesAllTasks() => 'Системний адміністратор не видає ролей, які бачать усі задачі (адміністратор, директор).',
             default => 'Пароль, контакти, роль і кошик іншого адміністратора — лише суперадміністратор.',
         });
     }

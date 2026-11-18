@@ -37,7 +37,7 @@ class TaskRepository extends ServiceEntityRepository
             ->leftJoin($alias . '.creator', 'c')->addSelect('c');
 
         if (! $user->canSeeTasks()) {
-            // Системний адміністратор — жодної задачі.
+            // Роль без «Задачі й угоди» — жодної задачі.
             $qb->andWhere('1 = 0');
         } elseif (! $user->seesAllTasks()) {
             $qb->andWhere(sprintf(

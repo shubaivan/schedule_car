@@ -58,8 +58,8 @@ class DriveStatusController extends AbstractController
                 ['state' => $state],
             ) as $row) {
                 // Файли «Звʼязку» бачать лише учасники чату — тут ні назви, ні посилання;
-                // файли задач — так само тому, хто задач не бачить (системний адміністратор).
-                $private = $type === FileType::Zvyazok || ($type === FileType::Task && ! $me->canSeeTasks());
+                // файли задач — так само тому, хто не бачить усіх задач (системний адміністратор).
+                $private = $type === FileType::Zvyazok || ($type === FileType::Task && ! $me->seesAllTasks());
                 $items[] = [
                     'type' => $type->value,
                     'id' => (int) $row['id'],

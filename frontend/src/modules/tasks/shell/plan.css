@@ -1832,6 +1832,53 @@ body.p-noscroll {
 .p-staff.split .t-table {
     table-layout: auto;
 }
+/* Олександр 18.11: картка праворуч — таблиця людей не влазила (908 px у колонці ~420 px):
+   горизонтальний скрол, обрізана «Роль». Поруч із карткою — рядки-картки: аватар, імʼя й
+   посада, під ними відділ і роль; дії — праворуч. Без горизонтального скролу за будь-якої ширини. */
+.p-staff.split .t-table.responsive,
+.p-staff.split .t-table.responsive tbody {
+    display: block;
+    width: 100%;
+}
+.p-staff.split .t-table.responsive thead {
+    display: none;
+}
+.p-staff.split .t-table.responsive tr {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.15rem 0.7rem;
+    padding: 0.6rem 0.7rem;
+    border-bottom: 1px solid var(--border);
+}
+.p-staff.split .t-table.responsive td {
+    border: 0;
+    padding: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.p-staff.split .t-table.responsive td.av {
+    grid-row: span 3;
+    align-self: start;
+}
+.p-staff.split .t-table.responsive td:nth-child(2) {
+    grid-column: 2;
+}
+.p-staff.split .t-table.responsive td:nth-child(3),
+.p-staff.split .t-table.responsive td:nth-child(4) {
+    grid-column: 2;
+    font-size: 0.85rem;
+}
+.p-staff.split .t-table.responsive td:last-child:not(.hide-sm):not(:nth-child(-n + 4)) {
+    grid-column: 3;
+    grid-row: 1 / span 3;
+}
+/* Сторінка «Люди» — колонковий flex: поле пошуку не росте у висоту (порожня смуга з 🔍 під
+   ним, коли людей мало, а колонка поруч із карткою має фіксовану висоту). */
+.t-page > .t-search,
+.p-split-left > .t-search {
+    flex: 0 0 auto;
+}
 /* Планшет у портреті (761–899): повна таблиця вилазила за екран — рядки-картки, як на телефоні. */
 @media (max-width: 899px) and (min-width: 761px) {
     .p-staff .t-table.responsive thead {
@@ -1952,4 +1999,11 @@ textarea.p-title-input {
 }
 .p-formpage.w-form-page {
     max-width: 760px;
+}
+/* Рядок-картка підсвічується цілим, а не клітинками. */
+.p-staff.split .t-table.responsive tr:hover td {
+    background: transparent;
+}
+.p-staff.split .t-table.responsive tr:hover {
+    background: var(--surface-2);
 }

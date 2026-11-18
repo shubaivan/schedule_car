@@ -86,11 +86,24 @@ class RolesApiTest extends WebTestCase
         $this->call('GET', '/api/tasks/' . $task['id']);
         self::assertResponseIsSuccessful('право діє з наступного запиту');
 
+        // Роль без «Задачі й угоди» — 404 на все, і URL-кодування шлагбаум не обходить.
+        $this->client->loginUser($admin);
+        $this->call('POST', '/api/plan/roles/permission', ['role' => 'production', 'permission' => 'tasks.access', 'allowed' => false]);
+        self::assertResponseIsSuccessful();
+        $this->client->loginUser($worker);
+        foreach (['GET /api/tasks/board', 'GET /api/%74asks/chronicle/counts', 'POST /api/%74asks'] as $c) {
+            [$m, $u] = explode(' ', $c);
+            $this->client->request($m, $u, server: ['CONTENT_TYPE' => 'application/json'], content: '{"title":"x"}');
+            self::assertResponseStatusCodeSame(404, $c);
+        }
+        $this->client->loginUser($admin);
+        $this->call('POST', '/api/plan/roles/permission', ['role' => 'production', 'permission' => 'tasks.access', 'allowed' => true]);
+
         // Назад як у коді — рядка в таблиці не лишається.
         $this->client->loginUser($admin);
         $page = $this->call('POST', '/api/plan/roles/permission', ['role' => 'production', 'permission' => 'tasks.seeAll', 'allowed' => false]);
         self::assertFalse($this->cell($page, 'tasks.seeAll', 'production')['changed']);
-        self::assertSame(0, (int) $this->db->fetchOne('SELECT COUNT(*) FROM plan_role_permission'));
+        self::assertSame([], $this->db->fetchAllAssociative('SELECT role, permission, allowed FROM plan_role_permission'));
         $this->client->loginUser($worker);
         $this->call('GET', '/api/tasks/' . $task['id']);
         self::assertResponseStatusCodeSame(403);

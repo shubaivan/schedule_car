@@ -15,7 +15,7 @@ class TaskPolicy
 {
     public function canView(TelegramUser $user, Task $task): bool
     {
-        // Системний адміністратор задач не бачить узагалі — навіть де він учасник.
+        // Роль без «Задачі й угоди» задач не бачить узагалі — навіть де учасник; системний адмін — як звичайний користувач.
         return $user->canSeeTasks() && ($user->seesAllTasks() || $this->isInvolved($user, $task));
     }
 

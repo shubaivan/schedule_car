@@ -12,13 +12,14 @@ use App\Tasks\Enum\WorkRole;
  * тож без жодної зміни в таблиці plan_role_permission поведінка не змінюється.
  *
  * Деякі клітинки зафіксовані (locked) і не змінюються з інтерфейсу:
- * - «Системний адміністратор» ніколи не бачить задач і «Звʼязку» (Олександр 17.11) і завжди
- *   веде людей — інакше роль втрачає сенс;
+ * - «Системний адміністратор» (Олександр 17–18.11) бачить лише задачі й чати, де він учасник, —
+ *   як звичайний користувач: «усі задачі заводу», правка будь-якої й рішення директора — ні;
+ *   завжди веде людей — інакше роль втрачає сенс;
  * - адміністратор завжди веде людей — щоб не замкнути себе поза налаштуваннями.
  */
 enum RolePermission: string
 {
-    /** Задачі й угоди взагалі (розділ, пошук, Хроніка, сповіщення). */
+    /** Задачі й угоди, де людина учасник (розділ, пошук, Хроніка, сповіщення). */
     case TasksAccess = 'tasks.access';
     /** Бачить усі задачі заводу, а не лише ті, де учасник. */
     case TasksSeeAll = 'tasks.seeAll';
@@ -45,11 +46,11 @@ enum RolePermission: string
     public function label(): string
     {
         return match ($this) {
-            self::TasksAccess => 'Задачі й угоди',
+            self::TasksAccess => 'Задачі й угоди (де учасник)',
             self::TasksSeeAll => 'Бачить усі задачі заводу',
             self::TasksEditAny => 'Править будь-яку задачу',
             self::TasksDecide => 'Рішення директора в задачах',
-            self::Zvyazok => '«Звʼязок» (чати)',
+            self::Zvyazok => '«Звʼязок» (чати, де учасник)',
             self::StaffManage => 'Веде людей і відділи',
             self::LeadsReceive => 'Отримує ліди з сайту',
             self::CounterpartiesView => 'Контрагенти: бачить',
@@ -90,8 +91,8 @@ enum RolePermission: string
     {
         if ($role === WorkRole::SysAdmin) {
             return match ($this) {
-                self::TasksAccess, self::TasksSeeAll, self::TasksEditAny, self::TasksDecide, self::Zvyazok => false,
-                self::StaffManage => true,
+                self::TasksAccess, self::Zvyazok, self::StaffManage => true,
+                self::TasksSeeAll, self::TasksEditAny, self::TasksDecide => false,
                 default => null,
             };
         }
@@ -105,7 +106,8 @@ enum RolePermission: string
         return match (true) {
             $this->locked($role) === null => null,
             $role === WorkRole::SysAdmin && $this === self::StaffManage => 'Системний адміністратор завжди веде людей і налаштування.',
-            $role === WorkRole::SysAdmin => 'Системний адміністратор не бачить задач і чатів.',
+            $role === WorkRole::SysAdmin && in_array($this, [self::TasksAccess, self::Zvyazok], true) => 'Системний адміністратор бачить задачі й чати лише ті, де він учасник, — як звичайний користувач.',
+            $role === WorkRole::SysAdmin => 'Системний адміністратор не бачить усіх задач і не керує чужими задачами.',
             default => 'Адміністратор завжди веде людей — щоб не замкнути себе поза налаштуваннями.',
         };
     }

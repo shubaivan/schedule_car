@@ -474,15 +474,17 @@ class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface,
     }
 
     /**
-     * Задачі й угоди взагалі (розділ, пошук, Хроніка, сповіщення). Системний адміністратор —
-     * ні, навіть якщо його колись додали учасником задачі (Олександр 17.11). Суперадмін — так.
+     * Задачі й угоди взагалі (розділ, пошук, Хроніка, сповіщення) — у межах участі (TaskPolicy).
+     * Системний адміністратор — так, як звичайний користувач: лише де він учасник (Олександр
+     * 18.11); «усі задачі» йому закриті (RolePermission::TasksSeeAll зафіксовано). Роль з
+     * вимкненим «Задачі й угоди» — ні. Суперадмін — так.
      */
     public function canSeeTasks(): bool
     {
         return $this->superadmin || $this->getWorkRole()->seesTasks();
     }
 
-    /** «Звʼязок» за роллю (системний адміністратор — ні); чи відкрито модуль — ZvyazokAccess. */
+    /** «Звʼязок» за роллю; чи відкрито модуль — ZvyazokAccess; чати бачать лише учасники. */
     public function canUseZvyazok(): bool
     {
         return $this->superadmin || RoleGrants::allows($this->getWorkRole(), RolePermission::Zvyazok);

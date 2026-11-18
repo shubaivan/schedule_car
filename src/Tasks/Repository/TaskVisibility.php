@@ -52,7 +52,7 @@ final class TaskVisibility
      */
     public static function sql(TelegramUser $viewer, string $alias = 't'): array
     {
-        // Системний адміністратор — жодної задачі (Хроніка, пошук, Огляд, лічильники).
+        // Роль без «Задачі й угоди» — жодної задачі (Хроніка, пошук, Огляд, лічильники).
         if (! $viewer->canSeeTasks()) {
             return ['FALSE', []];
         }

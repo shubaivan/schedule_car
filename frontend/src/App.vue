@@ -62,7 +62,7 @@ watch(
             return
         }
         if (!planHome.value) return
-        // Системний адміністратор задач не бачить: Огляд і задачі ведуть на «Ролі й доступ».
+        // Роль без «Задачі й угоди» (Ролі й доступ): Огляд і задачі ведуть на «Ролі й доступ».
         if (!canSeeTasks(session.user) && isTaskRoute(String(route.name))) {
             router.replace({ name: 'admin-roles' })
             return

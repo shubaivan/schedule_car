@@ -100,14 +100,14 @@ class RolePermissions
             return false;
         }
 
-        // Хто сам не бачить задач (системний адмін), той не роздає права на задачі.
         $tasks = in_array($permission, [RolePermission::TasksAccess, RolePermission::TasksSeeAll, RolePermission::TasksEditAny, RolePermission::TasksDecide, RolePermission::LeadsReceive], true);
 
         if ($permission === RolePermission::Zvyazok && ! $by->canUseZvyazok()) {
             return false;
         }
 
-        return ! $tasks || $by->canSeeTasks();
+        // Права на задачі й ліди роздає лише той, хто бачить усі задачі (не системний адмін).
+        return ! $tasks || $by->seesAllTasks();
     }
 
     public function set(TelegramUser $by, WorkRole $role, RolePermission $permission, bool $allowed): bool
