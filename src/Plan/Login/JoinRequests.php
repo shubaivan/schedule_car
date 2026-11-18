@@ -195,9 +195,14 @@ final class JoinRequests
      * як PlanCapability::StaffJoin. Роль новій людині обмежує StaffDirectory::canAssignRole:
      * системний адмін не видасть ролей, що бачать усі задачі.
      */
+    public static function canDecide(TelegramUser $by): bool
+    {
+        return ! $by->isArchived() && $by->isApproved() && ($by->isSuperadmin() || $by->getWorkRole() === WorkRole::SysAdmin);
+    }
+
     private static function guard(TelegramUser $by): void
     {
-        if ($by->isArchived() || ! $by->isApproved() || ! ($by->isSuperadmin() || $by->getWorkRole() === WorkRole::SysAdmin)) {
+        if (! self::canDecide($by)) {
             throw new AccessDeniedException('Заявки на приєднання розглядає суперадмін або системний адміністратор.');
         }
     }

@@ -332,6 +332,67 @@ class TelegramLoginFlowTest extends KernelTestCase
         self::assertSame(WorkRole::Production, $user->getWorkRole());
     }
 
+    public function testSysAdminGetsTheJoinRequestInTheBotAndDecidesWithItsButtons(): void
+    {
+        $this->staff('0635556621', telegramId: '700300991', superadmin: true);
+        $sys = $this->staff('0635556622', telegramId: '700300992')->setWorkRole(WorkRole::SysAdmin);
+        $unlinkedSys = $this->staff('0635556623')->setWorkRole(WorkRole::SysAdmin);
+        $archivedSys = $this->staff('0635556624', telegramId: '700300994')->setWorkRole(WorkRole::SysAdmin);
+        $archivedSys->archive();
+        $this->staff('0635556625', telegramId: '700300995'); // менеджер — заявок не розглядає
+        $this->em->flush();
+        $this->stranger();
+        $session = self::session();
+        $nonce = self::nonce($this->login->start($session, null, null)['url']);
+
+        $bot = $this->bot();
+        $bot->hearText('/start login_' . $nonce)->reply();
+        $bot = $this->bot();
+        $bot->hearMessage(['contact' => ['phone_number' => '380671239876', 'first_name' => 'Новенький', 'user_id' => self::TG]])->reply();
+        $request = $this->em->getRepository(JoinRequest::class)->findOneBy(['telegramId' => (string) self::TG]);
+        self::assertInstanceOf(JoinRequest::class, $request);
+
+        foreach (['700300991' => 'суперадмін', '700300992' => 'системний адмін'] as $chat => $who) {
+            $sent = $this->sentTo($this->outbox, (string) $chat);
+            self::assertNotNull($sent, $who . ' отримав заявку в боті');
+            self::assertStringContainsString('Заявка на приєднання до Плану №' . $request->getId(), (string) $sent['text']);
+            self::assertStringContainsString(PlanLoginBot::JOIN_APPROVE . $request->getId(), (string) json_encode($sent['reply_markup']));
+            self::assertStringContainsString(PlanLoginBot::JOIN_REJECT . $request->getId(), (string) json_encode($sent['reply_markup']));
+        }
+        self::assertSame(1, $this->countSentTo($this->outbox, '700300991'), 'Суперадміну — одне повідомлення');
+        self::assertSame(1, $this->countSentTo($this->outbox, '700300992'), 'Системному адміну — одне повідомлення');
+        self::assertNull($this->sentTo($this->outbox, '700300994'), 'Архівному — ні');
+        self::assertNull($this->sentTo($this->outbox, '700300995'), 'Менеджеру — ні');
+        self::assertNull($this->sentTo($this->outbox, (string) $unlinkedSys->getTelegramId()), 'Без Telegram — ні');
+
+        // Системний адмін затверджує кнопкою в боті → «Виробництво»; суперадміну — хто вирішив.
+        $bot = $this->bot(700300992);
+        $bot->hearCallbackQueryData(PlanLoginBot::JOIN_APPROVE . $request->getId())->reply();
+        $this->em->refresh($request);
+        self::assertSame(JoinRequestStatus::Approved, $request->getStatus());
+        self::assertSame($sys->getId(), $request->getDecidedBy()?->getId());
+        self::assertSame(WorkRole::Production, $request->getUser()?->getWorkRole());
+        self::assertStringContainsString('затверджено', (string) $this->sentTo($this->outbox, (string) self::TG)['text']);
+        self::assertStringContainsString('ℹ️ Заявку №' . $request->getId(), (string) $this->sentTo($this->outbox, '700300991')['text']);
+        self::assertSame(1, $this->countSentTo($this->outbox, '700300992'), 'Тому, хто вирішив, «ℹ️» не шлемо');
+    }
+
+    public function testSysAdminRejectsWithTheBotButton(): void
+    {
+        $sys = $this->staff('0635556631', telegramId: '700300981')->setWorkRole(WorkRole::SysAdmin);
+        $this->em->flush();
+        $joins = self::getContainer()->get(JoinRequests::class);
+        [, $request] = $joins->submit(['id' => '700300982', 'chatId' => '700300982', 'firstName' => 'Чужий', 'lastName' => null, 'username' => null], '380501119988');
+        self::assertNotNull($request);
+
+        $bot = $this->bot(700300981);
+        $bot->hearCallbackQueryData(PlanLoginBot::JOIN_REJECT . $request->getId())->reply();
+        $this->em->refresh($request);
+        self::assertSame(JoinRequestStatus::Rejected, $request->getStatus());
+        self::assertSame($sys->getId(), $request->getDecidedBy()?->getId());
+        self::assertStringContainsString('відхилено', (string) $this->sentTo($this->outbox, '700300982')['text']);
+    }
+
     public function testNotMeAfterLoginRevokesThatSession(): void
     {
         $this->staff('0638889908', telegramId: (string) self::TG);
@@ -452,6 +513,19 @@ class TelegramLoginFlowTest extends KernelTestCase
         }
 
         return $found;
+    }
+
+    private function countSentTo(FakeNutgram $bot, string $chatId): int
+    {
+        $n = 0;
+
+        foreach ($bot->getRequestHistory() as $pair) {
+            [$request] = array_values($pair);
+            $data = FakeNutgram::getActualData($request);
+            $n += (string) ($data['chat_id'] ?? '') === $chatId && isset($data['text']) ? 1 : 0;
+        }
+
+        return $n;
     }
 
     private function lastEventType(): string

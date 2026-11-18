@@ -8,6 +8,7 @@ use App\Plan\People\PhoneFormat;
 use App\Plan\Telegram\PlanBotMode;
 use App\Plan\Telegram\TelegramLink;
 use App\Repository\TelegramUserRepository;
+use App\Tasks\Enum\WorkRole;
 use Psr\Log\LoggerInterface;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Properties\ParseMode;
@@ -17,9 +18,11 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;
 
 /**
- * Повідомлення бота «Плану» про заявки на приєднання: суперадмінам — нова заявка з
- * кнопками «Затвердити» / «Відхилити» і посиланням у План; людині — рішення; іншим
- * суперадмінам — хто вже вирішив. Збій відправки не ламає саму заявку (лише лог).
+ * Повідомлення бота «Плану» про заявки на приєднання: тим, хто їх розглядає (суперадміни
+ * й системні адміністратори, JoinRequests::canDecide), — нова заявка з кнопками
+ * «Затвердити» / «Відхилити» і посиланням у План; людині — рішення; іншим, хто розглядає, —
+ * хто вже вирішив. Про підключення Telegram за номером — лише суперадмінам.
+ * Збій відправки не ламає саму заявку (лише лог).
  */
 final class JoinNotifier
 {
@@ -32,13 +35,13 @@ final class JoinNotifier
     ) {
     }
 
-    /** Більше стількох заявок за годину — суперадмінам не пишемо (заявки лишаються в Плані). */
+    /** Більше стількох заявок за годину — адміністраторам не пишемо (заявки лишаються в Плані). */
     public const int NOTIFY_PER_HOUR = 20;
 
     public function requested(JoinRequest $request, int $lastHour = 0): void
     {
         if ($lastHour > self::NOTIFY_PER_HOUR) {
-            $this->logger->warning('plan: забагато заявок на приєднання — суперадмінам не пишемо', ['lastHour' => $lastHour]);
+            $this->logger->warning('plan: забагато заявок на приєднання — адміністраторам не пишемо', ['lastHour' => $lastHour]);
 
             return;
         }
@@ -53,7 +56,7 @@ final class JoinNotifier
             $keyboard->addRow(InlineKeyboardButton::make('Відкрити в Плані (роль, відділ)', url: $url));
         }
 
-        foreach ($this->superadmins() as $admin) {
+        foreach ($this->deciders() as $admin) {
             $this->send($admin, self::describe($request) . "\n\n«Затвердити» — роль «Виробництво», без відділу; обрати роль і відділ — у Плані.", $keyboard);
         }
     }
@@ -76,7 +79,7 @@ final class JoinNotifier
             $this->logger->warning('plan: рішення щодо заявки не доставлено заявнику', ['request' => $request->getId(), 'error' => $e->getMessage()]);
         }
 
-        foreach ($this->superadmins() as $admin) {
+        foreach ($this->deciders() as $admin) {
             if ($admin->getId() !== $by->getId()) {
                 $this->send($admin, sprintf('ℹ️ Заявку №%d (%s) %s — %s.', (int) $request->getId(), htmlspecialchars($request->name()), $approved ? 'затверджено' : 'відхилено', htmlspecialchars(PhoneFormat::named($by->shortName(), $by->getPhoneNumber()))));
             }
@@ -117,6 +120,23 @@ final class JoinNotifier
             $this->users->findBy(['superadmin' => true]),
             static fn (TelegramUser $u) => TelegramLogin::canLogIn($u) && TelegramLink::isLinked($u),
         ));
+    }
+
+    /**
+     * @return list<TelegramUser> ті, хто може вирішити заявку (суперадміни + системні адміністратори),
+     *                            і кому бот може написати; кожен — один раз
+     */
+    private function deciders(): array
+    {
+        $out = [];
+
+        foreach ([...$this->users->findBy(['superadmin' => true]), ...$this->users->findBy(['workRole' => WorkRole::SysAdmin])] as $u) {
+            if (JoinRequests::canDecide($u) && TelegramLogin::canLogIn($u) && TelegramLink::isLinked($u)) {
+                $out[(int) $u->getId()] = $u;
+            }
+        }
+
+        return array_values($out);
     }
 
     private function send(TelegramUser $to, string $text, ?InlineKeyboardMarkup $keyboard = null): void
