@@ -71,6 +71,12 @@ class PeopleDirectory
         }
 
         if (array_key_exists('departmentId', $fields)) {
+            // Свій відділ — лише тому, хто бачить усі задачі (або суперадміну): задача з відділом
+            // додає всіх його людей учасниками, тож перенос себе відкривав би чужі задачі.
+            if ($user->getId() === $by->getId() && ! $by->seesAllTasks()) {
+                throw new SupplyException('Свій підрозділ змінює адміністратор.');
+            }
+
             $department = $fields['departmentId'] !== null
                 ? $this->departments->find((int) $fields['departmentId'])
                 : null;

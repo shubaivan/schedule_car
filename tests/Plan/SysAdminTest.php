@@ -2,12 +2,12 @@
 
 namespace App\Tests\Plan;
 
-use App\Supply\Repository\DepartmentRepository;
 use App\Entity\TelegramUser;
 use App\Plan\Event\CommentAdded;
 use App\Plan\Notification\AudienceResolver;
 use App\Plan\Subject\SubjectRef;
 use App\Supply\Enum\SupplyRole;
+use App\Supply\Repository\DepartmentRepository;
 use App\Tasks\Enum\WorkRole;
 use App\Tasks\Repository\TaskRepository;
 use App\Tasks\Service\TaskPolicy;
@@ -160,6 +160,13 @@ class SysAdminTest extends WebTestCase
         if ($dep !== null) {
             $this->send('PATCH', '/api/staff/' . $sys->getId(), ['departmentId' => $dep->getId()]);
             self::assertResponseStatusCodeSame(403, 'свій відділ');
+            // І через розділ заявок (у сисадміна може бути роль менеджера постачання).
+            $sys->setSupplyRole(SupplyRole::Manager);
+            $this->em->flush();
+            $this->send('PATCH', '/api/supply/users/' . $sys->getId(), ['departmentId' => $dep->getId()]);
+            self::assertGreaterThanOrEqual(400, $this->client->getResponse()->getStatusCode(), 'свій відділ через заявки');
+            $this->em->clear();
+            self::assertNotSame($dep->getId(), $this->em->find(TelegramUser::class, $sys->getId())->getDepartment()?->getId());
         }
         self::assertFalse($this->get('/api/me')['capabilities']['tasks.seeAll'], 'усі задачі — так і не відкрились');
     }

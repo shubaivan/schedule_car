@@ -98,7 +98,7 @@ enum RolePermission: string
         }
 
         // Адміністратор завжди веде людей і бачить усі задачі: на цьому тримаються запобіжники ролей.
-        return $role === WorkRole::Admin && in_array($this, [self::StaffManage, self::TasksSeeAll], true) ? true : null;
+        return $role === WorkRole::Admin && in_array($this, [self::StaffManage, self::TasksAccess, self::TasksSeeAll], true) ? true : null;
     }
 
     /** Чому клітинка зафіксована — підказка в інтерфейсі. */
@@ -109,7 +109,7 @@ enum RolePermission: string
             $role === WorkRole::SysAdmin && $this === self::StaffManage => 'Системний адміністратор завжди веде людей і налаштування.',
             $role === WorkRole::SysAdmin && in_array($this, [self::TasksAccess, self::Zvyazok], true) => 'Системний адміністратор бачить задачі й чати лише ті, де він учасник, — як звичайний користувач.',
             $role === WorkRole::SysAdmin => 'Системний адміністратор не бачить усіх задач, не керує чужими задачами й не отримує лідів.',
-            $role === WorkRole::Admin && $this === self::TasksSeeAll => 'Адміністратор бачить усі задачі — на цьому тримаються запобіжники ролей.',
+            $role === WorkRole::Admin && in_array($this, [self::TasksAccess, self::TasksSeeAll], true) => 'Адміністратор бачить усі задачі — на цьому тримаються запобіжники ролей.',
             default => 'Адміністратор завжди веде людей — щоб не замкнути себе поза налаштуваннями.',
         };
     }
