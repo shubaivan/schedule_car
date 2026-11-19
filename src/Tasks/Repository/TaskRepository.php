@@ -34,7 +34,9 @@ class TaskRepository extends ServiceEntityRepository
     {
         $qb = $this->createQueryBuilder($alias)
             ->leftJoin($alias . '.labels', 'l')->addSelect('l')
-            ->leftJoin($alias . '.creator', 'c')->addSelect('c');
+            ->leftJoin($alias . '.creator', 'c')->addSelect('c')
+            // Кошик задач: видалені не показуються ніде, крім самого кошика (trash()).
+            ->andWhere($alias . '.deletedAt IS NULL');
 
         if (! $user->canSeeTasks()) {
             // Роль без «Задачі й угоди» — жодної задачі.
@@ -48,6 +50,34 @@ class TaskRepository extends ServiceEntityRepository
         }
 
         return $qb;
+    }
+
+    /**
+     * Кошик задач: видалені, які людина бачила б (директор/адмін — усі, решта — де автор чи
+     * учасник), найсвіжіші зверху. Лише для тих, хто може видаляти (tasks.delete).
+     *
+     * @return Task[]
+     */
+    public function trash(TelegramUser $user, int $limit = 200): array
+    {
+        if (! $user->deletesTasks()) {
+            return [];
+        }
+
+        $qb = $this->createQueryBuilder('t')
+            ->leftJoin('t.creator', 'c')->addSelect('c')
+            ->leftJoin('t.deletedBy', 'db')->addSelect('db')
+            ->andWhere('t.deletedAt IS NOT NULL')
+            ->orderBy('t.deletedAt', SortDirection::Descending)
+            ->addOrderBy('t.id', SortDirection::Descending)
+            ->setMaxResults($limit);
+
+        if (! $user->seesAllTasks()) {
+            $qb->andWhere(sprintf('t.creator = :viewer OR EXISTS (SELECT 1 FROM %s vm WHERE vm.task = t AND vm.user = :viewer)', TaskMember::class))
+                ->setParameter('viewer', $user);
+        }
+
+        return $qb->getQuery()->getResult();
     }
 
     /**
@@ -236,11 +266,11 @@ class TaskRepository extends ServiceEntityRepository
     {
         return array_map('intval', $this->getEntityManager()->getConnection()->fetchFirstColumn(
             "SELECT t.id FROM task t
-              WHERE t.creator_id = :user
+              WHERE t.deleted_at IS NULL AND (t.creator_id = :user
                  OR EXISTS (
                     SELECT 1 FROM task_message m WHERE m.task_id = t.id AND m.kind = 'comment' AND m.deleted_at IS NULL
                        AND (m.author_id = :user OR m.mentions::jsonb @> to_jsonb(ARRAY[:user]::int[]))
-                 )
+                 ))
               ORDER BY t.last_activity_at DESC LIMIT " . $limit,
             ['user' => $user->getId()],
         ));

@@ -28,6 +28,8 @@ use App\Plan\Event\StatusChanged;
 use App\Plan\Event\StockMoved;
 use App\Plan\Event\SubjectClosed;
 use App\Plan\Event\SubjectCreated;
+use App\Plan\Event\SubjectDeleted;
+use App\Plan\Event\SubjectRestored;
 use App\Plan\Event\SubjectUpdated;
 use App\Plan\Event\SubjectViewed;
 use App\Plan\Event\UserLoggedIn;
@@ -54,6 +56,7 @@ final class AuditCatalog
         'view' => ['label' => 'Перегляди й скани', 'types' => [SubjectViewed::TYPE]],
         'login' => ['label' => 'Входи', 'types' => [UserLoggedIn::TYPE, LoginFailed::TYPE, JoinRequested::TYPE, JoinDecided::TYPE]],
         'staff' => ['label' => 'Співробітники й ролі', 'types' => [StaffChanged::TYPE, RolePermissionChanged::TYPE]],
+        'trash' => ['label' => 'Кошик задач', 'types' => [SubjectDeleted::TYPE, SubjectRestored::TYPE]],
         'system' => ['label' => 'Службові', 'types' => [DriveAuthBroken::TYPE]],
     ];
 
@@ -88,6 +91,8 @@ final class AuditCatalog
         RolePermissionChanged::TYPE => 'Права ролі змінено',
         JoinRequested::TYPE => 'Заявка на приєднання',
         JoinDecided::TYPE => 'Рішення щодо заявки',
+        SubjectDeleted::TYPE => 'Видалено в кошик',
+        SubjectRestored::TYPE => 'Відновлено з кошика',
     ];
 
     public const array SUBJECTS = [

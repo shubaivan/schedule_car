@@ -14,7 +14,7 @@ import type { TaskDetail } from './api'
  * Переходи статусу розкриваються рядком прямо в шапці (не спливаюче меню поверх сторінки).
  */
 const props = defineProps<{ task: TaskDetail; embedded?: boolean; moving?: boolean; sideOpen?: boolean }>()
-const emit = defineEmits<{ move: [to: string, note?: string]; edit: []; close: []; side: []; favorite: [] }>()
+const emit = defineEmits<{ move: [to: string, note?: string]; edit: []; close: []; side: []; favorite: []; remove: [] }>()
 
 const route = useRoute()
 const menu = ref(false)
@@ -54,6 +54,17 @@ onBeforeUnmount(() => window.removeEventListener('keydown', esc, true))
             <span v-if="task.client" class="client" :title="task.client">· {{ task.client }}</span>
             <span class="sp" />
             <button v-if="task.can.edit" type="button" class="p-icon-btn" title="Редагувати" aria-label="Редагувати" @click="emit('edit')"><Icon name="edit" :size="18" /></button>
+            <button
+                v-if="task.can.delete"
+                type="button"
+                class="p-icon-btn"
+                title="Видалити (у кошик на 30 днів)"
+                aria-label="Видалити"
+                data-testid="task-delete"
+                @click="emit('remove')"
+            >
+                <Icon name="trash" :size="18" />
+            </button>
             <button type="button" class="p-icon-btn p-side-toggle" :class="{ on: sideOpen }" title="Деталі, учасники, файли" aria-label="Деталі" @click="emit('side')">
                 <Icon name="info" :size="18" />
             </button>

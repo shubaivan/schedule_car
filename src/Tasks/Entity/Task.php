@@ -26,8 +26,12 @@ use SortDirection;
 #[ORM\Table(name: 'task')]
 #[ORM\Index(columns: ['status'], name: 'idx_task_status')]
 #[ORM\Index(columns: ['last_activity_at'], name: 'idx_task_activity')]
+#[ORM\Index(name: 'idx_task_deleted', columns: ['deleted_at'], options: ['where' => '(deleted_at IS NOT NULL)'])]
 class Task
 {
+    /** Скільки днів задача лежить у кошику, перш ніж tasks:trash:purge видалить її остаточно. */
+    public const int TRASH_DAYS = 30;
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -70,6 +74,18 @@ class Task
 
     #[ORM\Column(name: 'closed_at', type: Types::DATETIME_MUTABLE, nullable: true)]
     private ?DateTime $closedAt = null;
+
+    /**
+     * Кошик задач: видалена задача зникає з дошки, списків, пошуку, Хроніки, Огляду й сповіщень
+     * (TaskPolicy::canView, TaskRepository::visibleTo, TaskVisibility::sql), 30 днів її можна
+     * відновити, далі tasks:trash:purge видаляє її остаточно.
+     */
+    #[ORM\Column(name: 'deleted_at', type: Types::DATETIME_MUTABLE, nullable: true, options: ['comment' => 'Кошик: коли видалено (NULL — жива задача)'])]
+    private ?DateTime $deletedAt = null;
+
+    #[ORM\ManyToOne(targetEntity: TelegramUser::class)]
+    #[ORM\JoinColumn(name: 'deleted_by_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL', options: ['comment' => 'Кошик: хто видалив'])]
+    private ?TelegramUser $deletedBy = null;
 
     /** @var Collection<int, TaskMember> */
     #[ORM\OneToMany(targetEntity: TaskMember::class, mappedBy: 'task', cascade: ['persist', 'remove'], orphanRemoval: true)]
@@ -221,6 +237,39 @@ class Task
     public function getClosedAt(): ?DateTime
     {
         return $this->closedAt;
+    }
+
+    public function getDeletedAt(): ?DateTime
+    {
+        return $this->deletedAt;
+    }
+
+    public function getDeletedBy(): ?TelegramUser
+    {
+        return $this->deletedBy;
+    }
+
+    public function isDeleted(): bool
+    {
+        return $this->deletedAt !== null;
+    }
+
+    /** У кошик (м'яке видалення). */
+    public function markDeleted(TelegramUser $by, ?DateTime $at = null): self
+    {
+        $this->deletedAt = $at ?? self::now();
+        $this->deletedBy = $by;
+
+        return $this;
+    }
+
+    /** З кошика назад — усе як було (статус, учасники, чат). */
+    public function restore(): self
+    {
+        $this->deletedAt = null;
+        $this->deletedBy = null;
+
+        return $this;
     }
 
     /** @return Collection<int, TaskMember> */

@@ -42,7 +42,8 @@ final class TaskSubjects implements SubjectProvider
     {
         $task = $this->em->find(Task::class, $ref->id);
 
-        if ($task === null) {
+        // Задача в кошику — нікому не сповіщаємо.
+        if ($task === null || $task->isDeleted()) {
             return [];
         }
 

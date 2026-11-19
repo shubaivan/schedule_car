@@ -108,7 +108,7 @@ export interface TaskDetail extends TaskItem {
     counterparty?: { id: number; name: string; archived: boolean } | null
     departments: { id: number; name: string }[]
     closedAt: string | null
-    can: { edit: boolean; comment: boolean; transitions: StatusInfo[] }
+    can: { edit: boolean; comment: boolean; transitions: StatusInfo[]; delete?: boolean }
     messages: Message[]
     files: Attachment[]
     favorite: boolean
@@ -188,7 +188,7 @@ export interface PollResult {
 }
 
 export interface TasksMeta {
-    me: Person & { passwordLogin?: boolean; can: { staff: boolean; seeAll: boolean; decide: boolean } }
+    me: Person & { passwordLogin?: boolean; can: { staff: boolean; seeAll: boolean; decide: boolean; deleteTasks?: boolean } }
     statuses: StatusInfo[]
     labels: Label[]
     people: Person[]
@@ -275,6 +275,19 @@ async function upload<T>(url: string, form: FormData): Promise<T> {
 
 const json = (body: unknown) => JSON.stringify(body)
 
+/** Рядок кошика задач: що, хто й коли видалив, до якої дати можна відновити. */
+export interface TrashedTask {
+    id: number
+    number: string
+    title: string
+    client: string | null
+    status: StatusInfo
+    creator: Person | null
+    deletedAt: string
+    deletedBy: Person | null
+    purgeAt: string
+}
+
 export const tasksApi = {
     meta: () => call<TasksMeta>('/api/tasks/meta'),
     dashboard: () => call<Dashboard>('/api/tasks/dashboard'),
@@ -285,6 +298,10 @@ export const tasksApi = {
         return call<Board>('/api/tasks/board?' + params.toString())
     },
     get: (id: number) => call<TaskDetail>(`/api/tasks/${id}`),
+    /** У кошик (30 днів — відновлення). */
+    remove: (id: number) => call<TrashedTask>(`/api/tasks/${id}`, { method: 'DELETE' }),
+    restore: (id: number) => call<TaskDetail>(`/api/tasks/${id}/restore`, { method: 'POST' }),
+    trash: () => call<{ items: TrashedTask[]; days: number }>('/api/tasks/trash'),
     create: (payload: TaskPayload) => call<TaskDetail>('/api/tasks', { method: 'POST', body: json(payload) }),
     update: (id: number, payload: TaskPayload) => call<TaskDetail>(`/api/tasks/${id}`, { method: 'PATCH', body: json(payload) }),
     status: (id: number, to: string, comment?: string) => call<TaskDetail>(`/api/tasks/${id}/status`, { method: 'POST', body: json({ to, comment }) }),

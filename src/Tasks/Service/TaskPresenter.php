@@ -176,6 +176,7 @@ class TaskPresenter
                 'edit' => $this->policy->canEdit($viewer, $task),
                 'comment' => $this->policy->canComment($viewer, $task),
                 'transitions' => array_map($this->status(...), $this->policy->transitions($viewer, $task)),
+                'delete' => $this->policy->canDelete($viewer, $task),
             ],
             'messages' => array_map(fn (TaskMessage $m) => $this->message($m, $viewer, $starred), $messages),
             'files' => $files,
@@ -304,6 +305,28 @@ class TaskPresenter
             $bytes >= 1024 => number_format($bytes / 1024, 0, ',', ' ') . ' КБ',
             default => $bytes . ' Б',
         };
+    }
+
+    /**
+     * Рядок кошика задач: що, хто й коли видалив, до якої дати можна відновити.
+     *
+     * @return array<string, mixed>
+     */
+    public function trashItem(Task $task): array
+    {
+        $deletedAt = $task->getDeletedAt();
+
+        return [
+            'id' => $task->getId(),
+            'number' => $task->number(),
+            'title' => $task->getTitle(),
+            'client' => $task->getClient(),
+            'status' => $this->status($task->getStatus()),
+            'creator' => $this->person($task->getCreator()),
+            'deletedAt' => $this->date($deletedAt),
+            'deletedBy' => $this->person($task->getDeletedBy()),
+            'purgeAt' => $this->date($deletedAt === null ? null : (clone $deletedAt)->modify(sprintf('+%d days', Task::TRASH_DAYS))),
+        ];
     }
 
     private function date(?DateTimeInterface $date): ?string

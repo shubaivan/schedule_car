@@ -13,6 +13,7 @@ const PATHS: Record<string, string> = {
     chat: 'M21 11.5a8.4 8.4 0 0 1-12.2 7.5L3 21l2-5.6A8.5 8.5 0 1 1 21 11.5z',
     pin: 'M12 17v5M9 3h6l-1 6 4 4H6l4-4z',
     archive: 'M3 4h18v4H3zM5 8v12h14V8M10 12h4',
+    trash: 'M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6',
     reply: 'M9 14 4 9l5-5M4 9h11a5 5 0 0 1 5 5v6',
     user: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
     x: 'M18 6 6 18M6 6l12 12',

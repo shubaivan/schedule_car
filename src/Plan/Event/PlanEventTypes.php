@@ -41,6 +41,8 @@ final class PlanEventTypes
         JoinRequested::class,
         JoinDecided::class,
         RolePermissionChanged::class,
+        SubjectDeleted::class,
+        SubjectRestored::class,
     ];
 
     /**
@@ -62,6 +64,9 @@ final class PlanEventTypes
         JoinRequested::class,
         JoinDecided::class,
         RolePermissionChanged::class,
+        // Кошик задач: задача зникає з Хроніки й пошуку сама (видимість), тож подія — лише для журналу.
+        SubjectDeleted::class,
+        SubjectRestored::class,
     ];
 
     public static function isAuditOnly(PlanEvent $event): bool

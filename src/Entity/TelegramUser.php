@@ -484,6 +484,12 @@ class TelegramUser implements UserInterface, PasswordAuthenticatedUserInterface,
         return $this->superadmin || $this->getWorkRole()->seesTasks();
     }
 
+    /** Видаляє задачі, які бачить (кошик 30 днів), і відновлює їх — за роллю (tasks.delete) або суперадмін. */
+    public function deletesTasks(): bool
+    {
+        return $this->canSeeTasks() && ($this->superadmin || $this->getWorkRole()->deletesTasks());
+    }
+
     /** «Звʼязок» за роллю; чи відкрито модуль — ZvyazokAccess; чати бачать лише учасники. */
     public function canUseZvyazok(): bool
     {

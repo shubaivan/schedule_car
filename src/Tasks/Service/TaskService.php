@@ -14,6 +14,8 @@ use App\Plan\Event\MemberAdded;
 use App\Plan\Event\MemberRemoved;
 use App\Plan\Event\StatusEvent;
 use App\Plan\Event\SubjectCreated;
+use App\Plan\Event\SubjectDeleted;
+use App\Plan\Event\SubjectRestored;
 use App\Plan\Event\SubjectUpdated;
 use App\Plan\EventStore\PlanEventRecorder;
 use App\Plan\Subject\SubjectRef;
@@ -191,6 +193,58 @@ class TaskService
         });
 
         return $task;
+    }
+
+    /**
+     * У кошик (Олександр 19.11): задача зникає з дошки, списків, пошуку, Хроніки, Огляду й
+     * сповіщень; 30 днів її можна відновити (restore), далі tasks:trash:purge видаляє остаточно.
+     */
+    public function delete(Task $task, TelegramUser $user): void
+    {
+        $this->events->transactional(function () use ($task, $user): void {
+            // Рядок під блокуванням: два «Видалити» одночасно — одна подія, друге отримає «вже в кошику».
+            $deleted = $this->em->getConnection()->fetchOne('SELECT deleted_at FROM task WHERE id = ? FOR UPDATE', [(int) $task->getId()]);
+
+            if ($task->isDeleted() || ($deleted !== false && $deleted !== null)) {
+                throw new TaskException('Задача вже в кошику.');
+            }
+
+            if (! $this->policy->canDelete($user, $task)) {
+                throw new TaskException('Видаляти задачі можуть адміністратор, директор і системний адміністратор — і лише ті, які бачать.');
+            }
+
+            $task->markDeleted($user);
+            $this->em->flush();
+            // Непрочитані сповіщення по задачі — прочитані: у кошику їх не видно, а дзвіночок не має «висіти».
+            $this->em->getConnection()->executeStatement(
+                "UPDATE notification n SET read_at = LOCALTIMESTAMP(0) FROM plan_event e
+                  WHERE e.id = n.event_id AND n.read_at IS NULL AND e.subject_type = 'task' AND e.subject_id = ?",
+                [(int) $task->getId()],
+            );
+            $this->events->record(new SubjectDeleted(SubjectRef::task((int) $task->getId()), $user->getId(), title: $task->getTitle()));
+            $this->logger->info('Task deleted to trash', ['task' => $task->getId(), 'by' => $user->getId()]);
+        });
+    }
+
+    /** З кошика назад: статус, учасники, чат і файли — як були. */
+    public function restore(Task $task, TelegramUser $user): void
+    {
+        $this->events->transactional(function () use ($task, $user): void {
+            $deleted = $this->em->getConnection()->fetchOne('SELECT deleted_at FROM task WHERE id = ? FOR UPDATE', [(int) $task->getId()]);
+
+            if (! $task->isDeleted() || $deleted === null || $deleted === false) {
+                throw new TaskException('Задачі вже немає в кошику.');
+            }
+
+            if (! $this->policy->canRestore($user, $task)) {
+                throw new TaskException('Відновлювати задачі можуть ті, хто може їх видаляти, — і лише ті, які бачать.');
+            }
+
+            $task->restore();
+            $this->em->flush();
+            $this->events->record(new SubjectRestored(SubjectRef::task((int) $task->getId()), $user->getId(), title: $task->getTitle()));
+            $this->logger->info('Task restored from trash', ['task' => $task->getId(), 'by' => $user->getId()]);
+        });
     }
 
     /**
