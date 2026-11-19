@@ -7,6 +7,7 @@ use App\Enum\AccessStatus;
 use App\Plan\Event\StaffChanged;
 use App\Plan\EventStore\PlanEventRecorder;
 use App\Plan\Subject\SubjectRef;
+use App\Plan\Telegram\TelegramLink;
 use App\Repository\TelegramUserRepository;
 use App\Supply\Entity\Department;
 use App\Supply\Repository\DepartmentRepository;
@@ -69,7 +70,9 @@ class StaffDirectory
     {
         return array_values(array_filter(
             $this->users->findBy([], ['first_name' => 'ASC', 'last_name' => 'ASC']),
-            static fn (TelegramUser $u) => $trash ? $u->isArchived() : (! $u->isArchived() && $u->isApproved()),
+            // Кошик — лише справжні картки: порожні записи бота, чий Telegram забрала людина
+            // (TelegramLink::release), там виглядали дублями цієї людини.
+            static fn (TelegramUser $u) => $trash ? ($u->isArchived() && ! TelegramLink::isReleasedStub($u)) : (! $u->isArchived() && $u->isApproved()),
         ));
     }
 
