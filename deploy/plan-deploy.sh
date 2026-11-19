@@ -3,7 +3,8 @@
 # Повний порядок (бекап → rsync → цей скрипт → перевірки) — у runbook; тут те, що не можна забути.
 #
 #   ssh root@<server> 'systemctl stop plan-worker'      # краще ще ДО rsync (код під живим воркером)
-#   rsync …
+#   rsync … --delete --filter='P /public/crm/assets/***' …   # старі файли фронту НЕ видаляти (стара вкладка)
+#   (лише фронт — deploy/plan-fe-deploy.sh)
 #   ssh root@<server> 'sh /var/www/plan/deploy/plan-deploy.sh'
 set -eu
 cd /var/www/plan
@@ -21,6 +22,10 @@ sudo -u deploy APP_ENV=prod php8.5 /usr/local/bin/composer install --no-dev --op
 $APP doctrine:migrations:migrate --no-interaction
 $APP cache:clear
 chmod -R g+rwX var
+
+# Файли фронту попередніх збірок rsync не видаляє (фільтр P вище) — щоб відкрита до деплою вкладка
+# ще дозавантажила свій розділ. Прибираємо ті, яких не було в жодній збірці за 14 днів.
+[ -d public/crm/assets ] && find public/crm/assets -type f -mtime +14 -delete
 
 systemctl reload php8.5-fpm
 

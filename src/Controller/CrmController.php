@@ -6,6 +6,7 @@ use LogicException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 
 class CrmController extends AbstractController
@@ -29,10 +30,18 @@ class CrmController extends AbstractController
     /**
      * Оболонка CRM. Будь-який шлях під /crm віддає index.html зібраного Vue-застосунку,
      * щоб глибокі посилання (/crm/requests/42) відкривались напряму.
+     *
+     * Крім файлів збірки: зниклий після деплою /crm/assets/ProfilePage-<хеш>.js має бути 404,
+     * а не HTML-оболонкою з 200 — інакше стара вкладка мовчки не відкриває розділ
+     * (лінивий import падає на MIME text/html і не має чого показати).
      */
     #[Route('/crm/{path}', name: 'crm_index', requirements: ['path' => '.*'], defaults: ['path' => ''])]
-    public function index(#[Autowire('%kernel.project_dir%')] string $projectDir): Response
+    public function index(string $path, #[Autowire('%kernel.project_dir%')] string $projectDir): Response
     {
+        if (self::isBuildFile($path)) {
+            throw new NotFoundHttpException('Файлу збірки немає (стара вкладка після деплою).');
+        }
+
         $built = $projectDir . '/public/crm/index.html';
 
         if (is_readable($built)) {
@@ -41,5 +50,11 @@ class CrmController extends AbstractController
 
         // Фронт ще не зібраний (npm run build у frontend/) — показуємо заглушку.
         return $this->render('crm/index.html.twig');
+    }
+
+    /** Файл зібраного фронту (assets/…, *.js, *.css, *.map), а не адреса сторінки SPA. */
+    private static function isBuildFile(string $path): bool
+    {
+        return preg_match('#^assets/|\.(?:m?js|css|map)$#i', $path) === 1;
     }
 }

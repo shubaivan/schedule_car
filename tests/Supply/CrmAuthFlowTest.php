@@ -99,6 +99,27 @@ class CrmAuthFlowTest extends WebTestCase
         self::assertSame('worker', json_decode((string) $this->client->getResponse()->getContent(), true)['role']);
     }
 
+    /**
+     * Стара вкладка після деплою просить лінивий файл попередньої збірки. Його вже немає —
+     * відповідь має бути 404, а не HTML-оболонка з 200 (інакше розділ мовчки не відкривається).
+     * Звичайні адреси сторінок SPA, зокрема з крапкою в id, і далі отримують оболонку.
+     */
+    public function testMissingBuildFileIs404NotTheShell(): void
+    {
+        $this->client->request('GET', '/crm/auth/' . $this->tokenFor($this->user(SupplyRole::Manager)));
+        self::assertResponseRedirects();
+
+        foreach (['/crm/assets/ProfilePage-OLDHASH1.js', '/crm/assets/ProfilePage-OLDHASH1.css', '/crm/assets/nested/x.png', '/crm/old-entry.js'] as $url) {
+            $this->client->request('GET', $url);
+            self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND, $url);
+        }
+
+        foreach (['/crm/', '/crm/profile', '/crm/tasks/42', '/crm/staff/1.5'] as $url) {
+            $this->client->request('GET', $url);
+            self::assertResponseIsSuccessful($url);
+        }
+    }
+
     /** Без сесії людину відправляємо на сторінку входу з інструкцією, а не на сторінку помилки. */
     public function testCrmIsClosedWithoutLogin(): void
     {
