@@ -17,3 +17,7 @@ PATH=/usr/local/bin:/usr/bin:/bin
 # Ретеншн: службові події журналу аудиту старші PLAN_AUDIT_RETENTION_DAYS (180) і plan_event_consumed старші 7 днів — щоночі 03:30.
 # Доменна історія (Хроніка, склад) не видаляється.
 30 3 * * * deploy cd /var/www/plan && flock -n /tmp/plan-audit-prune.lock php8.5 bin/console plan:audit:prune --env=prod >> /var/log/plan-cron.log 2>&1
+
+# Кошик задач: задачі, що пролежали там довше 30 днів, — остаточно (з файлами й превʼю на диску) — щоночі 03:50.
+# Журнал подій лишається; копії на Google Диску не чіпаються. Перевірити: tasks:trash:purge --dry-run
+50 3 * * * deploy cd /var/www/plan && flock -n /tmp/plan-tasks-trash.lock php8.5 bin/console tasks:trash:purge --env=prod >> /var/log/plan-cron.log 2>&1

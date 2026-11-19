@@ -100,7 +100,7 @@ class RolePermissions
             return false;
         }
 
-        $tasks = in_array($permission, [RolePermission::TasksAccess, RolePermission::TasksSeeAll, RolePermission::TasksEditAny, RolePermission::TasksDecide, RolePermission::LeadsReceive], true);
+        $tasks = in_array($permission, [RolePermission::TasksAccess, RolePermission::TasksSeeAll, RolePermission::TasksEditAny, RolePermission::TasksDecide, RolePermission::TasksDelete, RolePermission::LeadsReceive], true);
 
         if ($permission === RolePermission::Zvyazok && ! $by->canUseZvyazok()) {
             return false;

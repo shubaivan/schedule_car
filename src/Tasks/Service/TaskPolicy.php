@@ -16,7 +16,20 @@ class TaskPolicy
     public function canView(TelegramUser $user, Task $task): bool
     {
         // Роль без «Задачі й угоди» задач не бачить узагалі — навіть де учасник; системний адмін — як звичайний користувач.
-        return $user->canSeeTasks() && ($user->seesAllTasks() || $this->isInvolved($user, $task));
+        // Задача в кошику закрита для всього (картка, чат, файли, статуси) — лише відновити (canRestore).
+        return ! $task->isDeleted() && $user->canSeeTasks() && ($user->seesAllTasks() || $this->isInvolved($user, $task));
+    }
+
+    /** Видалити в кошик: право tasks.delete («Ролі й доступ») і лише задачу, яку людина бачить. */
+    public function canDelete(TelegramUser $user, Task $task): bool
+    {
+        return $this->canView($user, $task) && $user->deletesTasks();
+    }
+
+    /** Відновити з кошика: те саме право й ті самі задачі, що й видалити (видимість — без урахування кошика). */
+    public function canRestore(TelegramUser $user, Task $task): bool
+    {
+        return $task->isDeleted() && $user->deletesTasks() && ($user->seesAllTasks() || $this->isInvolved($user, $task));
     }
 
     public function canEdit(TelegramUser $user, Task $task): bool

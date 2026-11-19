@@ -7,7 +7,7 @@ use App\Entity\TelegramUser;
 /**
  * Те саме правило видимості, що й у TaskRepository::visibleTo() та TaskPolicy::canView(),
  * але шматком SQL — для сирих запитів Хроніки й пошуку: директор і адмін бачать
- * усе, решта — задачі, де вони автор або учасник.
+ * усе, решта — задачі, де вони автор або учасник. Задачі з кошика — нікому.
  */
 final class TaskVisibility
 {
@@ -57,12 +57,13 @@ final class TaskVisibility
             return ['FALSE', []];
         }
 
+        // Задачі в кошику (task.deleted_at) не видно ніде: Хроніка, пошук, Огляд, лічильники.
         if ($viewer->seesAllTasks()) {
-            return ['TRUE', []];
+            return [sprintf('%s.deleted_at IS NULL', $alias), []];
         }
 
         return [
-            sprintf('(%1$s.creator_id = :viewer OR EXISTS (SELECT 1 FROM task_member vm WHERE vm.task_id = %1$s.id AND vm.user_id = :viewer))', $alias),
+            sprintf('(%1$s.deleted_at IS NULL AND (%1$s.creator_id = :viewer OR EXISTS (SELECT 1 FROM task_member vm WHERE vm.task_id = %1$s.id AND vm.user_id = :viewer)))', $alias),
             ['viewer' => (int) $viewer->getId()],
         ];
     }

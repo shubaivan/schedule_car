@@ -242,6 +242,16 @@ onBeforeUnmount(() => {
                         {{ l.name }}
                     </button>
                 </div>
+                <router-link
+                    v-if="store.meta?.me.can.deleteTasks"
+                    :to="{ name: 'tasks-trash' }"
+                    class="p-icon-btn"
+                    title="Кошик задач (30 днів)"
+                    aria-label="Кошик задач"
+                    data-testid="tasks-trash-link"
+                >
+                    <Icon name="trash" :size="18" />
+                </router-link>
                 <router-link :to="{ name: 'tasks-new' }" class="p-btn primary p-new">
                     <Icon name="plus" :size="18" :stroke="2.2" />
                     <span>Нова задача</span>

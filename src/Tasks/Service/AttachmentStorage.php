@@ -193,6 +193,19 @@ class AttachmentStorage
         return $this->previewDir($attachment) . '/page-' . $page . '.jpg';
     }
 
+    /** Остаточне видалення файлу вкладення й усіх його превʼю (кошик задач, tasks:trash:purge). */
+    public function removeFiles(int $attachmentId, string $relativePath): void
+    {
+        $paths = [$this->root . '/previews/' . $attachmentId];
+
+        // Лише шлях усередині сховища — ніяких «..» з бази.
+        if ($relativePath !== '' && ! str_contains($relativePath, '..')) {
+            $paths[] = $this->root . '/' . ltrim($relativePath, '/');
+        }
+
+        $this->fs->remove($paths);
+    }
+
     public function root(): string
     {
         $this->fs->mkdir($this->root);

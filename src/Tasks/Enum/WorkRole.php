@@ -68,6 +68,12 @@ enum WorkRole: string
         return $this->seesTasks() && RoleGrants::allows($this, RolePermission::TasksEditAny);
     }
 
+    /** Видаляє задачі, які бачить (у кошик на 30 днів), і відновлює їх звідти. */
+    public function deletesTasks(): bool
+    {
+        return $this->seesTasks() && RoleGrants::allows($this, RolePermission::TasksDelete);
+    }
+
     /** Керує ролями й правами (сторінка «Ролі й доступ») — фіксовано, не налаштовується. */
     public function managesRoles(): bool
     {

@@ -27,6 +27,8 @@ enum RolePermission: string
     case TasksEditAny = 'tasks.editAny';
     /** Рішення директора: погодити, відхилити, відкласти. */
     case TasksDecide = 'tasks.decide';
+    /** Видаляє задачі (у кошик на 30 днів, звідти — відновити) — лише ті, які бачить. */
+    case TasksDelete = 'tasks.delete';
     /** «Звʼязок» (месенджер) — якщо його відкрито людині (до погодження — повний доступ). */
     case Zvyazok = 'zvyazok.use';
     /** Веде людей, відділи, кошик. */
@@ -50,6 +52,7 @@ enum RolePermission: string
             self::TasksSeeAll => 'Бачить усі задачі заводу',
             self::TasksEditAny => 'Править будь-яку задачу',
             self::TasksDecide => 'Рішення директора в задачах',
+            self::TasksDelete => 'Видаляє задачі (кошик 30 днів)',
             self::Zvyazok => '«Звʼязок» (чати, де учасник)',
             self::StaffManage => 'Веде людей і відділи',
             self::LeadsReceive => 'Отримує ліди з сайту',
@@ -63,7 +66,7 @@ enum RolePermission: string
     public function group(): string
     {
         return match ($this) {
-            self::TasksAccess, self::TasksSeeAll, self::TasksEditAny, self::TasksDecide => 'Задачі',
+            self::TasksAccess, self::TasksSeeAll, self::TasksEditAny, self::TasksDecide, self::TasksDelete => 'Задачі',
             self::Zvyazok => 'Звʼязок',
             self::StaffManage => 'Люди',
             self::LeadsReceive, self::CounterpartiesView, self::CounterpartiesEdit, self::CounterpartiesFinance => 'Продажі й контрагенти',
@@ -78,6 +81,8 @@ enum RolePermission: string
             self::TasksAccess, self::Zvyazok => true,
             self::TasksSeeAll, self::TasksDecide => in_array($role, [WorkRole::Admin, WorkRole::Director], true),
             self::TasksEditAny => in_array($role, [WorkRole::Admin, WorkRole::Manager], true),
+            // Олександр 19.11: видаляти задачі — адміністратор, директор і системний адміністратор.
+            self::TasksDelete => in_array($role, [WorkRole::Admin, WorkRole::Director, WorkRole::SysAdmin], true),
             self::StaffManage => $role === WorkRole::Admin,
             self::LeadsReceive => in_array($role, [WorkRole::Manager, WorkRole::Director, WorkRole::Admin], true),
             self::CounterpartiesView, self::CounterpartiesEdit => in_array($role, [WorkRole::Admin, WorkRole::Director, WorkRole::Manager, WorkRole::Accountant, WorkRole::SysAdmin], true),

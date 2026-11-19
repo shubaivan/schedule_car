@@ -16,6 +16,7 @@ import { useTasks } from './store'
 import { useSession } from '../../app/store'
 import { closeLayer, openLayer } from '../../plan/layers'
 import { takeFlash } from '../../plan/flash'
+import { notify, undoable } from '../../plan/undo'
 
 /** embedded — права половина розділеного екрана (кнопка «закрити» замість «← Дошка»). */
 const props = defineProps<{ id: string; embedded?: boolean }>()
@@ -115,6 +116,35 @@ async function move(to: string, note?: string) {
     }
 }
 
+/**
+ * «Видалити» — одразу в кошик (без вікна підтвердження, як і решта «Плану»): тост «Скасувати»
+ * 8 секунд повертає задачу; пізніше — з «Кошика задач» (30 днів).
+ */
+async function remove() {
+    if (!task.value) return
+    const { id, number } = task.value
+    try {
+        await tasksApi.remove(id)
+    } catch (e) {
+        error.value = session.handle(e)
+        return
+    }
+    window.dispatchEvent(new Event(TASK_SAVED))
+    undoable(`Задачу № ${number} видалено в кошик`, {
+        undo: () => {
+            tasksApi
+                .restore(id)
+                .then(() => {
+                    window.dispatchEvent(new Event(TASK_SAVED))
+                    void router.push({ name: 'tasks-board', params: { id: String(id) } })
+                })
+                .catch((e) => notify(session.handle(e), { tone: 'error' }))
+        },
+    })
+    if (props.embedded) emit('close')
+    else void router.push({ name: 'tasks-board' })
+}
+
 watch(() => props.id, load)
 // ?f= на файл, якого немає (видалили, чуже посилання) — прибираємо з адреси, щоб не глушив клавіші.
 watch([() => route.query.f, task], () => {
@@ -148,6 +178,7 @@ onMounted(load)
                     @close="emit('close')"
                     @side="sideOpen = !sideOpen"
                     @favorite="toggleFavorite"
+                    @remove="remove"
                 />
 
                 <div v-if="banner" class="t-error p-banner" role="status">

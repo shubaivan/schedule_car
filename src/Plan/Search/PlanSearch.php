@@ -249,6 +249,9 @@ class PlanSearch
         // Роль без «Задачі й угоди» задач не бачить і в пошуку — навіть де він учасник.
         if (! $this->access->can($viewer, PlanCapability::TasksAccess)) {
             $out[] = "d.subject_type <> 'task'";
+        } else {
+            // Задача в кошику (і її коментарі, файли) у пошуку не знаходиться; після відновлення — знову так.
+            $out[] = "NOT (d.subject_type = 'task' AND EXISTS (SELECT 1 FROM task dt WHERE dt.id = d.subject_id AND dt.deleted_at IS NOT NULL))";
         }
 
         // Заявки (і їхні коментарі/файли) — лише тим, кому заявку видно (SupplyVisibility).

@@ -10,6 +10,7 @@ const ProfilePage = () => import('./shell/ProfilePage.vue')
 const ChronicleFeed = () => import('../plan/ChronicleFeed.vue')
 const SearchPage = () => import('../plan/SearchPage.vue')
 const TaskListPage = () => import('./TaskListPage.vue')
+const TaskTrashPage = () => import('./TaskTrashPage.vue')
 
 const plan = { shell: 'plan' as const }
 
@@ -20,6 +21,8 @@ export const tasksRoutes: RouteRecordRaw[] = [
     // Список задач під фільтром — куди ведуть числа «Огляду» (?show=overdue&dep=3); задача праворуч.
     { path: '/tasks/list/:id(\\d+)?', name: 'tasks-list', component: TaskListPage, meta: { ...plan, title: 'Задачі' } },
     // Нова задача й правка — окремі сторінки, не модалки: «Назад» закриває форму.
+    // Кошик задач: видалені за 30 днів — відновити (право tasks.delete).
+    { path: '/tasks/trash', name: 'tasks-trash', component: TaskTrashPage, meta: { ...plan, title: 'Кошик задач' } },
     { path: '/tasks/new', name: 'tasks-new', component: TaskFormPage, meta: { ...plan, title: 'Нова задача' } },
     { path: '/tasks/:id(\\d+)/edit', name: 'task-edit', component: TaskFormPage, props: true, meta: { ...plan, title: 'Редагувати задачу' } },
     // Старі посилання (Telegram, «Огляд») відкривають задачу на дошці; окрема сторінка — /tasks/:id/full.

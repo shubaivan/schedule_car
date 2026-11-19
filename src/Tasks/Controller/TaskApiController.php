@@ -65,6 +65,7 @@ class TaskApiController extends TasksController
                     'staff' => $me->managesStaff(),
                     'seeAll' => $me->seesAllTasks(),
                     'decide' => $me->getWorkRole()->decides(),
+                    'deleteTasks' => $me->deletesTasks(),
                 ],
                 // «План»: пароль людина ставить сама за посиланням із бота (PasswordSetup) —
                 // поля пароля в картці співробітника немає (StaffDirectory теж не прийме).
@@ -309,6 +310,55 @@ class TaskApiController extends TasksController
         }
 
         return $this->json($this->detail($task, $me));
+    }
+
+    /** У кошик (право tasks.delete, лише видима задача). 30 днів — відновлення. */
+    #[Route('/{id}', name: 'api_tasks_delete', methods: ['DELETE'], requirements: ['id' => '\d+'])]
+    public function delete(Task $task): JsonResponse
+    {
+        $me = $this->me();
+
+        if (! $task->isDeleted() && ! $this->policy->canView($me, $task)) {
+            throw $this->createAccessDeniedException('Ви не учасник цієї задачі.');
+        }
+
+        try {
+            $this->service->delete($task, $me);
+        } catch (TaskException $e) {
+            return $this->error($e);
+        }
+
+        return self::compact($this->json($this->presenter->trashItem($task)));
+    }
+
+    #[Route('/{id}/restore', name: 'api_tasks_restore', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function restore(Task $task): JsonResponse
+    {
+        $me = $this->me();
+
+        try {
+            $this->service->restore($task, $me);
+        } catch (TaskException $e) {
+            return $this->error($e);
+        }
+
+        return $this->json($this->detail($task, $me));
+    }
+
+    /** Кошик задач: видалені за останні 30 днів, які людина бачила б; лише з правом tasks.delete. */
+    #[Route('/trash', name: 'api_tasks_trash', methods: ['GET'])]
+    public function trash(): JsonResponse
+    {
+        $me = $this->me();
+
+        if (! $me->deletesTasks()) {
+            throw $this->createAccessDeniedException('Кошик задач — для тих, хто може видаляти задачі.');
+        }
+
+        return self::compact($this->json([
+            'items' => array_map($this->presenter->trashItem(...), $this->tasks->trash($me)),
+            'days' => Task::TRASH_DAYS,
+        ]));
     }
 
     /** Нові повідомлення після after — чат опитує раз на кілька секунд. */
