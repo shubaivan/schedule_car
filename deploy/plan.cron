@@ -21,6 +21,7 @@ PATH=/usr/local/bin:/usr/bin:/bin
 # Порожні записи бота, чий Telegram забрала справжня людина (telegram_id unlinked-…), без жодних посилань — щоночі 03:40.
 # Запис із посиланнями лишається в архіві; у кошику «Співробітників» таких не видно в будь-якому разі.
 40 3 * * * deploy cd /var/www/plan && flock -n /tmp/plan-stubs-purge.lock php8.5 bin/console plan:stubs:purge --env=prod >> /var/log/plan-cron.log 2>&1
+
 # Кошик задач: задачі, що пролежали там довше 30 днів, — остаточно (з файлами й превʼю на диску) — щоночі 03:50.
 # Журнал подій лишається; копії на Google Диску не чіпаються. Перевірити: tasks:trash:purge --dry-run
 50 3 * * * deploy cd /var/www/plan && flock -n /tmp/plan-tasks-trash.lock php8.5 bin/console tasks:trash:purge --env=prod >> /var/log/plan-cron.log 2>&1
