@@ -28,6 +28,8 @@ use Throwable;
 final class TelegramLink
 {
     public const string PREFIX = 'plink_';
+    /** telegram_id порожнього запису бота після того, як його Telegram забрала справжня людина. */
+    public const string RELEASED_PREFIX = 'unlinked-';
     private const string TTL = '+15 minutes';
 
     public function __construct(
@@ -181,12 +183,23 @@ final class TelegramLink
     }
 
     /**
-     * Звільнити telegram_id порожнього запису: перейменувати й у кошик (не
-     * видаляти — на нього вже могли послатися журнал чи вхід).
+     * Звільнений порожній запис бота (див. release()). Це не співробітник — у кошику
+     * «Співробітників» його не показуємо; без посилань на нього його прибирає plan:stubs:purge.
+     */
+    public static function isReleasedStub(TelegramUser $user): bool
+    {
+        return $user->isArchived() && str_starts_with((string) $user->getTelegramId(), self::RELEASED_PREFIX) && self::isStub($user);
+    }
+
+    /**
+     * Звільнити telegram_id порожнього запису: перейменувати й архівувати (не видаляти тут же —
+     * у цьому ж запиті на нього ще може триматися бот: поточний користувач, спроба входу).
+     * У кошику співробітників такі записи не видно (isReleasedStub), а без посилань їх
+     * щоночі видаляє plan:stubs:purge (deploy/plan.cron).
      */
     private function release(TelegramUser $stub): void
     {
-        $stub->setTelegramId('unlinked-' . $stub->getId() . '-' . bin2hex(random_bytes(4)))->setChatId(null);
+        $stub->setTelegramId(self::RELEASED_PREFIX . $stub->getId() . '-' . bin2hex(random_bytes(4)))->setChatId(null);
         $stub->archive();
         // Спершу звільняємо унікальний telegram_id, потім віддаємо його людині.
         $this->em->flush();
