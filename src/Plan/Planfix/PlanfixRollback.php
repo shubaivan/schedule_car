@@ -2,6 +2,7 @@
 
 namespace App\Plan\Planfix;
 
+use App\Tasks\Service\AttachmentStorage;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use RuntimeException;
@@ -19,6 +20,7 @@ use RuntimeException;
  * Коли задача справді видаляється — разом із нею її події журналу (plan_event → каскадом
  * notification), plan_read, рядок Хроніки (plan_subject_activity) і пошуковий індекс.
  * Мітки й заглушки людей — лише коли на них більше ніщо не посилається.
+ * Файли, що зникли з бази разом із задачами й повідомленнями, — і з диска (після коміту).
  */
 final readonly class PlanfixRollback
 {
@@ -26,7 +28,10 @@ final readonly class PlanfixRollback
     public const string KEEP_TOUCHED = 'keep';
     public const string FORCE = 'force';
 
-    public function __construct(private Connection $db)
+    /** Імпортований файл — не «чужий» вміст. */
+    private const string NOT_IMPORTED_FILE = "NOT EXISTS (SELECT 1 FROM planfix_import_map xf WHERE xf.plan_table = 'task_attachment' AND xf.plan_id = a.id)";
+
+    public function __construct(private Connection $db, private AttachmentStorage $storage)
     {
     }
 
@@ -50,8 +55,9 @@ final readonly class PlanfixRollback
         $stats = $this->foreign($tasks);
         $stats['tasks'] = count($tasks);
         $stats['messages'] = (int) $this->db->fetchOne("SELECT COUNT(*) FROM planfix_import_map WHERE batch_id = ? AND plan_table = 'task_message'", [$batch]);
+        $stats['files'] = (int) $this->db->fetchOne("SELECT COUNT(*) FROM planfix_import_map WHERE batch_id = ? AND plan_table = 'task_attachment'", [$batch]);
         $stats['refused'] = (int) ($mode === self::REFUSE && $stats['touched_tasks'] > 0);
-        $stats += ['tasks_deleted' => 0, 'tasks_kept' => 0, 'labels' => 0, 'placeholders' => 0];
+        $stats += ['tasks_deleted' => 0, 'tasks_kept' => 0, 'labels' => 0, 'placeholders' => 0, 'files_removed' => 0];
 
         if ($dryRun || $stats['refused'] === 1) {
             return $stats;
@@ -60,9 +66,19 @@ final readonly class PlanfixRollback
         $touched = $mode === self::KEEP_TOUCHED ? $this->touched($tasks) : [];
         $delete = array_values(array_diff($tasks, $touched));
 
-        $this->db->transactional(function () use ($batch, $delete, $touched, $purgeStaging, &$stats): void {
+        $doomed = [];
+
+        $this->db->transactional(function () use ($batch, $delete, $touched, $purgeStaging, &$stats, &$doomed): void {
             $ids = [$delete];
             $types = [ArrayParameterType::INTEGER];
+
+            // Що з файлів зникне каскадом: усе в задачах, які видаляємо, і імпортоване цією партією.
+            $doomed = $this->db->fetchAllAssociative(
+                "SELECT a.id, a.path FROM task_attachment a JOIN task_message m ON m.id = a.message_id WHERE m.task_id IN (:t)
+                 UNION SELECT a.id, a.path FROM task_attachment a JOIN planfix_import_map x ON x.plan_table = 'task_attachment' AND x.plan_id = a.id WHERE x.batch_id = :b",
+                ['t' => $delete === [] ? [0] : $delete, 'b' => $batch],
+                ['t' => ArrayParameterType::INTEGER],
+            );
 
             if ($delete !== []) {
                 foreach (['search_document', 'plan_subject_activity', 'plan_read', 'plan_event'] as $table) {
@@ -86,7 +102,12 @@ final readonly class PlanfixRollback
                 $stats['tasks_kept'] = count($touched);
             }
 
-            // Дії цієї партії — і в її задачах, і дописані до задач інших партій.
+            // Файли цієї партії (і в повідомленнях, що лишаються), далі дії — і в її задачах,
+            // і дописані до задач інших партій.
+            $this->db->executeStatement(
+                "DELETE FROM task_attachment WHERE id IN (SELECT x.plan_id FROM planfix_import_map x WHERE x.batch_id = ? AND x.plan_table = 'task_attachment')",
+                [$batch],
+            );
             $this->db->executeStatement(
                 "DELETE FROM task_message WHERE id IN (SELECT x.plan_id FROM planfix_import_map x WHERE x.batch_id = ? AND x.plan_table = 'task_message')",
                 [$batch],
@@ -108,7 +129,7 @@ final readonly class PlanfixRollback
             // Рядки карти партії, чиїх рядків Плану вже немає, — геть (не надгробки: відкат
             // дозволяє імпортувати знову). Лишаються задачі, збережені через чужий вміст,
             // і заглушки, на які ще посилаються.
-            foreach (['task', 'task_message', 'task_member', 'task_read', 'task_label', 'telegram_user'] as $table) {
+            foreach (['task', 'task_message', 'task_member', 'task_read', 'task_label', 'telegram_user', 'task_attachment'] as $table) {
                 $this->db->executeStatement(
                     "DELETE FROM planfix_import_map x WHERE x.batch_id = ? AND x.plan_table = '{$table}' AND NOT EXISTS (SELECT 1 FROM {$table} p WHERE p.id = x.plan_id)",
                     [$batch],
@@ -123,6 +144,12 @@ final readonly class PlanfixRollback
 
             $this->db->executeStatement('UPDATE planfix_import_batch SET rolled_back_at = LOCALTIMESTAMP(0), applied_at = NULL WHERE id = ?', [$batch]);
         });
+
+        foreach ($doomed as $file) {
+            $this->storage->removeFiles((int) $file['id'], (string) $file['path']);
+        }
+
+        $stats['files_removed'] = count($doomed);
 
         return $stats;
     }
@@ -166,7 +193,7 @@ final readonly class PlanfixRollback
 
         $out['foreign_messages'] = $one("SELECT COUNT(*) FROM task_message m WHERE m.task_id IN (:t)
             AND NOT EXISTS (SELECT 1 FROM planfix_import_map x WHERE x.plan_table = 'task_message' AND x.plan_id = m.id)");
-        $out['foreign_files'] = $one('SELECT COUNT(*) FROM task_attachment a JOIN task_message m ON m.id = a.message_id WHERE m.task_id IN (:t)');
+        $out['foreign_files'] = $one('SELECT COUNT(*) FROM task_attachment a JOIN task_message m ON m.id = a.message_id WHERE m.task_id IN (:t) AND ' . self::NOT_IMPORTED_FILE);
         $out['foreign_members'] = $one("SELECT COUNT(*) FROM task_member tm WHERE tm.task_id IN (:t)
             AND NOT EXISTS (SELECT 1 FROM planfix_import_map x WHERE x.plan_table = 'task_member' AND x.plan_id = tm.id)");
         $out['foreign_favorites'] = $one('SELECT COUNT(*) FROM task_favorite f WHERE f.task_id IN (:t)');
@@ -193,7 +220,7 @@ final readonly class PlanfixRollback
         return array_map('intval', $this->db->fetchFirstColumn(
             "SELECT m.task_id FROM task_message m WHERE m.task_id IN (:t)
                 AND NOT EXISTS (SELECT 1 FROM planfix_import_map x WHERE x.plan_table = 'task_message' AND x.plan_id = m.id)
-             UNION SELECT m.task_id FROM task_attachment a JOIN task_message m ON m.id = a.message_id WHERE m.task_id IN (:t)
+             UNION SELECT m.task_id FROM task_attachment a JOIN task_message m ON m.id = a.message_id WHERE m.task_id IN (:t) AND " . self::NOT_IMPORTED_FILE . "
              UNION SELECT tm.task_id FROM task_member tm WHERE tm.task_id IN (:t)
                 AND NOT EXISTS (SELECT 1 FROM planfix_import_map x WHERE x.plan_table = 'task_member' AND x.plan_id = tm.id)
              UNION SELECT f.task_id FROM task_favorite f WHERE f.task_id IN (:t)

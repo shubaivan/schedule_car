@@ -35,6 +35,9 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * --apply пише напряму (DBAL), без подій журналу: ні Telegram, ні push, ні Хроніки, ні Диска.
  * Повторний --apply нічого не дублює. Пошук після --apply: plan:search:reindex.
  *
+ * --files — тека з manifest.jsonl (файли, забрані з Planfix через API): файли лягають у свої
+ * повідомлення, превʼю — у черзі tasks:previews, на Google Диск не копіюються.
+ *
  * --user-map — JSON {"<planfix id>": <id людини в Плані>}; решта людей стане заглушками
  * «Колишній співробітник #<id>». Автоматично людей не зіставляємо — лише підказки.
  */
@@ -57,6 +60,7 @@ final class PlanfixImportCommand extends Command
             ->addOption('apply', null, InputOption::VALUE_NONE, 'Записати в задачі Плану (потрібно ' . PlanfixImportGuard::ENV . '=1)')
             ->addOption('confirm', null, InputOption::VALUE_REQUIRED, 'Назва бази — обовʼязкове підтвердження для --apply')
             ->addOption('since', null, InputOption::VALUE_REQUIRED, 'Відкриті задачі + закриті, де остання дія з цієї дати (РРРР-ММ-ДД)')
+            ->addOption('files', null, InputOption::VALUE_REQUIRED, 'Тека з manifest.jsonl — файли з Planfix (API)')
             ->addOption('include-hidden', null, InputOption::VALUE_NONE, 'Переносити й приховані (hidden) дії Planfix')
             ->addOption('only', null, InputOption::VALUE_REQUIRED, 'all | deal | task', 'all')
             ->addOption('events', null, InputOption::VALUE_REQUIRED, 'none (лише коментарі) | meaningful (+ учасники, зміни) | all (+ статуси, нагадування…)', PlanfixMapper::EVENTS_MEANINGFUL)
@@ -127,6 +131,7 @@ final class PlanfixImportCommand extends Command
                 'only' => $only,
                 'events' => $events,
                 'includeHidden' => (bool) $input->getOption('include-hidden'),
+                'files' => $input->getOption('files') !== null ? (string) $input->getOption('files') : null,
                 // Dry-run без явної партії — не плодимо повних копій вивантаження.
                 'cleanupUnapplied' => $input->getOption('batch') === null,
             ]);
@@ -147,6 +152,19 @@ final class PlanfixImportCommand extends Command
             ['Приховані (hidden) дії' => sprintf('%d, пропущено %d%s', $stats['hidden_in_export'], $stats['hidden_skipped'], $stats['hidden_skipped'] > 0 ? ' (перенести: --include-hidden)' : '')],
             ['Людей: діючі / колишні / контакти з сайту' => sprintf('%d: %d / %d / %d', $stats['people'], $stats['people_active'], $stats['people_former'], $stats['people_contact'])],
         );
+
+        if (isset($stats['files_staged'])) {
+            $rejected = (array) $stats['files_rejected'];
+            $io->section('Файли з Planfix');
+            $io->definitionList(
+                ['Беремо файлів' => sprintf('%d (%s МБ)', $stats['files_staged'], number_format((int) $stats['files_bytes'] / 1048576, 1, ',', ' '))],
+                ['У прихованих діях (--include-hidden)' => $stats['files_hidden']],
+                ['Задачі відсіяні фільтром / поза вивантаженням' => $stats['files_skipped']],
+                ['Додані в Planfix після вивантаження (дотягнути в день переходу)' => $stats['files_not_in_export']],
+                ['Не завантажені / порожні' => $stats['files_missing']],
+                ['Такий тип не приймаємо' => $rejected === [] ? '0' : implode(', ', array_map(static fn ($k, $v) => $k . ' ' . $v, array_keys($rejected), $rejected))],
+            );
+        }
 
         $io->section('Статуси Planfix → План');
         $io->table(['Planfix → План', 'Задач'], array_map(static fn ($k, $v) => [$k, $v], array_keys((array) $stats['statuses']), (array) $stats['statuses']));

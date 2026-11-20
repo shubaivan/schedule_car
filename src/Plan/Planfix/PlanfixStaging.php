@@ -13,10 +13,15 @@ use RuntimeException;
  * тут не зʼявляється — це робить PlanfixApplier (--apply).
  *
  * Повторне розкладання тієї самої партії замінює її staging (якщо партію ще не застосовано).
+ *
+ * --files: тека з manifest.jsonl (файли, забрані через API) — кожен файл стає в чергу до
+ * своєї дії. Дія, що мала лише файл без тексту, стає повідомленням із вкладенням (інакше
+ * її пропускають як порожню); файли «задачу створено» і самої задачі — у перше повідомлення.
  */
 final readonly class PlanfixStaging
 {
     private const int CHUNK = 500;
+    private const array STAGING_TABLES = ['planfix_import_action', 'planfix_import_task', 'planfix_import_user', 'planfix_import_file'];
 
     public function __construct(private Connection $db)
     {
@@ -27,7 +32,7 @@ final readonly class PlanfixStaging
      * cleanupUnapplied: staging попередніх незастосованих партій (без рядків у карті) прибирається,
      * щоб повні копії вивантаження з персональними даними не накопичувались.
      *
-     * @param array{since?: ?DateTime, only?: string, events?: string, includeHidden?: bool, cleanupUnapplied?: bool} $options
+     * @param array{since?: ?DateTime, only?: string, events?: string, includeHidden?: bool, cleanupUnapplied?: bool, files?: ?string} $options
      *
      * @return array<string, int|array<string, int>> лічильники
      */
@@ -53,6 +58,7 @@ final readonly class PlanfixStaging
             throw new RuntimeException(sprintf('Партію «%s» уже застосовано — спершу plan:planfix:rollback %1$s.', $batch));
         }
 
+        $manifest = ($options['files'] ?? null) !== null ? PlanfixFileManifest::read((string) $options['files']) : null;
         $numbers = [];
         $owners = [];
 
@@ -182,7 +188,9 @@ final readonly class PlanfixStaging
         }
 
         $actionRows = [];
+        $fileRows = [];
         $decisions = [];
+        $stats['files_hidden'] = 0;
         $stats['hidden_in_export'] = 0;
         $stats['hidden_skipped'] = 0;
 
@@ -203,6 +211,7 @@ final readonly class PlanfixStaging
                 // Приховані в Planfix записи — лише з --include-hidden.
                 if (! $includeHidden) {
                     ++$stats['hidden_skipped'];
+                    $stats['files_hidden'] += count($manifest?->byAction[(int) $a['id']] ?? []);
                     $decisions['пропуск: прихована (hidden)'] = ($decisions['пропуск: прихована (hidden)'] ?? 0) + 1;
                     continue;
                 }
@@ -212,6 +221,26 @@ final readonly class PlanfixStaging
             [$decision, $eventType, $text] = PlanfixMapper::isNoise($type) && $events !== PlanfixMapper::EVENTS_ALL
                 ? [PlanfixMapper::ACTION_SKIP, null, '']
                 : PlanfixMapper::action($type, (string) ($a['description'] ?? ''), $events);
+            $files = $manifest?->byAction[(int) $a['id']] ?? [];
+
+            if ($files !== []) {
+                if ($type === 'TaskCreated') {
+                    // Файли, додані при створенні, — у повідомлення «задачу створено».
+                    foreach ($files as $f) {
+                        $fileRows[] = ['batch_id' => $batch, 'task_planfix_id' => $taskId, 'action_planfix_id' => null] + $f;
+                    }
+                } else {
+                    // Дія з файлом — завжди повідомлення: порожня стає вкладенням без тексту,
+                    // позначку «файл не перенесено» прибираємо — файл тепер поруч.
+                    $text = trim(str_replace(PlanfixMapper::FILE_NOTE, '', $decision === PlanfixMapper::ACTION_SKIP ? '' : $text));
+                    [$decision, $eventType] = [PlanfixMapper::ACTION_COMMENT, null];
+
+                    foreach ($files as $f) {
+                        $fileRows[] = ['batch_id' => $batch, 'task_planfix_id' => $taskId, 'action_planfix_id' => (int) $a['id']] + $f;
+                    }
+                }
+            }
+
             $key = $decision === PlanfixMapper::ACTION_SKIP ? 'пропуск: ' . $type : $decision . ': ' . $type;
             $decisions[$key] = ($decisions[$key] ?? 0) + 1;
 
@@ -241,6 +270,25 @@ final readonly class PlanfixStaging
             ];
         }
 
+        if ($manifest !== null) {
+            foreach (array_keys($kept) as $taskId) {
+                foreach ($manifest->byTask[$numbers[$taskId]] ?? [] as $f) {
+                    $fileRows[] = ['batch_id' => $batch, 'task_planfix_id' => $taskId, 'action_planfix_id' => null] + $f;
+                }
+            }
+
+            $byTaskTotal = array_sum(array_map('count', $manifest->byTask));
+            $byActionTotal = array_sum(array_map('count', $manifest->byAction));
+            $notInExport = $this->notInExport($manifest, $actions);
+            $stats['files_staged'] = count($fileRows);
+            $stats['files_bytes'] = array_sum(array_column($fileRows, 'size'));
+            $stats['files_not_in_export'] = $notInExport;
+            // Решта — задачі, відсіяні фільтром (--since/--only), чи задачі, яких немає у вивантаженні.
+            $stats['files_skipped'] = $byTaskTotal + $byActionTotal - $stats['files_staged'] - $stats['files_hidden'] - $notInExport;
+            $stats['files_missing'] = $manifest->missing;
+            $stats['files_rejected'] = $manifest->rejected;
+        }
+
         $active = [];
 
         foreach ($users as $u) {
@@ -258,7 +306,7 @@ final readonly class PlanfixStaging
             $userRows[] = ['batch_id' => $batch, 'planfix_id' => $pid, 'name' => mb_substr($active[$pid] ?? '', 0, 255), 'active' => isset($active[$pid]), 'role' => $role];
         }
 
-        $this->db->transactional(function () use ($batch, $dir, $options, $taskRows, $actionRows, $userRows): void {
+        $this->db->transactional(function () use ($batch, $dir, $options, $taskRows, $actionRows, $userRows, $fileRows): void {
             if ($options['cleanupUnapplied'] ?? false) {
                 $stale = $this->db->fetchFirstColumn(
                     'SELECT b.id FROM planfix_import_batch b WHERE b.applied_at IS NULL AND b.id <> ?
@@ -272,7 +320,7 @@ final readonly class PlanfixStaging
                 }
             }
 
-            foreach (['planfix_import_action', 'planfix_import_task', 'planfix_import_user'] as $table) {
+            foreach (self::STAGING_TABLES as $table) {
                 $this->db->executeStatement("DELETE FROM {$table} WHERE batch_id = ?", [$batch]);
             }
 
@@ -284,11 +332,13 @@ final readonly class PlanfixStaging
                     'only' => $options['only'] ?? 'all',
                     'events' => $options['events'] ?? PlanfixMapper::EVENTS_MEANINGFUL,
                     'includeHidden' => (bool) ($options['includeHidden'] ?? false),
-                ], JSON_THROW_ON_ERROR)],
+                    'files' => $options['files'] ?? null,
+                ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)],
             );
             $this->insertMany('planfix_import_task', array_values($taskRows));
             $this->insertMany('planfix_import_action', $actionRows);
             $this->insertMany('planfix_import_user', $userRows);
+            $this->insertMany('planfix_import_file', $fileRows);
         });
 
         ksort($byStatus);
@@ -316,11 +366,27 @@ final readonly class PlanfixStaging
     {
         $n = 0;
 
-        foreach (['planfix_import_action', 'planfix_import_task', 'planfix_import_user'] as $table) {
+        foreach (self::STAGING_TABLES as $table) {
             $n += (int) $db->executeStatement("DELETE FROM {$table} WHERE batch_id = ?", [$batch]);
         }
 
         return $n;
+    }
+
+    /**
+     * Файли дій, яких немає у вивантаженні (додані в Planfix пізніше) — дотягнуться в день переходу.
+     *
+     * @param list<array<string, mixed>> $actions
+     */
+    private function notInExport(PlanfixFileManifest $manifest, array $actions): int
+    {
+        $ids = [];
+
+        foreach ($actions as $a) {
+            $ids[(int) $a['id']] = true;
+        }
+
+        return array_sum(array_map('count', array_diff_key($manifest->byAction, $ids)));
     }
 
     /** @return list<array<string, mixed>> */

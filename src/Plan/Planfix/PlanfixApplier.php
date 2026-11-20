@@ -2,10 +2,14 @@
 
 namespace App\Plan\Planfix;
 
+use App\Tasks\Entity\TaskAttachment;
 use App\Tasks\Entity\TaskMessage;
+use App\Tasks\Service\AttachmentStorage;
+use DateTime;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use RuntimeException;
+use Throwable;
 
 /**
  * Staging-партія → справжні задачі Плану (task, task_message, task_member, task_department,
@@ -13,8 +17,12 @@ use RuntimeException;
  *
  * Навмисно напряму через DBAL, повз TaskService і ORM: жодної події в plan_event, отже
  * без Telegram/push/дзвіночка (TaskNotificationListener, NotificationFanout), без Mercure,
- * без Хроніки й без черги Диска (task_attachment не створюємо — файлів у вивантаженні
- * немає). Дати — оригінальні з Planfix.
+ * без Хроніки. Дати — оригінальні з Planfix.
+ *
+ * Файли (staging planfix_import_file, з --files): копія в сховище задач, task_attachment у
+ * повідомлення своєї дії (файли задачі — у «задачу створено»). Превʼю — у черзі tasks:previews,
+ * на Google Диск не йдуть (drive_state = skipped): Олександр 19.11 — копія на Диск не потрібна.
+ * Транзакція порції впала — скопійовані нею файли прибираються.
  *
  * Ідемпотентно: задача чи дія, що вже є в карті (з будь-якої партії), вдруге не пишеться;
  * до вже перенесеної задачі додаються лише нові дії. Поля перенесених задач не переписуються.
@@ -27,7 +35,9 @@ final readonly class PlanfixApplier
     /** Службові облікові записи Planfix (роботи, сценарії) — один автор «Planfix (система)». */
     public const string SYSTEM_TELEGRAM_ID = 'planfix-system';
 
-    public function __construct(private Connection $db)
+    public const string DRIVE_NOTE = 'Planfix: без копії на Диск';
+
+    public function __construct(private Connection $db, private AttachmentStorage $storage)
     {
     }
 
@@ -52,7 +62,7 @@ final readonly class PlanfixApplier
         // Задачі, які вже видалили руками в Плані, — надгробки: до них не пишемо й не відтворюємо.
         PlanfixRollback::pruneStaleMap($this->db);
 
-        $stats = ['tasks_created' => 0, 'tasks_existing' => 0, 'tasks_tombstoned' => 0, 'messages_created' => 0, 'messages_existing' => 0, 'members_created' => 0, 'placeholders_created' => 0, 'labels_created' => 0, 'reads_created' => 0];
+        $stats = ['tasks_created' => 0, 'tasks_existing' => 0, 'tasks_tombstoned' => 0, 'messages_created' => 0, 'messages_existing' => 0, 'members_created' => 0, 'placeholders_created' => 0, 'labels_created' => 0, 'reads_created' => 0, 'files_attached' => 0, 'files_existing' => 0];
 
         $people = $this->resolvePeople($batch, $userMap, $systemIds, $stats);
         $labels = $this->labels($batch, $stats);
@@ -65,6 +75,8 @@ final readonly class PlanfixApplier
         $mappedTasks = $this->mapped('task', 'task');
         $tombstones = array_flip(array_map('intval', $this->db->fetchFirstColumn("SELECT planfix_id FROM planfix_import_map WHERE planfix_type = 'task' AND plan_table = 'task' AND deleted_at IS NOT NULL")));
         $mappedActions = $this->mapped('action', 'task_message');
+        $mappedCreated = $this->mapped('task_created', 'task_message');
+        $mappedFiles = $this->mapped('file', 'task_attachment');
         // Живі люди (не заглушки) — їм «+N» на старих задачах не потрібен.
         $real = [];
 
@@ -79,60 +91,85 @@ final readonly class PlanfixApplier
         $ids = array_map('intval', $this->db->fetchFirstColumn('SELECT planfix_id FROM planfix_import_task WHERE batch_id = ? ORDER BY created_at, planfix_id', [$batch]));
 
         foreach (array_chunk($ids, max(1, $chunk)) as $part) {
-            $this->db->transactional(function () use ($batch, $part, $people, $labels, $departments, $real, $tombstones, &$mappedTasks, &$mappedActions, &$stats): void {
-                $tasks = $this->db->fetchAllAssociative('SELECT * FROM planfix_import_task WHERE batch_id = ? AND planfix_id IN (?)', [$batch, $part], [1 => ArrayParameterType::INTEGER]);
-                $actions = [];
+            $copied = [];
 
-                foreach ($this->db->fetchAllAssociative('SELECT * FROM planfix_import_action WHERE batch_id = ? AND task_planfix_id IN (?) ORDER BY at, planfix_id', [$batch, $part], [1 => ArrayParameterType::INTEGER]) as $a) {
-                    $actions[(int) $a['task_planfix_id']][] = $a;
-                }
+            try {
+                $this->db->transactional(function () use ($batch, $part, $people, $labels, $departments, $real, $tombstones, &$mappedTasks, &$mappedActions, &$mappedCreated, &$mappedFiles, &$copied, &$stats): void {
+                    $tasks = $this->db->fetchAllAssociative('SELECT * FROM planfix_import_task WHERE batch_id = ? AND planfix_id IN (?)', [$batch, $part], [1 => ArrayParameterType::INTEGER]);
+                    $actions = [];
+                    $files = [];
 
-                foreach ($tasks as $t) {
-                    $pid = (int) $t['planfix_id'];
-
-                    if (isset($tombstones[$pid])) {
-                        ++$stats['tasks_tombstoned'];
-                        continue;
+                    foreach ($this->db->fetchAllAssociative('SELECT * FROM planfix_import_file WHERE batch_id = ? AND task_planfix_id IN (?) ORDER BY planfix_id', [$batch, $part], [1 => ArrayParameterType::INTEGER]) as $f) {
+                        $files[(int) $f['task_planfix_id']][(int) ($f['action_planfix_id'] ?? 0)][] = $f;
                     }
 
-                    $taskId = $mappedTasks[$pid] ?? null;
-                    $isNew = $taskId === null;
-
-                    if ($isNew) {
-                        $taskId = $this->createTask($batch, $t, $people, $labels, $departments, $stats);
-                        $mappedTasks[$pid] = $taskId;
-                        ++$stats['tasks_created'];
-                    } else {
-                        ++$stats['tasks_existing'];
+                    foreach ($this->db->fetchAllAssociative('SELECT * FROM planfix_import_action WHERE batch_id = ? AND task_planfix_id IN (?) ORDER BY at, planfix_id', [$batch, $part], [1 => ArrayParameterType::INTEGER]) as $a) {
+                        $actions[(int) $a['task_planfix_id']][] = $a;
                     }
 
-                    $last = null;
+                    foreach ($tasks as $t) {
+                        $pid = (int) $t['planfix_id'];
 
-                    foreach ($actions[$pid] ?? [] as $a) {
-                        $aid = (int) $a['planfix_id'];
-
-                        if (isset($mappedActions[$aid])) {
-                            ++$stats['messages_existing'];
+                        if (isset($tombstones[$pid])) {
+                            ++$stats['tasks_tombstoned'];
                             continue;
                         }
 
-                        $kind = $a['decision'] === PlanfixMapper::ACTION_COMMENT ? TaskMessage::KIND_COMMENT : TaskMessage::KIND_EVENT;
-                        $messageId = $this->message($taskId, $people[(int) $a['owner_id']] ?? null, $kind, (string) $a['text'], $a['event_type'], (string) $a['at']);
-                        $this->map($batch, 'action', $aid, 'task_message', $messageId);
-                        $mappedActions[$aid] = $messageId;
-                        $last = $a['at'];
-                        ++$stats['messages_created'];
-                    }
+                        $taskId = $mappedTasks[$pid] ?? null;
+                        $isNew = $taskId === null;
 
-                    if (! $isNew && $last !== null) {
-                        $this->db->executeStatement('UPDATE task SET last_activity_at = GREATEST(last_activity_at, CAST(? AS timestamp)) WHERE id = ?', [$last, $taskId]);
-                    }
+                        if ($isNew) {
+                            [$taskId, $mappedCreated[$pid]] = $this->createTask($batch, $t, $people, $labels, $departments, $stats);
+                            $mappedTasks[$pid] = $taskId;
+                            ++$stats['tasks_created'];
+                        } else {
+                            ++$stats['tasks_existing'];
+                        }
 
-                    if ($isNew || $last !== null) {
-                        $this->markRead($batch, $pid, $taskId, $real, $stats);
+                        if (isset($mappedCreated[$pid])) {
+                            $this->attachFiles($batch, $files[$pid][0] ?? [], $mappedCreated[$pid], $people[(int) $t['owner_id']] ?? null, (string) $t['created_at'], $mappedFiles, $copied, $stats);
+                        }
+
+                        $last = null;
+
+                        foreach ($actions[$pid] ?? [] as $a) {
+                            $aid = (int) $a['planfix_id'];
+
+                            $author = $people[(int) $a['owner_id']] ?? null;
+
+                            if (isset($mappedActions[$aid])) {
+                                ++$stats['messages_existing'];
+                                // Файли, яких минулого разу ще не було, — до вже перенесеного повідомлення.
+                                $this->attachFiles($batch, $files[$pid][$aid] ?? [], $mappedActions[$aid], $author, (string) $a['at'], $mappedFiles, $copied, $stats);
+                                continue;
+                            }
+
+                            $kind = $a['decision'] === PlanfixMapper::ACTION_COMMENT ? TaskMessage::KIND_COMMENT : TaskMessage::KIND_EVENT;
+                            $messageId = $this->message($taskId, $author, $kind, (string) $a['text'], $a['event_type'], (string) $a['at']);
+                            $this->map($batch, 'action', $aid, 'task_message', $messageId);
+                            $mappedActions[$aid] = $messageId;
+                            $this->attachFiles($batch, $files[$pid][$aid] ?? [], $messageId, $author, (string) $a['at'], $mappedFiles, $copied, $stats);
+                            $last = $a['at'];
+                            ++$stats['messages_created'];
+                        }
+
+                        if (! $isNew && $last !== null) {
+                            $this->db->executeStatement('UPDATE task SET last_activity_at = GREATEST(last_activity_at, CAST(? AS timestamp)) WHERE id = ?', [$last, $taskId]);
+                        }
+
+                        if ($isNew || $last !== null) {
+                            $this->markRead($batch, $pid, $taskId, $real, $stats);
+                        }
                     }
+                });
+            } catch (Throwable $e) {
+                // Рядків уже немає (відкат транзакції) — без них і скопійовані файли нікому не належать.
+                foreach ($copied as [$attachmentId, $relative]) {
+                    $this->storage->removeFiles($attachmentId, $relative);
                 }
-            });
+
+                throw $e;
+            }
 
             if ($progress !== null) {
                 $progress(count($part));
@@ -179,8 +216,10 @@ final readonly class PlanfixApplier
      * @param array<string, int> $labels
      * @param array<string, int> $departments
      * @param array<string, int> $stats
+     *
+     * @return array{int, int} id задачі, id повідомлення «задачу створено»
      */
-    private function createTask(string $batch, array $t, array $people, array $labels, array $departments, array &$stats): int
+    private function createTask(string $batch, array $t, array $people, array $labels, array $departments, array &$stats): array
     {
         $pid = (int) $t['planfix_id'];
         $creator = $people[(int) $t['owner_id']] ?? throw new RuntimeException('Немає автора для задачі Planfix ' . $pid);
@@ -236,7 +275,41 @@ final readonly class PlanfixApplier
             }
         }
 
-        return $taskId;
+        return [$taskId, $created];
+    }
+
+    /**
+     * Файли staging → task_attachment у повідомлення + копія в сховище. Уже перенесений файл
+     * (карта, будь-яка партія) — пропуск. Автор і дата — як у повідомлення.
+     *
+     * @param list<array<string, mixed>> $files
+     * @param array<int, int> $mappedFiles
+     * @param list<array{int, string}> $copied
+     * @param array<string, int> $stats
+     */
+    private function attachFiles(string $batch, array $files, int $messageId, ?int $author, string $at, array &$mappedFiles, array &$copied, array &$stats): void
+    {
+        foreach ($files as $f) {
+            $fid = (int) $f['planfix_id'];
+
+            if (isset($mappedFiles[$fid])) {
+                ++$stats['files_existing'];
+                continue;
+            }
+
+            $id = (int) $this->db->fetchOne(
+                "INSERT INTO task_attachment (id, message_id, uploaded_by_id, original_name, mime, size, sha256, path, kind, preview_state, created_at, drive_state, drive_error)
+                 VALUES (nextval('task_attachment_id_seq'), ?, ?, ?, ?, ?, ?, '', ?, ?, ?, 'skipped', ?) RETURNING id",
+                [$messageId, $author, $f['name'], $f['mime'], (int) $f['size'], $f['sha256'], $f['kind'], $f['kind'] === TaskAttachment::KIND_OTHER ? TaskAttachment::PREVIEW_NONE : TaskAttachment::PREVIEW_PENDING, $at, self::DRIVE_NOTE],
+            );
+            $relative = AttachmentStorage::relativePath($id, (string) $f['sha256'], (string) $f['name'], new DateTime($at));
+            $copied[] = [$id, $relative];
+            $this->storage->store($relative, (string) $f['local_path']);
+            $this->db->executeStatement('UPDATE task_attachment SET path = ? WHERE id = ?', [$relative, $id]);
+            $this->map($batch, 'file', $fid, 'task_attachment', $id);
+            $mappedFiles[$fid] = $id;
+            ++$stats['files_attached'];
+        }
     }
 
     private function message(int $taskId, ?int $author, string $kind, string $text, ?string $eventType, string $at): int

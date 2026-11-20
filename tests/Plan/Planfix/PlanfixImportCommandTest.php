@@ -3,6 +3,8 @@
 namespace App\Tests\Plan\Planfix;
 
 use App\Plan\Planfix\PlanfixImportGuard;
+use App\Tasks\Entity\TaskAttachment;
+use App\Tasks\Service\AttachmentStorage;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
@@ -266,6 +268,93 @@ class PlanfixImportCommandTest extends KernelTestCase
         self::assertContains('Прихована примітка', array_column($this->messages((int) $this->task(11)['id']), 'text'));
     }
 
+    public function testFilesLandInTheirMessagesAndRollbackRemovesThem(): void
+    {
+        $this->export(fileAction: true);
+        $put = function (string $name, string $body): string {
+            file_put_contents($this->dir . '/' . $name, $body);
+
+            return $this->dir . '/' . $name;
+        };
+        $pdf = $put('f-pdf', "%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n");
+        $png = $put('f-png', (string) base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='));
+        $txt = $put('f-txt', "Специфікація\n");
+        $htm = $put('f-htm', '<html><body><script>x()</script></body></html>');
+        $line = static fn (int $id, string $name, int $task, ?int $comment, string $path, ?string $error = null): string => json_encode(
+            ['file_id' => $id, 'name' => $name, 'task' => $task, 'comment' => $comment, 'size' => filesize($path), 'sha256' => hash_file('sha256', $path), 'local_path' => $path, 'error' => $error],
+            JSON_UNESCAPED_UNICODE,
+        );
+        file_put_contents($this->dir . '/manifest.jsonl', implode("\n", [
+            $line(9001, 'Рахунок.pdf', 501, 5, $pdf),        // дія з текстом і позначкою «файл не перенесено»
+            $line(9002, 'фото.png', 501, 20, $png),           // порожня дія — стане повідомленням із файлом
+            $line(9003, 'ТЗ.txt', 501, null, $txt),           // файл самої задачі → «задачу створено»
+            $line(9004, 'креслення.pdf', 501, 1, $pdf),       // додано при створенні → «задачу створено»
+            $line(9005, 'сторінка.htm', 501, 2, $htm),        // такий тип не приймаємо
+            $line(9006, 'новий.pdf', 501, 777, $pdf),         // дія після вивантаження
+            $line(9007, 'прихований.pdf', 501, 10, $pdf),     // прихована дія
+            $line(9008, 'зламаний.pdf', 501, 2, $pdf, 'HTTP 404'),
+        ]) . "\n");
+        $before = $this->counts();
+
+        $out = $this->console('plan:planfix:import', ['dir' => $this->dir, '--batch' => 'f1', '--files' => $this->dir]);
+        self::assertMatchesRegularExpression('/Беремо файлів\s+4 \(/u', $out);
+        self::assertMatchesRegularExpression('/Такий тип не приймаємо\s+htm 1/u', $out);
+        self::assertMatchesRegularExpression('/Додані в Planfix після вивантаження.*\s+1/u', $out);
+        self::assertMatchesRegularExpression('/У прихованих діях.*\s+1/u', $out);
+        self::assertMatchesRegularExpression('/Не завантажені \/ порожні\s+1/u', $out);
+        self::assertSame($before, $this->counts(), 'dry-run не чіпає задачі й файли');
+
+        putenv(PlanfixImportGuard::ENV . '=1');
+        $this->console('plan:planfix:import', [...$this->apply('f1'), '--files' => $this->dir]);
+
+        $after = $this->counts();
+        self::assertSame($before['task_attachment'] + 4, $after['task_attachment']);
+        self::assertSame($before['plan_event'], $after['plan_event'], 'файли теж без подій журналу');
+
+        $deal = $this->task(11);
+        $files = $this->db->fetchAllAssociative(
+            'SELECT a.id, a.original_name, a.mime, a.kind, a.preview_state, a.drive_state, a.path, a.created_at, a.uploaded_by_id, m.kind AS message_kind, m.text, m.event_type
+               FROM task_attachment a JOIN task_message m ON m.id = a.message_id WHERE m.task_id = ? ORDER BY a.id',
+            [$deal['id']],
+        );
+        self::assertSame(['ТЗ.txt', 'креслення.pdf', 'фото.png', 'Рахунок.pdf'], array_column($files, 'original_name'), 'у порядку дій');
+        self::assertSame(['created', 'created'], [$files[0]['event_type'], $files[1]['event_type']], 'файли задачі — у «задачу створено»');
+        self::assertSame(['application/pdf', 'pdf', 'pending'], [$files[3]['mime'], $files[3]['kind'], $files[3]['preview_state']]);
+        self::assertStringNotContainsString('[файл з Planfix не перенесено]', $files[3]['text'], 'файл поруч — позначку прибрано');
+        self::assertSame(['comment', '', '2024-01-06 12:00:00'], [$files[2]['message_kind'], $files[2]['text'], $files[2]['created_at']]);
+        self::assertSame(['skipped'], array_values(array_unique(array_column($files, 'drive_state'))), 'на Google Диск не копіюємо');
+        self::assertStringStartsWith('files/2024/01/', $files[3]['path']);
+
+        $storage = self::getContainer()->get(AttachmentStorage::class);
+        $paths = array_map(fn (array $f): string => $storage->original($this->em->find(TaskAttachment::class, $f['id'])), $files);
+
+        foreach ($paths as $path) {
+            self::assertFileExists($path);
+        }
+
+        self::assertSame(hash_file('sha256', $pdf), hash_file('sha256', $paths[3]));
+
+        // Хронологія: порожня дія з файлом стоїть між своїми сусідами за часом.
+        $times = array_column($this->messages((int) $deal['id']), 'created_at');
+        $sorted = $times;
+        sort($sorted);
+        self::assertSame($sorted, $times);
+        self::assertContains('2024-01-06 12:00:00', $times);
+
+        // Повтор не дублює ні файлів, ні копій.
+        $this->console('plan:planfix:import', [...$this->apply('f2'), '--files' => $this->dir]);
+        self::assertSame($after, $this->counts());
+
+        // Відкат: файли партії — геть із бази й з диска.
+        $rollback = $this->console('plan:planfix:rollback', ['batch' => 'f1', '--confirm' => $this->db->getDatabase()]);
+        self::assertMatchesRegularExpression('/files_removed\s+4/', $rollback);
+        self::assertSame($before['task_attachment'], $this->counts()['task_attachment']);
+
+        foreach ($paths as $path) {
+            self::assertFileDoesNotExist($path);
+        }
+    }
+
     public function testSinceKeepsOpenAndRecentlyActive(): void
     {
         $this->console('plan:planfix:import', ['dir' => $this->dir, '--batch' => 'f1', '--only' => 'deal']);
@@ -351,7 +440,7 @@ class PlanfixImportCommandTest extends KernelTestCase
      * Синтетичне вивантаження у форматі Planfix: угода, 2 задачі, заявка з сайту.
      * Люди: 101 і 606 — діючі (101 зіставлено в тестах), 202 і 303 — колишні, 505 — контакт.
      */
-    private function export(bool $extraComment = false): void
+    private function export(bool $extraComment = false, bool $fileAction = false): void
     {
         $task = static fn (array $t): array => $t + ['description' => '', 'importance' => 5, 'workers' => [], 'hasEndDate' => false, 'hasStartDate' => false, 'checkResult' => true];
         $tasks = [
@@ -382,6 +471,11 @@ class PlanfixImportCommandTest extends KernelTestCase
 
         if ($extraComment) {
             $actions[] = $action(8, 11, 101, 'Comment', '01-02-2024 09:00', 'Новий коментар');
+        }
+
+        if ($fileAction) {
+            // Порожня дія лише з файлом — без --files її пропускають.
+            $actions[] = $action(20, 11, 202, 'Action', '06-01-2024 12:00', '');
         }
 
         $files = [

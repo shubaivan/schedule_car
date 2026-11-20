@@ -4,6 +4,7 @@ namespace App\Tasks\Service;
 
 use App\Tasks\Entity\TaskAttachment;
 use App\Tasks\Exception\TaskException;
+use DateTimeInterface;
 use finfo;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Filesystem\Filesystem;
@@ -139,22 +140,37 @@ class AttachmentStorage
             throw new TaskException('Файл більший за 20 МБ.');
         }
 
-        $ext = self::extension($attachment->getOriginalName());
-        $relative = sprintf(
+        $relative = self::relativePath((int) $attachment->getId(), $attachment->getSha256(), $attachment->getOriginalName(), $attachment->getCreatedAt());
+        $this->store($relative, $sourcePath);
+        $attachment->setPath($relative);
+    }
+
+    /** Шлях оригіналу відносно сховища: files/<рік>/<місяць>/<id>-<sha8>.<ext>. */
+    public static function relativePath(int $id, string $sha256, string $name, DateTimeInterface $createdAt): string
+    {
+        $ext = self::extension($name);
+
+        return sprintf(
             'files/%s/%d-%s%s',
-            $attachment->getCreatedAt()->format('Y/m'),
-            $attachment->getId(),
-            substr($attachment->getSha256(), 0, 8),
+            $createdAt->format('Y/m'),
+            $id,
+            substr($sha256, 0, 8),
             $ext !== '' && preg_match('/^[a-z0-9]{1,8}$/', $ext) ? '.' . $ext : '',
         );
+    }
 
+    /**
+     * Копія файлу в сховище за готовим відносним шляхом — без перевірок розміру й типу
+     * (їх робить той, хто кличе: put() для завантажень, імпорт Planfix — свої).
+     */
+    public function store(string $relative, string $sourcePath): void
+    {
         $target = $this->root . '/' . $relative;
         $this->fs->copy($sourcePath, $target, true);
         // copy() keeps the source mode, and PHP upload temp files are 0600: FPM (www-data)
         // would own a file the CLI/worker (deploy) cannot read — previews and Drive copies
         // then fail with "file missing". Group www-data reads and writes, others do not.
         $this->fs->chmod($target, 0o660);
-        $attachment->setPath($relative);
     }
 
     public function original(TaskAttachment $attachment): string
