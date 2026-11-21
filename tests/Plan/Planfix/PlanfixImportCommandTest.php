@@ -101,7 +101,7 @@ class PlanfixImportCommandTest extends KernelTestCase
         self::assertSame($this->manager, (int) $deal['creator_id']);
         self::assertStringStartsWith('Із Planfix № 501 · угода', $deal['description']);
         self::assertStringContainsString("Поля угоди:\nКомпанія: ТОВ Синтетика\nОплата: Не оплачено", $deal['description']);
-        self::assertEqualsCanonicalizing(['Planfix', 'Етап: Ціноутворення', 'Planfix: термінова'], $this->db->fetchFirstColumn(
+        self::assertEqualsCanonicalizing(['Planfix'], $this->db->fetchFirstColumn(
             'SELECT l.name FROM task_task_label x JOIN task_label l ON l.id = x.label_id WHERE x.task_id = ?',
             [$deal['id']],
         ));

@@ -259,20 +259,8 @@ final readonly class PlanfixApplier
             }
         }
 
-        $names = [PlanfixMapper::LABEL_ALL];
-
-        if ($t['urgent']) {
-            $names[] = PlanfixMapper::LABEL_URGENT;
-        }
-
-        if ($t['stage'] !== null) {
-            $names[] = PlanfixMapper::stageLabel((string) $t['stage']);
-        }
-
-        foreach ($names as $name) {
-            if (isset($labels[$name])) {
-                $this->db->executeStatement('INSERT INTO task_task_label (task_id, label_id) VALUES (?, ?) ON CONFLICT DO NOTHING', [$taskId, $labels[$name]]);
-            }
+        if (isset($labels[PlanfixMapper::LABEL_ALL])) {
+            $this->db->executeStatement('INSERT INTO task_task_label (task_id, label_id) VALUES (?, ?) ON CONFLICT DO NOTHING', [$taskId, $labels[PlanfixMapper::LABEL_ALL]]);
         }
 
         return [$taskId, $created];
@@ -387,15 +375,8 @@ final readonly class PlanfixApplier
      */
     private function labels(string $batch, array &$stats): array
     {
+        // Лише одна мітка «Planfix» (Олександр 21.11: мітки етапів і «Planfix: термінова» на дошці — зайві).
         $names = [PlanfixMapper::LABEL_ALL];
-
-        if ($this->db->fetchOne('SELECT 1 FROM planfix_import_task WHERE batch_id = ? AND urgent LIMIT 1', [$batch]) !== false) {
-            $names[] = PlanfixMapper::LABEL_URGENT;
-        }
-
-        foreach ($this->db->fetchFirstColumn('SELECT DISTINCT stage FROM planfix_import_task WHERE batch_id = ? AND stage IS NOT NULL ORDER BY stage', [$batch]) as $stage) {
-            $names[] = PlanfixMapper::stageLabel((string) $stage);
-        }
 
         $sort = (int) $this->db->fetchOne('SELECT COALESCE(MAX(sort), 0) FROM task_label');
         $labels = [];
@@ -406,7 +387,7 @@ final readonly class PlanfixApplier
             if ($id === false) {
                 $id = $this->db->fetchOne(
                     "INSERT INTO task_label (id, name, color, sort) VALUES (nextval('task_label_id_seq'), ?, ?, ?) RETURNING id",
-                    [$name, $name === PlanfixMapper::LABEL_URGENT ? '#dc2626' : '#64748b', ++$sort],
+                    [$name, '#64748b', ++$sort],
                 );
                 $this->map($batch, 'label', crc32($name), 'task_label', (int) $id);
                 ++$stats['labels_created'];

@@ -283,7 +283,7 @@ final class PlanfixImportCommand extends Command
             $messages = $this->db->fetchAllAssociative('SELECT at, owner_id, decision, text FROM planfix_import_action WHERE batch_id = ? AND task_planfix_id = ? ORDER BY at, planfix_id', [$batch, $pid]);
             $io->text(sprintf('<info>Planfix № %d</info> (%s) → «%s»', $t['number'], $t['kind'] === 'deal' ? 'угода' : 'задача', PlanfixMapper::oneLine((string) $t['title'], 80)));
             $io->listing([
-                sprintf('статус: %s → %s%s', $t['status_raw'], $t['status'], $t['stage'] !== null ? ' + мітка «' . PlanfixMapper::stageLabel((string) $t['stage']) . '»' : ''),
+                sprintf('статус: %s → %s', $t['status_raw'], $t['status']),
                 sprintf('створено %s, остання дія %s, строк %s', $t['created_at'], $t['last_at'], $t['due_at'] ?? '—'),
                 sprintf('автор planfix#%d, учасники %s, відділи %s', $t['owner_id'], $t['member_ids'], $t['group_names']),
                 'клієнт: ' . ($t['client'] ?? '—'),
