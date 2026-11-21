@@ -2,6 +2,7 @@
 
 namespace App\Plan\Planfix;
 
+use App\Tasks\Enum\TaskStatus;
 use DateTime;
 use Doctrine\DBAL\Connection;
 use JsonException;
@@ -32,7 +33,10 @@ final readonly class PlanfixStaging
      * cleanupUnapplied: staging попередніх незастосованих партій (без рядків у карті) прибирається,
      * щоб повні копії вивантаження з персональними даними не накопичувались.
      *
-     * @param array{since?: ?DateTime, only?: string, events?: string, includeHidden?: bool, cleanupUnapplied?: bool, files?: ?string} $options
+     * allDone: відкриті задачі Planfix лягають «Виконаними» (Олександр 21.11: усе з Planfix — виконане;
+     * скасовані лишаються скасованими), етап воронки зберігається міткою.
+     *
+     * @param array{since?: ?DateTime, only?: string, events?: string, includeHidden?: bool, cleanupUnapplied?: bool, files?: ?string, allDone?: bool} $options
      *
      * @return array<string, int|array<string, int>> лічильники
      */
@@ -42,6 +46,7 @@ final readonly class PlanfixStaging
         $only = $options['only'] ?? 'all';
         $events = $options['events'] ?? PlanfixMapper::EVENTS_MEANINGFUL;
         $includeHidden = (bool) ($options['includeHidden'] ?? false);
+        $allDone = (bool) ($options['allDone'] ?? false);
 
         $tasks = $this->read($dir, 'tasks.json');
         $actions = $this->read($dir, 'actions.json');
@@ -126,6 +131,11 @@ final readonly class PlanfixStaging
 
             $raw = trim((string) ($t['status'] ?? ''));
             [$status, $stage] = PlanfixMapper::status($raw);
+
+            if ($allDone && ! $status->isClosed()) {
+                $status = TaskStatus::Done;
+            }
+
             $recent = $sinceText === null || ! $status->isClosed() || max($lastAny[$id] ?? '', $created->format('Y-m-d H:i:s')) >= $sinceText;
 
             if (($only !== 'all' && $only !== $kind) || ! $recent) {
@@ -333,6 +343,7 @@ final readonly class PlanfixStaging
                     'events' => $options['events'] ?? PlanfixMapper::EVENTS_MEANINGFUL,
                     'includeHidden' => (bool) ($options['includeHidden'] ?? false),
                     'files' => $options['files'] ?? null,
+                    'allDone' => (bool) ($options['allDone'] ?? false),
                 ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)],
             );
             $this->insertMany('planfix_import_task', array_values($taskRows));

@@ -61,6 +61,7 @@ final class PlanfixImportCommand extends Command
             ->addOption('confirm', null, InputOption::VALUE_REQUIRED, 'Назва бази — обовʼязкове підтвердження для --apply')
             ->addOption('since', null, InputOption::VALUE_REQUIRED, 'Відкриті задачі + закриті, де остання дія з цієї дати (РРРР-ММ-ДД)')
             ->addOption('files', null, InputOption::VALUE_REQUIRED, 'Тека з manifest.jsonl — файли з Planfix (API)')
+            ->addOption('all-done', null, InputOption::VALUE_NONE, 'Відкриті задачі Planfix → «Виконані» (скасовані лишаються скасованими)')
             ->addOption('include-hidden', null, InputOption::VALUE_NONE, 'Переносити й приховані (hidden) дії Planfix')
             ->addOption('only', null, InputOption::VALUE_REQUIRED, 'all | deal | task', 'all')
             ->addOption('events', null, InputOption::VALUE_REQUIRED, 'none (лише коментарі) | meaningful (+ учасники, зміни) | all (+ статуси, нагадування…)', PlanfixMapper::EVENTS_MEANINGFUL)
@@ -131,6 +132,7 @@ final class PlanfixImportCommand extends Command
                 'only' => $only,
                 'events' => $events,
                 'includeHidden' => (bool) $input->getOption('include-hidden'),
+                'allDone' => (bool) $input->getOption('all-done'),
                 'files' => $input->getOption('files') !== null ? (string) $input->getOption('files') : null,
                 // Dry-run без явної партії — не плодимо повних копій вивантаження.
                 'cleanupUnapplied' => $input->getOption('batch') === null,
