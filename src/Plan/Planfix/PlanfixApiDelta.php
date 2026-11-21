@@ -53,9 +53,25 @@ final readonly class PlanfixApiDelta
         }
 
         $actionOwner = [];
+        $numberOf = [];
+
+        foreach ($baseTasks as $t) {
+            $numberOf[(int) $t['id']] = (int) ($t['number'] ?? 0);
+        }
+
+        // Картинки, вставлені прямо в текст коментаря (ckeditor, «?action=getfile&uniqueid=N»): API не
+        // показує їх у файлах коментаря, тож основний імпорт лишив замість них позначку. Ті, яких ще
+        // нема в карті, добираємо до вже перенесених повідомлень.
+        $known = array_flip(array_map('intval', $this->db->fetchFirstColumn("SELECT planfix_id FROM planfix_import_map WHERE planfix_type = 'file'")));
+        $oldInline = [];
 
         foreach ($baseActions as $a) {
             $actionOwner[(int) $a['id']] = (int) ($a['owner']['id'] ?? 0);
+            $missing = array_values(array_filter(self::inlineFileIds((string) ($a['description'] ?? '')), static fn (int $id) => ! isset($known[$id])));
+
+            if ($missing !== [] && isset($numberOf[(int) ($a['task']['id'] ?? 0)])) {
+                $oldInline[(int) $a['id']] = ['action' => $a, 'number' => $numberOf[(int) $a['task']['id']], 'ids' => $missing];
+            }
         }
 
         unset($baseActions);
@@ -130,7 +146,7 @@ final readonly class PlanfixApiDelta
 
         // 3. Тека вигляду вивантаження.
         $taskOut = [];
-        $stats = ['tasks_new' => 0, 'tasks_touched' => 0, 'comments_new' => 0, 'comments_orphan' => 0, 'authors_unknown' => 0, 'files_new' => 0, 'files_known' => 0, 'files_failed' => 0];
+        $stats = ['tasks_new' => 0, 'tasks_touched' => 0, 'comments_new' => 0, 'comments_orphan' => 0, 'comments_old_with_inline' => 0, 'authors_unknown' => 0, 'files_new' => 0, 'files_inline' => 0, 'files_known' => 0, 'files_empty' => 0, 'files_failed' => 0];
         $unknown = [];
         $person = static function (?string $apiId) use ($users, &$unknown): int {
             if ($apiId === null || $apiId === '') {
@@ -212,6 +228,14 @@ final readonly class PlanfixApiDelta
             ++$stats['comments_new'];
         }
 
+        // Старі коментарі з невзятими вставленими картинками — їхній запис із вивантаження (карта вже
+        // знає це повідомлення: імпорт лише прикріпить файли до нього).
+        foreach ($oldInline as $id => $o) {
+            $taskOut[$o['number']] ??= $byNumber[$o['number']];
+            $actions[] = $o['action'];
+            ++$stats['comments_old_with_inline'];
+        }
+
         usort($actions, static fn ($a, $b) => $a['id'] <=> $b['id']);
         $stats['authors_unknown'] = count($unknown);
 
@@ -219,8 +243,8 @@ final readonly class PlanfixApiDelta
             throw new RuntimeException('Не вдалося створити ' . $out . '/files');
         }
 
-        // 4. Файли: нових коментарів і самих нових задач; уже перенесені (є в карті) не качаємо.
-        $known = array_flip(array_map('intval', $this->db->fetchFirstColumn("SELECT planfix_id FROM planfix_import_map WHERE planfix_type = 'file'")));
+        // 4. Файли: нових коментарів (і вставлені в текст), самих нових задач, вставлені в старі коментарі;
+        // уже перенесені (є в карті) не качаємо.
         $manifest = [];
         $wanted = [];
 
@@ -231,6 +255,16 @@ final readonly class PlanfixApiDelta
 
             foreach ($c['files'] ?? [] as $f) {
                 $wanted[(int) $f['id']] = ['file_id' => (int) $f['id'], 'name' => (string) ($f['name'] ?? ''), 'task' => (int) $c['task']['id'], 'comment' => $id];
+            }
+
+            foreach (self::inlineFileIds((string) ($c['description'] ?? '')) as $fileId) {
+                $wanted[$fileId] ??= ['file_id' => $fileId, 'name' => '', 'task' => (int) $c['task']['id'], 'comment' => $id, 'inline' => true];
+            }
+        }
+
+        foreach ($oldInline as $id => $o) {
+            foreach ($o['ids'] as $fileId) {
+                $wanted[$fileId] ??= ['file_id' => $fileId, 'name' => '', 'task' => $o['number'], 'comment' => $id, 'inline' => true];
             }
         }
 
@@ -246,6 +280,27 @@ final readonly class PlanfixApiDelta
                 continue;
             }
 
+            $inline = (bool) ($f['inline'] ?? false);
+            unset($f['inline']);
+
+            if ($inline) {
+                // Імʼя й розмір вставленої картинки — лише з картки файла.
+                try {
+                    $meta = $api->get(sprintf('/file/%d?fields=id,name,size', $fileId))['file'] ?? [];
+                } catch (RuntimeException $e) {
+                    $manifest[] = $f + ['size' => null, 'sha256' => null, 'local_path' => null, 'error' => mb_substr($e->getMessage(), 0, 200)];
+                    ++$stats['files_failed'];
+                    continue;
+                }
+
+                $f['name'] = (string) ($meta['name'] ?? '');
+
+                if (array_key_exists('size', $meta) && (int) $meta['size'] === 0) {
+                    ++$stats['files_empty'];
+                    continue;
+                }
+            }
+
             $ext = strtolower((string) preg_replace('/[^A-Za-z0-9]+/', '', substr((string) pathinfo($f['name'], PATHINFO_EXTENSION), 0, 12)));
             $local = sprintf('%s/files/%d%s', $out, $fileId, $ext !== '' ? '.' . $ext : '');
 
@@ -255,7 +310,7 @@ final readonly class PlanfixApiDelta
                 }
 
                 $manifest[] = $f + ['size' => (int) filesize($local), 'sha256' => (string) hash_file('sha256', $local), 'local_path' => $local, 'error' => null];
-                ++$stats['files_new'];
+                ++$stats[$inline ? 'files_inline' : 'files_new'];
             } catch (RuntimeException $e) {
                 $manifest[] = $f + ['size' => null, 'sha256' => null, 'local_path' => null, 'error' => mb_substr($e->getMessage(), 0, 200)];
                 ++$stats['files_failed'];
@@ -273,6 +328,18 @@ final readonly class PlanfixApiDelta
         self::writeJson($out . '/delta-report.json', $stats + ['unknown_people' => array_keys($unknown)]);
 
         return $stats;
+    }
+
+    /** @return list<int> id файлів Planfix, вставлених у текст (img/посилання «action=getfile&uniqueid=N») */
+    public static function inlineFileIds(string $html): array
+    {
+        if (! str_contains($html, 'getfile')) {
+            return [];
+        }
+
+        preg_match_all('~action=getfile(?:&amp;|&)uniqueid=(\d+)~', $html, $m);
+
+        return array_values(array_unique(array_map('intval', $m[1])));
     }
 
     /** Формат дат вивантаження «дд-мм-рррр гг:хх» — той самий годинник, що й у API (перевірено на спільних коментарях). */

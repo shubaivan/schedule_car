@@ -41,7 +41,15 @@ class PlanfixApiDeltaTest extends KernelTestCase
         $put = fn (string $name, array $data) => file_put_contents($this->root . '/base/' . $name, json_encode($data, JSON_UNESCAPED_UNICODE));
         $put('tasks.json', [['id' => 11, 'number' => 501, 'title' => 'Стара задача', 'description' => '', 'status' => 'Завершенная', 'owner' => ['id' => 101],
             'workers' => [], 'createDate' => '05-01-2024 09:30', 'importance' => 5, 'hasEndDate' => false, 'project' => ['id' => 7]]]);
-        $put('actions.json', [['id' => 1, 'task' => ['id' => 11], 'owner' => ['id' => 101], 'type' => 'Comment', 'dateTime' => '05-01-2024 10:00', 'hidden' => false, 'description' => 'Старий']]);
+        $put('actions.json', [
+            ['id' => 1, 'task' => ['id' => 11], 'owner' => ['id' => 101], 'type' => 'Comment', 'dateTime' => '05-01-2024 10:00', 'hidden' => false, 'description' => 'Старий'],
+            // Картинка, вставлена в текст старого коментаря (у файлах коментаря її нема).
+            ['id' => 2, 'task' => ['id' => 11], 'owner' => ['id' => 101], 'type' => 'Comment', 'dateTime' => '05-01-2024 11:00', 'hidden' => false,
+                'description' => '<p><img class="ckeditor-direct-upload-image" src="https://pf.test/?action=getfile&amp;uniqueid=9004&amp;planfixauth=X">Дивись</p>'],
+            // Порожня вставлена картинка (0 байт у Planfix) — не беремо.
+            ['id' => 3, 'task' => ['id' => 11], 'owner' => ['id' => 101], 'type' => 'Comment', 'dateTime' => '05-01-2024 12:00', 'hidden' => false,
+                'description' => '<p><img src="https://pf.test/?action=getfile&amp;uniqueid=9005&amp;planfixauth=X"></p>'],
+        ]);
         $put('users.json', [['id' => 101, 'name' => 'Тест', 'lastName' => 'Діючий', 'midName' => '', 'postId' => 0]]);
         $put('projects.json', [['id' => 7, 'title' => 'Тестовий проєкт']]);
         file_put_contents($this->root . '/map.json', json_encode(['101' => $this->manager]));
@@ -62,6 +70,9 @@ class PlanfixApiDeltaTest extends KernelTestCase
         self::assertSame(1, $stats['tasks_touched']);
         self::assertSame(2, $stats['comments_new']);
         self::assertSame(2, $stats['files_new']);
+        self::assertSame(2, $stats['files_inline'], 'вставлені: у новому коментарі 602 і старому 2');
+        self::assertSame(1, $stats['files_empty']);
+        self::assertSame(2, $stats['comments_old_with_inline']);
         self::assertSame(1, $stats['authors_unknown'], 'contact:99 не впізнано — без учасника');
 
         $tasks = json_decode((string) file_get_contents($this->root . '/d1/tasks.json'), true);
@@ -77,14 +88,19 @@ class PlanfixApiDeltaTest extends KernelTestCase
         $taskId = (int) $this->db->fetchOne("SELECT plan_id FROM planfix_import_map WHERE planfix_type = 'task' AND planfix_id = ?", [PlanfixApiDelta::NEW_TASK_BASE + 502]);
         self::assertSame('done', $this->db->fetchOne('SELECT status FROM task WHERE id = ?', [$taskId]), '--all-done: «Новая» → виконана');
         self::assertNotNull($this->db->fetchOne('SELECT closed_at FROM task WHERE id = ?', [$taskId]));
-        self::assertSame(2, (int) $this->db->fetchOne("SELECT COUNT(*) FROM planfix_import_map WHERE batch_id = 'api-1' AND planfix_type = 'action'"));
-        self::assertSame(2, (int) $this->db->fetchOne("SELECT COUNT(*) FROM planfix_import_map WHERE batch_id = 'api-1' AND planfix_type = 'file'"));
+        self::assertSame(4, (int) $this->db->fetchOne("SELECT COUNT(*) FROM planfix_import_map WHERE batch_id = 'api-1' AND planfix_type = 'action'"));
+        self::assertSame(4, (int) $this->db->fetchOne("SELECT COUNT(*) FROM planfix_import_map WHERE batch_id = 'api-1' AND planfix_type = 'file'"));
+        $inlineMsg = (int) $this->db->fetchOne("SELECT m.id FROM task_message m JOIN planfix_import_map x ON x.plan_id = m.id AND x.planfix_type = 'action' WHERE x.planfix_id = 2");
+        self::assertSame(1, (int) $this->db->fetchOne('SELECT COUNT(*) FROM task_attachment WHERE message_id = ?', [$inlineMsg]));
+        self::assertStringNotContainsString('не перенесено', (string) $this->db->fetchOne('SELECT text FROM task_message WHERE id = ?', [$inlineMsg]));
         self::assertSame($this->manager, (int) $this->db->fetchOne("SELECT m.author_id FROM task_message m JOIN planfix_import_map x ON x.plan_id = m.id AND x.planfix_type = 'action' WHERE x.planfix_id = 601"));
 
         // Повторний добір (понеділок): файли вже в карті — не качаємо; імпорт нічого не створює.
         $again = $this->delta('d2');
         self::assertSame(0, $again['files_new']);
-        self::assertSame(2, $again['files_known']);
+        self::assertSame(0, $again['files_inline']);
+        self::assertSame(3, $again['files_known']);
+        self::assertSame(1, $again['comments_old_with_inline'], 'лишається лише коментар із порожньою картинкою');
         $out = $this->import('d2', 'api-2');
         self::assertMatchesRegularExpression('/tasks_created\s+0/', $out);
         self::assertMatchesRegularExpression('/messages_created\s+0/', $out);
@@ -96,7 +112,7 @@ class PlanfixApiDeltaTest extends KernelTestCase
     private function delta(string $dir): array
     {
         $comments = [
-            ['id' => 602, 'dateTime' => $this->dt('20-11-2026', '14:10'), 'type' => 'Comment', 'task' => ['id' => 502], 'owner' => ['id' => 'user:7'], 'description' => '<p>На новій задачі</p>', 'isDeleted' => false, 'isHidden' => false, 'files' => []],
+            ['id' => 602, 'dateTime' => $this->dt('20-11-2026', '14:10'), 'type' => 'Comment', 'task' => ['id' => 502], 'owner' => ['id' => 'user:7'], 'description' => '<p>На новій задачі <img src="https://pf.test/?action=getfile&amp;uniqueid=9003&amp;planfixauth=X"></p>', 'isDeleted' => false, 'isHidden' => false, 'files' => []],
             ['id' => 601, 'dateTime' => $this->dt('19-11-2026', '09:00'), 'type' => 'Comment', 'task' => ['id' => 501], 'owner' => ['id' => 'user:7'], 'description' => '<p>Після вивантаження</p>', 'isDeleted' => false, 'isHidden' => false, 'files' => [['id' => 9001, 'name' => 'Рахунок.pdf']]],
             ['id' => 600, 'dateTime' => $this->dt('18-11-2026', '09:00'), 'type' => 'Comment', 'task' => ['id' => 501], 'owner' => ['id' => 'user:7'], 'description' => 'видалений', 'isDeleted' => true, 'isHidden' => false],
             ['id' => 1, 'dateTime' => $this->dt('05-01-2024', '10:00'), 'type' => 'Comment', 'task' => ['id' => 501], 'owner' => ['id' => 'user:7'], 'description' => 'Старий', 'isDeleted' => false, 'isHidden' => false],
@@ -116,7 +132,8 @@ class PlanfixApiDeltaTest extends KernelTestCase
                 str_ends_with($path, '/task/list') => new MockResponse(json_encode(['result' => 'success', 'tasks' => $tasks])),
                 str_ends_with($path, '/comment/list') => new MockResponse(json_encode(['result' => 'success', 'comments' => $comments])),
                 str_ends_with($path, '/task/502/files') => new MockResponse(json_encode(['result' => 'success', 'files' => [['id' => 9002, 'name' => 'ТЗ.pdf'], ['id' => 9001, 'name' => 'Рахунок.pdf']]])),
-                str_contains($path, '/file/') => new MockResponse($pdf),
+                str_ends_with($path, '/download') => new MockResponse($pdf),
+                (bool) preg_match('~/file/(\d+)$~', $path, $m) => new MockResponse(json_encode(['result' => 'success', 'file' => ['id' => (int) $m[1], 'name' => 'editor-image-' . $m[1] . '.pdf', 'size' => $m[1] === '9005' ? 0 : 1]])),
                 default => new MockResponse('{}', ['http_code' => 404]),
             };
         });

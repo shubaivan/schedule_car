@@ -33,8 +33,8 @@ final readonly class PlanfixStaging
      * cleanupUnapplied: staging попередніх незастосованих партій (без рядків у карті) прибирається,
      * щоб повні копії вивантаження з персональними даними не накопичувались.
      *
-     * allDone: відкриті задачі Planfix лягають «Виконаними» (Олександр 21.11: усе з Planfix — виконане;
-     * скасовані лишаються скасованими), етап воронки зберігається міткою.
+     * allDone: усі задачі Planfix лягають «Виконаними», і скасовані теж (Олександр 21.11: усе з Planfix —
+     * виконане, зайве він сам прибере в кошик); етап воронки зберігається міткою.
      *
      * @param array{since?: ?DateTime, only?: string, events?: string, includeHidden?: bool, cleanupUnapplied?: bool, files?: ?string, allDone?: bool} $options
      *
@@ -132,7 +132,7 @@ final readonly class PlanfixStaging
             $raw = trim((string) ($t['status'] ?? ''));
             [$status, $stage] = PlanfixMapper::status($raw);
 
-            if ($allDone && ! $status->isClosed()) {
+            if ($allDone) {
                 $status = TaskStatus::Done;
             }
 
